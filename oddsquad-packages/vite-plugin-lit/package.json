@@ -1,0 +1,40 @@
+{
+  "name": "@oddsquad/vite-plugin-lit",
+  "version": "0.0.1",
+  "description": "Vite plugin providing true HMR for Lit components",
+  "license": "BSD-3-Clause",
+  "author": "Oddsquad (based on @lit-labs/vite-hmr by Google LLC)",
+  "type": "module",
+  "main": "index.js",
+  "module": "index.js",
+  "files": [
+    "/lib/",
+    "/index.{d.ts,d.ts.map,js,js.map}"
+  ],
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "es-module-lexer": "^1.5.4",
+    "magic-string": "^0.30.11"
+  },
+  "peerDependencies": {
+    "vite": "^8.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

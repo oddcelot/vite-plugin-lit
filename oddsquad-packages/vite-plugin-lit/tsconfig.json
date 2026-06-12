@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["es2022", "DOM", "DOM.Iterable"],
+    "outDir": ".",
+    "rootDir": "../../packages/labs/vite-hmr/src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "inlineSources": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "noImplicitOverride": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["../../packages/labs/vite-hmr/src/**/*.ts"],
+  "exclude": ["../../packages/labs/vite-hmr/src/test/**"]
+}
