@@ -136,6 +136,7 @@ class LitSourceOverlay extends HTMLElement {
   #editor: EditorConfig = BUILTIN_EDITORS.vscode;
   #resolver = defaultResolver;
   #dialog: HTMLDialogElement;
+  #mask: HTMLElement;
   #highlight: HTMLElement;
   #tooltip: HTMLElement;
   #path: HTMLElement;
@@ -161,15 +162,21 @@ class LitSourceOverlay extends HTMLElement {
           max-height: none;
           pointer-events: none;
         }
+        #mask {
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          background: rgba(0,0,0,0);
+          transition: background-color 0.3s cubic-bezier(0.9, 0, 0.1, 1);
+        }
         #highlight {
           position: fixed;
           top: 0;
           left: 0;
           pointer-events: none;
           box-sizing: border-box;
-          border: 2px solid rgba(124,196,245,0.7);
-          background: rgba(124,196,245,0.08);
-          box-shadow: 0 0 0 9999px rgba(0,0,0,0.35);
+
+          border-radius: var(--lit-devtools-radius, 6px);
         }
         #tooltip {
           position: fixed;
@@ -180,7 +187,7 @@ class LitSourceOverlay extends HTMLElement {
           pointer-events: auto;
           max-width: min(90vw, 480px);
           padding: 6px 8px;
-          border-radius: 6px;
+          border-radius: var(--lit-devtools-radius, 6px);
           background: rgba(26,26,46,0.92);
           color: #e8e8f0;
           font: 12px/1.4 system-ui, sans-serif;
@@ -199,6 +206,7 @@ class LitSourceOverlay extends HTMLElement {
         }
       </style>
       <dialog id="overlay">
+        <div id="mask"></div>
         <div id="highlight"></div>
         <div id="tooltip">
           <span id="path"></span>
@@ -207,6 +215,7 @@ class LitSourceOverlay extends HTMLElement {
       </dialog>
     `;
     this.#dialog = root.getElementById('overlay') as HTMLDialogElement;
+    this.#mask = root.getElementById('mask')!;
     this.#highlight = root.getElementById('highlight')!;
     this.#tooltip = root.getElementById('tooltip')!;
     this.#path = root.getElementById('path')!;
@@ -246,6 +255,7 @@ class LitSourceOverlay extends HTMLElement {
     if (this.#active) return;
     this.#active = true;
     this.#dialog.showModal();
+    this.#mask.style.background = 'rgba(0,0,0,0.35)';
     document.addEventListener('mousemove', this.#onMouseMove, true);
     document.addEventListener('click', this.#onClick, true);
     window.addEventListener('scroll', this.#onScrollOrResize, {passive: true});
@@ -257,6 +267,7 @@ class LitSourceOverlay extends HTMLElement {
     if (!this.#active) return;
     this.#active = false;
     this.#dialog.close();
+    this.#mask.style.background = 'rgba(0,0,0,0)';
     document.removeEventListener('mousemove', this.#onMouseMove, true);
     document.removeEventListener('click', this.#onClick, true);
     window.removeEventListener('scroll', this.#onScrollOrResize);
@@ -302,10 +313,39 @@ class LitSourceOverlay extends HTMLElement {
   #updateHighlightRect() {
     if (this.#targetEl === null) return;
     const rect = this.#targetEl.getBoundingClientRect();
-    this.#highlight.style.left = `${rect.left}px`;
-    this.#highlight.style.top = `${rect.top}px`;
-    this.#highlight.style.width = `${rect.width}px`;
-    this.#highlight.style.height = `${rect.height}px`;
+    const raw = getComputedStyle(this)
+      .getPropertyValue('--lit-devtools-radius')
+      .trim();
+    const r = parseFloat(raw) || 6;
+    this.#highlight.style.left = `${rect.left - r}px`;
+    this.#highlight.style.top = `${rect.top - r}px`;
+    this.#highlight.style.width = `${rect.width + 2 * r}px`;
+    this.#highlight.style.height = `${rect.height + 2 * r}px`;
+    this.#updateMask(
+      rect.left - r,
+      rect.top - r,
+      rect.width + 2 * r,
+      rect.height + 2 * r,
+      r
+    );
+  }
+
+  #updateMask(l: number, t: number, w: number, h: number, r: number) {
+    r = Math.min(r, w / 2, h / 2);
+    // Outer rect (clockwise) + inner rounded rect (counterclockwise) = nonzero fill punches a hole.
+    const outer = `M 0 0 H 9999 V 9999 H 0 Z`;
+    const inner = [
+      `M ${l + r} ${t}`,
+      `Q ${l} ${t} ${l} ${t + r}`,
+      `L ${l} ${t + h - r}`,
+      `Q ${l} ${t + h} ${l + r} ${t + h}`,
+      `L ${l + w - r} ${t + h}`,
+      `Q ${l + w} ${t + h} ${l + w} ${t + h - r}`,
+      `L ${l + w} ${t + r}`,
+      `Q ${l + w} ${t} ${l + w - r} ${t}`,
+      `Z`,
+    ].join(' ');
+    this.#mask.style.clipPath = `path('${outer} ${inner}')`;
   }
 
   #showTooltip() {
@@ -322,6 +362,7 @@ class LitSourceOverlay extends HTMLElement {
     this.#highlight.style.top = '0';
     this.#highlight.style.width = '0';
     this.#highlight.style.height = '0';
+    this.#mask.style.clipPath = 'none';
     this.#tooltip.style.display = 'none';
     if (this.#resizeObserver !== undefined) {
       this.#resizeObserver.disconnect();
@@ -332,6 +373,11 @@ class LitSourceOverlay extends HTMLElement {
   #shouldSkip(el: Element): boolean {
     if (el === this.#dialog || this.#dialog.contains(el)) return true;
     if (el.tagName === 'IFRAME') return true;
+    // Never target devtools' own injected elements (indicator, overlay).
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'lit-source-overlay' || tag.startsWith('lit-devtools-')) {
+      return true;
+    }
     const exclude = this.#options.exclude;
     return exclude !== undefined && exclude(el);
   }

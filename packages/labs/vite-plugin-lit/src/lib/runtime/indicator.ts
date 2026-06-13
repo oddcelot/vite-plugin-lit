@@ -22,7 +22,7 @@ class LitDevtoolsIndicator extends HTMLElement {
     const idleOpacity = withCount ? '.5' : '0';
 
     const containerStyle = withCount
-      ? `display:flex;align-items:center;gap:5px;padding:5px 10px 5px 7px;background:rgba(26,26,46,.85);color:#fff;border-radius:20px;font:12px/1 system-ui,sans-serif;font-variant-numeric:tabular-nums;opacity:${idleOpacity}`
+      ? `display:flex;align-items:center;gap:5px;padding:5px 10px 5px 7px;background:rgba(26,26,46,.85);color:#fff;border-radius:var(--lit-devtools-radius,6px);font:12px/1 system-ui,sans-serif;font-variant-numeric:tabular-nums;opacity:${idleOpacity}`
       : `width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(26,26,46,.85);opacity:${idleOpacity}`;
 
     const root = this.attachShadow({mode: 'closed'});
