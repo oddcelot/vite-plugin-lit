@@ -121,7 +121,7 @@ class LitSourceOverlay extends HTMLElement {
     root.innerHTML = `
       <style>
         :host {
-          --lit-source-overlay-offset: 8px;
+          --lit-devtools-source-overlay-offset: 8px;
         }
         dialog {
           background: transparent;
@@ -155,7 +155,7 @@ class LitSourceOverlay extends HTMLElement {
           box-shadow: 0 2px 8px rgba(0,0,0,0.25);
           position-anchor: --lit-overlay-target;
           inset-area: block-end span-inline-end;
-          margin: var(--lit-source-overlay-offset);
+          margin: var(--lit-devtools-source-overlay-offset);
           position-try-options: flip-block, flip-inline, flip-block flip-inline;
         }
         #path { word-break: break-all; }
@@ -274,7 +274,8 @@ class LitSourceOverlay extends HTMLElement {
   #updateHighlightRect() {
     if (this.#targetEl === null) return;
     const rect = this.#targetEl.getBoundingClientRect();
-    this.#highlight.style.transform = `translate(${rect.left}px, ${rect.top}px)`;
+    this.#highlight.style.left = `${rect.left}px`;
+    this.#highlight.style.top = `${rect.top}px`;
     this.#highlight.style.width = `${rect.width}px`;
     this.#highlight.style.height = `${rect.height}px`;
   }
@@ -289,6 +290,8 @@ class LitSourceOverlay extends HTMLElement {
   #clearTarget() {
     this.#targetEl = null;
     this.#info = null;
+    this.#highlight.style.left = '0';
+    this.#highlight.style.top = '0';
     this.#highlight.style.width = '0';
     this.#highlight.style.height = '0';
     this.#tooltip.style.display = 'none';
