@@ -14,10 +14,12 @@
  *   bytes fetched    adopted (`?css-sheet`)      link  (`?hmr-url`)
  *   bytes in chunk   inline  (`?raw` shared)     style (per-component `unsafeCSS`)
  *
- *   - `link`    — each instance renders its own `<link>` → N parsed sheets,
- *                 each stylesheet fetched at runtime (FOUC until it loads).
+ *   - `link`    — each instance renders its own `<link>` → N CSSStyleSheet
+ *                 objects, fetched at runtime (FOUC until it loads). Blink
+ *                 shares the parsed contents across same-URL links.
  *   - `style`   — each instance inlines the text in its own `<style>` → N
- *                 parsed sheets, bytes present at mount (no FOUC).
+ *                 CSSStyleSheet objects, bytes present at mount (no FOUC).
+ *                 Identical text shares parsed contents too.
  *   - `adopted` — every instance adopts one shared sheet, filled by a runtime
  *                 `fetch()` *after* mount → 1 sheet, FOUC until the fetch lands.
  *   - `inline`  — one shared sheet filled *before* mount (bytes modelled as
@@ -172,6 +174,20 @@ const main = async () => {
     .getEntriesByType('paint')
     .find((e) => e.name === 'first-contentful-paint');
 
+  // Holistic agent memory (DOM + CSS + JS), unlike `usedJSHeapSize` which
+  // misses the renderer-side CSSOM where the per-element sheet duplication
+  // actually lives. Needs cross-origin isolation (the server sets COOP/COEP);
+  // it runs its own GC and can take a moment.
+  let uaMemoryBytes = null;
+  if (self.crossOriginIsolated && performance.measureUserAgentSpecificMemory) {
+    try {
+      uaMemoryBytes = (await performance.measureUserAgentSpecificMemory())
+        .bytes;
+    } catch {
+      /* unavailable — leave null */
+    }
+  }
+
   const round = (x) => Math.round(x * 100) / 100;
   window.__bench = {
     variant,
@@ -188,6 +204,7 @@ const main = async () => {
     fcpMs: paint ? round(paint.startTime) : null,
     // Chrome-only, quantized — directional, not exact.
     heapBytes: performance.memory?.usedJSHeapSize ?? null,
+    uaMemoryBytes,
   };
 };
 

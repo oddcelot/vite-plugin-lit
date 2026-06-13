@@ -15,18 +15,22 @@ question is whether they share one parsed sheet or each build their own.
 
 That splits the options into two camps:
 
-| Approach                                                            | Shares one sheet?      | Parse cost @ N comps  | Bytes live in        | FOUC        | HMR                      |
-| ------------------------------------------------------------------- | ---------------------- | --------------------- | -------------------- | ----------- | ------------------------ |
-| **`?css-sheet` / `urlSheet()`**                                     | ✅                     | **1**                 | standalone `.css`    | yes (brief) | in-place, no re-render   |
-| **inline shared module** (`?raw`/`?inline` → one constructed sheet) | ✅                     | **1**                 | JS chunk             | **none**    | in-place, no re-render   |
-| `?hmr-url` (`<link>` per instance)                                  | ❌ per instance        | **N**                 | standalone `.css`    | per-link    | re-renders the component |
-| per-component `unsafeCSS(raw)` in each `static styles`              | ❌ per component class | **# component types** | duplicated per chunk | none        | re-renders               |
+| Approach                                                            | Shares one sheet?      | Sheet objects @ N comps | Bytes live in        | FOUC        | HMR                      |
+| ------------------------------------------------------------------- | ---------------------- | ----------------------- | -------------------- | ----------- | ------------------------ |
+| **`?css-sheet` / `urlSheet()`**                                     | ✅                     | **1**                   | standalone `.css`    | yes (brief) | in-place, no re-render   |
+| **inline shared module** (`?raw`/`?inline` → one constructed sheet) | ✅                     | **1**                   | JS chunk             | **none**    | in-place, no re-render   |
+| `?hmr-url` (`<link>` per instance)                                  | ❌ per instance        | **N**                   | standalone `.css`    | per-link    | re-renders the component |
+| per-component `unsafeCSS(raw)` in each `static styles`              | ❌ per component class | **# component types**   | duplicated per chunk | none        | re-renders               |
 
-The bottom two **do not scale** for a shared utility layer: `<link>` builds a
-separate parsed sheet per element (the HTTP cache dedupes the _bytes_, not the
-parsed CSSOM), and per-component `unsafeCSS` parses once per component class and
-duplicates the bytes into every chunk. Use them only for one-off,
-component-local styles.
+The bottom two cost more for a shared utility layer. Note the engine is kinder
+than it first looks: Blink **shares the parsed CSS contents** for identical
+sources (same-URL `<link>`s, byte-identical inline `<style>`), so you don't pay
+N full parses — but you still pay **N `CSSStyleSheet` objects, N extra DOM
+nodes, and N per-root style scopes**, and `<link>` re-renders the component on
+every HMR edit. In the [benchmark](../bench/README.md), at 3000 components the
+per-element variants mount ~1.5–2.7× slower and use ~0.6 MB more agent memory
+than one shared sheet. Use them for one-off, component-local styles, not a
+shared utility layer.
 
 ## Choosing between the two sharing options
 
@@ -59,8 +63,10 @@ difference is where the bytes live:
    browsers bucket rules by their rightmost simple selector, so classes a given
    shadow root never uses cost ~nothing to match. A big utility sheet adopted
    everywhere is not a style-recalc problem.
-2. **Memory is one copy** no matter how many roots adopt it — the whole win
-   over `<link>`/`<style>` duplicated per root.
+2. **One parsed copy, one object.** A shared adopted sheet is parsed once and
+   held as a single `CSSStyleSheet`. Per-element delivery still benefits from
+   the engine sharing parsed _contents_, but multiplies the `CSSStyleSheet`
+   objects, DOM nodes, and style scopes — the shared sheet avoids all of that.
 
 ## Composition
 

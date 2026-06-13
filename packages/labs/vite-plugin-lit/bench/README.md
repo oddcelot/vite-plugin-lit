@@ -87,35 +87,39 @@ not across runs.
 
 ## Findings (sample run)
 
-One machine, Chrome via the DevTools MCP, **n=2000, classes=800** (~76 kB
-sheet), unthrottled CPU, localhost. Single runs — directional, not precise.
+One machine, **n=3000, classes=800** (~76 kB sheet), unthrottled CPU,
+localhost — directional, not precise. Reproduced across runs unless noted.
 
-| variant   | sheets | mount(ms) | LCP(ms)  | CLS      | what the trace shows                                              |
-| --------- | ------ | --------- | -------- | -------- | ----------------------------------------------------------------- |
-| `adopted` | **1**  | 42        | 113      | **0.42** | one parse; FOUC — late `fetch()` styles shift layout (CLS)        |
-| `inline`  | **1**  | 71        | 154      | 0.00     | one parse; styled before mount → fast **and** stable              |
-| `link`    | 2000   | 88        | 171      | 0.00     | render-blocking per root; parse is async + shared for same URL    |
-| `style`   | 2000   | **4095**  | **4205** | 0.00     | 2000 **synchronous** parses of the 76 kB sheet → ~4 s main-thread |
+| variant   | sheets | mount(ms) | nodes  | uaMem(MB) | fouc(ms) |
+| --------- | ------ | --------- | ------ | --------- | -------- |
+| `adopted` | **1**  | **32**    | 12 017 | **2.6**   | 12       |
+| `inline`  | **1**  | 42        | 12 017 | 2.7       | 0        |
+| `style`   | 3000   | 53        | 18 017 | 3.3       | 0        |
+| `link`    | 3000   | 88        | 15 017 | 3.2       | 1        |
 
-What the traces revealed, beyond the naive "N parses vs 1":
+1. **Distinct `CSSStyleSheet` objects scale N vs 1** (deterministic) — but the
+   engine **shares the parsed CSS _contents_** for identical sources (same-URL
+   `<link>`, byte-identical inline `<style>`). So the per-element cost is N
+   wrapper objects + N extra DOM nodes + N per-root style scopes, **not** N
+   parses. (An early MCP trace showed a one-off ~4 s `style` mount that did not
+   reproduce — parsing is shared; don't chase that number.)
+2. **The one-sheet variants mount fastest** — `adopted` 32 ms vs `link` 88 ms
+   at n=3000 (~1.5–2.7×). `link` is slowest (an extra node + the resource-load
+   machinery per element).
+3. **Per-element delivery costs modestly more memory**: ~0.6 MB extra agent
+   memory at 3000 elements (`measureUserAgentSpecificMemory`), from the wrapper
+   objects and extra DOM nodes (`link` +N nodes, `style` +2N). `usedJSHeapSize`
+   barely moves and misses it — which is why the harness uses the UA-memory API
+   and reports `nodes`.
+4. **FOUC is the real differentiator.** The fetched `adopted` variant mounts
+   unstyled and styles ~10 ms later; in a DevTools trace that showed up as
+   **CLS 0.42** (a failing Core Web Vital). `inline`/`style`/`link` don't shift.
+   On a real network the gap widens — localhost understates it.
+5. **Non-perf:** `link` re-renders the component on every HMR edit; the shared
+   adopted sheet hot-swaps in place.
 
-1. **Inline-per-element is catastrophic at scale.** `style` blocks the main
-   thread ~4 s because each `<style>` re-parses the full sheet synchronously at
-   mount. This is the cost of inlining a big utility sheet into many component
-   _types_. Avoid.
-2. **`<link>` to a shared URL is cheaper than "N parses" suggests.** Blink
-   shares the parsed stylesheet contents across same-URL `<link>`s and parses
-   off the mount path, so mount stays cheap (88 ms) — but you still get N
-   `CSSStyleSheet` objects, N per-root style scopes, and a component re-render
-   on every HMR edit.
-3. **The shared adopted sheet is the lightest to mount** (one parse, one
-   object).
-4. **FOUC is a real, measurable cost — it surfaces as CLS.** The fetched
-   `adopted` variant paints unstyled content, then the sheet lands ~10 ms later
-   and shifts layout (CLS 0.42). `inline` (or `?css-sheet` + a
-   `<link rel="preload">`) keeps CLS at 0. On a real network the gap widens —
-   localhost understates it.
-
-Net: share one sheet (`adopted`/`inline`); prefer the **inline-shared** path or
-preload the asset when first-paint stability (CLS) matters. Raw traces for each
-row are in `results/mcp-*-n2000.json` (open in DevTools ▸ Performance).
+Net: share one sheet (`adopted`/`inline`) — fewest objects, nodes, and bytes,
+fastest mount. Prefer the **inline-shared** path, or `?css-sheet` + a
+`<link rel="preload">`, when first-paint stability (CLS) matters; plain
+`?css-sheet` trades a brief shift for an independently cacheable asset. Raw
+traces are in `results/` (open in DevTools ▸ Performance).

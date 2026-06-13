@@ -74,17 +74,25 @@ const genCss = (groups) => {
 const startServer = async (listenPort = 0) => {
   const html = await readFile(path.join(BENCH_DIR, 'index.html'));
   const harness = await readFile(path.join(BENCH_DIR, 'harness.js'));
+  // Cross-origin isolation enables `performance.measureUserAgentSpecificMemory()`
+  // in the harness (a holistic agent-memory number that JS heap alone misses).
+  // Same-origin subresources are exempt from COEP, so the CSS/JS still load.
+  const coiHeaders = {
+    'cross-origin-opener-policy': 'same-origin',
+    'cross-origin-embedder-policy': 'require-corp',
+    'cross-origin-resource-policy': 'same-origin',
+  };
   const server = createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname === '/util.css') {
       const groups = Number(url.searchParams.get('classes') ?? '300');
-      res.writeHead(200, {'content-type': 'text/css'});
+      res.writeHead(200, {...coiHeaders, 'content-type': 'text/css'});
       res.end(genCss(groups));
     } else if (url.pathname === '/harness.js') {
-      res.writeHead(200, {'content-type': 'text/javascript'});
+      res.writeHead(200, {...coiHeaders, 'content-type': 'text/javascript'});
       res.end(harness);
     } else {
-      res.writeHead(200, {'content-type': 'text/html'});
+      res.writeHead(200, {...coiHeaders, 'content-type': 'text/html'});
       res.end(html);
     }
   });
@@ -133,6 +141,10 @@ const runOne = async (browser, origin, variant, n, classes) => {
     client.once('Tracing.tracingComplete', res);
     client.send('Tracing.end');
   });
+
+  // Engine-authoritative counters (after a forced GC so the heap is stable).
+  // `Performance.getMetrics` durations are cumulative seconds.
+  const engine = await readEngineMetrics(client);
   await page.close();
 
   const traceName = `trace-${variant}-n${n}-c${classes}.json`;
@@ -141,7 +153,35 @@ const runOne = async (browser, origin, variant, n, classes) => {
     JSON.stringify({traceEvents: events})
   );
 
-  return {...metrics, ...summarizeTrace(events), trace: traceName};
+  return {...metrics, ...summarizeTrace(events), ...engine, trace: traceName};
+};
+
+const readEngineMetrics = async (client) => {
+  try {
+    await client.send('HeapProfiler.enable');
+    await client.send('HeapProfiler.collectGarbage');
+    await client.send('Performance.enable');
+    const {metrics} = await client.send('Performance.getMetrics');
+    const m = Object.fromEntries(metrics.map((x) => [x.name, x.value]));
+    const ms = (s) => Math.round((s ?? 0) * 1000 * 100) / 100;
+    return {
+      nodes: m.Nodes ?? null,
+      layoutObjects: m.LayoutObjects ?? null,
+      engineRecalcMs: ms(m.RecalcStyleDuration),
+      engineLayoutMs: ms(m.LayoutDuration),
+      engineHeapMB: m.JSHeapUsedSize
+        ? Math.round(m.JSHeapUsedSize / 1e5) / 10
+        : null,
+    };
+  } catch {
+    return {
+      nodes: null,
+      layoutObjects: null,
+      engineRecalcMs: null,
+      engineLayoutMs: null,
+      engineHeapMB: null,
+    };
+  }
 };
 
 const main = async () => {
@@ -187,6 +227,7 @@ const main = async () => {
 
   // Compact console table.
   console.log('\n=== summary ===');
+  const mb = (b) => (b ? Math.round(b / 1e5) / 10 : null);
   console.table(
     rows.map((r) => ({
       variant: r.variant,
@@ -194,11 +235,11 @@ const main = async () => {
       sheets: r.distinctSheets,
       'parse(ms)': r.parseCssMs,
       'recalc(ms)': r.recalcStyleMs,
-      'layout(ms)': r.layoutMs,
       'mount(ms)': r.mountMs,
       'fouc(ms)': r.foucMs,
-      'cssKB': Math.round(r.cssBytes / 102.4) / 10,
-      'heap(MB)': r.heapBytes ? Math.round(r.heapBytes / 1e5) / 10 : null,
+      nodes: r.nodes,
+      'jsHeap(MB)': r.engineHeapMB ?? mb(r.heapBytes),
+      'uaMem(MB)': mb(r.uaMemoryBytes),
     }))
   );
   console.log(`\ntraces + summary.json written to ${RESULTS_DIR}`);
