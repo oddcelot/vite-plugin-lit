@@ -1,0 +1,101 @@
+{
+  "_comment": "Committed snapshot of a representative bench run (the live results/ dir is git-ignored). Regenerate with `node bench/run.mjs --n 500,3000 --classes 800`. Numbers are directional, not a contract — see bench/README.md.",
+  "env": {
+    "date": "2026-06-13",
+    "machine": "Apple Silicon (darwin)",
+    "chrome": "channel: chrome, via playwright-core",
+    "cpuThrottling": "1x (none)",
+    "network": "none (localhost)",
+    "sheetBytes": 77876,
+    "classes": 800
+  },
+  "notes": [
+    "sheets = distinct CSSStyleSheet objects across all shadow roots.",
+    "Blink shares parsed CSS *contents* for identical sources (same-URL <link>, byte-identical inline <style>), so per-element cost is objects/nodes/scopes, not N parses.",
+    "fouc(ms) = mounted-but-unstyled window; only the fetched 'adopted' variant has one. In a DevTools trace that FOUC surfaced as CLS 0.42 for adopted; the other variants showed CLS 0.00.",
+    "uaMem = performance.measureUserAgentSpecificMemory() total bytes (coarse/quantized, whole-agent). jsHeap = post-GC usedJSHeapSize, which does NOT capture renderer-side CSSOM.",
+    "An early one-off trace showed a ~4s 'style' mount; it did not reproduce and is not representative."
+  ],
+  "rows": [
+    {
+      "variant": "link",
+      "n": 500,
+      "sheets": 500,
+      "mountMs": 20.72,
+      "foucMs": 0.29,
+      "nodes": 2517,
+      "jsHeapMB": 1.5,
+      "uaMemMB": 1.6
+    },
+    {
+      "variant": "style",
+      "n": 500,
+      "sheets": 500,
+      "mountMs": 13.85,
+      "foucMs": 0,
+      "nodes": 3017,
+      "jsHeapMB": 1.5,
+      "uaMemMB": 1.6
+    },
+    {
+      "variant": "adopted",
+      "n": 500,
+      "sheets": 1,
+      "mountMs": 10.03,
+      "foucMs": 7.22,
+      "nodes": 2017,
+      "jsHeapMB": 1.4,
+      "uaMemMB": 1.5
+    },
+    {
+      "variant": "inline",
+      "n": 500,
+      "sheets": 1,
+      "mountMs": 10.07,
+      "foucMs": 0,
+      "nodes": 2017,
+      "jsHeapMB": 1.4,
+      "uaMemMB": 1.5
+    },
+    {
+      "variant": "link",
+      "n": 3000,
+      "sheets": 3000,
+      "mountMs": 88.18,
+      "foucMs": 1.22,
+      "nodes": 15017,
+      "jsHeapMB": 1.9,
+      "uaMemMB": 3.2
+    },
+    {
+      "variant": "style",
+      "n": 3000,
+      "sheets": 3000,
+      "mountMs": 53.19,
+      "foucMs": 0,
+      "nodes": 18017,
+      "jsHeapMB": 2.0,
+      "uaMemMB": 3.3
+    },
+    {
+      "variant": "adopted",
+      "n": 3000,
+      "sheets": 1,
+      "mountMs": 32.06,
+      "foucMs": 12.09,
+      "nodes": 12017,
+      "jsHeapMB": 1.8,
+      "uaMemMB": 2.6
+    },
+    {
+      "variant": "inline",
+      "n": 3000,
+      "sheets": 1,
+      "mountMs": 42.42,
+      "foucMs": 0.01,
+      "nodes": 12017,
+      "jsHeapMB": 1.9,
+      "uaMemMB": 2.7
+    }
+  ]
+}

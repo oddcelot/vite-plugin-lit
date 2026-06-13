@@ -89,6 +89,9 @@ not across runs.
 
 One machine, **n=3000, classes=800** (~76 kB sheet), unthrottled CPU,
 localhost — directional, not precise. Reproduced across runs unless noted.
+Backing data (n=500 and n=3000, all variants) is committed in
+[`sample-results.json`](./sample-results.json); regenerate with
+`node bench/run.mjs --n 500,3000 --classes 800`.
 
 | variant   | sheets | mount(ms) | nodes  | uaMem(MB) | fouc(ms) |
 | --------- | ------ | --------- | ------ | --------- | -------- |
