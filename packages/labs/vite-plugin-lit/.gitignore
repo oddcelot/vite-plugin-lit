@@ -1,0 +1,6 @@
+/index.*
+/lib/
+/.e2e-tmp/
+/.vite/
+*.tsbuildinfo
+/node_modules/

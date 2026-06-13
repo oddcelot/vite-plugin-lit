@@ -1,0 +1,21 @@
+/* Shared stylesheet used by two components via adoptedStyleSheets.
+   This file is imported via ?raw (bypasses CSS pipeline), so stick to
+   syntax supported natively by modern browsers. */
+.shared-card {
+  background: rgb(60, 80, 180);
+  color: #fff;
+  padding: 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.shared-card:hover {
+  background: rgb(40, 60, 200);
+}
+
+.shared-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.75em;
+  opacity: 0.8;
+}

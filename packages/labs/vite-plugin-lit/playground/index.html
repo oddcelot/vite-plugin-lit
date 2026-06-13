@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@lit-labs/vite-plugin-lit playground</title>
+    <link rel="icon" href="data:," />
+    <style>
+      /* Driven by hmr-properties' theme @state (its `updated()` mirrors
+         config.theme onto <html data-theme>). Inherited custom properties
+         pierce shadow roots, so components pick these up too. */
+      :root {
+        color-scheme: light;
+        --bg: #ffffff;
+        --fg: #1a1a2e;
+        --card-bg: #ffffff;
+        --card-border: #cccccc;
+        --muted: #666666;
+      }
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+        --bg: #14141f;
+        --fg: #e8e8f0;
+        --card-bg: #1d1d2b;
+        --card-border: #3a3a4e;
+        --muted: #9a9ab0;
+      }
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 1rem;
+        background: var(--bg);
+        color: var(--fg);
+        transition:
+          background 0.2s,
+          color 0.2s;
+      }
+      main {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+      .card {
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 1rem;
+        background: var(--card-bg);
+        transition:
+          background 0.2s,
+          border-color 0.2s;
+      }
+      .section-header {
+        grid-column: 1 / -1;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        border-bottom: 1px solid var(--card-border);
+        padding-bottom: 0.35rem;
+        margin: 0.5rem 0 0 0;
+      }
+      .section-header:first-of-type {
+        margin-top: 0;
+      }
+      .problem {
+        display: block;
+        font-size: 0.72rem;
+        color: var(--muted);
+        font-weight: 400;
+        line-height: 1.3;
+        margin-top: 0.5rem;
+        border-top: 1px solid var(--card-border);
+        padding-top: 0.4rem;
+      }
+      hmr-clock::part(face) {
+        filter: drop-shadow(0 1px 2px rgba(29, 53, 87, 0.35));
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h2 class="section-header">Core State &amp; Rendering</h2>
+
+      <div class="card">
+        <hmr-counter></hmr-counter>
+        <span class="problem"
+          >@state count survives edits to the component's own template</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-siblings></hmr-siblings>
+        <span class="problem"
+          >Editing one template literal must leave the other's DOM identity and
+          input state intact</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-parent></hmr-parent>
+        <span class="problem"
+          >Parent template edit must not re-render the nested
+          <code>&lt;hmr-child&gt;</code></span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-properties></hmr-properties>
+        <span class="problem"
+          ><code>@property</code>/<code>@state</code> surface: arrays, objects,
+          reflected props survive hot patches</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-static-props></hmr-static-props>
+        <span class="problem"
+          >Non-decorator path: <code>static properties</code> + bare
+          <code>define()</code> — state survives HMR</span
+        >
+      </div>
+
+      <h2 class="section-header">Reactive Signals</h2>
+
+      <div class="card">
+        <hmr-signal-counter></hmr-signal-counter>
+        <span class="problem"
+          ><code>SignalWatcher</code> mixin + shared-module signal: state
+          survives hot patch</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-signal-mirror></hmr-signal-mirror>
+        <span class="problem"
+          >Second watcher of the shared signal must keep mirroring after either
+          component is patched</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-clock></hmr-clock>
+        <span class="problem"
+          >Analog SVG clock on shared <code>now</code> signal: editing one
+          <code>svg</code> literal leaves the other's DOM untouched</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-digital-clock></hmr-digital-clock>
+        <span class="problem"
+          >Digital clock on shared <code>now</code> + <code>timeZone</code>:
+          display and picker survive HMR independently</span
+        >
+      </div>
+
+      <h2 class="section-header">Context &amp; Data</h2>
+
+      <div class="card">
+        <hmr-ctx-provider></hmr-ctx-provider>
+        <span class="problem"
+          ><code>@provide</code> + <code>@state</code>: provider header edits
+          must not rebuild the nested consumer</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-task></hmr-task>
+        <span class="problem"
+          ><code>@lit/task</code> async fetch: hot patch must not lose loaded
+          content or trigger a re-fetch</span
+        >
+      </div>
+
+      <h2 class="section-header">Styles &amp; CSS</h2>
+
+      <div class="card">
+        <hmr-styled></hmr-styled>
+        <span class="problem"
+          ><code>css</code> tagged-template static styles: color edits restyle
+          without DOM loss; Lightning CSS downleveling</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-linked-css></hmr-linked-css>
+        <span class="problem"
+          >External stylesheet via <code>&lt;link&gt;</code> in shadow root
+          (<code>?hmr-url</code>): CSS file changes trigger re-render</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-import-css></hmr-import-css>
+        <span class="problem"
+          >Styles loaded via <code>@import</code> inside
+          <code>&lt;style&gt;</code> (<code>?hmr-url</code>): CSS changes via
+          module re-execution</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-css-url></hmr-css-url>
+        <span class="problem"
+          >External stylesheet via <code>?url</code> import +
+          <code>devCacheBust()</code>: fresh href per module execution</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-raw-css></hmr-raw-css>
+        <span class="problem"
+          >CSS file as static styles via <code>?raw</code> +
+          <code>unsafeCSS</code>: hot-swaps class's static stylesheet on live
+          instances</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-shared-css-a></hmr-shared-css-a>
+        <span class="problem"
+          >Shared <code>CSSStyleSheet</code> consumer A: CSS edits call
+          <code>replaceSync()</code>, updating both consumers</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-shared-css-b></hmr-shared-css-b>
+        <span class="problem"
+          >Shared <code>CSSStyleSheet</code> consumer B: CSS edits propagate to
+          both A and B without re-execution</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-utility-btn variant="blue">Click me</hmr-utility-btn>
+        <span class="problem"
+          >Utility-class button (Tailwind/UnoCSS workflow): CSS changes update
+          all instances in place</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-utility-btn variant="red">Delete</hmr-utility-btn>
+        <span class="problem"
+          >Second button testing variant-specific utility class updates across
+          instances</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-utility-badge></hmr-utility-badge>
+        <span class="problem"
+          >Utility-class badge: CSS edits propagate across different component
+          types without re-render</span
+        >
+      </div>
+
+      <h2 class="section-header">Advanced Patterns</h2>
+
+      <div class="card">
+        <hmr-probe></hmr-probe>
+        <span class="problem"
+          >Two components per module: cached <code>querySelector</code> /
+          <code>IntersectionObserver</code> refs survive full-module
+          re-execution</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-virtualizer></hmr-virtualizer>
+        <span class="problem"
+          ><code>@lit-labs/virtualizer</code> with 1000 rows: scroll position
+          and layout survive header template edits</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-modal></hmr-modal>
+        <span class="problem"
+          >Native <code>&lt;dialog&gt;</code> modal: open/closed state and child
+          counter survive HMR updates</span
+        >
+      </div>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

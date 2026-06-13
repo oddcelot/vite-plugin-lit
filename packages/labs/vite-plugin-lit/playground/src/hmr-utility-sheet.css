@@ -1,0 +1,60 @@
+/* Mimics a utility-first framework output (Tailwind, UnoCSS), shared across
+   components via a single adopted CSSStyleSheet — see hmr-utility-sheet.ts.
+   Loaded via ?url as a standalone .css asset (kept as a real file in the
+   build output) and fetched into the sheet at runtime; Lightning CSS still
+   processes it through the configured pipeline (nesting flattened, oklch
+   fallbacks). */
+.flex {
+  display: flex;
+}
+.flex-col {
+  flex-direction: column;
+}
+.items-center {
+  align-items: center;
+}
+.gap-2 {
+  gap: 0.5rem;
+}
+.px-4 {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+.py-2 {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+.rounded {
+  border-radius: 0.375rem;
+}
+.bg-blue {
+  background: #3b82f6;
+}
+.bg-green {
+  background: #22c55e;
+}
+.bg-red {
+  background: #ef4444;
+}
+
+.text-white {
+  color: #fff;
+}
+.text-xs {
+  font-size: 0.75rem;
+}
+.text-sm {
+  font-size: 0.875rem;
+}
+.font-bold {
+  font-weight: 700;
+}
+.font-mono {
+  font-family: ui-monospace, monospace;
+}
+.border-none {
+  border: none;
+}
+.cursor-pointer {
+  cursor: pointer;
+}

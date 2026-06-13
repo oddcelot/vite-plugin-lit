@@ -1,0 +1,13 @@
+/* Modern syntax on purpose: Lightning CSS (see vite.config.ts) flattens the
+   nesting and resolves oklch() to an rgb fallback for the configured
+   targets — check the served/built CSS to see the transform. */
+#linked-box {
+  background: rgb(200, 50, 50);
+  color: #fff;
+  padding: 1rem;
+  border-radius: 4px;
+
+  &:hover {
+    background: oklch(62% 0.19 25);
+  }
+}

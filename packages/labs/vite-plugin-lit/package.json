@@ -1,0 +1,146 @@
+{
+  "name": "@lit-labs/vite-plugin-lit",
+  "description": "Vite plugin for Lit with HMR, CSS helpers, and Lightning CSS support",
+  "version": "0.0.1",
+  "author": "Google LLC",
+  "homepage": "https://github.com/lit/lit/tree/main/packages/labs/vite-plugin-lit",
+  "license": "BSD-3-Clause",
+  "type": "module",
+  "main": "index.js",
+  "module": "index.js",
+  "files": [
+    "/lib/",
+    "!/lib/test/",
+    "/index.{d.ts,d.ts.map,js,js.map}",
+    "/client.d.ts"
+  ],
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./css.js": {
+      "types": "./lib/runtime/css.d.ts",
+      "default": "./lib/runtime/css.js"
+    },
+    "./client": {
+      "types": "./client.d.ts"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lit/lit.git",
+    "directory": "packages/labs/vite-plugin-lit"
+  },
+  "bugs": {
+    "url": "https://github.com/lit/lit/issues"
+  },
+  "scripts": {
+    "build": "wireit",
+    "build:ts": "wireit",
+    "dev": "wireit",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "wireit",
+    "test:e2e": "wireit"
+  },
+  "wireit": {
+    "build": {
+      "dependencies": [
+        "build:ts"
+      ]
+    },
+    "build:ts": {
+      "command": "tsc --build --pretty && npx --no-install prettier --write --ignore-path /dev/null \"index.js\" \"lib/**/*.js\"",
+      "dependencies": [
+        "../../lit:build:ts:types"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "!src/test/**",
+        "tsconfig.json"
+      ],
+      "output": [
+        "lib",
+        "tsconfig.tsbuildinfo",
+        "index.{d.ts,d.ts.map,js,js.map}"
+      ],
+      "clean": "if-file-deleted"
+    },
+    "dev": {
+      "command": "vite playground",
+      "service": true,
+      "dependencies": [
+        "build:ts",
+        "../../lit:build",
+        "../signals:build",
+        "../../context:build",
+        "../../task:build",
+        "../virtualizer:build"
+      ]
+    },
+    "test:unit": {
+      "command": "vitest run --project unit",
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json",
+        "vitest.config.ts"
+      ],
+      "output": []
+    },
+    "test:e2e": {
+      "command": "vitest run --project e2e",
+      "dependencies": [
+        "../../lit:build",
+        "../signals:build",
+        "../../context:build",
+        "../../task:build",
+        "../virtualizer:build"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "playground/**",
+        "tsconfig.json",
+        "vitest.config.ts"
+      ],
+      "output": [],
+      "env": {
+        "HMR_E2E_HEADED": {
+          "external": true
+        },
+        "HMR_E2E_EXECUTABLE": {
+          "external": true
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "es-module-lexer": "^1.5.4",
+    "magic-string": "^0.30.11"
+  },
+  "peerDependencies": {
+    "lightningcss": "^1.30.0",
+    "vite": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "lightningcss": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@lit-labs/signals": "^0.3.0",
+    "@lit-labs/virtualizer": "^2.1.1",
+    "@lit/context": "^1.1.6",
+    "@lit/task": "^1.0.3",
+    "lightningcss": "^1.32.0",
+    "lit": "^3.3.3",
+    "playwright-core": "^1.60.0",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
