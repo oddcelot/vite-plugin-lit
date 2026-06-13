@@ -137,7 +137,7 @@ class LitSourceOverlay extends HTMLElement {
           box-sizing: border-box;
           border: 2px solid rgba(124,196,245,0.7);
           background: rgba(124,196,245,0.08);
-          transition: width 50ms, height 50ms;
+          box-shadow: 0 0 0 9999px rgba(0,0,0,0.35);
         }
         #tooltip {
           position: fixed;
