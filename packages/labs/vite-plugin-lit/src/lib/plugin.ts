@@ -8,7 +8,9 @@ import {existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import type {CSSOptions, Plugin} from 'vite';
 import MagicString from 'magic-string';
+import {injectSourceMeta} from './source-meta.js';
 import {INSTALL_ID, VIRTUAL_PREFIX, transformLitModule} from './transform.js';
+import type {SourceOverlayOptions} from './types.js';
 import {WRAP_TABLE} from './wrap-table.js';
 
 /**
@@ -47,6 +49,12 @@ export interface LitPluginOptions {
    * - `false` or omitted — disabled. Defaults to `false`.
    */
   updateIndicator?: boolean | {count?: boolean};
+
+  /**
+   * Dev-only click-to-open-in-IDE inspector for Lit custom elements.
+   * Toggle with Ctrl+Shift+S (configurable via `key`). Defaults to `false`.
+   */
+  sourceOverlay?: boolean | SourceOverlayOptions;
 }
 
 /**
@@ -65,6 +73,62 @@ const resolveRuntimeModule = (name: string): string => {
 };
 
 const JS_FILE_RE = /\.[cm]?[jt]sx?$/;
+
+const OPEN_IN_EDITOR_PATH = '/__lit-open-in-editor';
+
+const normalizeSourceOverlayOptions = (
+  option: boolean | SourceOverlayOptions | undefined
+): false | SourceOverlayOptions => {
+  if (!option) return false;
+  if (typeof option === 'boolean') return {};
+  return option;
+};
+
+const createOpenInEditorMiddleware = () => {
+  return (
+    req: {url?: string},
+    res: {statusCode: number; end: (msg: string) => void},
+    next: (err?: unknown) => void
+  ) => {
+    if (req.url === undefined) {
+      next();
+      return;
+    }
+    const query = req.url.includes('?')
+      ? req.url.slice(req.url.indexOf('?') + 1)
+      : '';
+    const params = new URLSearchParams(query);
+    const file = params.get('file');
+    if (file === null) {
+      res.statusCode = 400;
+      res.end('missing file parameter');
+      return;
+    }
+    const line = params.get('line') ?? '1';
+    const column = params.get('column') ?? '1';
+    const fileRef = `${file}:${line}:${column}`;
+    import('launch-editor')
+      .then(
+        (mod: {
+          default?: (
+            file: string,
+            cb: (fileName: string, errorMessage: string | null) => void
+          ) => void;
+        }) => {
+          const launch = mod.default ?? mod;
+          launch(fileRef, (_fileName: string, errorMessage: string | null) => {
+            if (errorMessage !== null) {
+              res.statusCode = 500;
+              res.end(errorMessage);
+              return;
+            }
+            res.end('ok');
+          });
+        }
+      )
+      .catch(next);
+  };
+};
 
 /**
  * `import href from './x.css?hmr-url'` — `?url` semantics with working HMR.
@@ -210,9 +274,75 @@ const litCssLiterals = (): Plugin => {
  */
 export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
   const enableHmr = options.hmr ?? true;
+  const sourceOverlayOptions = normalizeSourceOverlayOptions(
+    options.sourceOverlay
+  );
   const runtimeOptions = {
     reconnect: options.reconnect ?? false,
     onIncompatible: options.onIncompatible ?? 'reload',
+  };
+  const sourceOverlayPlugin: Plugin = {
+    name: 'lit-source-overlay',
+    apply: 'serve',
+    enforce: 'post',
+    resolveId(id) {
+      if (id === '@lit-labs/vite-plugin-lit/source-overlay.js') {
+        return resolveRuntimeModule('source-overlay');
+      }
+      return null;
+    },
+    configureServer(server) {
+      if (!sourceOverlayOptions) return;
+      server.middlewares.use(
+        OPEN_IN_EDITOR_PATH,
+        createOpenInEditorMiddleware()
+      );
+    },
+    transform(code, id, transformOptions) {
+      if (!sourceOverlayOptions) return null;
+      if (transformOptions?.ssr) return null;
+      if (
+        id.startsWith('\0') ||
+        id.includes('__x00__') ||
+        id.includes('lit-plugin:') ||
+        id.includes('/node_modules/')
+      ) {
+        return null;
+      }
+      const [file] = id.split('?', 2);
+      if (!JS_FILE_RE.test(file) && !id.includes('?html-proxy')) {
+        return null;
+      }
+      if (!code.includes('customElement') && !code.includes('customElements')) {
+        return null;
+      }
+      const ms = new MagicString(code);
+      if (!injectSourceMeta(code, file, ms)) {
+        return null;
+      }
+      return {code: ms.toString(), map: ms.generateMap({hires: true})};
+    },
+    transformIndexHtml() {
+      if (!sourceOverlayOptions) return;
+      const overlayUrl = `/@fs/${resolveRuntimeModule('source-overlay')}`;
+      const {
+        exclude: _exclude,
+        onSelect: _onSelect,
+        ...overlayInit
+      } = sourceOverlayOptions;
+      const initConfig = {
+        ...overlayInit,
+        openInEditorPath: OPEN_IN_EDITOR_PATH,
+      };
+      return [
+        {
+          tag: 'script',
+          attrs: {type: 'module'},
+          children: `import {initSourceOverlay} from ${JSON.stringify(overlayUrl)};\ninitSourceOverlay(${JSON.stringify(initConfig)});\n`,
+          injectTo: 'body',
+        },
+      ];
+    },
   };
   const hmr: Plugin = {
     name: 'lit-plugin',
@@ -237,6 +367,9 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       }
       if (id === '@lit-labs/vite-plugin-lit/indicator.js') {
         return resolveRuntimeModule('indicator');
+      }
+      if (id === '@lit-labs/vite-plugin-lit/source-overlay.js') {
+        return resolveRuntimeModule('source-overlay');
       }
       if (enableHmr && id.startsWith(VIRTUAL_PREFIX)) {
         return id;
@@ -318,5 +451,10 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       ];
     },
   };
-  return [litCssQueries(), litCssLiterals(), hmr];
+  const plugins = [litCssQueries(), litCssLiterals()];
+  if (sourceOverlayOptions) {
+    plugins.push(sourceOverlayPlugin);
+  }
+  plugins.push(hmr);
+  return plugins;
 };
