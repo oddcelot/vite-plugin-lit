@@ -59,6 +59,10 @@ CSS literal processing apply in both dev and build.
 
 CSS in shadow roots can be delivered a few ways, with different HMR
 behaviors. The plugin ships helpers under `@lit-labs/vite-plugin-lit/css.js`.
+For choosing between them at scale — e.g. a large utility sheet (Tailwind,
+UnoCSS) shared across many components — see
+[`docs/css-delivery.md`](./docs/css-delivery.md), with a reproducible
+benchmark in [`bench/`](./bench/README.md).
 
 ### Shared adopted stylesheet from a `.css` asset
 

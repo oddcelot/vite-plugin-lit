@@ -1,0 +1,4 @@
+# Generated bench output — traces, summaries, screenshots, heap snapshots.
+# Keep the directory in the repo, ignore everything written into it.
+*
+!.gitignore
