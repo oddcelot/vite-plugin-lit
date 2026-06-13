@@ -82,37 +82,42 @@ const findSourceHost = (el: Element): Element | null => {
   return null;
 };
 
+// Pierce nested shadow roots to find the deepest element under the cursor.
+// document.elementFromPoint retargets shadow content to the top-level host, so
+// we descend through each shadowRoot to reach the innermost element.
+const deepElementFromPoint = (x: number, y: number): Element | null => {
+  let el = document.elementFromPoint(x, y);
+  let deepest: Element | null = el;
+  while (el?.shadowRoot) {
+    const inner = el.shadowRoot.elementFromPoint(x, y);
+    if (inner === null || inner === el) break;
+    deepest = inner;
+    el = inner;
+  }
+  return deepest;
+};
+
 const findSourceAtPoint = (
   x: number,
   y: number,
   dialog: HTMLDialogElement | null = null
 ): Element | null => {
   if (dialog !== null) dialog.close();
-
-  const all = document.elementsFromPoint(x, y);
-  for (const el of all) {
-    const host = findSourceHost(el);
-    if (host !== null) {
-      if (dialog !== null && !dialog.open) dialog.showModal();
-      return host;
+  try {
+    const deepest = deepElementFromPoint(x, y);
+    if (deepest !== null) {
+      const host = findSourceHost(deepest);
+      if (host !== null) return host;
     }
-    if (el.shadowRoot) {
-      const deeper = el.shadowRoot.elementFromPoint(x, y);
-      if (deeper !== null && deeper !== el) {
-        const innerHost = findSourceHost(deeper);
-        if (innerHost !== null) {
-          if (dialog !== null && !dialog.open) dialog.showModal();
-          return innerHost;
-        }
-      }
-    }
-  }
 
-  for (const el of document.querySelectorAll('*')) {
-    const ctor = el.constructor as CustomElementConstructor & {
-      [SOURCE_META_KEY]?: LitSourceMeta;
-    };
-    if (ctor[SOURCE_META_KEY] !== undefined) {
+    // Bounding-rect fallback for elements elementFromPoint misses — prefer the
+    // deepest matching host so nested components still beat their ancestors.
+    let best: Element | null = null;
+    for (const el of document.querySelectorAll('*')) {
+      const ctor = el.constructor as CustomElementConstructor & {
+        [SOURCE_META_KEY]?: LitSourceMeta;
+      };
+      if (ctor[SOURCE_META_KEY] === undefined) continue;
       const rect = el.getBoundingClientRect();
       if (
         x >= rect.left &&
@@ -120,14 +125,13 @@ const findSourceAtPoint = (
         y >= rect.top &&
         y <= rect.bottom
       ) {
-        if (dialog !== null && !dialog.open) dialog.showModal();
-        return el;
+        if (best === null || best.contains(el)) best = el;
       }
     }
+    return best;
+  } finally {
+    if (dialog !== null && !dialog.open) dialog.showModal();
   }
-
-  if (dialog !== null && !dialog.open) dialog.showModal();
-  return all[0] ?? null;
 };
 
 class LitSourceOverlay extends HTMLElement {
@@ -455,6 +459,10 @@ class LitSourceOverlay extends HTMLElement {
     event.preventDefault();
     event.stopPropagation();
     const selected = this.#info;
+    // Cancel the whole selection mode on any deliberate pick, before opening —
+    // the editor may open via a URL scheme that doesn't navigate this tab away,
+    // so we can't rely on the open outcome to dismiss the inspector.
+    this.deactivate();
     this.#options.onSelect?.(selected);
     this.#openInEditor(selected.source.filePath, selected.source.lineNumber);
   };
