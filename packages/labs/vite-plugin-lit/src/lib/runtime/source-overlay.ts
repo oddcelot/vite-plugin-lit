@@ -120,6 +120,9 @@ class LitSourceOverlay extends HTMLElement {
     const root = this.attachShadow({mode: 'closed'});
     root.innerHTML = `
       <style>
+        :host {
+          --lit-source-overlay-offset: 8px;
+        }
         dialog {
           background: transparent;
           border: none;
@@ -137,11 +140,10 @@ class LitSourceOverlay extends HTMLElement {
           box-sizing: border-box;
           border: 2px solid rgba(124,196,245,0.7);
           background: rgba(124,196,245,0.08);
+          anchor-name: --lit-overlay-target;
         }
         #tooltip {
           position: fixed;
-          top: 0;
-          left: 0;
           display: none;
           pointer-events: auto;
           max-width: min(90vw, 480px);
@@ -151,6 +153,10 @@ class LitSourceOverlay extends HTMLElement {
           color: #e8e8f0;
           font: 12px/1.4 system-ui, sans-serif;
           box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+          position-anchor: --lit-overlay-target;
+          inset-area: block-end span-inline-end;
+          margin: var(--lit-source-overlay-offset);
+          position-try-options: flip-block, flip-inline, flip-block flip-inline;
         }
         #path { word-break: break-all; }
         #copy {
@@ -273,22 +279,11 @@ class LitSourceOverlay extends HTMLElement {
     this.#highlight.style.height = `${rect.height}px`;
   }
 
-  #updateTooltip(x: number, y: number) {
+  #showTooltip() {
     if (this.#info === null) return;
     const label = `${this.#info.source.filePath}:${this.#info.source.lineNumber}`;
     this.#path.textContent = label;
     this.#tooltip.style.display = 'block';
-    const offset = 14;
-    const tooltipRect = this.#tooltip.getBoundingClientRect();
-    let left = x + offset;
-    let top = y + offset;
-    if (left + tooltipRect.width > window.innerWidth - 8) {
-      left = Math.max(8, window.innerWidth - tooltipRect.width - 8);
-    }
-    if (top + tooltipRect.height > window.innerHeight - 8) {
-      top = Math.max(8, y - tooltipRect.height - offset);
-    }
-    this.#tooltip.style.transform = `translate(${left}px, ${top}px)`;
   }
 
   #clearTarget() {
@@ -325,7 +320,6 @@ class LitSourceOverlay extends HTMLElement {
     }
     if (host === this.#targetEl && this.#info !== null) {
       this.#updateHighlightRect();
-      this.#updateTooltip(x, y);
       return;
     }
     this.#targetEl = host;
@@ -344,7 +338,7 @@ class LitSourceOverlay extends HTMLElement {
     }
     this.#info = resolved;
     this.#updateHighlightRect();
-    this.#updateTooltip(x, y);
+    this.#showTooltip();
   }
 
   #onTrackMouse = (event: MouseEvent) => {
@@ -394,7 +388,6 @@ class LitSourceOverlay extends HTMLElement {
       this.#scrollTimer = undefined;
       if (this.#targetEl !== null) {
         this.#updateHighlightRect();
-        this.#updateTooltip(this.#lastMouseX, this.#lastMouseY);
       }
     }, 50);
   };
@@ -402,9 +395,6 @@ class LitSourceOverlay extends HTMLElement {
 
 customElements.define('lit-source-overlay', LitSourceOverlay);
 
-/**
- * Boots the Lit source overlay inspector (dev only).
- */
 export const initSourceOverlay = (
   initOptions: SourceOverlayInitOptions = {}
 ) => {
