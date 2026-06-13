@@ -12,6 +12,8 @@ import utilitySheet from './hmr-utility-sheet.js';
  * Button styled via utility classes from a shared stylesheet — simulates a
  * Tailwind/UnoCSS workflow. All utility consumers update in place when the
  * generated CSS changes (e.g. a new theme color), without re-rendering.
+ *
+ * Approach benefits/problems: see `hmr-utility-sheet` (fetched shared sheet).
  */
 
 @customElement('hmr-utility-btn')

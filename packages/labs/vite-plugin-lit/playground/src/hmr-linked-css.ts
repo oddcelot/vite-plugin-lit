@@ -20,6 +20,12 @@ import cssHref from './hmr-linked-css.css?hmr-url';
  * wrapper module to this component module (self-accepting via the Lit HMR
  * plugin). Re-execution imports a freshly cache-busted href and the
  * component re-renders, making the browser refetch the stylesheet.
+ *
+ * Tradeoffs — per-element delivery. ✅ Real cacheable `.css` asset; standard
+ * `<link>`; no JS to wire. ❌ One `<link>` + `CSSStyleSheet` object per
+ * instance, and every CSS edit re-renders the whole component. For a sheet
+ * shared across many components, prefer a shared adopted sheet (`?css-sheet`)
+ * — see ../../docs/css-delivery.md (benchmarked in bench/).
  */
 
 @customElement('hmr-linked-css')

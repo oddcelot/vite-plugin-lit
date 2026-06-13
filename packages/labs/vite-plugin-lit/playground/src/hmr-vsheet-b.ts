@@ -12,6 +12,8 @@ import sheet from './hmr-vsheet.css?css-sheet';
  * A second adopter of the same `?css-sheet` import. Both modules import the
  * same virtual module, so they share one `CSSStyleSheet` instance — a CSS
  * edit updates both without re-rendering either.
+ *
+ * Approach benefits/problems: see `hmr-vsheet-a` / `hmr-utility-sheet`.
  */
 
 @customElement('hmr-vsheet-b')

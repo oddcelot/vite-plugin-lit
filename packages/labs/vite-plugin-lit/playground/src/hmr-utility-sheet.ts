@@ -24,6 +24,16 @@ import sheetUrl from './hmr-utility-sheet.css?url';
  * The `import.meta.hot.accept` call has to live here with the same literal
  * specifier as the import: Vite resolves accepted HMR deps by static
  * analysis, so the helper can't register it for us.
+ *
+ * Tradeoffs — fetched shared sheet, the recommended shape for a large utility
+ * sheet. ✅ One parsed sheet across every adopter (fewest objects/nodes,
+ * fastest mount), stays an independently cacheable `.css` asset out of the JS
+ * chunks, and hot-swaps in place. ❌ The runtime `fetch()` means a brief FOUC
+ * on first load — in the benchmark that surfaced as a layout shift (CLS).
+ * Mitigate with a `<link rel="preload" as="style">`, or use the inline shared
+ * sheet (`hmr-shared-sheet`) when first-paint stability matters more than an
+ * external asset. `?css-sheet` is the zero-boilerplate form of this (see
+ * `hmr-vsheet-a`) — ../../docs/css-delivery.md (benchmarked in bench/).
  */
 const {sheet, onHotUpdate} = urlSheet(sheetUrl);
 
