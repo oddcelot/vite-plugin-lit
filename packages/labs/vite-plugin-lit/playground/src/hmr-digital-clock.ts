@@ -38,7 +38,7 @@ export class HmrDigitalClock extends SignalWatcher(LitElement) {
   static override styles = css`
     #digital {
       display: block;
-      font-family: ui-monospace, monospace;
+      font-family: var(--font-mono, ui-monospace, monospace);
       font-size: 2rem;
       color: var(--digital-color, var(--fg, #1d3557));
     }

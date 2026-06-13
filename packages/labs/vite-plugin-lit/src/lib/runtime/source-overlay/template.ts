@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import {FONT_MONO_VAR} from '../fonts.js';
 import {CODE_ICON, COPY_ICON} from './icons.js';
 
 // Shadow DOM markup for the overlay: a transparent modal <dialog> hosting the
@@ -48,7 +49,7 @@ export const OVERLAY_HTML = `
       border-radius: var(--lit-devtools-radius, 6px);
       background: rgba(26,26,46,0.92);
       color: #e8e8f0;
-      font: 12px/1.4 system-ui, sans-serif;
+      font: 12px/1.4 ${FONT_MONO_VAR};
       box-shadow: 0 2px 8px rgba(0,0,0,0.25);
       overflow: hidden;
     }
