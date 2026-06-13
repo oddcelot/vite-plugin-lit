@@ -49,9 +49,6 @@ export interface LitPluginOptions {
   updateIndicator?: boolean | {count?: boolean};
 }
 
-/** @deprecated Use `LitPluginOptions` instead. */
-export type LitHmrOptions = LitPluginOptions;
-
 /**
  * Resolves a runtime module to an absolute fs path (served via `/@fs/`), so
  * the plugin works from any served root. Falls back from the built `.js` to
@@ -323,6 +320,3 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
   };
   return [litCssQueries(), litCssLiterals(), hmr];
 };
-
-/** @deprecated Use `litPlugin` instead. */
-export const litHmr = litPlugin;
