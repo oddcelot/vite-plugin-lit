@@ -115,7 +115,10 @@ const createOpenInEditorMiddleware = () => {
             cb: (fileName: string, errorMessage: string | null) => void
           ) => void;
         }) => {
-          const launch = mod.default ?? mod;
+          const launch = (mod.default ?? mod) as (
+            file: string,
+            cb: (fileName: string, errorMessage: string | null) => void
+          ) => void;
           launch(fileRef, (_fileName: string, errorMessage: string | null) => {
             if (errorMessage !== null) {
               res.statusCode = 500;
