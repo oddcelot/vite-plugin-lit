@@ -84,7 +84,9 @@ export const injectSourceMeta = (
     const classStart = matchIndex + classOffset;
     const end = findClassBodyEnd(code, classStart);
     if (end === -1) return;
-    const line = lineNumberAt(code, classStart);
+    // Report the match start (the `@customElement` decorator) rather than the
+    // `class` keyword, so the overlay points at the top of the component.
+    const line = lineNumberAt(code, matchIndex);
     ms.append('\n' + makeAssignment(className, filePath, line));
     injected.add(className);
     changed = true;

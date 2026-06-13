@@ -287,7 +287,10 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
   const sourceOverlayPlugin: Plugin = {
     name: 'lit-source-overlay',
     apply: 'serve',
-    enforce: 'post',
+    // Run before Vite's esbuild TS transform so source-meta line numbers are
+    // measured against the author's raw source (and the `@customElement … class`
+    // forms are still intact), not against transpiled output.
+    enforce: 'pre',
     resolveId(id) {
       if (id === '@lit-labs/vite-plugin-lit/source-overlay.js') {
         return resolveRuntimeModule('source-overlay');
