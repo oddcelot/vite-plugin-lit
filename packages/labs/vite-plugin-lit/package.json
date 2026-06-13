@@ -41,7 +41,9 @@
     "dev": "wireit",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "wireit",
-    "test:e2e": "wireit"
+    "test:e2e": "wireit",
+    "bench": "node bench/run.mjs",
+    "bench:serve": "node bench/run.mjs --serve"
   },
   "wireit": {
     "build": {

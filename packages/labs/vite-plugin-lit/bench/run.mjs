@@ -15,9 +15,11 @@
  *
  * Usage:
  *   node bench/run.mjs                      # defaults
- *   node bench/run.mjs --n 50,200,500 --classes 300 --variants link,style,adopted
+ *   node bench/run.mjs --n 50,200,500 --classes 300 --variants link,style,adopted,inline
  *   BENCH_HEADED=1 node bench/run.mjs       # watch the browser
  *   BENCH_CHROME=/path/to/chrome node bench/run.mjs
+ *   node bench/run.mjs --serve --port 5180  # just serve the harness (for the
+ *                                           # Chrome DevTools MCP), stay alive
  *
  * Requires a Chrome/Chromium (uses the `chrome` channel by default; override
  * with BENCH_CHROME, e.g. after `npx playwright install chromium`).
@@ -34,17 +36,24 @@ const RESULTS_DIR = path.join(BENCH_DIR, 'results');
 
 const parseArgs = () => {
   const out = {
-    variants: ['link', 'style', 'adopted'],
+    variants: ['link', 'style', 'adopted', 'inline'],
     n: [50, 200, 500],
     classes: 300,
+    serve: false,
+    port: 5180,
   };
   const argv = process.argv.slice(2);
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
+    if (flag === '--serve') {
+      out.serve = true;
+      continue;
+    }
     const val = argv[++i];
     if (flag === '--variants') out.variants = val.split(',');
     else if (flag === '--n') out.n = val.split(',').map(Number);
     else if (flag === '--classes') out.classes = Number(val);
+    else if (flag === '--port') out.port = Number(val);
   }
   return out;
 };
@@ -62,7 +71,7 @@ const genCss = (groups) => {
   return css;
 };
 
-const startServer = async () => {
+const startServer = async (listenPort = 0) => {
   const html = await readFile(path.join(BENCH_DIR, 'index.html'));
   const harness = await readFile(path.join(BENCH_DIR, 'harness.js'));
   const server = createServer((req, res) => {
@@ -79,7 +88,7 @@ const startServer = async () => {
       res.end(html);
     }
   });
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  await new Promise((r) => server.listen(listenPort, '127.0.0.1', r));
   const {port} = server.address();
   return {server, origin: `http://127.0.0.1:${port}`};
 };
@@ -136,7 +145,17 @@ const runOne = async (browser, origin, variant, n, classes) => {
 };
 
 const main = async () => {
-  const {variants, n: counts, classes} = parseArgs();
+  const {variants, n: counts, classes, serve, port} = parseArgs();
+
+  if (serve) {
+    const {origin} = await startServer(port);
+    const ex = `${origin}/?variant=adopted&n=500&classes=600`;
+    console.log(`bench harness serving at ${origin}`);
+    console.log(`example: ${ex}`);
+    console.log('variants: link | style | adopted | inline   (Ctrl-C to stop)');
+    return; // stay alive; do not launch a browser
+  }
+
   await mkdir(RESULTS_DIR, {recursive: true});
   const {server, origin} = await startServer();
 
@@ -153,7 +172,7 @@ const main = async () => {
       const row = await runOne(browser, origin, variant, n, classes);
       rows.push(row);
       console.log(
-        `${row.distinctSheets} sheets, recalc ${row.recalcStyleMs}ms, parse ${row.parseCssMs}ms`
+        `${row.distinctSheets} sheets, recalc ${row.recalcStyleMs}ms, parse ${row.parseCssMs}ms, fouc ${row.foucMs}ms`
       );
     }
   }
@@ -177,7 +196,8 @@ const main = async () => {
       'recalc(ms)': r.recalcStyleMs,
       'layout(ms)': r.layoutMs,
       'mount(ms)': r.mountMs,
-      'fcp(ms)': r.fcpMs,
+      'fouc(ms)': r.foucMs,
+      'cssKB': Math.round(r.cssBytes / 102.4) / 10,
       'heap(MB)': r.heapBytes ? Math.round(r.heapBytes / 1e5) / 10 : null,
     }))
   );
