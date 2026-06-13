@@ -64,6 +64,9 @@ export const OVERLAY_HTML = `
       cursor: pointer;
     }
     .icon-btn:hover { background: rgba(255,255,255,0.1); }
+    /* No outline ring; keyboard focus reuses the subtle hover tint. */
+    .icon-btn:focus { outline: none; }
+    .icon-btn:focus-visible { background: rgba(255,255,255,0.1); }
     .icon-btn svg {
       width: 16px;
       height: 16px;
@@ -96,13 +99,12 @@ export const OVERLAY_HTML = `
     <div id="mask"></div>
     <div id="highlight"></div>
     <div id="tooltip">
-      <button
+      <span
         id="open"
         class="icon-btn"
-        type="button"
         title="Open in editor"
         aria-label="Open in editor"
-      >${CODE_ICON}</button>
+      >${CODE_ICON}</span>
       <div id="meta">
         <span id="tag"></span>
         <span id="path"></span>
