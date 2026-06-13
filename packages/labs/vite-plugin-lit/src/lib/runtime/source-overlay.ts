@@ -89,7 +89,7 @@ const deepElementFromPoint = (
 ): Element | null => {
   if (dialog !== null) dialog.close();
   let el = document.elementFromPoint(x, y);
-  while (el?.shadowRoot !== undefined && el.shadowRoot !== null) {
+  while (el?.shadowRoot !== undefined && el?.shadowRoot !== null) {
     const deeper = el.shadowRoot.elementFromPoint(x, y);
     if (deeper === null || deeper === el) break;
     el = deeper;
@@ -104,14 +104,11 @@ class LitSourceOverlay extends HTMLElement {
   #editor: EditorConfig = BUILTIN_EDITORS.vscode;
   #resolver = defaultResolver;
   #dialog: HTMLDialogElement;
-  #highlight: HTMLElement;
   #tooltip: HTMLElement;
   #path: HTMLElement;
   #info: ElementInfo | null = null;
   #targetEl: Element | null = null;
   #throttleTimer: ReturnType<typeof setTimeout> | undefined;
-  #scrollTimer: ReturnType<typeof setTimeout> | undefined;
-  #resizeObserver: ResizeObserver | undefined;
   #lastMouseX = 0;
   #lastMouseY = 0;
 
@@ -120,9 +117,6 @@ class LitSourceOverlay extends HTMLElement {
     const root = this.attachShadow({mode: 'closed'});
     root.innerHTML = `
       <style>
-        :host {
-          --lit-devtools-source-overlay-offset: 8px;
-        }
         dialog {
           background: transparent;
           border: none;
@@ -132,18 +126,11 @@ class LitSourceOverlay extends HTMLElement {
           max-height: none;
           pointer-events: none;
         }
-        #highlight {
-          position: fixed;
-          top: 0;
-          left: 0;
-          pointer-events: none;
-          box-sizing: border-box;
-          border: 2px solid rgba(124,196,245,0.7);
-          background: rgba(124,196,245,0.08);
-          anchor-name: --lit-overlay-target;
-        }
         #tooltip {
           position: fixed;
+          bottom: 16px;
+          left: 50%;
+          translate: -50%;
           display: none;
           pointer-events: auto;
           max-width: min(90vw, 480px);
@@ -153,10 +140,6 @@ class LitSourceOverlay extends HTMLElement {
           color: #e8e8f0;
           font: 12px/1.4 system-ui, sans-serif;
           box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-          position-anchor: --lit-overlay-target;
-          inset-area: block-end span-inline-end;
-          margin: var(--lit-devtools-source-overlay-offset);
-          position-try-options: flip-block, flip-inline, flip-block flip-inline;
         }
         #path { word-break: break-all; }
         #copy {
@@ -171,7 +154,6 @@ class LitSourceOverlay extends HTMLElement {
         }
       </style>
       <dialog id="overlay">
-        <div id="highlight"></div>
         <div id="tooltip">
           <span id="path"></span>
           <button id="copy">Copy</button>
@@ -179,7 +161,6 @@ class LitSourceOverlay extends HTMLElement {
       </dialog>
     `;
     this.#dialog = root.getElementById('overlay') as HTMLDialogElement;
-    this.#highlight = root.getElementById('highlight')!;
     this.#tooltip = root.getElementById('tooltip')!;
     this.#path = root.getElementById('path')!;
     root.getElementById('copy')!.addEventListener('click', (e) => {
@@ -220,8 +201,6 @@ class LitSourceOverlay extends HTMLElement {
     this.#dialog.showModal();
     document.addEventListener('mousemove', this.#onMouseMove, true);
     document.addEventListener('click', this.#onClick, true);
-    window.addEventListener('scroll', this.#onScrollOrResize, {passive: true});
-    window.addEventListener('resize', this.#onScrollOrResize, {passive: true});
     this.#resolveAt(this.#lastMouseX, this.#lastMouseY);
   }
 
@@ -231,17 +210,11 @@ class LitSourceOverlay extends HTMLElement {
     this.#dialog.close();
     document.removeEventListener('mousemove', this.#onMouseMove, true);
     document.removeEventListener('click', this.#onClick, true);
-    window.removeEventListener('scroll', this.#onScrollOrResize);
-    window.removeEventListener('resize', this.#onScrollOrResize);
     if (this.#throttleTimer !== undefined) {
       clearTimeout(this.#throttleTimer);
       this.#throttleTimer = undefined;
     }
-    if (this.#scrollTimer !== undefined) {
-      clearTimeout(this.#scrollTimer);
-      this.#scrollTimer = undefined;
-    }
-    this.#clearTarget();
+    this.#hideTooltip();
   }
 
   toggle() {
@@ -271,15 +244,6 @@ class LitSourceOverlay extends HTMLElement {
     window.open(this.#editor.url(path, lineNumber), '_self');
   }
 
-  #updateHighlightRect() {
-    if (this.#targetEl === null) return;
-    const rect = this.#targetEl.getBoundingClientRect();
-    this.#highlight.style.left = `${rect.left}px`;
-    this.#highlight.style.top = `${rect.top}px`;
-    this.#highlight.style.width = `${rect.width}px`;
-    this.#highlight.style.height = `${rect.height}px`;
-  }
-
   #showTooltip() {
     if (this.#info === null) return;
     const label = `${this.#info.source.filePath}:${this.#info.source.lineNumber}`;
@@ -287,18 +251,10 @@ class LitSourceOverlay extends HTMLElement {
     this.#tooltip.style.display = 'block';
   }
 
-  #clearTarget() {
+  #hideTooltip() {
     this.#targetEl = null;
     this.#info = null;
-    this.#highlight.style.left = '0';
-    this.#highlight.style.top = '0';
-    this.#highlight.style.width = '0';
-    this.#highlight.style.height = '0';
     this.#tooltip.style.display = 'none';
-    if (this.#resizeObserver !== undefined) {
-      this.#resizeObserver.disconnect();
-      this.#resizeObserver = undefined;
-    }
   }
 
   #shouldSkip(el: Element): boolean {
@@ -313,34 +269,22 @@ class LitSourceOverlay extends HTMLElement {
     this.#lastMouseY = y;
     const el = deepElementFromPoint(x, y, this.#dialog);
     if (el === null || this.#shouldSkip(el)) {
-      this.#clearTarget();
+      this.#hideTooltip();
       return;
     }
     const host = findSourceHost(el);
     if (host === null) {
-      this.#clearTarget();
+      this.#hideTooltip();
       return;
     }
-    if (host === this.#targetEl && this.#info !== null) {
-      this.#updateHighlightRect();
-      return;
-    }
+    if (host === this.#targetEl && this.#info !== null) return;
     this.#targetEl = host;
-    if (this.#resizeObserver === undefined) {
-      this.#resizeObserver = new ResizeObserver(() =>
-        this.#updateHighlightRect()
-      );
-    } else {
-      this.#resizeObserver.disconnect();
-    }
-    this.#resizeObserver.observe(host);
     const resolved = await this.#resolver.resolveElementInfo(el);
     if (resolved === null) {
-      this.#clearTarget();
+      this.#hideTooltip();
       return;
     }
     this.#info = resolved;
-    this.#updateHighlightRect();
     this.#showTooltip();
   }
 
@@ -383,16 +327,6 @@ class LitSourceOverlay extends HTMLElement {
     const selected = this.#info;
     this.#options.onSelect?.(selected);
     this.#openInEditor(selected.source.filePath, selected.source.lineNumber);
-  };
-
-  #onScrollOrResize = () => {
-    if (this.#scrollTimer !== undefined) clearTimeout(this.#scrollTimer);
-    this.#scrollTimer = setTimeout(() => {
-      this.#scrollTimer = undefined;
-      if (this.#targetEl !== null) {
-        this.#updateHighlightRect();
-      }
-    }, 50);
   };
 }
 
