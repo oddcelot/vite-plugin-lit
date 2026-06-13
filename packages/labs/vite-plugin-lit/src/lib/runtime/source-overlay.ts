@@ -82,285 +82,325 @@ const findSourceHost = (el: Element): Element | null => {
   return null;
 };
 
-const deepElementFromPoint = (x: number, y: number): Element | null => {
-  if (dialogEl !== null) {
-    dialogEl.close();
-  }
+const deepElementFromPoint = (
+  x: number,
+  y: number,
+  dialog: HTMLDialogElement | null = null
+): Element | null => {
+  if (dialog !== null) dialog.close();
   let el = document.elementFromPoint(x, y);
   while (el?.shadowRoot !== undefined && el.shadowRoot !== null) {
     const deeper = el.shadowRoot.elementFromPoint(x, y);
     if (deeper === null || deeper === el) break;
     el = deeper;
   }
-  if (dialogEl !== null && !dialogEl.open) {
-    dialogEl.showModal();
-  }
+  if (dialog !== null && !dialog.open) dialog.showModal();
   return el;
 };
 
-let overlayRoot: HTMLElement | null = null;
-let highlightEl: HTMLElement | null = null;
-let tooltipEl: HTMLElement | null = null;
-let dialogEl: HTMLDialogElement | null = null;
-let active = false;
-let info: ElementInfo | null = null;
-let targetEl: Element | null = null;
-let throttleTimer: ReturnType<typeof setTimeout> | undefined;
-let resizeObserver: ResizeObserver | undefined;
-let lastMouseX = 0;
-let lastMouseY = 0;
-let options: SourceOverlayInitOptions = {};
-let resolver = defaultResolver;
-let editor: EditorConfig = BUILTIN_EDITORS.vscode;
+class LitSourceOverlay extends HTMLElement {
+  #active = false;
+  #options: SourceOverlayInitOptions = {};
+  #editor: EditorConfig = BUILTIN_EDITORS.vscode;
+  #resolver = defaultResolver;
+  #dialog: HTMLDialogElement;
+  #highlight: HTMLElement;
+  #tooltip: HTMLElement;
+  #path: HTMLElement;
+  #info: ElementInfo | null = null;
+  #targetEl: Element | null = null;
+  #throttleTimer: ReturnType<typeof setTimeout> | undefined;
+  #scrollTimer: ReturnType<typeof setTimeout> | undefined;
+  #resizeObserver: ResizeObserver | undefined;
+  #lastMouseX = 0;
+  #lastMouseY = 0;
 
-const normalizePath = (filePath: string): string => {
-  const root = options.workspaceRoot;
-  if (root !== undefined && filePath.startsWith(root)) {
+  constructor() {
+    super();
+    const root = this.attachShadow({mode: 'closed'});
+    root.innerHTML = `
+      <style>
+        dialog {
+          background: transparent;
+          border: none;
+          padding: 0;
+          margin: 0;
+          max-width: none;
+          max-height: none;
+          pointer-events: none;
+        }
+        #highlight {
+          position: fixed;
+          top: 0;
+          left: 0;
+          pointer-events: none;
+          box-sizing: border-box;
+          border: 2px solid rgba(124,196,245,0.7);
+          background: rgba(124,196,245,0.08);
+        }
+        #tooltip {
+          position: fixed;
+          top: 0;
+          left: 0;
+          display: none;
+          pointer-events: auto;
+          max-width: min(90vw, 480px);
+          padding: 6px 8px;
+          border-radius: 6px;
+          background: rgba(26,26,46,0.92);
+          color: #e8e8f0;
+          font: 12px/1.4 system-ui, sans-serif;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        }
+        #path { word-break: break-all; }
+        #copy {
+          margin-left: 8px;
+          padding: 2px 6px;
+          border: 1px solid rgba(255,255,255,0.25);
+          border-radius: 4px;
+          background: transparent;
+          color: inherit;
+          cursor: pointer;
+          font: inherit;
+        }
+      </style>
+      <dialog id="overlay">
+        <div id="highlight"></div>
+        <div id="tooltip">
+          <span id="path"></span>
+          <button id="copy">Copy</button>
+        </div>
+      </dialog>
+    `;
+    this.#dialog = root.getElementById('overlay') as HTMLDialogElement;
+    this.#highlight = root.getElementById('highlight')!;
+    this.#tooltip = root.getElementById('tooltip')!;
+    this.#path = root.getElementById('path')!;
+    root.getElementById('copy')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.#info === null) return;
+      const text = `${this.#info.source.filePath}:${this.#info.source.lineNumber}`;
+      navigator.clipboard?.writeText(text);
+    });
+    this.#dialog.addEventListener('cancel', (e) => e.preventDefault());
+  }
+
+  connectedCallback() {
+    document.addEventListener('mousemove', this.#onTrackMouse, true);
+    document.addEventListener('keydown', this.#onKeyDown, true);
+    (
+      import.meta as {hot?: {on: (event: string, cb: () => void) => void}}
+    ).hot?.on('vite:beforeFullReload', () => this.deactivate());
+  }
+
+  disconnectedCallback() {
+    document.removeEventListener('mousemove', this.#onTrackMouse, true);
+    document.removeEventListener('keydown', this.#onKeyDown, true);
+    this.deactivate();
+  }
+
+  configure(options: SourceOverlayInitOptions) {
+    this.#options = options;
+    const editorOpt = options.editor ?? 'vscode';
+    this.#editor =
+      typeof editorOpt === 'string'
+        ? (BUILTIN_EDITORS[editorOpt] ?? BUILTIN_EDITORS.vscode)
+        : editorOpt;
+  }
+
+  activate() {
+    if (this.#active) return;
+    this.#active = true;
+    this.#dialog.showModal();
+    document.addEventListener('mousemove', this.#onMouseMove, true);
+    document.addEventListener('click', this.#onClick, true);
+    window.addEventListener('scroll', this.#onScrollOrResize, {passive: true});
+    window.addEventListener('resize', this.#onScrollOrResize, {passive: true});
+    this.#resolveAt(this.#lastMouseX, this.#lastMouseY);
+  }
+
+  deactivate() {
+    if (!this.#active) return;
+    this.#active = false;
+    this.#dialog.close();
+    document.removeEventListener('mousemove', this.#onMouseMove, true);
+    document.removeEventListener('click', this.#onClick, true);
+    window.removeEventListener('scroll', this.#onScrollOrResize);
+    window.removeEventListener('resize', this.#onScrollOrResize);
+    if (this.#throttleTimer !== undefined) {
+      clearTimeout(this.#throttleTimer);
+      this.#throttleTimer = undefined;
+    }
+    if (this.#scrollTimer !== undefined) {
+      clearTimeout(this.#scrollTimer);
+      this.#scrollTimer = undefined;
+    }
+    this.#clearTarget();
+  }
+
+  toggle() {
+    if (this.#active) this.deactivate();
+    else this.activate();
+  }
+
+  #normalizePath(filePath: string): string {
+    const root = this.#options.workspaceRoot;
+    if (root !== undefined && filePath.startsWith(root)) return filePath;
     return filePath;
   }
-  return filePath;
-};
 
-const openInEditor = async (filePath: string, lineNumber: number) => {
-  const path = normalizePath(filePath);
-  const endpoint = options.openInEditorPath ?? '/__lit-open-in-editor';
-  try {
-    const params = new URLSearchParams({file: path, line: String(lineNumber)});
-    const res = await fetch(`${endpoint}?${params.toString()}`);
-    if (res.ok) return;
-  } catch {
-    // Fall back to editor URL schemes (e.g. StackBlitz previews).
-  }
-  window.open(editor.url(path, lineNumber), '_self');
-};
-
-const updateHighlightRect = () => {
-  if (highlightEl === null || targetEl === null) return;
-  const rect = targetEl.getBoundingClientRect();
-  highlightEl.style.transform = `translate(${rect.left}px, ${rect.top}px)`;
-  highlightEl.style.width = `${rect.width}px`;
-  highlightEl.style.height = `${rect.height}px`;
-};
-
-const updateTooltip = (x: number, y: number) => {
-  if (tooltipEl === null || info === null) return;
-  const label = `${info.source.filePath}:${info.source.lineNumber}`;
-  const textEl = tooltipEl.querySelector('.lit-source-overlay-path');
-  if (textEl !== null) {
-    textEl.textContent = label;
-  }
-  tooltipEl.style.display = 'block';
-  const offset = 14;
-  const tooltipRect = tooltipEl.getBoundingClientRect();
-  let left = x + offset;
-  let top = y + offset;
-  if (left + tooltipRect.width > window.innerWidth - 8) {
-    left = Math.max(8, window.innerWidth - tooltipRect.width - 8);
-  }
-  if (top + tooltipRect.height > window.innerHeight - 8) {
-    top = Math.max(8, y - tooltipRect.height - offset);
-  }
-  tooltipEl.style.transform = `translate(${left}px, ${top}px)`;
-};
-
-const clearTarget = () => {
-  targetEl = null;
-  info = null;
-  if (highlightEl !== null) {
-    highlightEl.style.width = '0';
-    highlightEl.style.height = '0';
-  }
-  if (tooltipEl !== null) {
-    tooltipEl.style.display = 'none';
-  }
-  if (resizeObserver !== undefined) {
-    resizeObserver.disconnect();
-    resizeObserver = undefined;
-  }
-};
-
-const shouldSkip = (el: Element): boolean => {
-  if (
-    overlayRoot !== null &&
-    (el === overlayRoot || overlayRoot.contains(el))
-  ) {
-    return true;
-  }
-  if (el.tagName === 'IFRAME') return true;
-  const exclude = options.exclude;
-  return exclude !== undefined && exclude(el);
-};
-
-const resolveAt = async (x: number, y: number) => {
-  lastMouseX = x;
-  lastMouseY = y;
-  const el = deepElementFromPoint(x, y);
-  if (el === null || shouldSkip(el)) {
-    clearTarget();
-    return;
-  }
-  const host = findSourceHost(el);
-  if (host === null) {
-    clearTarget();
-    return;
-  }
-  if (host === targetEl && info !== null) {
-    updateHighlightRect();
-    updateTooltip(x, y);
-    return;
-  }
-  targetEl = host;
-  if (resizeObserver === undefined) {
-    resizeObserver = new ResizeObserver(() => updateHighlightRect());
-  } else {
-    resizeObserver.disconnect();
-  }
-  resizeObserver.observe(host);
-  const resolved = await resolver.resolveElementInfo(el);
-  if (resolved === null) {
-    clearTarget();
-    return;
-  }
-  info = resolved;
-  updateHighlightRect();
-  updateTooltip(x, y);
-};
-
-const onMouseMove = (event: MouseEvent) => {
-  if (!active) return;
-  const throttleMs = options.throttleMs ?? 50;
-  if (throttleTimer !== undefined) return;
-  throttleTimer = setTimeout(() => {
-    throttleTimer = undefined;
-    resolveAt(event.clientX, event.clientY);
-  }, throttleMs);
-};
-
-const onClick = (event: MouseEvent) => {
-  if (!active || info === null) return;
-  event.preventDefault();
-  event.stopPropagation();
-  const selected = info;
-  options.onSelect?.(selected);
-  openInEditor(selected.source.filePath, selected.source.lineNumber);
-};
-
-let scrollTimer: ReturnType<typeof setTimeout> | undefined;
-
-const onScrollOrResize = () => {
-  if (scrollTimer !== undefined) clearTimeout(scrollTimer);
-  scrollTimer = setTimeout(() => {
-    scrollTimer = undefined;
-    if (targetEl !== null) {
-      updateHighlightRect();
-      updateTooltip(lastMouseX, lastMouseY);
+  async #openInEditor(filePath: string, lineNumber: number) {
+    const path = this.#normalizePath(filePath);
+    const endpoint = this.#options.openInEditorPath ?? '/__lit-open-in-editor';
+    try {
+      const params = new URLSearchParams({
+        file: path,
+        line: String(lineNumber),
+      });
+      const res = await fetch(`${endpoint}?${params.toString()}`);
+      if (res.ok) return;
+    } catch {
+      // Fall back to editor URL schemes (e.g. StackBlitz previews).
     }
-  }, 50);
-};
+    window.open(this.#editor.url(path, lineNumber), '_self');
+  }
 
-const onKeyDown = (event: KeyboardEvent) => {
-  const key = options.key ?? 's';
-  if (
-    event.ctrlKey &&
-    event.shiftKey &&
-    !event.altKey &&
-    event.key.toLowerCase() === key.toLowerCase()
-  ) {
-    event.preventDefault();
-    if (active) {
-      deactivate();
+  #updateHighlightRect() {
+    if (this.#targetEl === null) return;
+    const rect = this.#targetEl.getBoundingClientRect();
+    this.#highlight.style.transform = `translate(${rect.left}px, ${rect.top}px)`;
+    this.#highlight.style.width = `${rect.width}px`;
+    this.#highlight.style.height = `${rect.height}px`;
+  }
+
+  #updateTooltip(x: number, y: number) {
+    if (this.#info === null) return;
+    const label = `${this.#info.source.filePath}:${this.#info.source.lineNumber}`;
+    this.#path.textContent = label;
+    this.#tooltip.style.display = 'block';
+    const offset = 14;
+    const tooltipRect = this.#tooltip.getBoundingClientRect();
+    let left = x + offset;
+    let top = y + offset;
+    if (left + tooltipRect.width > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - tooltipRect.width - 8);
+    }
+    if (top + tooltipRect.height > window.innerHeight - 8) {
+      top = Math.max(8, y - tooltipRect.height - offset);
+    }
+    this.#tooltip.style.transform = `translate(${left}px, ${top}px)`;
+  }
+
+  #clearTarget() {
+    this.#targetEl = null;
+    this.#info = null;
+    this.#highlight.style.width = '0';
+    this.#highlight.style.height = '0';
+    this.#tooltip.style.display = 'none';
+    if (this.#resizeObserver !== undefined) {
+      this.#resizeObserver.disconnect();
+      this.#resizeObserver = undefined;
+    }
+  }
+
+  #shouldSkip(el: Element): boolean {
+    if (el === this.#dialog || this.#dialog.contains(el)) return true;
+    if (el.tagName === 'IFRAME') return true;
+    const exclude = this.#options.exclude;
+    return exclude !== undefined && exclude(el);
+  }
+
+  async #resolveAt(x: number, y: number) {
+    this.#lastMouseX = x;
+    this.#lastMouseY = y;
+    const el = deepElementFromPoint(x, y, this.#dialog);
+    if (el === null || this.#shouldSkip(el)) {
+      this.#clearTarget();
+      return;
+    }
+    const host = findSourceHost(el);
+    if (host === null) {
+      this.#clearTarget();
+      return;
+    }
+    if (host === this.#targetEl && this.#info !== null) {
+      this.#updateHighlightRect();
+      this.#updateTooltip(x, y);
+      return;
+    }
+    this.#targetEl = host;
+    if (this.#resizeObserver === undefined) {
+      this.#resizeObserver = new ResizeObserver(() =>
+        this.#updateHighlightRect()
+      );
     } else {
-      activate();
+      this.#resizeObserver.disconnect();
     }
+    this.#resizeObserver.observe(host);
+    const resolved = await this.#resolver.resolveElementInfo(el);
+    if (resolved === null) {
+      this.#clearTarget();
+      return;
+    }
+    this.#info = resolved;
+    this.#updateHighlightRect();
+    this.#updateTooltip(x, y);
   }
-  if (active && event.key === 'Escape') {
+
+  #onTrackMouse = (event: MouseEvent) => {
+    this.#lastMouseX = event.clientX;
+    this.#lastMouseY = event.clientY;
+  };
+
+  #onKeyDown = (event: KeyboardEvent) => {
+    const key = this.#options.key ?? 's';
+    if (
+      event.ctrlKey &&
+      event.shiftKey &&
+      !event.altKey &&
+      event.key.toLowerCase() === key.toLowerCase()
+    ) {
+      event.preventDefault();
+      this.toggle();
+    }
+    if (this.#active && event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
+
+  #onMouseMove = (event: MouseEvent) => {
+    if (!this.#active) return;
+    const throttleMs = this.#options.throttleMs ?? 50;
+    if (this.#throttleTimer !== undefined) return;
+    this.#throttleTimer = setTimeout(() => {
+      this.#throttleTimer = undefined;
+      this.#resolveAt(event.clientX, event.clientY);
+    }, throttleMs);
+  };
+
+  #onClick = (event: MouseEvent) => {
+    if (!this.#active || this.#info === null) return;
     event.preventDefault();
     event.stopPropagation();
-  }
-};
+    const selected = this.#info;
+    this.#options.onSelect?.(selected);
+    this.#openInEditor(selected.source.filePath, selected.source.lineNumber);
+  };
 
-const ensureOverlayDom = () => {
-  if (dialogEl !== null) return;
-  dialogEl = document.createElement('dialog');
-  dialogEl.id = 'lit-source-overlay-dialog';
-  dialogEl.style.cssText =
-    'background:transparent;border:none;padding:0;margin:0;max-width:none;max-height:none;pointer-events:none;';
-  overlayRoot = dialogEl;
+  #onScrollOrResize = () => {
+    if (this.#scrollTimer !== undefined) clearTimeout(this.#scrollTimer);
+    this.#scrollTimer = setTimeout(() => {
+      this.#scrollTimer = undefined;
+      if (this.#targetEl !== null) {
+        this.#updateHighlightRect();
+        this.#updateTooltip(this.#lastMouseX, this.#lastMouseY);
+      }
+    }, 50);
+  };
+}
 
-  highlightEl = document.createElement('div');
-  highlightEl.className = 'lit-source-overlay-highlight';
-  highlightEl.style.cssText =
-    'position:fixed;top:0;left:0;pointer-events:none;box-sizing:border-box;border:2px solid rgba(124,196,245,0.7);background:rgba(124,196,245,0.08);z-index:1;';
-
-  tooltipEl = document.createElement('div');
-  tooltipEl.className = 'lit-source-overlay-tooltip';
-  tooltipEl.style.cssText =
-    'position:fixed;top:0;left:0;display:none;pointer-events:auto;z-index:2;max-width:min(90vw,480px);padding:6px 8px;border-radius:6px;background:rgba(26,26,46,0.92);color:#e8e8f0;font:12px/1.4 system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.25);';
-
-  const pathSpan = document.createElement('span');
-  pathSpan.className = 'lit-source-overlay-path';
-  pathSpan.style.cssText = 'word-break:break-all;';
-  tooltipEl.append(pathSpan);
-
-  const copyBtn = document.createElement('button');
-  copyBtn.type = 'button';
-  copyBtn.textContent = 'Copy';
-  copyBtn.title = 'Copy file path';
-  copyBtn.style.cssText =
-    'margin-left:8px;padding:2px 6px;border:1px solid rgba(255,255,255,0.25);border-radius:4px;background:transparent;color:inherit;cursor:pointer;font:inherit;';
-  copyBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (info === null) return;
-    const text = `${info.source.filePath}:${info.source.lineNumber}`;
-    navigator.clipboard?.writeText(text);
-  });
-  tooltipEl.append(copyBtn);
-
-  dialogEl.append(highlightEl, tooltipEl);
-  document.body.append(dialogEl);
-  dialogEl.addEventListener('cancel', (e) => e.preventDefault());
-  dialogEl.showModal();
-};
-
-const activate = () => {
-  if (active) return;
-  active = true;
-  ensureOverlayDom();
-  document.addEventListener('mousemove', onMouseMove, true);
-  document.addEventListener('click', onClick, true);
-  window.addEventListener('scroll', onScrollOrResize, {passive: true});
-  window.addEventListener('resize', onScrollOrResize, {passive: true});
-  resolveAt(lastMouseX, lastMouseY);
-};
-
-const deactivate = () => {
-  if (!active) return;
-  active = false;
-  document.removeEventListener('mousemove', onMouseMove, true);
-  document.removeEventListener('click', onClick, true);
-  window.removeEventListener('scroll', onScrollOrResize);
-  window.removeEventListener('resize', onScrollOrResize);
-  if (throttleTimer !== undefined) {
-    clearTimeout(throttleTimer);
-    throttleTimer = undefined;
-  }
-  if (scrollTimer !== undefined) {
-    clearTimeout(scrollTimer);
-    scrollTimer = undefined;
-  }
-  clearTarget();
-};
-
-const destroyOverlayDom = () => {
-  if (dialogEl !== null) {
-    dialogEl.close();
-    dialogEl.remove();
-    dialogEl = null;
-  }
-  overlayRoot = null;
-  highlightEl = null;
-  tooltipEl = null;
-};
+customElements.define('lit-source-overlay', LitSourceOverlay);
 
 /**
  * Boots the Lit source overlay inspector (dev only).
@@ -368,36 +408,15 @@ const destroyOverlayDom = () => {
 export const initSourceOverlay = (
   initOptions: SourceOverlayInitOptions = {}
 ) => {
-  options = initOptions;
-  resolver = defaultResolver;
-  const editorOpt = initOptions.editor ?? 'vscode';
-  editor =
-    typeof editorOpt === 'string'
-      ? (BUILTIN_EDITORS[editorOpt] ?? BUILTIN_EDITORS.vscode)
-      : editorOpt;
-  document.addEventListener('keydown', onKeyDown, true);
-  document.addEventListener(
-    'mousemove',
-    (e) => {
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
-    },
-    true
-  );
-  if (typeof window !== 'undefined') {
-    (
-      import.meta as {hot?: {on: (event: string, cb: () => void) => void}}
-    ).hot?.on('vite:beforeFullReload', () => {
-      deactivate();
-      destroyOverlayDom();
-    });
-  }
+  if (typeof window === 'undefined') return;
+  const el = document.createElement('lit-source-overlay') as LitSourceOverlay;
+  el.configure(initOptions);
+  document.body.append(el);
 };
 
 export const toggleSourceOverlay = () => {
-  if (active) {
-    deactivate();
-  } else {
-    activate();
-  }
+  const el = document.querySelector(
+    'lit-source-overlay'
+  ) as LitSourceOverlay | null;
+  el?.toggle();
 };
