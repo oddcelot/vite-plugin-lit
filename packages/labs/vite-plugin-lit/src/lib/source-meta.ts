@@ -118,10 +118,11 @@ export const injectSourceMeta = (
     changed = true;
   }
 
-  // TypeScript experimental-decorators output
-  // e.g. `Foo = _decorate([customElement(...)], Foo)`
+  // TypeScript experimental-decorators / esbuild output
+  // e.g. `Foo = __decorateClass([customElement(...)], Foo)`
+  //       `Foo = _decorate([customElement(...)], Foo)`
   for (const m of code.matchAll(
-    /(\w+)\s*=\s*_decorate\(\[customElement\s*\([^)]*\)\],\s*\1\)/g
+    /(\w+)\s*=\s*__decorate\w*\(\s*\[[\s\S]*?customElement\s*\([^)]*\)[\s\S]*?\],\s*\1\)/g
   )) {
     const className = m[1];
     if (injected.has(className)) continue;

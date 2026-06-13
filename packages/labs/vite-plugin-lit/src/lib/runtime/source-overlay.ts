@@ -83,11 +83,17 @@ const findSourceHost = (el: Element): Element | null => {
 };
 
 const deepElementFromPoint = (x: number, y: number): Element | null => {
+  if (dialogEl !== null) {
+    dialogEl.close();
+  }
   let el = document.elementFromPoint(x, y);
   while (el?.shadowRoot !== undefined && el.shadowRoot !== null) {
     const deeper = el.shadowRoot.elementFromPoint(x, y);
     if (deeper === null || deeper === el) break;
     el = deeper;
+  }
+  if (dialogEl !== null && !dialogEl.open) {
+    dialogEl.showModal();
   }
   return el;
 };
