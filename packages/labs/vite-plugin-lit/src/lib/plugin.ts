@@ -143,15 +143,30 @@ const createOpenInEditorMiddleware = () => {
  */
 const CSS_URL_QUERY_RE = /^([^?]+\.css)\?(?:[^&]*&)*hmr-url(?:&.*)?$/;
 const CSS_URL_VIRTUAL_PREFIX = '\0lit-plugin:hmr-url:';
+
+/**
+ * `import sheet from './x.css?css-sheet'` — a constructed, shareable
+ * `CSSStyleSheet` backed by the `.css` asset that hot-swaps in place. Adopt it
+ * from any number of components (`static styles = [sheet]`); a source edit
+ * re-fetches and `replaceSync()`s it, updating every shadow root that adopted
+ * it without re-rendering a component or reloading the page.
+ *
+ * This is the `urlSheet()` helper plus its irreducible HMR wiring, lifted into
+ * a plugin-generated module: the `import.meta.hot.accept` lives here (where
+ * Vite's static analysis sees the literal specifier), so callers write a bare
+ * import and never touch `import.meta.hot` themselves.
+ */
+const CSS_SHEET_QUERY_RE = /^([^?]+\.css)\?(?:[^&]*&)*css-sheet(?:&.*)?$/;
+const CSS_SHEET_VIRTUAL_PREFIX = '\0lit-plugin:css-sheet:';
 // The virtual id must not end in `.css`, or Vite's CSS plugins (which match
 // the id's extension regardless of `\0`) would compile the wrapper as CSS.
-const CSS_URL_VIRTUAL_SUFFIX = '.js';
+const CSS_VIRTUAL_SUFFIX = '.js';
 
 /**
  * Import-query support, served in dev and build alike (source code using
- * `?hmr-url` must keep working under `vite build`, where the HMR plugin
- * doesn't apply). Exported for the baseline e2e run, which needs the query
- * working without the HMR plugin.
+ * `?hmr-url`/`?css-sheet` must keep working under `vite build`, where the HMR
+ * plugin doesn't apply). Exported for the baseline e2e run, which needs the
+ * queries working without the HMR plugin.
  */
 export const litCssQueries = (): Plugin => ({
   name: 'lit-css-query',
@@ -159,30 +174,55 @@ export const litCssQueries = (): Plugin => ({
   // before normal plugins get a look, so resolve ahead of it.
   enforce: 'pre',
   async resolveId(id, importer) {
-    const match = CSS_URL_QUERY_RE.exec(id);
-    if (match === null) {
+    const prefix = CSS_URL_QUERY_RE.test(id)
+      ? CSS_URL_VIRTUAL_PREFIX
+      : CSS_SHEET_QUERY_RE.test(id)
+        ? CSS_SHEET_VIRTUAL_PREFIX
+        : null;
+    if (prefix === null) {
       return null;
     }
-    const resolved = await this.resolve(match[1], importer);
+    const file = id.slice(0, id.indexOf('?'));
+    const resolved = await this.resolve(file, importer);
     if (resolved === null) {
       return null;
     }
-    return CSS_URL_VIRTUAL_PREFIX + resolved.id + CSS_URL_VIRTUAL_SUFFIX;
+    return prefix + resolved.id + CSS_VIRTUAL_SUFFIX;
   },
   load(id) {
-    if (!id.startsWith(CSS_URL_VIRTUAL_PREFIX)) {
-      return null;
-    }
-    const file = id.slice(
-      CSS_URL_VIRTUAL_PREFIX.length,
-      -CSS_URL_VIRTUAL_SUFFIX.length
-    );
     const helperPath = resolveRuntimeModule('css');
-    return (
-      `import url from ${JSON.stringify(`${file}?url`)};\n` +
-      `import {devCacheBust} from ${JSON.stringify(helperPath)};\n` +
-      `export default devCacheBust(url);\n`
-    );
+    if (id.startsWith(CSS_URL_VIRTUAL_PREFIX)) {
+      const file = id.slice(
+        CSS_URL_VIRTUAL_PREFIX.length,
+        -CSS_VIRTUAL_SUFFIX.length
+      );
+      return (
+        `import url from ${JSON.stringify(`${file}?url`)};\n` +
+        `import {devCacheBust} from ${JSON.stringify(helperPath)};\n` +
+        `export default devCacheBust(url);\n`
+      );
+    }
+    if (id.startsWith(CSS_SHEET_VIRTUAL_PREFIX)) {
+      const file = id.slice(
+        CSS_SHEET_VIRTUAL_PREFIX.length,
+        -CSS_VIRTUAL_SUFFIX.length
+      );
+      // The accept specifier must be byte-identical to the import above —
+      // Vite resolves accepted HMR deps by static analysis. Generating both
+      // here is exactly what frees the caller from writing it. The swap is
+      // self-accepted at this boundary, so it never propagates to adopters.
+      const urlSpecifier = JSON.stringify(`${file}?url`);
+      return (
+        `import url from ${urlSpecifier};\n` +
+        `import {urlSheet} from ${JSON.stringify(helperPath)};\n` +
+        `const {sheet, onHotUpdate} = urlSheet(url);\n` +
+        `export default sheet;\n` +
+        `if (import.meta.hot) {\n` +
+        `  import.meta.hot.accept(${urlSpecifier}, onHotUpdate);\n` +
+        `}\n`
+      );
+    }
+    return null;
   },
 });
 
