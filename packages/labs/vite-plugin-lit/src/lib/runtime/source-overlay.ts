@@ -143,6 +143,7 @@ class LitSourceOverlay extends HTMLElement {
   #mask: HTMLElement;
   #highlight: HTMLElement;
   #tooltip: HTMLElement;
+  #tag: HTMLElement;
   #path: HTMLElement;
   #info: ElementInfo | null = null;
   #targetEl: Element | null = null;
@@ -188,33 +189,86 @@ class LitSourceOverlay extends HTMLElement {
           left: 50%;
           translate: -50%;
           display: none;
+          align-items: stretch;
           pointer-events: auto;
           max-width: min(90vw, 480px);
-          padding: 6px 8px;
           border-radius: var(--lit-devtools-radius, 6px);
           background: rgba(26,26,46,0.92);
           color: #e8e8f0;
           font: 12px/1.4 system-ui, sans-serif;
           box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+          overflow: hidden;
         }
-        #path { word-break: break-all; }
-        #copy {
-          margin-left: 8px;
-          padding: 2px 6px;
-          border: 1px solid rgba(255,255,255,0.25);
-          border-radius: 4px;
+        .icon-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 auto;
+          padding: 0 12px;
+          border: none;
           background: transparent;
           color: inherit;
           cursor: pointer;
-          font: inherit;
+        }
+        .icon-btn:hover { background: rgba(255,255,255,0.1); }
+        .icon-btn svg {
+          width: 16px;
+          height: 16px;
+          display: block;
+          fill: currentColor;
+        }
+        #meta {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 1px;
+          min-width: 0;
+          padding: 6px 10px;
+          border-left: 1px solid rgba(255,255,255,0.14);
+          border-right: 1px solid rgba(255,255,255,0.14);
+        }
+        #tag {
+          font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        #path {
+          color: rgba(232,232,240,0.6);
+          font-size: 11px;
+          word-break: break-all;
         }
       </style>
       <dialog id="overlay">
         <div id="mask"></div>
         <div id="highlight"></div>
         <div id="tooltip">
-          <span id="path"></span>
-          <button id="copy">Copy</button>
+          <button
+            id="open"
+            class="icon-btn"
+            type="button"
+            title="Open in editor"
+            aria-label="Open in editor"
+          >
+            <svg viewBox="0 0 256 256" aria-hidden="true">
+              <path d="M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z"></path>
+            </svg>
+          </button>
+          <div id="meta">
+            <span id="tag"></span>
+            <span id="path"></span>
+          </div>
+          <button
+            id="copy"
+            class="icon-btn"
+            type="button"
+            title="Copy path"
+            aria-label="Copy path"
+          >
+            <svg viewBox="0 0 256 256" aria-hidden="true">
+              <path d="M184,64H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H184a8,8,0,0,0,8-8V72A8,8,0,0,0,184,64Zm-8,144H48V80H176ZM224,40V184a8,8,0,0,1-16,0V48H72a8,8,0,0,1,0-16H216A8,8,0,0,1,224,40Z"></path>
+            </svg>
+          </button>
         </div>
       </dialog>
     `;
@@ -222,7 +276,12 @@ class LitSourceOverlay extends HTMLElement {
     this.#mask = root.getElementById('mask')!;
     this.#highlight = root.getElementById('highlight')!;
     this.#tooltip = root.getElementById('tooltip')!;
+    this.#tag = root.getElementById('tag')!;
     this.#path = root.getElementById('path')!;
+    root.getElementById('open')!.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.#info !== null) this.#select(this.#info);
+    });
     root.getElementById('copy')!.addEventListener('click', (e) => {
       e.stopPropagation();
       if (this.#info === null) return;
@@ -354,9 +413,9 @@ class LitSourceOverlay extends HTMLElement {
 
   #showTooltip() {
     if (this.#info === null) return;
-    const label = `${this.#info.source.filePath}:${this.#info.source.lineNumber}`;
-    this.#path.textContent = label;
-    this.#tooltip.style.display = 'block';
+    this.#tag.textContent = `<${this.#info.tagName}>`;
+    this.#path.textContent = `${this.#info.source.filePath}:${this.#info.source.lineNumber}`;
+    this.#tooltip.style.display = 'flex';
   }
 
   #clearTarget() {
@@ -446,6 +505,10 @@ class LitSourceOverlay extends HTMLElement {
 
   #onMouseMove = (event: MouseEvent) => {
     if (!this.#active) return;
+    // Keep the current selection while hovering the tooltip so its buttons stay
+    // clickable — the tooltip isn't a source element, so re-resolving here would
+    // clear the target and hide the panel out from under the pointer.
+    if (this.#pointInTooltip(event.clientX, event.clientY)) return;
     const throttleMs = this.#options.throttleMs ?? 50;
     if (this.#throttleTimer !== undefined) return;
     this.#throttleTimer = setTimeout(() => {
@@ -454,17 +517,30 @@ class LitSourceOverlay extends HTMLElement {
     }, throttleMs);
   };
 
-  #onClick = (event: MouseEvent) => {
-    if (!this.#active || this.#info === null) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const selected = this.#info;
+  #select(info: ElementInfo) {
     // Cancel the whole selection mode on any deliberate pick, before opening —
     // the editor may open via a URL scheme that doesn't navigate this tab away,
     // so we can't rely on the open outcome to dismiss the inspector.
     this.deactivate();
-    this.#options.onSelect?.(selected);
-    this.#openInEditor(selected.source.filePath, selected.source.lineNumber);
+    this.#options.onSelect?.(info);
+    this.#openInEditor(info.source.filePath, info.source.lineNumber);
+  }
+
+  #pointInTooltip(x: number, y: number): boolean {
+    if (this.#tooltip.style.display === 'none') return false;
+    const r = this.#tooltip.getBoundingClientRect();
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  }
+
+  #onClick = (event: MouseEvent) => {
+    if (!this.#active || this.#info === null) return;
+    // Clicks on the tooltip panel are handled by its own buttons (open/copy).
+    // The overlay's shadow root is closed, so we detect this by hit-rect rather
+    // than inspecting the event path, and let the event reach those buttons.
+    if (this.#pointInTooltip(event.clientX, event.clientY)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.#select(this.#info);
   };
 
   #onScrollOrResize = () => {
