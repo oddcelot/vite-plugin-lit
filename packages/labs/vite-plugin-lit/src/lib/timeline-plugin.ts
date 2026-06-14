@@ -6,7 +6,7 @@
 
 import {existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
-import type {Plugin} from 'vite';
+import type {Plugin, ViteDevServer} from 'vite';
 import type {TimelineEvent} from '../types/timeline.js';
 
 // ---------------------------------------------------------------------------
@@ -69,12 +69,13 @@ declare module 'vite' {
 }
 
 // ---------------------------------------------------------------------------
-// Timeline event store — accumulates events from the browser runtime and
-// pushes them to the panel via Vite's HMR channel (Phase 0/1 transport).
-// Phase 2 migrates this to devframe's typed RPC + shared state.
+// SSE push channel — streams batches of TimelineEvents from the server to
+// the panel iframe. The panel subscribes to /__lit-timeline-events using the
+// native EventSource API; the browser runtime pushes events via Vite HMR.
 // ---------------------------------------------------------------------------
 
 const PANEL_PATH = '/__lit-timeline';
+const SSE_PATH = '/__lit-timeline-events';
 
 const resolvePanel = (): string => {
   const url = new URL('../panel/index.html', import.meta.url);
@@ -82,6 +83,47 @@ const resolvePanel = (): string => {
     return fileURLToPath(new URL('../panel', import.meta.url));
   }
   throw new Error('[lit-plugin:timeline] panel directory not found');
+};
+
+/** Minimal typing for Node's ServerResponse (already fully typed by `node:http`
+ *  but we want to avoid pulling in @types/node in a browser runtime module). */
+type SseClient = {
+  write: (chunk: string) => boolean;
+  on: (event: string, listener: () => void) => void;
+  socket?: {destroyed?: boolean} | null;
+};
+
+const installSseMiddleware = (
+  server: ViteDevServer,
+  clients: Set<SseClient>
+): void => {
+  server.middlewares.use(
+    SSE_PATH,
+    (
+      req: {method?: string},
+      res: SseClient & {
+        statusCode: number;
+        setHeader: (k: string, v: string) => void;
+        flushHeaders?: () => void;
+      },
+      next: () => void
+    ) => {
+      if (req.method !== 'GET') {
+        next();
+        return;
+      }
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.flushHeaders?.();
+      res.write(':\n\n'); // keep-alive comment
+
+      clients.add(res);
+      res.on('close', () => clients.delete(res));
+    }
+  );
 };
 
 /**
@@ -96,30 +138,40 @@ const resolvePanel = (): string => {
  * Phase 2: devframe RPC wired for event forwarding.
  */
 export const litTimelinePlugin = (): Plugin => {
-  // Snapshot of pending events waiting to be forwarded to the panel.
-  // Populated by the `lit:timeline:push-event` RPC handler (Phase 2) or
-  // the Vite HMR channel handler (Phase 0/1 interim).
-  const pendingEvents: TimelineEvent[] = [];
+  const sseClients = new Set<SseClient>();
+
+  /** Push a batch of events to all subscribed panel SSE clients. */
+  const pushToPanel = (events: TimelineEvent[]): void => {
+    if (sseClients.size === 0 || events.length === 0) return;
+    const payload = `data: ${JSON.stringify(events)}\n\n`;
+    for (const client of sseClients) {
+      try {
+        client.write(payload);
+      } catch {
+        sseClients.delete(client);
+      }
+    }
+  };
 
   return {
     name: 'lit-timeline',
     apply: 'serve',
 
     configureServer(server) {
-      // Phase 0/1 interim: accept events from the browser runtime over the
-      // Vite HMR WebSocket channel.  Phase 2 replaces this with devframe RPC.
+      // SSE endpoint: panel iframe subscribes here for event push.
+      installSseMiddleware(server, sseClients);
+
+      // Accept batches of events from the browser runtime via Vite HMR.
       server.hot.on(
         'lit:timeline:push-event',
-        (data: {event: TimelineEvent}) => {
-          pendingEvents.push(data.event);
-          // Flush to all connected clients so the panel iframe receives it.
-          server.hot.send('lit:timeline:events', {
-            events: pendingEvents.slice(-1),
-          });
+        (data: {events?: TimelineEvent[]}) => {
+          const batch = data.events ?? [];
+          pushToPanel(batch);
         }
       );
 
-      // Acknowledge recording-state toggle from the panel.
+      // Recording-state changes come from the panel (postMessage → parent
+      // devtools → server broadcast back to app).  Phase 2 uses shared state.
       server.hot.on(
         'lit:timeline:set-recording',
         (data: {recording: boolean}) => {
@@ -132,8 +184,6 @@ export const litTimelinePlugin = (): Plugin => {
 
     devtools: {
       setup(ctx: TimelineCtx) {
-        // Serve the panel static files at /__lit-timeline/.
-        // ctx.views.hostStatic registers Vite middleware in dev mode.
         let panelDir: string;
         try {
           panelDir = resolvePanel();
@@ -142,34 +192,24 @@ export const litTimelinePlugin = (): Plugin => {
           return;
         }
 
+        // Serve src/panel/ static files at /__lit-timeline/.
         ctx.views.hostStatic(PANEL_PATH + '/', panelDir);
 
-        // Register the Lit Timeline dock entry as an iframe panel.
         ctx.docks.register({
           id: 'lit-timeline',
           type: 'iframe',
           title: 'Lit Timeline',
-          // i-carbon-chart-line-data or any UnoCSS/iconify string.
           icon: 'i-carbon-chart-line-data',
           url: PANEL_PATH + '/',
           category: 'framework',
         });
 
-        // Phase 0 RPC: a simple ping to confirm the RPC channel is live.
+        // Phase 0 round-trip RPC — confirms devframe channel is live.
         ctx.rpc.register({
           name: 'lit:timeline:ping',
           type: 'event',
           handler: () => {
             console.log('[lit-plugin:timeline] ping received via RPC');
-          },
-        });
-
-        // Phase 2 placeholder: pushTimelineEvent RPC.
-        ctx.rpc.register({
-          name: 'lit:timeline:push-event',
-          type: 'event',
-          handler: (event: unknown) => {
-            pendingEvents.push(event as TimelineEvent);
           },
         });
       },

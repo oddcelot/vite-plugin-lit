@@ -165,7 +165,6 @@
       ];
 
       let recording = false;
-      const events = [];
 
       // Render layer pills
       const layersEl = document.getElementById('layers');
@@ -177,45 +176,64 @@
         layersEl.appendChild(pill);
       }
 
-      // Record button
+      // Record toggle — sends recording state to the app via Vite HMR channel.
+      // The panel iframe shares origin with the dev server so postMessage to
+      // window.parent reaches the devtools shell; the server relays via HMR.
       const recordBtn = document.getElementById('recordBtn');
       recordBtn.addEventListener('click', () => {
         recording = !recording;
         recordBtn.textContent = recording ? '⏹ Stop' : '▶ Record';
         recordBtn.classList.toggle('active', recording);
-        // Broadcast recording state to app via parent devtools postMessage
+        // Ask the server to broadcast the recording state change to the app.
         window.parent.postMessage(
-          {type: '__lit_timeline_recording', recording},
+          {type: '__lit_timeline_set_recording', recording},
           '*'
         );
       });
 
-      // Receive timeline events from the app (via postMessage bridged by the
-      // plugin's devframe RPC in Phase 2; for Phase 0 we just listen here)
-      window.addEventListener('message', (e) => {
-        if (e.data?.type !== '__lit_timeline_event') return;
+      // Subscribe to the SSE event stream pushed by the server.
+      // The server relays batches it receives from the app via Vite HMR.
+      const es = new EventSource('/__lit-timeline-events');
+      es.onmessage = (e) => {
         if (!recording) return;
-        addEvent(e.data.event);
-      });
+        let batch;
+        try {
+          batch = JSON.parse(e.data);
+        } catch {
+          return;
+        }
+        if (!Array.isArray(batch)) return;
+        for (const ev of batch) addEvent(ev);
+      };
+      es.onerror = () => {
+        document.getElementById('status')?.setAttribute('data-error', 'true');
+      };
 
       function addEvent(ev) {
-        events.push(ev);
         renderEvent(ev);
       }
 
       function renderEvent(ev) {
         const layer = LAYERS.find((l) => l.id === ev.layerId);
         const list = document.getElementById('eventList');
-        // Remove empty state
         list.querySelector('.empty')?.remove();
 
         const row = document.createElement('div');
         row.className = 'event-row';
+        // Sanitise title/subtitle to avoid XSS from event data
+        const title = String(ev.title ?? ev.layerId).replace(
+          /[<>&"]/g,
+          (c) => ({'<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;'})[c]
+        );
+        const subtitle = String(ev.subtitle ?? '').replace(
+          /[<>&"]/g,
+          (c) => ({'<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;'})[c]
+        );
         row.innerHTML = `
-          <span class="time">${ev.time.toFixed(1)}ms</span>
+          <span class="time">${Number(ev.time).toFixed(1)}ms</span>
           <span class="dot" style="background:${layer?.color ?? '#888'}"></span>
-          <span class="title">${ev.title ?? ev.layerId}</span>
-          <span class="subtitle">${ev.subtitle ?? ''}</span>
+          <span class="title">${title}</span>
+          <span class="subtitle">${subtitle}</span>
         `;
         list.appendChild(row);
         list.scrollTop = list.scrollHeight;
