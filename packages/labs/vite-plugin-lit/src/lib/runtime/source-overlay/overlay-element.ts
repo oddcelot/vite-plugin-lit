@@ -14,6 +14,7 @@ import {
 } from './source-host.js';
 import {buildSpotlightClipPath} from './mask-path.js';
 import {OVERLAY_HTML} from './template.js';
+import {observeEdgeInsets} from '../edge-panel.js';
 
 export interface SourceOverlayInitOptions {
   key?: string;
@@ -48,6 +49,7 @@ class LitSourceOverlay extends HTMLElement {
   #connected = true;
   #lastMouseX = 0;
   #lastMouseY = 0;
+  #edgeDispose: (() => void) | undefined;
 
   constructor() {
     super();
@@ -81,12 +83,18 @@ class LitSourceOverlay extends HTMLElement {
     hot?.on('vite:beforeFullReload', () => this.deactivate());
     hot?.on('vite:ws:disconnect', () => (this.#connected = false));
     hot?.on('vite:ws:connect', () => (this.#connected = true));
+    // Keep the (bottom-fixed) tooltip clear of the Vite DevTools edge panel.
+    this.#edgeDispose = observeEdgeInsets((insets) => {
+      this.style.setProperty('--edge-bottom', `${insets.bottom}px`);
+    });
   }
 
   disconnectedCallback() {
     document.removeEventListener('mousemove', this.#onTrackMouse, true);
     document.removeEventListener('keydown', this.#onKeyDown, true);
     this.deactivate();
+    this.#edgeDispose?.();
+    this.#edgeDispose = undefined;
   }
 
   configure(options: SourceOverlayInitOptions) {

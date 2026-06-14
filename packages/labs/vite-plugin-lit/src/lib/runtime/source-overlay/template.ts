@@ -39,7 +39,9 @@ export const OVERLAY_HTML = `
     }
     #tooltip {
       position: fixed;
-      bottom: 16px;
+      /* Lift above the Vite DevTools edge panel when it's docked to the bottom
+         (--edge-bottom is set from JS; 0 otherwise). */
+      bottom: calc(16px + var(--edge-bottom, 0px));
       left: 50%;
       translate: -50%;
       display: none;

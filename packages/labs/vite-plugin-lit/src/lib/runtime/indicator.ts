@@ -13,6 +13,7 @@
 import {FONT_MONO_VAR} from './fonts.js';
 import {FLAME_ICON} from './icons.js';
 import {subscribeOverride} from './overrides.js';
+import {observeEdgeInsets} from './edge-panel.js';
 
 class LitDevtoolsIndicator extends HTMLElement {
   #initialized = false;
@@ -33,7 +34,13 @@ class LitDevtoolsIndicator extends HTMLElement {
         :host{
           position:fixed;inset:0;display:grid;
           z-index:2147483647;pointer-events:none;
-          padding:var(--lit-devtools-hmr-indicator-padding,16px)
+          /* Base padding plus the inset the Vite DevTools edge panel occupies
+             on each edge (set from JS), so the indicator never sits on it. */
+          padding:
+            calc(var(--lit-devtools-hmr-indicator-padding,16px) + var(--edge-top,0px))
+            calc(var(--lit-devtools-hmr-indicator-padding,16px) + var(--edge-right,0px))
+            calc(var(--lit-devtools-hmr-indicator-padding,16px) + var(--edge-bottom,0px))
+            calc(var(--lit-devtools-hmr-indicator-padding,16px) + var(--edge-left,0px))
         }
         #container{
           place-self:var(--lit-devtools-hmr-indicator-align,end end);
@@ -94,6 +101,13 @@ class LitDevtoolsIndicator extends HTMLElement {
       if (o.hmrIndicatorCount !== undefined) {
         this.#setCount(o.hmrIndicatorCount);
       }
+    });
+    // Stay clear of the Vite DevTools edge panel.
+    observeEdgeInsets((insets) => {
+      this.style.setProperty('--edge-top', `${insets.top}px`);
+      this.style.setProperty('--edge-right', `${insets.right}px`);
+      this.style.setProperty('--edge-bottom', `${insets.bottom}px`);
+      this.style.setProperty('--edge-left', `${insets.left}px`);
     });
   }
 }
