@@ -49,11 +49,36 @@ CSS literal processing apply in both dev and build.
 
 ## Options
 
-| Option           | Type                 | Default    | Description                                                                                                                        |
-| ---------------- | -------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `hmr`            | `boolean`            | `true`     | Enable in-place HMR for Lit component classes.                                                                                     |
-| `reconnect`      | `boolean`            | `false`    | Cycle `disconnectedCallback()`/`connectedCallback()` on live instances after a hot patch. Interning makes this mostly unnecessary. |
-| `onIncompatible` | `'reload' \| 'warn'` | `'reload'` | What to do when a component can't be hot-patched in place: automatically reload the page, or only warn in the console.             |
+`litPlugin()` takes a single options object. `hmr` groups the HMR feature and
+its on-page indicator; `sourceOverlay` is the click-to-open-in-IDE inspector.
+
+| Option                | Type                              | Default    | Description                                                                                                                        |
+| --------------------- | --------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `hmr`                 | `boolean \| HmrOptions`           | `true`     | HMR for Lit components and its feedback. `false` disables patching **and** the indicator.                                          |
+| `hmr.enabled`         | `boolean`                         | `true`     | Enable in-place HMR for Lit component classes.                                                                                     |
+| `hmr.reconnect`       | `boolean`                         | `false`    | Cycle `disconnectedCallback()`/`connectedCallback()` on live instances after a hot patch. Interning makes this mostly unnecessary. |
+| `hmr.onIncompatible`  | `'reload' \| 'warn'`              | `'reload'` | What to do when a component can't be hot-patched in place: reload the page, or only warn in the console.                           |
+| `hmr.indicator`       | `boolean \| {enabled?, count?}`   | `true`     | On-page pulsing indicator that animates on each HMR update. Forced off when HMR is disabled.                                       |
+| `hmr.indicator.count` | `boolean`                         | `false`    | Show a cumulative update count in the indicator.                                                                                   |
+| `sourceOverlay`       | `boolean \| SourceOverlayOptions` | `false`    | Dev-only click-to-open-in-IDE inspector. Toggle with Ctrl+Shift+S (configurable via `key`).                                        |
+
+### Environment variables
+
+Every option also resolves from environment variables (and `.env` files) with
+the `LIT_PLUGIN` prefix, read at config time. Options passed to `litPlugin()`
+take precedence over env vars, which take precedence over the defaults.
+
+| Env var                                 | Maps to                    |
+| --------------------------------------- | -------------------------- |
+| `LIT_PLUGIN_HMR`                        | `hmr.enabled`              |
+| `LIT_PLUGIN_HMR_RECONNECT`              | `hmr.reconnect`            |
+| `LIT_PLUGIN_HMR_ON_INCOMPATIBLE`        | `hmr.onIncompatible`       |
+| `LIT_PLUGIN_HMR_INDICATOR`              | `hmr.indicator.enabled`    |
+| `LIT_PLUGIN_HMR_INDICATOR_COUNT`        | `hmr.indicator.count`      |
+| `LIT_PLUGIN_SOURCE_OVERLAY`             | `sourceOverlay` (enable)   |
+| `LIT_PLUGIN_SOURCE_OVERLAY_KEY`         | `sourceOverlay.key`        |
+| `LIT_PLUGIN_SOURCE_OVERLAY_EDITOR`      | `sourceOverlay.editor`     |
+| `LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS` | `sourceOverlay.throttleMs` |
 
 ## Stylesheets
 

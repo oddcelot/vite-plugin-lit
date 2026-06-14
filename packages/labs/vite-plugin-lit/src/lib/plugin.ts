@@ -5,8 +5,9 @@
  */
 
 import {existsSync} from 'node:fs';
+import {resolve as resolvePath} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import type {CSSOptions, Plugin} from 'vite';
+import {loadEnv, type CSSOptions, type Plugin} from 'vite';
 import MagicString from 'magic-string';
 import {injectSourceMeta} from './source-meta.js';
 import {INSTALL_ID, VIRTUAL_PREFIX, transformLitModule} from './transform.js';
@@ -14,16 +15,30 @@ import type {SourceOverlayOptions} from './types.js';
 import {WRAP_TABLE} from './wrap-table.js';
 
 /**
- * Options for the Lit Vite plugin.
+ * On-page HMR feedback: a small pulsing indicator in the corner of the host
+ * page that briefly animates on each HMR update, for at-a-glance feedback
+ * without watching the console.
  */
-export interface LitPluginOptions {
+export interface HmrIndicatorOptions {
+  /** Inject the indicator element. Defaults to `true` (when HMR is enabled). */
+  enabled?: boolean;
+
   /**
-   * Enable in-place HMR for Lit component classes. When `false`, the
-   * plugin skips all HMR transforms and runtime injection — useful when
-   * you want the `updateIndicator` feedback without the hot-patching.
-   * Defaults to `true`.
+   * Show a cumulative update count next to the dot (idle opacity 0.5 instead
+   * of fully transparent). Defaults to `false`.
    */
-  hmr?: boolean;
+  count?: boolean;
+}
+
+/**
+ * HMR for Lit component classes and its on-page feedback.
+ */
+export interface HmrOptions {
+  /**
+   * Enable in-place HMR for Lit component classes. When `false`, the plugin
+   * skips all HMR transforms and runtime injection. Defaults to `true`.
+   */
+  enabled?: boolean;
 
   /**
    * Cycle `disconnectedCallback()`/`connectedCallback()` on live instances
@@ -39,16 +54,28 @@ export interface LitPluginOptions {
   onIncompatible?: 'reload' | 'warn';
 
   /**
-   * Inject a small pulsing indicator in the bottom-right corner of the host
-   * page that briefly animates on each HMR update. Provides at-a-glance
-   * visual feedback without looking at the console.
-   *
-   * - `true` — simple dot (idle opacity 0, no count).
-   * - `{ count: true }` — pill with count (idle opacity 0.5).
-   * - `{ count: false }` — pill without count (idle opacity 0).
-   * - `false` or omitted — disabled. Defaults to `false`.
+   * The on-page update indicator. `true` enables it without a count; an
+   * object configures it. Forced off when HMR itself is disabled. Defaults
+   * to enabled (without a count).
    */
-  updateIndicator?: boolean | {count?: boolean};
+  indicator?: boolean | HmrIndicatorOptions;
+}
+
+/**
+ * Options for the Lit Vite plugin.
+ *
+ * Every option also resolves from environment variables (and `.env` files)
+ * with the `LIT_PLUGIN` prefix — e.g. `LIT_PLUGIN_HMR_INDICATOR=true`. Options
+ * passed here take precedence over env vars, which take precedence over the
+ * built-in defaults.
+ */
+export interface LitPluginOptions {
+  /**
+   * HMR for Lit components and its on-page feedback. `true`/`false` toggles
+   * the whole feature (patching and indicator); an object configures it.
+   * Defaults to enabled.
+   */
+  hmr?: boolean | HmrOptions;
 
   /**
    * Dev-only click-to-open-in-IDE inspector for Lit custom elements.
@@ -56,6 +83,82 @@ export interface LitPluginOptions {
    */
   sourceOverlay?: boolean | SourceOverlayOptions;
 }
+
+/** Plugin options after merging explicit options, env vars, and defaults. */
+interface ResolvedOptions {
+  hmrEnabled: boolean;
+  reconnect: boolean;
+  onIncompatible: 'reload' | 'warn';
+  indicator: false | {count: boolean};
+  sourceOverlay: false | SourceOverlayOptions;
+}
+
+/** Env var prefix consumed at config time. */
+const ENV_PREFIX = 'LIT_PLUGIN';
+
+/** Parse a boolean-ish env string; `undefined` when unset/unrecognized. */
+const envBool = (v: string | undefined): boolean | undefined =>
+  v === 'true' || v === '1'
+    ? true
+    : v === 'false' || v === '0'
+      ? false
+      : undefined;
+
+/** Parse a numeric env string; `undefined` when unset/non-numeric. */
+const envNum = (v: string | undefined): number | undefined => {
+  if (v === undefined || v === '') return undefined;
+  const n = Number(v);
+  return Number.isNaN(n) ? undefined : n;
+};
+
+/**
+ * Merge explicit options over env vars over defaults (in that precedence) into
+ * the flat shape the plugin hooks consume.
+ */
+const resolveOptions = (
+  options: LitPluginOptions,
+  env: Record<string, string>
+): ResolvedOptions => {
+  const hmr = options.hmr;
+  const hmrObj = typeof hmr === 'object' ? hmr : undefined;
+  const hmrEnabled =
+    (typeof hmr === 'boolean' ? hmr : hmrObj?.enabled) ??
+    envBool(env[`${ENV_PREFIX}_HMR`]) ??
+    true;
+  const reconnect =
+    hmrObj?.reconnect ?? envBool(env[`${ENV_PREFIX}_HMR_RECONNECT`]) ?? false;
+  const onIncompatible =
+    hmrObj?.onIncompatible ??
+    (env[`${ENV_PREFIX}_HMR_ON_INCOMPATIBLE`] as 'reload' | 'warn') ??
+    'reload';
+
+  const ind = hmrObj?.indicator;
+  const indObj = typeof ind === 'object' ? ind : undefined;
+  const indEnabled =
+    (typeof ind === 'boolean' ? ind : indObj?.enabled) ??
+    envBool(env[`${ENV_PREFIX}_HMR_INDICATOR`]) ??
+    true;
+  const indCount =
+    indObj?.count ?? envBool(env[`${ENV_PREFIX}_HMR_INDICATOR_COUNT`]) ?? false;
+  // The indicator is meaningless without HMR, so it follows the master toggle.
+  const indicator = hmrEnabled && indEnabled ? {count: indCount} : false;
+
+  const so = options.sourceOverlay;
+  const soExplicit =
+    typeof so === 'boolean' ? so : so === undefined ? undefined : true;
+  const soEnabled =
+    soExplicit ?? envBool(env[`${ENV_PREFIX}_SOURCE_OVERLAY`]) ?? false;
+  let sourceOverlay: false | SourceOverlayOptions = false;
+  if (soEnabled) {
+    const base: SourceOverlayOptions = typeof so === 'object' ? {...so} : {};
+    base.key ??= env[`${ENV_PREFIX}_SOURCE_OVERLAY_KEY`] || undefined;
+    base.editor ??= env[`${ENV_PREFIX}_SOURCE_OVERLAY_EDITOR`] || undefined;
+    base.throttleMs ??= envNum(env[`${ENV_PREFIX}_SOURCE_OVERLAY_THROTTLE_MS`]);
+    sourceOverlay = base;
+  }
+
+  return {hmrEnabled, reconnect, onIncompatible, indicator, sourceOverlay};
+};
 
 /**
  * Resolves a runtime module to an absolute fs path (served via `/@fs/`), so
@@ -75,14 +178,6 @@ const resolveRuntimeModule = (name: string): string => {
 const JS_FILE_RE = /\.[cm]?[jt]sx?$/;
 
 const OPEN_IN_EDITOR_PATH = '/__lit-open-in-editor';
-
-const normalizeSourceOverlayOptions = (
-  option: boolean | SourceOverlayOptions | undefined
-): false | SourceOverlayOptions => {
-  if (!option) return false;
-  if (typeof option === 'boolean') return {};
-  return option;
-};
 
 const createOpenInEditorMiddleware = () => {
   return (
@@ -316,14 +411,10 @@ const litCssLiterals = (): Plugin => {
  * for Lit projects.
  */
 export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
-  const enableHmr = options.hmr ?? true;
-  const sourceOverlayOptions = normalizeSourceOverlayOptions(
-    options.sourceOverlay
-  );
-  const runtimeOptions = {
-    reconnect: options.reconnect ?? false,
-    onIncompatible: options.onIncompatible ?? 'reload',
-  };
+  // Resolved from explicit options first, env vars second, defaults last. The
+  // `config` hook re-resolves with the loaded env once Vite hands us the mode;
+  // this initial pass covers code paths that run before (or without) it.
+  let resolved: ResolvedOptions = resolveOptions(options, {});
   const sourceOverlayPlugin: Plugin = {
     name: 'lit-source-overlay',
     apply: 'serve',
@@ -338,14 +429,14 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       return null;
     },
     configureServer(server) {
-      if (!sourceOverlayOptions) return;
+      if (!resolved.sourceOverlay) return;
       server.middlewares.use(
         OPEN_IN_EDITOR_PATH,
         createOpenInEditorMiddleware()
       );
     },
     transform(code, id, transformOptions) {
-      if (!sourceOverlayOptions) return null;
+      if (!resolved.sourceOverlay) return null;
       if (transformOptions?.ssr) return null;
       if (
         id.startsWith('\0') ||
@@ -369,13 +460,13 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       return {code: ms.toString(), map: ms.generateMap({hires: true})};
     },
     transformIndexHtml() {
-      if (!sourceOverlayOptions) return;
+      if (!resolved.sourceOverlay) return;
       const overlayUrl = `/@fs/${resolveRuntimeModule('source-overlay')}`;
       const {
         exclude: _exclude,
         onSelect: _onSelect,
         ...overlayInit
-      } = sourceOverlayOptions;
+      } = resolved.sourceOverlay;
       const initConfig = {
         ...overlayInit,
         openInEditorPath: OPEN_IN_EDITOR_PATH,
@@ -393,8 +484,18 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
   const hmr: Plugin = {
     name: 'lit-plugin',
     apply: 'serve',
-    config: () => {
-      if (!enableHmr) {
+    config: (viteConfig, {mode}) => {
+      // Resolve options against the loaded env now that Vite hands us the mode.
+      // `loadEnv` reads `.env*` files from the env dir (root by default) and
+      // merges in matching `process.env` keys, filtered to the `LIT_PLUGIN`
+      // prefix. Explicit options still win (handled in resolveOptions).
+      const envDir = viteConfig.envDir
+        ? resolvePath(viteConfig.envDir)
+        : viteConfig.root
+          ? resolvePath(viteConfig.root)
+          : process.cwd();
+      resolved = resolveOptions(options, loadEnv(mode, envDir, ENV_PREFIX));
+      if (!resolved.hmrEnabled) {
         return;
       }
       // The injected runtime imports are invisible to the dep scanner. The
@@ -417,17 +518,21 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       if (id === '@lit-labs/vite-plugin-lit/source-overlay.js') {
         return resolveRuntimeModule('source-overlay');
       }
-      if (enableHmr && id.startsWith(VIRTUAL_PREFIX)) {
+      if (resolved.hmrEnabled && id.startsWith(VIRTUAL_PREFIX)) {
         return id;
       }
       return null;
     },
     load(id) {
-      if (!enableHmr || !id.startsWith(VIRTUAL_PREFIX)) {
+      if (!resolved.hmrEnabled || !id.startsWith(VIRTUAL_PREFIX)) {
         return null;
       }
       if (id === INSTALL_ID) {
         const patchPath = resolveRuntimeModule('patch');
+        const runtimeOptions = {
+          reconnect: resolved.reconnect,
+          onIncompatible: resolved.onIncompatible,
+        };
         return (
           `import {install} from ${JSON.stringify(patchPath)};\n` +
           `install(${JSON.stringify(runtimeOptions)});\n`
@@ -457,7 +562,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       return lines.join('\n') + '\n';
     },
     async transform(code, id, transformOptions) {
-      if (!enableHmr) {
+      if (!resolved.hmrEnabled) {
         return null;
       }
       if (transformOptions?.ssr) {
@@ -474,13 +579,10 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       return transformLitModule(code);
     },
     transformIndexHtml() {
-      if (!options.updateIndicator) {
+      const indicator = resolved.indicator;
+      if (!indicator) {
         return;
       }
-      const isSimple = typeof options.updateIndicator === 'boolean';
-      const withCount =
-        !isSimple &&
-        (options.updateIndicator as {count?: boolean}).count !== false;
       const indicatorUrl = `/@fs/` + resolveRuntimeModule('indicator');
       return [
         {
@@ -490,17 +592,15 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
         },
         {
           tag: 'lit-devtools-hmr-indicator',
-          attrs: withCount ? {count: ''} : undefined,
+          attrs: indicator.count ? {count: ''} : undefined,
           children: '',
           injectTo: 'body',
         },
       ];
     },
   };
-  const plugins = [litCssQueries(), litCssLiterals()];
-  if (sourceOverlayOptions) {
-    plugins.push(sourceOverlayPlugin);
-  }
-  plugins.push(hmr);
-  return plugins;
+  // The source-overlay plugin is always present; its hooks no-op when the
+  // feature is disabled (which env may decide), so inclusion can't be gated
+  // on the synchronously-known options here.
+  return [litCssQueries(), litCssLiterals(), sourceOverlayPlugin, hmr];
 };

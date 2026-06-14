@@ -57,7 +57,13 @@ export const startFixture = async (
     recursive: true,
     filter: (src) => {
       const base = path.basename(src);
-      return !base.startsWith('vite.config') && !FIXTURE_EXCLUDE.has(base);
+      // Drop the vite config (inline config below) and any `.env*` files so a
+      // developer's local playground env can't perturb deterministic e2e runs.
+      return (
+        !base.startsWith('vite.config') &&
+        !base.startsWith('.env') &&
+        !FIXTURE_EXCLUDE.has(base)
+      );
     },
   });
   const server = await createServer({
