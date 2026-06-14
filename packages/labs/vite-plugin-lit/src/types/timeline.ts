@@ -90,7 +90,24 @@ export interface SettingsOverride {
   hmrOnIncompatible?: 'reload' | 'warn';
   hmrIndicatorVisible?: boolean;
   hmrIndicatorCount?: boolean;
+  /** Built-in editor key for the source overlay's open-in-editor target. */
+  sourceOverlayEditor?: string;
 }
+
+/**
+ * Built-in editors the source overlay can open files in. Keep in sync with
+ * BUILTIN_EDITORS in lib/runtime/source-overlay/editors.ts.
+ */
+export const SOURCE_OVERLAY_EDITORS: ReadonlyArray<{
+  value: string;
+  label: string;
+}> = [
+  {value: 'vscode', label: 'VS Code'},
+  {value: 'cursor', label: 'Cursor'},
+  {value: 'zed', label: 'Zed'},
+  {value: 'idea', label: 'IntelliJ'},
+  {value: 'windsurf', label: 'Windsurf'},
+];
 
 /** localStorage key holding the {@link SettingsOverride}. */
 export const SETTINGS_OVERRIDE_LS_KEY = 'lit-devtools-overrides';

@@ -6,6 +6,8 @@
 
 import type {EditorConfig} from '../../types.js';
 
+// Keep the keys/labels in sync with SOURCE_OVERLAY_EDITORS in
+// src/types/timeline.ts (the panel's editor-selection options).
 export const BUILTIN_EDITORS: Record<string, EditorConfig> = {
   vscode: {
     name: 'VS Code',

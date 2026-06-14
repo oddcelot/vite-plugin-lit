@@ -15,6 +15,7 @@ import {
 import {buildSpotlightClipPath} from './mask-path.js';
 import {OVERLAY_HTML} from './template.js';
 import {observeEdgeInsets} from '../edge-panel.js';
+import {subscribeOverride} from '../overrides.js';
 
 export interface SourceOverlayInitOptions {
   key?: string;
@@ -50,6 +51,7 @@ class LitSourceOverlay extends HTMLElement {
   #lastMouseX = 0;
   #lastMouseY = 0;
   #edgeDispose: (() => void) | undefined;
+  #overrideSubscribed = false;
 
   constructor() {
     super();
@@ -78,7 +80,9 @@ class LitSourceOverlay extends HTMLElement {
     document.addEventListener('mousemove', this.#onTrackMouse, true);
     document.addEventListener('keydown', this.#onKeyDown, true);
     const hot = (
-      import.meta as {hot?: {on: (event: string, cb: () => void) => void}}
+      import.meta as {
+        hot?: {on: (event: string, cb: (data?: unknown) => void) => void};
+      }
     ).hot;
     hot?.on('vite:beforeFullReload', () => this.deactivate());
     hot?.on('vite:ws:disconnect', () => (this.#connected = false));
@@ -87,6 +91,17 @@ class LitSourceOverlay extends HTMLElement {
     this.#edgeDispose = observeEdgeInsets((insets) => {
       this.style.setProperty('--edge-bottom', `${insets.bottom}px`);
     });
+    // Apply the panel's editor override live (and on load). Merge so other
+    // configured options (key, throttle, …) survive.
+    if (!this.#overrideSubscribed) {
+      this.#overrideSubscribed = true;
+      subscribeOverride(hot, (o) => {
+        if (o.sourceOverlayEditor !== undefined) {
+          this.#options = {...this.#options, editor: o.sourceOverlayEditor};
+          this.#editor = resolveEditor(o.sourceOverlayEditor);
+        }
+      });
+    }
   }
 
   disconnectedCallback() {

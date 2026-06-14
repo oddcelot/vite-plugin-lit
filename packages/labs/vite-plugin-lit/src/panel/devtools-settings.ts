@@ -8,6 +8,7 @@ import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 import {
   SETTINGS_OVERRIDE_LS_KEY,
+  SOURCE_OVERLAY_EDITORS,
   type FeatureSettings,
   type SettingsOverride,
 } from '../types/timeline.js';
@@ -227,6 +228,7 @@ export class DevtoolsSettings extends LitElement {
           hmrOnIncompatible: s.hmr.onIncompatible,
           hmrIndicatorVisible: s.hmr.indicatorEnabled,
           hmrIndicatorCount: s.hmr.indicatorCount,
+          sourceOverlayEditor: s.sourceOverlay.editor,
         } satisfies SettingsOverride),
       }).catch(() => {});
     }
@@ -362,20 +364,18 @@ export class DevtoolsSettings extends LitElement {
     return html`
       <p class="note">
         Resolved from plugin options and <code>LIT_PLUGIN_*</code> env at
-        startup. HMR settings can be overridden live below; the rest are
+        startup. Controls below override the running app live; the rest are
         config-time (change them in your Vite config / <code>.env</code> and
         restart).
+        ${hasOverride
+          ? html`<button class="reset" @click=${this._reset}>
+              Reset to env
+            </button>`
+          : nothing}
       </p>
 
       <section>
-        <h3>
-          HMR ${this._pill(s.hmr.enabled)}
-          ${hasOverride
-            ? html`<button class="reset" @click=${this._reset}>
-                Reset to env
-              </button>`
-            : nothing}
-        </h3>
+        <h3>HMR ${this._pill(s.hmr.enabled)}</h3>
         ${this._renderHmr(s)}
       </section>
 
@@ -388,11 +388,26 @@ export class DevtoolsSettings extends LitElement {
                 `Ctrl+Shift+${s.sourceOverlay.key.toUpperCase()}`,
                 'LIT_PLUGIN_SOURCE_OVERLAY_KEY'
               )}
-              ${this._readonlyRow(
-                'editor',
-                s.sourceOverlay.editor,
-                'LIT_PLUGIN_SOURCE_OVERLAY_EDITOR'
-              )}
+              <tr>
+                <td class="key">editor</td>
+                <td class="val">
+                  <select
+                    .value=${this._override.sourceOverlayEditor ??
+                    s.sourceOverlay.editor}
+                    @change=${(e: Event) =>
+                      this._set(
+                        'sourceOverlayEditor',
+                        (e.target as HTMLSelectElement).value
+                      )}
+                  >
+                    ${SOURCE_OVERLAY_EDITORS.map(
+                      (ed) =>
+                        html`<option value=${ed.value}>${ed.label}</option>`
+                    )}
+                  </select>
+                  ${this._ovr(this._override.sourceOverlayEditor !== undefined)}
+                </td>
+              </tr>
               ${this._readonlyRow(
                 'throttle (ms)',
                 s.sourceOverlay.throttleMs,
