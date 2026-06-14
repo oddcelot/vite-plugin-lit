@@ -609,24 +609,41 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       return transformLitModule(code);
     },
     transformIndexHtml() {
+      const tags: {
+        tag: string;
+        attrs?: Record<string, string | undefined | boolean>;
+        children?: string;
+        injectTo: 'body';
+      }[] = [];
+
       const indicator = resolved.indicator;
-      if (!indicator) {
-        return;
+      if (indicator) {
+        const indicatorUrl = `/@fs/` + resolveRuntimeModule('indicator');
+        tags.push(
+          {
+            tag: 'script',
+            attrs: {type: 'module', src: indicatorUrl},
+            injectTo: 'body',
+          },
+          {
+            tag: 'lit-devtools-hmr-indicator',
+            attrs: indicator.count ? {count: ''} : undefined,
+            children: '',
+            injectTo: 'body',
+          }
+        );
       }
-      const indicatorUrl = `/@fs/` + resolveRuntimeModule('indicator');
-      return [
-        {
+
+      if (resolved.timeline) {
+        const installUrl = `/@fs/` + resolveRuntimeModule('timeline/install');
+        tags.push({
           tag: 'script',
-          attrs: {type: 'module', src: indicatorUrl},
+          attrs: {type: 'module', src: installUrl},
           injectTo: 'body',
-        },
-        {
-          tag: 'lit-devtools-hmr-indicator',
-          attrs: indicator.count ? {count: ''} : undefined,
-          children: '',
-          injectTo: 'body',
-        },
-      ];
+        });
+      }
+
+      return tags.length > 0 ? tags : undefined;
     },
   };
   // The source-overlay plugin is always present; its hooks no-op when the
