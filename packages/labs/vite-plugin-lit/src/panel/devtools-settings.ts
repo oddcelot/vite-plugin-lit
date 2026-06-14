@@ -226,6 +226,7 @@ export class DevtoolsSettings extends LitElement {
           hmrReconnect: s.hmr.reconnect,
           hmrOnIncompatible: s.hmr.onIncompatible,
           hmrIndicatorVisible: s.hmr.indicatorEnabled,
+          hmrIndicatorCount: s.hmr.indicatorCount,
         } satisfies SettingsOverride),
       }).catch(() => {});
     }
@@ -263,8 +264,9 @@ export class DevtoolsSettings extends LitElement {
     const reconnect = o.hmrReconnect ?? s.hmr.reconnect;
     const onIncompatible = o.hmrOnIncompatible ?? s.hmr.onIncompatible;
     // The indicator element only exists when enabled at config time, so it can
-    // be hidden/shown live but not created here.
+    // be hidden/shown (and its count toggled) live but not created here.
     const indicatorVisible = o.hmrIndicatorVisible ?? s.hmr.indicatorEnabled;
+    const indicatorCount = o.hmrIndicatorCount ?? s.hmr.indicatorCount;
     return html`
       <table>
         <tr>
@@ -323,6 +325,25 @@ export class DevtoolsSettings extends LitElement {
                 : 'off (config)'}
             </label>
             ${this._ovr(o.hmrIndicatorVisible !== undefined)}
+          </td>
+        </tr>
+        <tr class=${s.hmr.indicatorEnabled ? '' : 'row-disabled'}>
+          <td class="key">indicator count</td>
+          <td class="val">
+            <label class="toggle">
+              <input
+                type="checkbox"
+                .checked=${indicatorCount}
+                ?disabled=${!s.hmr.indicatorEnabled}
+                @change=${(e: Event) =>
+                  this._set(
+                    'hmrIndicatorCount',
+                    (e.target as HTMLInputElement).checked
+                  )}
+              />
+              ${indicatorCount ? 'shown' : 'hidden'}
+            </label>
+            ${this._ovr(o.hmrIndicatorCount !== undefined)}
           </td>
         </tr>
       </table>

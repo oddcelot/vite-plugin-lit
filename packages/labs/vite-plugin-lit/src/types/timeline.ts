@@ -89,6 +89,7 @@ export interface SettingsOverride {
   hmrReconnect?: boolean;
   hmrOnIncompatible?: 'reload' | 'warn';
   hmrIndicatorVisible?: boolean;
+  hmrIndicatorCount?: boolean;
 }
 
 /** localStorage key holding the {@link SettingsOverride}. */

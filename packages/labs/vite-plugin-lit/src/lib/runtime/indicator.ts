@@ -22,13 +22,14 @@ class LitDevtoolsIndicator extends HTMLElement {
 
   constructor() {
     super();
-    const withCount = this.hasAttribute('count');
-    const idleOpacity = withCount ? '.5' : '0';
-
     const root = this.attachShadow({mode: 'closed'});
+    // `--idle-op` is the at-rest opacity: 0 (invisible until a pulse) without a
+    // count, .5 (count stays legible) with one. The count display and idle
+    // opacity are both driven by the `.with-count` class so the panel can
+    // toggle the count on/off live (see #setCount).
     root.innerHTML = `
       <style>
-        @keyframes pulse{0%{opacity:${idleOpacity}}15%{opacity:1}80%{opacity:1}100%{opacity:${idleOpacity}}}
+        @keyframes pulse{0%{opacity:var(--idle-op,0)}15%{opacity:1}80%{opacity:1}100%{opacity:var(--idle-op,0)}}
         :host{
           position:fixed;inset:0;display:grid;
           z-index:2147483647;pointer-events:none;
@@ -41,8 +42,9 @@ class LitDevtoolsIndicator extends HTMLElement {
           backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
           border-radius:var(--lit-devtools-radius,6px);
           font:12px/1 ${FONT_MONO_VAR};font-variant-numeric:tabular-nums;
-          overflow:hidden;opacity:${idleOpacity}
+          overflow:hidden;opacity:var(--idle-op,0)
         }
+        #container.with-count{--idle-op:.5}
         #container.active{animation:pulse 2.5s ease-out forwards}
         #icon{display:flex;align-items:center;justify-content:center;padding:0 10px}
         #icon svg{width:16px;height:16px;display:block;fill:currentColor}
@@ -52,11 +54,19 @@ class LitDevtoolsIndicator extends HTMLElement {
           border-left:1px solid rgba(255,255,255,.14)
         }
         .dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0}
+        .count{display:none}
+        #container.with-count .count{display:inline}
       </style>
-      <div id="container"><span id="icon">${FLAME_ICON}</span><span id="indicator"><span class="dot"></span>${withCount ? '<span class="count">0</span>' : ''}</span></div>
+      <div id="container"><span id="icon">${FLAME_ICON}</span><span id="indicator"><span class="dot"></span><span class="count">0</span></span></div>
     `;
     this.#container = root.getElementById('container')!;
     this.#countEl = root.querySelector('.count');
+    this.#setCount(this.hasAttribute('count'));
+  }
+
+  /** Show/hide the cumulative update count (and the at-rest opacity). */
+  #setCount(enabled: boolean) {
+    this.#container.classList.toggle('with-count', enabled);
   }
 
   connectedCallback() {
@@ -75,10 +85,14 @@ class LitDevtoolsIndicator extends HTMLElement {
       void this.#container.offsetWidth;
       this.#container.classList.add('active');
     });
-    // Let the DevTools panel hide/show the indicator live (and across reloads).
+    // Let the DevTools panel hide/show the indicator and its count live (and
+    // across reloads).
     subscribeOverride(hot, (o) => {
       if (o.hmrIndicatorVisible !== undefined) {
         this.style.display = o.hmrIndicatorVisible ? '' : 'none';
+      }
+      if (o.hmrIndicatorCount !== undefined) {
+        this.#setCount(o.hmrIndicatorCount);
       }
     });
   }
