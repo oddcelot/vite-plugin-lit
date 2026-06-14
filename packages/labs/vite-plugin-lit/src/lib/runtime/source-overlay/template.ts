@@ -5,7 +5,7 @@
  */
 
 import {FONT_MONO_VAR} from '../fonts.js';
-import {CODE_ICON, COPY_ICON} from './icons.js';
+import {CODE_ICON, COPY_ICON} from '../icons.js';
 
 // Shadow DOM markup for the overlay: a transparent modal <dialog> hosting the
 // dimming mask, the highlight ring, and the bottom-fixed tooltip panel. The
