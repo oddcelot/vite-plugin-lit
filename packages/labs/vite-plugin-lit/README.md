@@ -61,6 +61,7 @@ its on-page indicator; `sourceOverlay` is the click-to-open-in-IDE inspector.
 | `hmr.indicator`       | `boolean \| {enabled?, count?}`   | `true`     | On-page pulsing indicator that animates on each HMR update. Forced off when HMR is disabled.                                       |
 | `hmr.indicator.count` | `boolean`                         | `false`    | Show a cumulative update count in the indicator.                                                                                   |
 | `sourceOverlay`       | `boolean \| SourceOverlayOptions` | `false`    | Dev-only click-to-open-in-IDE inspector. Toggle with Ctrl+Shift+S (configurable via `key`).                                        |
+| `timeline`            | `boolean`                         | `false`    | Dev-only Timeline panel inside Vite DevTools. Records Lit lifecycle, render, mouse, and keyboard events in real time.              |
 
 ### Environment variables
 
@@ -79,6 +80,69 @@ take precedence over env vars, which take precedence over the defaults.
 | `LIT_PLUGIN_SOURCE_OVERLAY_KEY`         | `sourceOverlay.key`        |
 | `LIT_PLUGIN_SOURCE_OVERLAY_EDITOR`      | `sourceOverlay.editor`     |
 | `LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS` | `sourceOverlay.throttleMs` |
+| `LIT_PLUGIN_TIMELINE`                   | `timeline` (enable)        |
+
+## Timeline
+
+The Timeline panel is a **Vue DevTools–style** event recorder for Lit components,
+served as a panel inside [Vite DevTools](https://devtools.vite.dev) (`@vitejs/devtools`).
+
+Enable it in `vite.config.ts`:
+
+```ts
+import {litPlugin} from '@lit-labs/vite-plugin-lit';
+import {DevTools} from '@vitejs/devtools';
+
+export default defineConfig({
+  plugins: [
+    litPlugin({timeline: true}),
+    DevTools(), // required: provides the DevTools panel host
+  ],
+});
+```
+
+Or with the env var (`.env.local`):
+
+```
+LIT_PLUGIN_TIMELINE=true
+```
+
+### Layers
+
+| Layer         | What it captures                                                                                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Lit Lifecycle | `connectedCallback`, `performUpdate`, `willUpdate`, `update`, `updated`, `firstUpdated`, `disconnectedCallback` — with per-phase duration bars and changed-property keys |
+| Lit Render    | `begin/end render` from Lit's built-in `lit-debug` events                                                                                                                |
+| Mouse         | `mousedown`, `mouseup`, `click`, `dblclick`                                                                                                                              |
+| Keyboard      | `keydown`, `keyup`                                                                                                                                                       |
+
+Click any event row to see the element tag name, stable instance id, source
+file (opens in your editor via the existing source-overlay middleware), and raw
+event data.
+
+Layer toggles are remembered between sessions (localStorage).
+
+### Custom layers (Phase 5 API)
+
+App code and other plugins can emit events on custom layers:
+
+```ts
+import {addTimelineEvent, addTimelineLayer} from 'virtual:lit-plugin/timeline';
+
+// Register once (idempotent)
+addTimelineLayer({id: 'my-layer', label: 'My Events', color: 0xff6b35});
+
+// Emit from anywhere in the app
+addTimelineEvent({
+  layerId: 'my-layer',
+  time: performance.now(),
+  title: 'something happened',
+  data: {detail: 42},
+});
+```
+
+The virtual module resolves to a no-op stub in production and when `timeline`
+is disabled, so imports are safe to leave in component code.
 
 ## Stylesheets
 
