@@ -9,7 +9,7 @@ import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import type {Plugin, ViteDevServer} from 'vite';
-import type {TimelineEvent} from '../types/timeline.js';
+import type {TimelineEvent, TimelineLayer} from '../types/timeline.js';
 
 // ---------------------------------------------------------------------------
 // Minimal type shims for the @vitejs/devtools-kit surface we use.
@@ -78,6 +78,7 @@ declare module 'vite' {
 
 const PANEL_PATH = '/__lit-timeline';
 const SSE_PATH = '/__lit-timeline-events';
+const CONTROL_PATH = '/__lit-timeline-control';
 
 interface PanelPaths {
   /** Directory that contains index.html. */
@@ -216,6 +217,57 @@ export const litTimelinePlugin = (): Plugin => {
         );
       }
 
+      // Control endpoint: the panel POSTs recording/layer state changes here.
+      // The server rebroadcasts the state to all connected app tabs via HMR.
+      server.middlewares.use(CONTROL_PATH, (req, res, next) => {
+        const method = (req as {method?: string}).method;
+        if (method !== 'POST') {
+          next();
+          return;
+        }
+        const chunks: Buffer[] = [];
+        const readable = req as unknown as {
+          on: (event: string, handler: (chunk: Buffer) => void) => void;
+        };
+        readable.on('data', (chunk: Buffer) => chunks.push(chunk));
+        readable.on('end', () => {
+          try {
+            const body = JSON.parse(Buffer.concat(chunks).toString()) as Record<
+              string,
+              unknown
+            >;
+            if (typeof body.recording === 'boolean') {
+              server.hot.send('lit:timeline:recording-changed', {
+                recording: body.recording,
+              });
+            }
+            const layerKeys = [
+              'litLifecycleEnabled',
+              'litRenderEnabled',
+              'mouseEventEnabled',
+              'keyboardEventEnabled',
+            ] as const;
+            const layersUpdate: Record<string, boolean> = {};
+            for (const key of layerKeys) {
+              if (typeof body[key] === 'boolean') {
+                layersUpdate[key] = body[key] as boolean;
+              }
+            }
+            if (Object.keys(layersUpdate).length > 0) {
+              server.hot.send('lit:timeline:layers-changed', layersUpdate);
+            }
+          } catch {
+            // ignore malformed body
+          }
+          const r = res as {
+            statusCode: number;
+            end: () => void;
+          };
+          r.statusCode = 204;
+          r.end();
+        });
+      });
+
       // Accept batches of events from the browser runtime via Vite HMR.
       server.hot.on(
         'lit:timeline:push-event',
@@ -224,14 +276,30 @@ export const litTimelinePlugin = (): Plugin => {
         }
       );
 
-      // Recording-state changes come from the panel (postMessage → parent
-      // devtools shell → server), broadcast back to all connected app tabs.
+      // Legacy: panel postMessage → devtools shell → server (keep for compat).
       server.hot.on(
         'lit:timeline:set-recording',
         (data: {recording: boolean}) => {
           server.hot.send('lit:timeline:recording-changed', {
             recording: data.recording,
           });
+        }
+      );
+
+      // Custom layer announced by app code via addTimelineLayer().
+      // Forward to the panel as a named SSE event so it can add the layer.
+      server.hot.on(
+        'lit:timeline:custom-layer',
+        (data: {layer: TimelineLayer}) => {
+          if (!data.layer?.id) return;
+          const payload = `event: layer\ndata: ${JSON.stringify(data.layer)}\n\n`;
+          for (const client of sseClients) {
+            try {
+              client.write(payload);
+            } catch {
+              sseClients.delete(client);
+            }
+          }
         }
       );
     },
