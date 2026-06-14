@@ -37,20 +37,35 @@ const findPanel = (): HTMLElement | null => {
   return (root?.getElementById(PANEL_ID) as HTMLElement | null) ?? null;
 };
 
-/** Inset (px + gap) the docked panel occupies on each viewport edge. */
+/**
+ * Inset (px + gap) the docked panel occupies, on the single edge it's docked
+ * to. The panel docks to one edge and spans the perpendicular axis fully, so we
+ * pick the dock edge from which axis it spans — a full-width panel is docked
+ * top/bottom, a full-height one left/right. (Inferring the edge per-side would
+ * wrongly flag a full-width bottom panel as also docked left and right.)
+ */
 const computeInsets = (): EdgeInsets => {
   const panel = findPanel();
   if (panel === null) return ZERO;
   const r = panel.getBoundingClientRect();
   if (r.width === 0 || r.height === 0) return ZERO;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  return {
-    top: r.top <= EDGE ? r.bottom + GAP : 0,
-    bottom: r.bottom >= vh - EDGE ? vh - r.top + GAP : 0,
-    left: r.left <= EDGE ? r.right + GAP : 0,
-    right: r.right >= vw - EDGE ? vw - r.left + GAP : 0,
-  };
+  // Use the layout viewport (excludes scrollbars) — a fixed `right:0`/`bottom:0`
+  // panel aligns to clientWidth/Height, not innerWidth/Height, so comparing
+  // against the latter would miss a full-width panel whenever a scrollbar is
+  // present.
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  const spansWidth = r.left <= EDGE && r.right >= vw - EDGE;
+  const spansHeight = r.top <= EDGE && r.bottom >= vh - EDGE;
+  const insets = {...ZERO};
+  if (spansWidth && !spansHeight) {
+    if (r.top <= EDGE) insets.top = r.bottom + GAP;
+    else if (r.bottom >= vh - EDGE) insets.bottom = vh - r.top + GAP;
+  } else if (spansHeight && !spansWidth) {
+    if (r.left <= EDGE) insets.left = r.right + GAP;
+    else if (r.right >= vw - EDGE) insets.right = vw - r.left + GAP;
+  }
+  return insets;
 };
 
 /**
