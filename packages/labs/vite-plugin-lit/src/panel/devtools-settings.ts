@@ -117,18 +117,21 @@ export class DevtoolsSettings extends LitElement {
       color: #fbbf24;
       font-size: 10px;
       margin-left: 6px;
+      vertical-align: middle;
     }
     label.toggle {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       cursor: pointer;
+      vertical-align: middle;
     }
     input,
     select {
       accent-color: #4fc08d;
       font: inherit;
       font-family: ui-monospace, monospace;
+      vertical-align: middle;
     }
     select {
       background: #2d2d35;
@@ -241,7 +244,7 @@ export class DevtoolsSettings extends LitElement {
   }
 
   private _ovr(overridden: boolean) {
-    return overridden ? html`<span class="ovr">overridden</span>` : nothing;
+    return overridden ? html`<span class="ovr">(overridden)</span>` : nothing;
   }
 
   private _readonlyRow(key: string, value: unknown, env?: string) {
