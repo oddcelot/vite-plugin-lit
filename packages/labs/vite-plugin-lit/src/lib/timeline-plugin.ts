@@ -196,7 +196,9 @@ const installSseMiddleware = (
   );
 };
 
-export const litTimelinePlugin = (settings?: FeatureSettings): Plugin => {
+export const litTimelinePlugin = (
+  getSettings?: () => FeatureSettings | undefined
+): Plugin => {
   const sseClients = new Set<SseClient>();
 
   /** Push a batch of events to all subscribed panel SSE clients. */
@@ -238,7 +240,7 @@ export const litTimelinePlugin = (settings?: FeatureSettings): Plugin => {
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
             res.setHeader('Cache-Control', 'no-cache');
-            res.end(JSON.stringify(settings ?? null));
+            res.end(JSON.stringify(getSettings?.() ?? null));
             return;
           }
           if (req.method === 'POST') {

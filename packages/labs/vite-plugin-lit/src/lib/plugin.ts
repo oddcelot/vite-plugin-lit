@@ -706,7 +706,11 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
     hmr,
   ];
   if (resolved.timeline) {
-    plugins.push(litTimelinePlugin(toFeatureSettings(resolved)));
+    // Pass a getter, not a snapshot: `resolved` is re-resolved against the
+    // loaded env in the `config` hook, which runs after this plugin array is
+    // built. The settings endpoint reads it per-request, by which point env is
+    // applied.
+    plugins.push(litTimelinePlugin(() => toFeatureSettings(resolved)));
   }
   return plugins;
 };
