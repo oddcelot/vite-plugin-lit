@@ -291,11 +291,13 @@ export const litCssQueries = (): Plugin => ({
         CSS_URL_VIRTUAL_PREFIX.length,
         -CSS_VIRTUAL_SUFFIX.length
       );
-      return (
-        `import url from ${JSON.stringify(`${file}?url`)};\n` +
-        `import {devCacheBust} from ${JSON.stringify(helperPath)};\n` +
-        `export default devCacheBust(url);\n`
-      );
+      return {
+        code:
+          `import url from ${JSON.stringify(`${file}?url`)};\n` +
+          `import {devCacheBust} from ${JSON.stringify(helperPath)};\n` +
+          `export default devCacheBust(url);\n`,
+        moduleType: 'js',
+      };
     }
     if (id.startsWith(CSS_SHEET_VIRTUAL_PREFIX)) {
       const file = id.slice(
@@ -307,15 +309,17 @@ export const litCssQueries = (): Plugin => ({
       // here is exactly what frees the caller from writing it. The swap is
       // self-accepted at this boundary, so it never propagates to adopters.
       const urlSpecifier = JSON.stringify(`${file}?url`);
-      return (
-        `import url from ${urlSpecifier};\n` +
-        `import {urlSheet} from ${JSON.stringify(helperPath)};\n` +
-        `const {sheet, onHotUpdate} = urlSheet(url);\n` +
-        `export default sheet;\n` +
-        `if (import.meta.hot) {\n` +
-        `  import.meta.hot.accept(${urlSpecifier}, onHotUpdate);\n` +
-        `}\n`
-      );
+      return {
+        code:
+          `import url from ${urlSpecifier};\n` +
+          `import {urlSheet} from ${JSON.stringify(helperPath)};\n` +
+          `const {sheet, onHotUpdate} = urlSheet(url);\n` +
+          `export default sheet;\n` +
+          `if (import.meta.hot) {\n` +
+          `  import.meta.hot.accept(${urlSpecifier}, onHotUpdate);\n` +
+          `}\n`,
+        moduleType: 'js',
+      };
     }
     return null;
   },
@@ -533,10 +537,12 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
           reconnect: resolved.reconnect,
           onIncompatible: resolved.onIncompatible,
         };
-        return (
-          `import {install} from ${JSON.stringify(patchPath)};\n` +
-          `install(${JSON.stringify(runtimeOptions)});\n`
-        );
+        return {
+          code:
+            `import {install} from ${JSON.stringify(patchPath)};\n` +
+            `install(${JSON.stringify(runtimeOptions)});\n`,
+          moduleType: 'js',
+        };
       }
       const spec = id.slice(VIRTUAL_PREFIX.length);
       const wrappedTags = WRAP_TABLE.get(spec);
@@ -559,7 +565,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
           )});`
         );
       }
-      return lines.join('\n') + '\n';
+      return {code: lines.join('\n') + '\n', moduleType: 'js'};
     },
     async transform(code, id, transformOptions) {
       if (!resolved.hmrEnabled) {

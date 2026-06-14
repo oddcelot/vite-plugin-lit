@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import {DevTools} from '@vitejs/devtools';
+import Inspect from 'vite-plugin-inspect';
 import {defineConfig, loadEnv} from 'vite';
 
 export default defineConfig(async ({mode}) => {
@@ -28,6 +30,19 @@ export default defineConfig(async ({mode}) => {
       port,
       strictPort: true,
     },
+    // Root `devtools` config sets up the DevTools server + auth. Paired with
+    // the `DevTools()` plugin below (which injects the embedded overlay), this
+    // is what makes the floating panel appear.
+    //
+    // `clientAuth: false` skips the per-browser permission prompt. DevTools
+    // normally gates connections behind a terminal approval, which can't be
+    // answered when this playground is opened on StackBlitz/bolt.new. Safe
+    // here because it's a throwaway demo server; do NOT copy this into a real
+    // project, especially with `server.host` exposed to LAN/WAN.
+    devtools: {
+      enabled: true,
+      clientAuth: false,
+    },
     css: {
       // Process all CSS with Lightning CSS instead of PostCSS — applies to
       // dev-served .css files and built assets alike. The conservative
@@ -41,19 +56,15 @@ export default defineConfig(async ({mode}) => {
       },
     },
     build: {
-      // The cssMinify pass strips the color fallbacks the transform just
-      // generated: under Vite 8 (monorepo) Lightning CSS minifies without
-      // receiving css.lightningcss.targets, and under Vite 7 (standalone)
-      // the esbuild default merges duplicate declarations. Skip
-      // minification — these are demo stylesheets meant to be read anyway.
+      // CSS minification would strip the color fallbacks the transform just
+      // generated — skip it, these are demo stylesheets meant to be read.
       cssMinify: false,
       // Skip minification — these are demo assets meant to be read.
       minify: false,
-      // Split each HMR component into its own chunk for better visibility
-      // and debugging of the HMR output.
-      rollupOptions: {
+      // Split each HMR component into its own chunk for better visibility.
+      rolldownOptions: {
         output: {
-          manualChunks(id) {
+          manualChunks(id: string) {
             if (id.includes('/src/hmr-') && id.endsWith('.ts')) {
               const match = id.match(/\/src\/(hmr-[\w-]+)\.ts$/);
               if (match) return match[1];
@@ -62,6 +73,8 @@ export default defineConfig(async ({mode}) => {
         },
       },
     },
-    plugins: [litPlugin()],
+    // `DevTools()` injects the embedded overlay client. It returns a
+    // Promise<Plugin[]>, which Vite awaits and flattens.
+    plugins: [litPlugin(), Inspect(), DevTools()],
   };
 });
