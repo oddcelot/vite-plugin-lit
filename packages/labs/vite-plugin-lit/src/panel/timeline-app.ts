@@ -6,11 +6,13 @@
 
 import {LitElement, html, css} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
-import type {TimelineEvent} from '../types/timeline.js';
+import type {TimelineEvent, TimelineLayer} from '../types/timeline.js';
 import {TIMELINE_LAYERS} from '../types/timeline.js';
 import type {LayerState} from './timeline-layers.js';
 import './timeline-layers.js';
 import './timeline-event-list.js';
+
+const LS_KEY = 'lit-devtools-timeline-layers';
 
 /** Root element of the Lit Timeline DevTools panel. */
 @customElement('timeline-app')
@@ -83,6 +85,7 @@ export class TimelineApp extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
+    this._loadStorage();
     this._es = new EventSource('/__lit-timeline-events');
     this._es.onmessage = (e: MessageEvent<string>) => {
       if (!this._recording) return;
@@ -95,6 +98,19 @@ export class TimelineApp extends LitElement {
         // ignore malformed data
       }
     };
+    // Custom layers pushed from app code via addTimelineLayer().
+    this._es.addEventListener('layer', (e: Event) => {
+      try {
+        const layer = JSON.parse(
+          (e as MessageEvent<string>).data
+        ) as TimelineLayer;
+        if (layer?.id && !this._layers.some((l) => l.id === layer.id)) {
+          this._layers = [...this._layers, {...layer, enabled: true}];
+        }
+      } catch {
+        // ignore
+      }
+    });
   }
 
   override disconnectedCallback() {
@@ -103,15 +119,71 @@ export class TimelineApp extends LitElement {
     this._es = null;
   }
 
+  // ---------------------------------------------------------------------------
+  // State persistence
+  // ---------------------------------------------------------------------------
+
+  private _loadStorage(): void {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw !== null) {
+        const saved = JSON.parse(raw) as Record<string, boolean>;
+        this._layers = this._layers.map((l) => ({
+          ...l,
+          enabled: saved[l.id] ?? l.enabled,
+        }));
+      }
+    } catch {
+      // ignore (private/storage unavailable)
+    }
+  }
+
+  private _saveStorage(): void {
+    try {
+      localStorage.setItem(
+        LS_KEY,
+        JSON.stringify(
+          Object.fromEntries(this._layers.map((l) => [l.id, l.enabled]))
+        )
+      );
+    } catch {
+      // ignore
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Server sync
+  // ---------------------------------------------------------------------------
+
+  private _layersToState(): Record<string, boolean> {
+    const enabled = (id: string): boolean =>
+      this._layers.find((l) => l.id === id)?.enabled ?? true;
+    return {
+      litLifecycleEnabled: enabled('lit-lifecycle'),
+      litRenderEnabled: enabled('lit-render'),
+      mouseEventEnabled: enabled('mouse'),
+      keyboardEventEnabled: enabled('keyboard'),
+    };
+  }
+
+  /** POST layer/recording state to the server control endpoint. */
+  private _postControl(body: Record<string, unknown>): void {
+    fetch('/__lit-timeline-control', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    }).catch(() => {
+      // dev tool — ignore network errors
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+
   private _toggleRecord() {
     this._recording = !this._recording;
-    // Relay recording state to the app via the server.
-    // postMessage reaches the devtools shell (same origin); the server then
-    // broadcasts lit:timeline:recording-changed to all connected browser tabs.
-    window.parent.postMessage(
-      {type: '__lit_timeline_set_recording', recording: this._recording},
-      '*'
-    );
+    this._postControl({recording: this._recording});
   }
 
   private _clear() {
@@ -122,6 +194,8 @@ export class TimelineApp extends LitElement {
     this._layers = this._layers.map((l) =>
       l.id === e.detail.id ? {...l, enabled: !l.enabled} : l
     );
+    this._postControl(this._layersToState());
+    this._saveStorage();
   }
 
   override render() {
