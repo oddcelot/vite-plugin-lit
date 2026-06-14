@@ -489,7 +489,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
           injectTo: 'body',
         },
         {
-          tag: 'lit-devtools-indicator',
+          tag: 'lit-devtools-hmr-indicator',
           attrs: withCount ? {count: ''} : undefined,
           children: '',
           injectTo: 'body',

@@ -77,4 +77,4 @@ class LitDevtoolsIndicator extends HTMLElement {
   }
 }
 
-customElements.define('lit-devtools-indicator', LitDevtoolsIndicator);
+customElements.define('lit-devtools-hmr-indicator', LitDevtoolsIndicator);
