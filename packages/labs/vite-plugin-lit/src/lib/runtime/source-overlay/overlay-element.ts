@@ -16,6 +16,7 @@ import {buildSpotlightClipPath} from './mask-path.js';
 import {OVERLAY_HTML} from './template.js';
 import {observeEdgeInsets} from '../edge-panel.js';
 import {subscribeOverride} from '../overrides.js';
+import {injectTokens} from '../../tokens.js';
 import {SOURCE_OVERLAY_TOGGLE_CHANNEL} from '../../../types/timeline.js';
 import {idOf} from '../timeline/identity.js';
 import {
@@ -98,6 +99,7 @@ class LitSourceOverlay extends HTMLElement {
   }
 
   connectedCallback() {
+    injectTokens();
     document.addEventListener('mousemove', this.#onTrackMouse, true);
     document.addEventListener('keydown', this.#onKeyDown, true);
     const hot = (

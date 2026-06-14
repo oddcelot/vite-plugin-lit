@@ -14,6 +14,7 @@ import {FONT_MONO_VAR} from './fonts.js';
 import {FLAME_ICON} from './icons.js';
 import {subscribeOverride} from './overrides.js';
 import {observeEdgeInsets} from './edge-panel.js';
+import {injectTokens} from '../tokens.js';
 
 class LitDevtoolsIndicator extends HTMLElement {
   #initialized = false;
@@ -45,9 +46,9 @@ class LitDevtoolsIndicator extends HTMLElement {
         #container{
           place-self:var(--lit-devtools-hmr-indicator-align,end end);
           display:flex;align-items:stretch;
-          background:rgba(26,26,46,.72);color:#fff;
+          background:var(--surface-elevated);color:var(--text-strong);
           backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-          border-radius:var(--lit-devtools-radius,6px);
+          border-radius:var(--radius-md);
           font:12px/1 ${FONT_MONO_VAR};font-variant-numeric:tabular-nums;
           overflow:hidden;opacity:var(--idle-op,0)
         }
@@ -58,9 +59,9 @@ class LitDevtoolsIndicator extends HTMLElement {
         #indicator{
           display:flex;align-items:center;gap:6px;
           padding:7px 12px;
-          border-left:1px solid rgba(255,255,255,.14)
+          border-left:1px solid var(--border-subtle)
         }
-        .dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0}
+        .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0}
         .count{display:none}
         #container.with-count .count{display:inline}
       </style>
@@ -79,6 +80,7 @@ class LitDevtoolsIndicator extends HTMLElement {
   connectedCallback() {
     if (this.#initialized) return;
     this.#initialized = true;
+    injectTokens();
     const hot = (
       import.meta as {
         hot?: {on: (event: string, cb: (data?: unknown) => void) => void};

@@ -6,6 +6,7 @@
 
 import {LitElement, html, css} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
+import {tokens} from '../lib/tokens.js';
 
 export interface LayerState {
   id: string;
@@ -17,47 +18,50 @@ export interface LayerState {
 /** Strip of colored pill toggles — one per timeline layer. */
 @customElement('timeline-layers')
 export class TimelineLayers extends LitElement {
-  static override styles = css`
-    :host {
-      display: flex;
-      gap: 4px;
-      padding: 6px 12px;
-      border-bottom: 1px solid #2d2d35;
-      background: #18181e;
-      flex-shrink: 0;
-      flex-wrap: wrap;
-    }
-    button {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 3px 8px;
-      border-radius: 10px;
-      background: #2d2d35;
-      border: 1px solid transparent;
-      color: #a0a0b0;
-      font-size: 11px;
-      cursor: pointer;
-      user-select: none;
-      transition: opacity 0.1s;
-    }
-    button.on {
-      color: #d4d4d8;
-    }
-    button:hover {
-      background: #3d3d45;
-    }
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      opacity: 0.4;
-    }
-    button.on .dot {
-      opacity: 1;
-    }
-  `;
+  static override styles = [
+    tokens,
+    css`
+      :host {
+        display: flex;
+        gap: var(--space-2);
+        padding: var(--space-3) var(--space-5);
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-low);
+        flex-shrink: 0;
+        flex-wrap: wrap;
+      }
+      button {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-2) var(--space-4);
+        border-radius: var(--radius-pill);
+        background: var(--surface-elevated);
+        border: 1px solid transparent;
+        color: var(--text-secondary);
+        font-size: var(--text-2xs);
+        cursor: pointer;
+        user-select: none;
+        transition: opacity var(--dur-fast) var(--ease-standard);
+      }
+      button.on {
+        color: var(--text);
+      }
+      button:hover {
+        background: var(--surface-hover);
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        opacity: 0.4;
+      }
+      button.on .dot {
+        opacity: 1;
+      }
+    `,
+  ];
 
   @property({type: Array}) layers: LayerState[] = [];
 

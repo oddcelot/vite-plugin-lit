@@ -95,8 +95,8 @@ if (hot !== undefined && typeof window !== 'undefined') {
         position: 'fixed',
         zIndex: '2147483646',
         pointerEvents: 'none',
-        background: 'rgba(79, 192, 141, 0.25)',
-        outline: '1px solid #4fc08d',
+        background: 'rgba(77, 99, 255, 0.25)',
+        outline: '1px solid #4d63ff',
         borderRadius: '2px',
         transition: 'all 80ms ease-out',
       } satisfies Partial<CSSStyleDeclaration>);

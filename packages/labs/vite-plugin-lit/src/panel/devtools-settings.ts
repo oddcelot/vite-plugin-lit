@@ -6,6 +6,7 @@
 
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
+import {tokens} from '../lib/tokens.js';
 import {
   SETTINGS_OVERRIDE_LS_KEY,
   SOURCE_OVERLAY_EDITORS,
@@ -25,136 +26,139 @@ const SETTINGS_PATH = '/__lit-devtools-settings';
  */
 @customElement('devtools-settings')
 export class DevtoolsSettings extends LitElement {
-  static override styles = css`
-    :host {
-      display: block;
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 16px;
-      font-size: 12px;
-      line-height: 1.5;
-    }
-    .note {
-      color: #888;
-      margin: 0 0 14px;
-    }
-    .note code {
-      color: #4fc08d;
-      font-family: ui-monospace, monospace;
-    }
-    section {
-      border: 1px solid #2d2d35;
-      border-radius: 6px;
-      margin-bottom: 12px;
-      overflow: hidden;
-    }
-    h3 {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin: 0;
-      padding: 8px 12px;
-      font-size: 12px;
-      background: #16161b;
-      border-bottom: 1px solid #2d2d35;
-    }
-    .pill {
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      padding: 1px 7px;
-      border-radius: 999px;
-      border: 1px solid #3d3d45;
-      color: #888;
-    }
-    .pill.on {
-      color: #4ade80;
-      border-color: #166534;
-      background: #14321f;
-    }
-    .reset {
-      margin-left: auto;
-      appearance: none;
-      border: 1px solid #3d3d45;
-      background: #2d2d35;
-      color: #d4d4d8;
-      border-radius: 4px;
-      font: inherit;
-      font-size: 10px;
-      padding: 2px 8px;
-      cursor: pointer;
-    }
-    .reset:hover {
-      background: #3d3d45;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    td {
-      padding: 5px 12px;
-      vertical-align: middle;
-    }
-    tr:not(:last-child) td {
-      border-bottom: 1px solid #1e1e26;
-    }
-    .key {
-      color: #888;
-      white-space: nowrap;
-      width: 1%;
-    }
-    .val {
-      color: #d4d4d8;
-      font-family: ui-monospace, monospace;
-    }
-    .env {
-      color: #555;
-      font-family: ui-monospace, monospace;
-      font-size: 10px;
-    }
-    .ovr {
-      color: #fbbf24;
-      font-size: 10px;
-      margin-left: 6px;
-      vertical-align: middle;
-    }
-    label.toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-      vertical-align: middle;
-    }
-    input,
-    select {
-      accent-color: #4fc08d;
-      font: inherit;
-      font-family: ui-monospace, monospace;
-      vertical-align: middle;
-    }
-    select {
-      background: #2d2d35;
-      color: #d4d4d8;
-      border: 1px solid #3d3d45;
-      border-radius: 4px;
-      padding: 1px 4px;
-    }
-    .row-disabled {
-      opacity: 0.5;
-    }
-    .empty {
-      color: #777;
-      padding: 8px 12px;
-    }
-    .empty code {
-      color: #4fc08d;
-      font-family: ui-monospace, monospace;
-    }
-    .loading {
-      color: #777;
-    }
-  `;
+  static override styles = [
+    tokens,
+    css`
+      :host {
+        display: block;
+        flex: 1;
+        overflow-y: auto;
+        padding: var(--space-5) var(--space-6);
+        font-size: var(--text-xs);
+        line-height: var(--leading-normal);
+      }
+      .note {
+        color: var(--text-muted);
+        margin: 0 0 var(--space-5);
+      }
+      .note code {
+        color: var(--accent);
+        font-family: var(--font-mono);
+      }
+      section {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        margin-bottom: var(--space-5);
+        overflow: hidden;
+      }
+      h3 {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        margin: 0;
+        padding: var(--space-3) var(--space-5);
+        font-size: var(--text-xs);
+        background: var(--surface-low);
+        border-bottom: 1px solid var(--border);
+      }
+      .pill {
+        font-size: var(--text-2xs);
+        font-weight: var(--weight-semibold);
+        text-transform: uppercase;
+        letter-spacing: var(--tracking-caps);
+        padding: 1px var(--space-4);
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--border-strong);
+        color: var(--text-muted);
+      }
+      .pill.on {
+        color: var(--accent);
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .reset {
+        margin-left: auto;
+        appearance: none;
+        border: 1px solid var(--border-strong);
+        background: var(--surface-elevated);
+        color: var(--text);
+        border-radius: var(--radius-sm);
+        font: inherit;
+        font-size: var(--text-2xs);
+        padding: var(--space-1) var(--space-4);
+        cursor: pointer;
+      }
+      .reset:hover {
+        background: var(--surface-hover);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      td {
+        padding: var(--space-3) var(--space-5);
+        vertical-align: middle;
+      }
+      tr:not(:last-child) td {
+        border-bottom: 1px solid var(--border);
+      }
+      .key {
+        color: var(--text-muted);
+        white-space: nowrap;
+        width: 1%;
+      }
+      .val {
+        color: var(--text);
+        font-family: var(--font-mono);
+      }
+      .env {
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+        font-size: var(--text-2xs);
+      }
+      .ovr {
+        color: var(--warning);
+        font-size: var(--text-2xs);
+        margin-left: var(--space-3);
+        vertical-align: middle;
+      }
+      label.toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-3);
+        cursor: pointer;
+        vertical-align: middle;
+      }
+      input,
+      select {
+        accent-color: var(--accent);
+        font: inherit;
+        font-family: var(--font-mono);
+        vertical-align: middle;
+      }
+      select {
+        background: var(--surface-elevated);
+        color: var(--text);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 1px var(--space-2);
+      }
+      .row-disabled {
+        opacity: 0.5;
+      }
+      .empty {
+        color: var(--text-muted);
+        padding: var(--space-3) var(--space-5);
+      }
+      .empty code {
+        color: var(--accent);
+        font-family: var(--font-mono);
+      }
+      .loading {
+        color: var(--text-muted);
+      }
+    `,
+  ];
 
   @state() private _settings: FeatureSettings | null = null;
   @state() private _override: SettingsOverride = {};

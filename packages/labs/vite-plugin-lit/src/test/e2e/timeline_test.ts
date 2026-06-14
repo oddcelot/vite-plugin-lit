@@ -25,25 +25,24 @@ const getUrl = (
   new Promise((resolve, reject) => {
     const req = http.get(`http://127.0.0.1:${port}${path}`, (res) => {
       let body = '';
+      let resolved = false;
+      const done = () => {
+        if (resolved) return;
+        resolved = true;
+        resolve({status: res.statusCode ?? 0, headers: res.headers, body});
+      };
       res.on('data', (chunk: Buffer) => {
         body += chunk.toString();
       });
-      res.on('end', () => {
-        resolve({status: res.statusCode ?? 0, headers: res.headers, body});
-      });
-      // SSE connections never end; destroy after we've collected headers.
+      res.on('end', done);
+      // SSE connections never end; destroy after we've collected headers and
+      // resolve on the resulting 'close' event.
+      res.on('close', done);
       if (res.headers['content-type']?.includes('event-stream')) {
         setTimeout(() => res.destroy(), 50);
       }
     });
-    req.on('error', (err: Error) => {
-      // ECONNRESET from destroy is expected for SSE — resolve with what we have
-      if ((err as NodeJS.ErrnoException).code === 'ECONNRESET') return;
-      reject(err);
-    });
-    req.on('close', () => {
-      // May fire before 'end' on destroyed SSE connection; noop if already resolved.
-    });
+    req.on('error', reject);
   });
 
 const port = (): number => {

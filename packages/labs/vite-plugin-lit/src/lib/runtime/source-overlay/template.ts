@@ -34,8 +34,7 @@ export const OVERLAY_HTML = `
       left: 0;
       pointer-events: none;
       box-sizing: border-box;
-
-      border-radius: var(--lit-devtools-radius, 6px);
+      border-radius: var(--radius-md);
     }
     #tooltip {
       position: fixed;
@@ -48,13 +47,13 @@ export const OVERLAY_HTML = `
       align-items: stretch;
       pointer-events: auto;
       max-width: min(90vw, 480px);
-      border-radius: var(--lit-devtools-radius, 6px);
-      background: rgba(26,26,46,0.72);
+      border-radius: var(--radius-md);
+      background: var(--surface-elevated);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
-      color: #fff;
+      color: var(--text-strong);
       font: 12px/1.4 ${FONT_MONO_VAR};
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      box-shadow: var(--shadow-md);
       overflow: hidden;
     }
     .icon-btn {
@@ -68,10 +67,10 @@ export const OVERLAY_HTML = `
       color: inherit;
       cursor: pointer;
     }
-    .icon-btn:hover { background: rgba(255,255,255,0.1); }
+    .icon-btn:hover { background: var(--surface-hover); }
     /* No outline ring; keyboard focus reuses the subtle hover tint. */
     .icon-btn:focus { outline: none; }
-    .icon-btn:focus-visible { background: rgba(255,255,255,0.1); }
+    .icon-btn:focus-visible { background: var(--surface-hover); }
     .icon-btn svg {
       width: 16px;
       height: 16px;
@@ -85,17 +84,18 @@ export const OVERLAY_HTML = `
       gap: 1px;
       min-width: 0;
       padding: 6px 10px;
-      border-left: 1px solid rgba(255,255,255,0.14);
-      border-right: 1px solid rgba(255,255,255,0.14);
+      border-left: 1px solid var(--border-subtle);
+      border-right: 1px solid var(--border-subtle);
     }
     #tag {
       font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      color: var(--text-strong);
     }
     #path {
-      color: rgba(255,255,255,0.6);
+      color: var(--text-secondary);
       font-size: 11px;
       word-break: break-all;
     }
