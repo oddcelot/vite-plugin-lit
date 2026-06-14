@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {defineConfig} from 'vite';
+import {defineConfig, loadEnv} from 'vite';
 
-export default defineConfig(async () => {
+export default defineConfig(async ({mode}) => {
   // Inside the monorepo, use the built package output (`npm run dev` via
   // wireit builds it first). When the playground is opened standalone —
   // e.g. imported into StackBlitz/bolt.new from the repo URL — the parent
@@ -17,9 +17,15 @@ export default defineConfig(async () => {
   const {litPlugin} = await import('../index.js').catch(
     () => import(/* @vite-ignore */ fallback)
   );
+  // The plugin reads its own `LIT_PLUGIN_*` options from the env at config
+  // time (see .env.example); here we only need the playground server port.
+  const env = loadEnv(mode, process.cwd(), 'LIT_PLUGIN');
+  const port = env.LIT_PLUGIN_PLAYGROUND_PORT
+    ? Number(env.LIT_PLUGIN_PLAYGROUND_PORT)
+    : 5179;
   return {
     server: {
-      port: 5179,
+      port,
       strictPort: true,
     },
     css: {
@@ -56,6 +62,6 @@ export default defineConfig(async () => {
         },
       },
     },
-    plugins: [litPlugin({updateIndicator: {count: true}, sourceOverlay: true})],
+    plugins: [litPlugin()],
   };
 });
