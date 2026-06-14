@@ -29,9 +29,42 @@ const queue: TimelineEvent[] = [];
 let flushScheduled = false;
 let hotClient: HotClient | null = null;
 
-/** Register the HMR hot client. Called by install.ts after import.meta.hot check. */
+// Callbacks registered before the hot client was available (e.g. addTimelineLayer
+// called at module init time before install.ts has set the client).
+const pendingCallbacks: Array<() => void> = [];
+
+/**
+ * Register the HMR hot client.
+ * Called by install.ts after import.meta.hot check.
+ * Flushes any queued events and fires pending one-shot callbacks.
+ */
 export const setHotClient = (hot: HotClient): void => {
   hotClient = hot;
+  // Drain any events that arrived before the client was wired.
+  if (queue.length > 0 && !flushScheduled) {
+    flushScheduled = true;
+    queueMicrotask(flush);
+  }
+  // Fire one-shot callbacks (e.g. addTimelineLayer announcements).
+  for (const cb of pendingCallbacks.splice(0)) {
+    try {
+      cb();
+    } catch {
+      // ignore
+    }
+  }
+};
+
+/**
+ * Register a callback to be invoked once the HMR client is available.
+ * If the client is already set the callback is fired on the next microtask.
+ */
+export const setHotClientCallback = (cb: () => void): void => {
+  if (hotClient !== null) {
+    queueMicrotask(cb);
+  } else {
+    pendingCallbacks.push(cb);
+  }
 };
 
 const flush = (): void => {
