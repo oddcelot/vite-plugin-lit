@@ -25,5 +25,5 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["src/test/**", "playground/**"]
+  "exclude": ["src/test/**", "src/panel/**", "playground/**"]
 }

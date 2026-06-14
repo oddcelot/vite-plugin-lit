@@ -5,6 +5,8 @@
  */
 
 import {existsSync} from 'node:fs';
+import {readFile} from 'node:fs/promises';
+import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import type {Plugin, ViteDevServer} from 'vite';
 import type {TimelineEvent} from '../types/timeline.js';
@@ -77,10 +79,29 @@ declare module 'vite' {
 const PANEL_PATH = '/__lit-timeline';
 const SSE_PATH = '/__lit-timeline-events';
 
-const resolvePanel = (): string => {
-  const url = new URL('../panel/index.html', import.meta.url);
-  if (existsSync(url)) {
-    return fileURLToPath(new URL('../panel', import.meta.url));
+interface PanelPaths {
+  /** Directory that contains index.html. */
+  htmlDir: string;
+  /** Absolute path to the panel entry module (.ts in dev, .js in published). */
+  appModule: string;
+}
+
+/**
+ * Resolves the panel files, checking the compiled output first (`panel/`) then
+ * the TypeScript source (`src/panel/`). In dev, the source `.ts` file is
+ * served via Vite's /@fs/ handler so TypeScript is compiled on the fly.
+ */
+const resolvePanel = (): PanelPaths => {
+  for (const [htmlRel, appRel] of [
+    ['../panel/index.html', '../panel/timeline-app.js'],
+    ['../src/panel/index.html', '../src/panel/timeline-app.ts'],
+  ] as const) {
+    const htmlUrl = new URL(htmlRel, import.meta.url);
+    if (existsSync(htmlUrl)) {
+      const htmlDir = fileURLToPath(new URL('.', htmlUrl));
+      const appModule = fileURLToPath(new URL(appRel, import.meta.url));
+      return {htmlDir, appModule};
+    }
   }
   throw new Error('[lit-plugin:timeline] panel directory not found');
 };
@@ -126,17 +147,6 @@ const installSseMiddleware = (
   );
 };
 
-/**
- * Vite plugin that registers the Lit Timeline dock entry in Vite DevTools.
- *
- * Activated by `devtools.setup(ctx)` which is called by `@vitejs/devtools`
- * when the dev server starts. If `@vitejs/devtools` is not installed the hook
- * is never invoked and the timeline feature silently no-ops.
- *
- * Phase 0: panel served from `src/panel/`, dock entry registered.
- * Phase 1: browser capture runtime injected (via transformIndexHtml).
- * Phase 2: devframe RPC wired for event forwarding.
- */
 export const litTimelinePlugin = (): Plugin => {
   const sseClients = new Set<SseClient>();
 
@@ -161,17 +171,61 @@ export const litTimelinePlugin = (): Plugin => {
       // SSE endpoint: panel iframe subscribes here for event push.
       installSseMiddleware(server, sseClients);
 
+      // Serve the panel HTML with the Lit SPA entry injected via /@fs/ so
+      // Vite can transform the TypeScript source on the fly.
+      let panel: PanelPaths | undefined;
+      try {
+        panel = resolvePanel();
+      } catch (e) {
+        console.warn(String(e));
+      }
+
+      if (panel !== undefined) {
+        const {htmlDir, appModule} = panel;
+        server.middlewares.use(
+          PANEL_PATH,
+          async (
+            req: {url?: string},
+            res: {
+              statusCode: number;
+              setHeader: (k: string, v: string) => void;
+              end: (body: string) => void;
+            },
+            next: () => void
+          ) => {
+            const url = req.url ?? '/';
+            if (url !== '/' && url !== '' && url !== '/index.html') {
+              next();
+              return;
+            }
+            let html: string;
+            try {
+              html = await readFile(join(htmlDir, 'index.html'), 'utf-8');
+            } catch {
+              next();
+              return;
+            }
+            // Inject the panel entry as a /@fs/ module so Vite's transform
+            // pipeline compiles TypeScript and resolves bare specifiers (lit, etc).
+            const scriptTag = `  <script type="module" src="/@fs${appModule}"></script>\n`;
+            html = html.replace('</body>', scriptTag + '</body>');
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.end(html);
+          }
+        );
+      }
+
       // Accept batches of events from the browser runtime via Vite HMR.
       server.hot.on(
         'lit:timeline:push-event',
         (data: {events?: TimelineEvent[]}) => {
-          const batch = data.events ?? [];
-          pushToPanel(batch);
+          pushToPanel(data.events ?? []);
         }
       );
 
       // Recording-state changes come from the panel (postMessage → parent
-      // devtools → server broadcast back to app).  Phase 2 uses shared state.
+      // devtools shell → server), broadcast back to all connected app tabs.
       server.hot.on(
         'lit:timeline:set-recording',
         (data: {recording: boolean}) => {
@@ -184,17 +238,8 @@ export const litTimelinePlugin = (): Plugin => {
 
     devtools: {
       setup(ctx: TimelineCtx) {
-        let panelDir: string;
-        try {
-          panelDir = resolvePanel();
-        } catch (e) {
-          console.warn(String(e));
-          return;
-        }
-
-        // Serve src/panel/ static files at /__lit-timeline/.
-        ctx.views.hostStatic(PANEL_PATH + '/', panelDir);
-
+        // Register the dock entry. HTML is served by the configureServer
+        // middleware above (with /@fs/ injection); hostStatic is not used.
         ctx.docks.register({
           id: 'lit-timeline',
           type: 'iframe',
@@ -204,7 +249,6 @@ export const litTimelinePlugin = (): Plugin => {
           category: 'framework',
         });
 
-        // Phase 0 round-trip RPC — confirms devframe channel is live.
         ctx.rpc.register({
           name: 'lit:timeline:ping',
           type: 'event',
