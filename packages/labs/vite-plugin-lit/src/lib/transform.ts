@@ -36,7 +36,9 @@ export const isComponentModule = (
   code: string,
   hasLitFamilyImport: boolean
 ): boolean =>
-  code.includes('customElements.define(') ||
+  /(?<![.\w$])(?:(?:window|globalThis|self)\.)?customElements\.define\s*\(/.test(
+    code
+  ) ||
   (hasLitFamilyImport && /\bcustomElement\s*\(/.test(code));
 
 export interface LitPluginTransformResult {

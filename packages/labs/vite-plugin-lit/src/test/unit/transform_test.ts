@@ -118,6 +118,39 @@ describe('isComponentModule', () => {
     expect(isComponentModule(code, true)).toBe(true);
     expect(isComponentModule(code, false)).toBe(false);
   });
+
+  test('matches statement-position customElements.define', () => {
+    expect(isComponentModule(`customElements.define('x-y', XY);`, false)).toBe(
+      true
+    );
+  });
+
+  test('matches global-qualified define forms', () => {
+    expect(
+      isComponentModule(`window.customElements.define('x-y', XY);`, false)
+    ).toBe(true);
+    expect(
+      isComponentModule(`globalThis.customElements.define('x-y', XY);`, false)
+    ).toBe(true);
+    expect(
+      isComponentModule(`self.customElements.define('x-y', XY);`, false)
+    ).toBe(true);
+  });
+
+  test('ignores member-access define on an unrelated object', () => {
+    expect(
+      isComponentModule(`registry.customElements.define('x-y', XY);`, false)
+    ).toBe(false);
+    expect(
+      isComponentModule(`this.customElements.define('x-y', XY);`, false)
+    ).toBe(false);
+  });
+
+  test('tolerates whitespace before the call parens', () => {
+    expect(isComponentModule(`customElements.define ('x-y', XY);`, false)).toBe(
+      true
+    );
+  });
 });
 
 describe('litPlugin transform filter', () => {
