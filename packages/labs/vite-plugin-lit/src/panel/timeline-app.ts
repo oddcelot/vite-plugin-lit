@@ -5,8 +5,10 @@
  */
 
 import {LitElement, html, css, nothing} from 'lit';
-import {customElement, state} from 'lit/decorators.js';
+import {customElement, query, state} from 'lit/decorators.js';
 import './timeline-view.js';
+import './components-view.js';
+import type {ComponentsView} from './components-view.js';
 import './devtools-settings.js';
 
 interface Tab {
@@ -16,10 +18,11 @@ interface Tab {
 
 /**
  * Tabs hosted by the panel. The Timeline is the first; this list is the
- * extension point for future Lit DevTools views (components, etc.).
+ * extension point for future Lit DevTools views.
  */
 const TABS: readonly Tab[] = [
   {id: 'timeline', label: 'Timeline'},
+  {id: 'components', label: 'Components'},
   {id: 'settings', label: 'Settings'},
 ];
 
@@ -94,8 +97,17 @@ export class TimelineApp extends LitElement {
 
   @state() private _tab = 'timeline';
 
+  @query('components-view') private _componentsView?: ComponentsView;
+
   private _select(id: string) {
     this._tab = id;
+  }
+
+  /** A timeline event's "inspect" link — open the Components tab on it. */
+  private _onInspectElement(e: CustomEvent<{id: number}>) {
+    this._tab = 'components';
+    // The view is always mounted, so it can select without waiting for render.
+    this._componentsView?.selectById(e.detail.id);
   }
 
   override render() {
@@ -117,8 +129,14 @@ export class TimelineApp extends LitElement {
           )}
         </nav>
       </header>
-      <div class="view">
+      <div class="view" @inspect-element=${this._onInspectElement}>
         <timeline-view ?hidden=${this._tab !== 'timeline'}></timeline-view>
+        <!-- Kept mounted (like the timeline) so an overlay inspect-pick can
+             arrive and switch us here even while another tab is in front. -->
+        <components-view
+          ?hidden=${this._tab !== 'components'}
+          @inspector-activate=${() => this._select('components')}
+        ></components-view>
         ${this._tab === 'settings'
           ? html`<devtools-settings></devtools-settings>`
           : nothing}

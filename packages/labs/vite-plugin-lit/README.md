@@ -118,9 +118,30 @@ LIT_PLUGIN_TIMELINE=true
 
 Click any event row to see the element tag name, stable instance id, source
 file (opens in your editor via the existing source-overlay middleware), and raw
-event data.
+event data. The element row also has an **inspect** link that opens the
+[Components](#components) tab on that element (they share the same instance id).
 
 Layer toggles are remembered between sessions (localStorage).
+
+### Components
+
+The **Components** tab shows a live, hierarchical tree of the Lit elements on
+the page (descending through shadow roots) and a details pane for the selected
+one: its reactive properties and internal `@state`, current attributes, update
+flags (`updated` / `update pending` / `shadow root`), and a source link that
+opens the component in your editor. The details refresh in place as the selected
+element updates.
+
+The tree refreshes on demand (the **Refresh** button) and whenever you pick an
+element. For continuous updates, toggle **Live** — an opt-in `MutationObserver`
+in the page (off by default, remembered per browser) that re-pushes the tree as
+the component hierarchy changes, including inside shadow roots.
+
+To pick an element by pointing at it on the page, use the **Pick** button in the
+tab, or the `Ctrl+Shift+E` shortcut (also in the DevTools command palette as
+_Inspect Lit Element_). This reuses the source-overlay picker, so it requires
+`sourceOverlay` to be enabled — but unlike `Ctrl+Shift+S` (which opens the
+element in your editor), a pick selects the element in the Components tree.
 
 ### Custom layers (Phase 5 API)
 

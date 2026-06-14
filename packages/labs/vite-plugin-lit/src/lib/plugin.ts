@@ -691,6 +691,15 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
           attrs: {type: 'module', src: installUrl},
           injectTo: 'body',
         });
+        // Components inspector runtime — answers the panel's tree/details
+        // requests. Paired with the timeline panel, which hosts its tab.
+        const inspectorUrl =
+          `/@fs/` + resolveRuntimeModule('inspector/install');
+        tags.push({
+          tag: 'script',
+          attrs: {type: 'module', src: inspectorUrl},
+          injectTo: 'body',
+        });
       }
 
       return tags.length > 0 ? tags : undefined;

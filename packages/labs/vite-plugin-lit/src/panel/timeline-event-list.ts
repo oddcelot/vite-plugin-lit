@@ -226,6 +226,17 @@ export class TimelineEventList extends LitElement {
     this._elementFilter = v === '' ? null : Number(v);
   }
 
+  /** Ask the panel shell to open the Components tab on this element. */
+  private _inspect(id: number) {
+    this.dispatchEvent(
+      new CustomEvent('inspect-element', {
+        detail: {id},
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
   private _onRegexInput(e: Event) {
     this._regex = (e.target as HTMLInputElement).value;
   }
@@ -348,12 +359,17 @@ export class TimelineEventList extends LitElement {
                   &lt;${meta.tagName}&gt; #${meta.elementId}
                   ${meta.elementId != null
                     ? html`<a
-                        class="filter-link"
-                        @click=${() => {
-                          this._elementFilter = meta.elementId!;
-                        }}
-                        >filter</a
-                      >`
+                          class="filter-link"
+                          @click=${() => {
+                            this._elementFilter = meta.elementId!;
+                          }}
+                          >filter</a
+                        ><a
+                          class="filter-link"
+                          title="Open this element in the Components tab"
+                          @click=${() => this._inspect(meta.elementId!)}
+                          >inspect</a
+                        >`
                     : nothing}
                 </td>
               </tr>`

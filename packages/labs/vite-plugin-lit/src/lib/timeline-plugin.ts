@@ -17,6 +17,15 @@ import {
   type TimelineEvent,
   type TimelineLayer,
 } from '../types/timeline.js';
+import {
+  INSPECT_CMD_CHANNEL,
+  INSPECT_DATA_CHANNEL,
+  INSPECT_OVERLAY_TOGGLE_CHANNEL,
+  INSPECT_PATH,
+  INSPECT_SSE_EVENT,
+  type InspectorCommand,
+  type InspectorMessage,
+} from '../types/inspector.js';
 
 // ---------------------------------------------------------------------------
 // Minimal type shims for the @vitejs/devtools-kit surface we use.
@@ -217,10 +226,8 @@ export const litTimelinePlugin = (
   // can broadcast to the app runtime; it only runs after the server is up.
   let devServer: ViteDevServer | undefined;
 
-  /** Push a batch of events to all subscribed panel SSE clients. */
-  const pushToPanel = (events: TimelineEvent[]): void => {
-    if (sseClients.size === 0 || events.length === 0) return;
-    const payload = `data: ${JSON.stringify(events)}\n\n`;
+  /** Write a pre-framed SSE payload to every client, pruning dead sockets. */
+  const broadcast = (payload: string): void => {
     for (const client of sseClients) {
       try {
         client.write(payload);
@@ -228,6 +235,18 @@ export const litTimelinePlugin = (
         sseClients.delete(client);
       }
     }
+  };
+
+  /** Push a batch of events to all subscribed panel SSE clients. */
+  const pushToPanel = (events: TimelineEvent[]): void => {
+    if (sseClients.size === 0 || events.length === 0) return;
+    broadcast(`data: ${JSON.stringify(events)}\n\n`);
+  };
+
+  /** Push a named SSE event (the panel listens via `addEventListener(name)`). */
+  const pushEvent = (name: string, data: unknown): void => {
+    if (sseClients.size === 0) return;
+    broadcast(`event: ${name}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
   return {
@@ -383,16 +402,38 @@ export const litTimelinePlugin = (
         'lit:timeline:custom-layer',
         (data: {layer: TimelineLayer}) => {
           if (!data.layer?.id) return;
-          const payload = `event: layer\ndata: ${JSON.stringify(data.layer)}\n\n`;
-          for (const client of sseClients) {
-            try {
-              client.write(payload);
-            } catch {
-              sseClients.delete(client);
-            }
-          }
+          pushEvent('layer', data.layer);
         }
       );
+
+      // Components inspector. The panel POSTs an InspectorCommand here; we
+      // forward it to the app runtime over HMR. The runtime answers over
+      // INSPECT_DATA_CHANNEL, which we relay to the panel as a named SSE event.
+      server.middlewares.use(INSPECT_PATH, (req, res, next) => {
+        const method = (req as {method?: string}).method;
+        if (method !== 'POST') {
+          next();
+          return;
+        }
+        readJsonBody(req as {on?: ReadableOn}, (body) => {
+          if (body !== null) {
+            // "Pick" starts the overlay's inspect picker (a server-side toggle),
+            // not a runtime query, so it's routed to the overlay channel.
+            if ((body as InspectorCommand).type === 'pick') {
+              server.hot.send(INSPECT_OVERLAY_TOGGLE_CHANNEL);
+            } else {
+              server.hot.send(INSPECT_CMD_CHANNEL, body as InspectorCommand);
+            }
+          }
+          const r = res as {statusCode: number; end: () => void};
+          r.statusCode = 204;
+          r.end();
+        });
+      });
+
+      server.hot.on(INSPECT_DATA_CHANNEL, (data: InspectorMessage) => {
+        pushEvent(INSPECT_SSE_EVENT, data);
+      });
     },
 
     devtools: {
@@ -428,6 +469,20 @@ export const litTimelinePlugin = (
             category: 'Lit',
             keybindings: [{key: `Ctrl+Shift+${key}`}],
             handler: () => devServer?.hot.send(SOURCE_OVERLAY_TOGGLE_CHANNEL),
+          });
+
+          // Second picker mode: select the clicked element in the Components
+          // tab instead of opening it in the editor. Reuses the overlay (hence
+          // gated on it being enabled); the panel itself comes from this plugin.
+          ctx.commands.register({
+            id: 'lit:inspect:toggle',
+            title: 'Inspect Lit Element',
+            description:
+              'Pick a Lit element to inspect in the Components panel',
+            icon: 'ph:tree-structure-duotone',
+            category: 'Lit',
+            keybindings: [{key: 'Ctrl+Shift+E'}],
+            handler: () => devServer?.hot.send(INSPECT_OVERLAY_TOGGLE_CHANNEL),
           });
         }
       },
