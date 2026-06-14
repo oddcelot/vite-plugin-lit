@@ -11,6 +11,7 @@ import {fileURLToPath} from 'node:url';
 import type {Plugin, ViteDevServer} from 'vite';
 import {
   SETTINGS_OVERRIDE_CHANNEL,
+  SOURCE_OVERLAY_TOGGLE_CHANNEL,
   type FeatureSettings,
   type SettingsOverride,
   type TimelineEvent,
@@ -39,8 +40,20 @@ interface RpcFn {
   handler?: (...args: unknown[]) => unknown;
 }
 
+/** Subset of @devframes/hub's command-input we register. */
+interface CommandInput {
+  id: string;
+  title: string;
+  description?: string;
+  icon?: string;
+  category?: string;
+  keybindings?: Array<{key: string}>;
+  handler?: (...args: unknown[]) => unknown;
+}
+
 interface TimelineCtx {
   docks: {register: (entry: DockEntry) => unknown};
+  commands?: {register: (command: CommandInput) => unknown};
   rpc: {
     register: (fn: RpcFn) => void;
     functions?: Record<string, (...args: unknown[]) => unknown>;
@@ -200,6 +213,9 @@ export const litTimelinePlugin = (
   getSettings?: () => FeatureSettings | undefined
 ): Plugin => {
   const sseClients = new Set<SseClient>();
+  // Captured in configureServer so the (server-side) DevTools command handler
+  // can broadcast to the app runtime; it only runs after the server is up.
+  let devServer: ViteDevServer | undefined;
 
   /** Push a batch of events to all subscribed panel SSE clients. */
   const pushToPanel = (events: TimelineEvent[]): void => {
@@ -219,6 +235,7 @@ export const litTimelinePlugin = (
     apply: 'serve',
 
     configureServer(server) {
+      devServer = server;
       // SSE endpoint: panel iframe subscribes here for event push.
       installSseMiddleware(server, sseClients);
 
@@ -396,13 +413,23 @@ export const litTimelinePlugin = (
           category: 'framework',
         });
 
-        ctx.rpc.register({
-          name: 'lit:timeline:ping',
-          type: 'event',
-          handler: () => {
-            console.log('[lit-plugin:timeline] ping received via RPC');
-          },
-        });
+        // Register the source-overlay toggle as a DevTools command so it shows
+        // in the command palette and as a managed shortcut. The handler runs
+        // server-side; it broadcasts to the app runtime, which toggles the
+        // overlay. Only meaningful when the overlay is enabled.
+        const so = getSettings?.()?.sourceOverlay;
+        if (so?.enabled && ctx.commands?.register) {
+          const key = (so.key || 's').toUpperCase();
+          ctx.commands.register({
+            id: 'lit:source-overlay:toggle',
+            title: 'Toggle Source Overlay',
+            description: 'Inspect Lit elements and open them in your editor',
+            icon: 'ph:crosshair-duotone',
+            category: 'Lit',
+            keybindings: [{key: `Ctrl+Shift+${key}`}],
+            handler: () => devServer?.hot.send(SOURCE_OVERLAY_TOGGLE_CHANNEL),
+          });
+        }
       },
     },
   };

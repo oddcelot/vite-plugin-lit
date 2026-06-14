@@ -16,6 +16,7 @@ import {buildSpotlightClipPath} from './mask-path.js';
 import {OVERLAY_HTML} from './template.js';
 import {observeEdgeInsets} from '../edge-panel.js';
 import {subscribeOverride} from '../overrides.js';
+import {SOURCE_OVERLAY_TOGGLE_CHANNEL} from '../../../types/timeline.js';
 
 export interface SourceOverlayInitOptions {
   key?: string;
@@ -87,6 +88,8 @@ class LitSourceOverlay extends HTMLElement {
     hot?.on('vite:beforeFullReload', () => this.deactivate());
     hot?.on('vite:ws:disconnect', () => (this.#connected = false));
     hot?.on('vite:ws:connect', () => (this.#connected = true));
+    // Toggle from the Vite DevTools command/shortcut (handler runs server-side).
+    hot?.on(SOURCE_OVERLAY_TOGGLE_CHANNEL, () => this.toggle());
     // Keep the (bottom-fixed) tooltip clear of the Vite DevTools edge panel.
     this.#edgeDispose = observeEdgeInsets((insets) => {
       this.style.setProperty('--edge-bottom', `${insets.bottom}px`);

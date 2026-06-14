@@ -114,3 +114,10 @@ export const SETTINGS_OVERRIDE_LS_KEY = 'lit-devtools-overrides';
 
 /** Vite HMR channel the server uses to push overrides to the app runtime. */
 export const SETTINGS_OVERRIDE_CHANNEL = 'lit-devtools:settings-override';
+
+/**
+ * Vite HMR channel the DevTools "toggle source overlay" command uses to tell
+ * the app runtime to toggle the overlay (the command handler runs server-side).
+ */
+export const SOURCE_OVERLAY_TOGGLE_CHANNEL =
+  'lit-devtools:toggle-source-overlay';
