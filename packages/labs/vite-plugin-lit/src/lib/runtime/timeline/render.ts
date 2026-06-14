@@ -70,10 +70,9 @@ const onLitDebug = (
       });
       break;
 
+    // `template prep` fires once per *unique* template, the first time it's
+    // compiled — low volume, useful as a "new template" marker.
     case 'template prep':
-    case 'template instantiated':
-    case 'template instantiated and updated':
-    case 'template updating':
       emit({
         layerId: 'lit-render',
         time,
@@ -82,7 +81,12 @@ const onLitDebug = (
       });
       break;
 
-    // commit * / set part are high-volume; skip unless verbose mode added.
+    // `template updating` / `template instantiated` / `…and updated` fire once
+    // per template-bound ChildPart on *every* render — extremely high volume
+    // (a ticking clock or animation floods the layer). The begin/end render
+    // pair above already captures each render as a grouped duration, so these
+    // add noise without signal. Skip them; re-expose behind a "verbose" toggle
+    // if per-part detail is ever needed. Same rationale for commit * / set part.
     default:
       break;
   }
