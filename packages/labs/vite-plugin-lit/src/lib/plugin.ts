@@ -12,7 +12,9 @@ import MagicString from 'magic-string';
 import {injectSourceMeta} from './source-meta.js';
 import {INSTALL_ID, VIRTUAL_PREFIX, transformLitModule} from './transform.js';
 import type {SourceOverlayOptions} from './types.js';
+import type {FeatureSettings} from '../types/timeline.js';
 import {WRAP_TABLE} from './wrap-table.js';
+import {litTimelinePlugin} from './timeline-plugin.js';
 
 /**
  * On-page HMR feedback: a small pulsing indicator in the corner of the host
@@ -82,6 +84,18 @@ export interface LitPluginOptions {
    * Toggle with Ctrl+Shift+S (configurable via `key`). Defaults to `false`.
    */
   sourceOverlay?: boolean | SourceOverlayOptions;
+
+  /**
+   * Vite DevTools Timeline panel — a Vue DevTools–style layered event stream
+   * for Lit lifecycle, render, mouse, and keyboard events.
+   *
+   * Requires `@vitejs/devtools` in the Vite config and the `@vitejs/devtools`
+   * Vite plugin (`DevTools()`) to be active. Defaults to `false` while
+   * experimental.
+   *
+   * `true` enables all built-in layers with defaults.
+   */
+  timeline?: boolean;
 }
 
 /** Plugin options after merging explicit options, env vars, and defaults. */
@@ -91,6 +105,7 @@ interface ResolvedOptions {
   onIncompatible: 'reload' | 'warn';
   indicator: false | {count: boolean};
   sourceOverlay: false | SourceOverlayOptions;
+  timeline: boolean;
 }
 
 /** Env var prefix consumed at config time. */
@@ -157,7 +172,45 @@ const resolveOptions = (
     sourceOverlay = base;
   }
 
-  return {hmrEnabled, reconnect, onIncompatible, indicator, sourceOverlay};
+  const timeline =
+    options.timeline ?? envBool(env[`${ENV_PREFIX}_TIMELINE`]) ?? false;
+
+  return {
+    hmrEnabled,
+    reconnect,
+    onIncompatible,
+    indicator,
+    sourceOverlay,
+    timeline,
+  };
+};
+
+/**
+ * Flattens resolved options into the JSON-serializable shape the panel's
+ * Settings tab consumes (callback options like `exclude`/`onSelect` dropped;
+ * a custom editor object reported as `"custom"`). Default key/editor/throttle
+ * are applied here so the panel shows the effective values the runtime uses.
+ */
+const toFeatureSettings = (r: ResolvedOptions): FeatureSettings => {
+  const so = r.sourceOverlay;
+  const editor = so === false ? undefined : so.editor;
+  return {
+    hmr: {
+      enabled: r.hmrEnabled,
+      reconnect: r.reconnect,
+      onIncompatible: r.onIncompatible,
+      indicatorEnabled: r.indicator !== false,
+      indicatorCount: r.indicator !== false && r.indicator.count,
+    },
+    sourceOverlay: {
+      enabled: so !== false,
+      key: (so === false ? undefined : so.key) ?? 's',
+      editor:
+        typeof editor === 'string' ? editor : editor ? 'custom' : 'vscode',
+      throttleMs: (so === false ? undefined : so.throttleMs) ?? 50,
+    },
+    timeline: r.timeline,
+  };
 };
 
 /**
@@ -509,6 +562,10 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       return {optimizeDeps: {exclude: ['@lit-labs/vite-plugin-lit']}};
     },
     resolveId(id) {
+      // Public timeline API virtual module.
+      if (id === 'virtual:lit-plugin/timeline') {
+        return '\0virtual:lit-plugin/timeline';
+      }
       // Resolve the browser CSS helpers and indicator runtime to the copy
       // shipped next to this plugin, so they work even when the package
       // isn't reachable through node resolution from the served root (and
@@ -528,6 +585,23 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       return null;
     },
     load(id) {
+      // Public timeline API — re-export the runtime module when timeline is
+      // enabled, otherwise a no-op stub so imports don't throw in prod builds.
+      if (id === '\0virtual:lit-plugin/timeline') {
+        if (!resolved.timeline) {
+          return {
+            code:
+              'export const addTimelineEvent = () => {};\n' +
+              'export const addTimelineLayer = () => {};\n',
+            moduleType: 'js',
+          };
+        }
+        const apiPath = resolveRuntimeModule('timeline/public-api');
+        return {
+          code: `export * from ${JSON.stringify(apiPath)};\n`,
+          moduleType: 'js',
+        };
+      }
       if (!resolved.hmrEnabled || !id.startsWith(VIRTUAL_PREFIX)) {
         return null;
       }
@@ -585,28 +659,67 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       return transformLitModule(code);
     },
     transformIndexHtml() {
+      const tags: {
+        tag: string;
+        attrs?: Record<string, string | undefined | boolean>;
+        children?: string;
+        injectTo: 'body';
+      }[] = [];
+
       const indicator = resolved.indicator;
-      if (!indicator) {
-        return;
+      if (indicator) {
+        const indicatorUrl = `/@fs/` + resolveRuntimeModule('indicator');
+        tags.push(
+          {
+            tag: 'script',
+            attrs: {type: 'module', src: indicatorUrl},
+            injectTo: 'body',
+          },
+          {
+            tag: 'lit-devtools-hmr-indicator',
+            attrs: indicator.count ? {count: ''} : undefined,
+            children: '',
+            injectTo: 'body',
+          }
+        );
       }
-      const indicatorUrl = `/@fs/` + resolveRuntimeModule('indicator');
-      return [
-        {
+
+      if (resolved.timeline) {
+        const installUrl = `/@fs/` + resolveRuntimeModule('timeline/install');
+        tags.push({
           tag: 'script',
-          attrs: {type: 'module', src: indicatorUrl},
+          attrs: {type: 'module', src: installUrl},
           injectTo: 'body',
-        },
-        {
-          tag: 'lit-devtools-hmr-indicator',
-          attrs: indicator.count ? {count: ''} : undefined,
-          children: '',
+        });
+        // Components inspector runtime — answers the panel's tree/details
+        // requests. Paired with the timeline panel, which hosts its tab.
+        const inspectorUrl =
+          `/@fs/` + resolveRuntimeModule('inspector/install');
+        tags.push({
+          tag: 'script',
+          attrs: {type: 'module', src: inspectorUrl},
           injectTo: 'body',
-        },
-      ];
+        });
+      }
+
+      return tags.length > 0 ? tags : undefined;
     },
   };
   // The source-overlay plugin is always present; its hooks no-op when the
   // feature is disabled (which env may decide), so inclusion can't be gated
   // on the synchronously-known options here.
-  return [litCssQueries(), litCssLiterals(), sourceOverlayPlugin, hmr];
+  const plugins: Plugin[] = [
+    litCssQueries(),
+    litCssLiterals(),
+    sourceOverlayPlugin,
+    hmr,
+  ];
+  if (resolved.timeline) {
+    // Pass a getter, not a snapshot: `resolved` is re-resolved against the
+    // loaded env in the `config` hook, which runs after this plugin array is
+    // built. The settings endpoint reads it per-request, by which point env is
+    // applied.
+    plugins.push(litTimelinePlugin(() => toFeatureSettings(resolved)));
+  }
+  return plugins;
 };

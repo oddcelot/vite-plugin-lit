@@ -1,0 +1,19 @@
+{
+  // The panel is a Lit SPA using decorators (@customElement, @state), unlike
+  // the rest of this package (plain customElements.define). In dev the panel
+  // .ts files are served to the DevTools iframe via Vite's /@fs/ handler, so
+  // Vite/esbuild transpiles them on the fly. esbuild only lowers TS decorators
+  // when the *nearest* tsconfig sets experimentalDecorators, and tsconfck walks
+  // up from each file — so this panel-local config gives just these files the
+  // Lit decorator settings without touching the package-wide tsconfig (which
+  // omits them on purpose). Not part of `tsc --build`; src/panel is excluded
+  // there.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "module": "esnext",
+    "moduleResolution": "bundler"
+  },
+  "include": ["**/*.ts"]
+}

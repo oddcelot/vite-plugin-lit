@@ -14,9 +14,23 @@ import {
 } from './source-host.js';
 import {buildSpotlightClipPath} from './mask-path.js';
 import {OVERLAY_HTML} from './template.js';
+import {observeEdgeInsets} from '../edge-panel.js';
+import {subscribeOverride} from '../overrides.js';
+import {SOURCE_OVERLAY_TOGGLE_CHANNEL} from '../../../types/timeline.js';
+import {idOf} from '../timeline/identity.js';
+import {
+  INSPECT_OVERLAY_TOGGLE_CHANNEL,
+  INSPECT_DATA_CHANNEL,
+} from '../../../types/inspector.js';
 
 export interface SourceOverlayInitOptions {
   key?: string;
+  /**
+   * Hotkey letter (combined with Ctrl+Shift) for the "inspect in panel" mode,
+   * which selects the picked element in the DevTools Components tab instead of
+   * opening it in the editor. Defaults to `'e'`.
+   */
+  inspectKey?: string;
   editor?: EditorConfig | string;
   workspaceRoot?: string;
   throttleMs?: number;
@@ -25,8 +39,17 @@ export interface SourceOverlayInitOptions {
   openInEditorPath?: string;
 }
 
+/**
+ * What a deliberate pick does: `'editor'` opens the source file (the original
+ * behaviour); `'inspect'` reports the element to the DevTools panel so it can
+ * select it in the Components tree.
+ */
+type OverlayMode = 'editor' | 'inspect';
+
 class LitSourceOverlay extends HTMLElement {
   #active = false;
+  #mode: OverlayMode = 'editor';
+  #hot: {send: (event: string, data: unknown) => void} | undefined;
   #options: SourceOverlayInitOptions = {};
   #editor: EditorConfig = BUILTIN_EDITORS.vscode;
   #resolver: ElementResolver = defaultResolver;
@@ -48,6 +71,8 @@ class LitSourceOverlay extends HTMLElement {
   #connected = true;
   #lastMouseX = 0;
   #lastMouseY = 0;
+  #edgeDispose: (() => void) | undefined;
+  #overrideSubscribed = false;
 
   constructor() {
     super();
@@ -76,17 +101,44 @@ class LitSourceOverlay extends HTMLElement {
     document.addEventListener('mousemove', this.#onTrackMouse, true);
     document.addEventListener('keydown', this.#onKeyDown, true);
     const hot = (
-      import.meta as {hot?: {on: (event: string, cb: () => void) => void}}
+      import.meta as {
+        hot?: {
+          on: (event: string, cb: (data?: unknown) => void) => void;
+          send: (event: string, data: unknown) => void;
+        };
+      }
     ).hot;
+    this.#hot = hot;
     hot?.on('vite:beforeFullReload', () => this.deactivate());
     hot?.on('vite:ws:disconnect', () => (this.#connected = false));
     hot?.on('vite:ws:connect', () => (this.#connected = true));
+    // Toggle from the Vite DevTools command/shortcut (handler runs server-side).
+    hot?.on(SOURCE_OVERLAY_TOGGLE_CHANNEL, () => this.toggle('editor'));
+    // The "inspect in panel" command toggles the same picker in inspect mode.
+    hot?.on(INSPECT_OVERLAY_TOGGLE_CHANNEL, () => this.toggle('inspect'));
+    // Keep the (bottom-fixed) tooltip clear of the Vite DevTools edge panel.
+    this.#edgeDispose = observeEdgeInsets((insets) => {
+      this.style.setProperty('--edge-bottom', `${insets.bottom}px`);
+    });
+    // Apply the panel's editor override live (and on load). Merge so other
+    // configured options (key, throttle, …) survive.
+    if (!this.#overrideSubscribed) {
+      this.#overrideSubscribed = true;
+      subscribeOverride(hot, (o) => {
+        if (o.sourceOverlayEditor !== undefined) {
+          this.#options = {...this.#options, editor: o.sourceOverlayEditor};
+          this.#editor = resolveEditor(o.sourceOverlayEditor);
+        }
+      });
+    }
   }
 
   disconnectedCallback() {
     document.removeEventListener('mousemove', this.#onTrackMouse, true);
     document.removeEventListener('keydown', this.#onKeyDown, true);
     this.deactivate();
+    this.#edgeDispose?.();
+    this.#edgeDispose = undefined;
   }
 
   configure(options: SourceOverlayInitOptions) {
@@ -94,8 +146,13 @@ class LitSourceOverlay extends HTMLElement {
     this.#editor = resolveEditor(options.editor);
   }
 
-  activate() {
-    if (this.#active) return;
+  activate(mode: OverlayMode = 'editor') {
+    if (this.#active) {
+      // Already inspecting — just switch what a pick will do.
+      this.#mode = mode;
+      return;
+    }
+    this.#mode = mode;
     this.#active = true;
     this.#dialog.showModal();
     this.#mask.style.background = 'rgba(0,0,0,0.35)';
@@ -135,9 +192,11 @@ class LitSourceOverlay extends HTMLElement {
     this.#clearTarget();
   }
 
-  toggle() {
-    if (this.#active) this.deactivate();
-    else this.activate();
+  toggle(mode: OverlayMode = 'editor') {
+    // Re-pressing the active mode's shortcut closes; pressing the other mode's
+    // shortcut while open switches modes instead of closing.
+    if (this.#active && this.#mode === mode) this.deactivate();
+    else this.activate(mode);
   }
 
   #normalizePath(filePath: string): string {
@@ -262,15 +321,17 @@ class LitSourceOverlay extends HTMLElement {
   };
 
   #onKeyDown = (event: KeyboardEvent) => {
-    const key = this.#options.key ?? 's';
-    if (
-      event.ctrlKey &&
-      event.shiftKey &&
-      !event.altKey &&
-      event.key.toLowerCase() === key.toLowerCase()
-    ) {
-      event.preventDefault();
-      this.toggle();
+    if (event.ctrlKey && event.shiftKey && !event.altKey) {
+      const pressed = event.key.toLowerCase();
+      const editorKey = (this.#options.key ?? 's').toLowerCase();
+      const inspectKey = (this.#options.inspectKey ?? 'e').toLowerCase();
+      if (pressed === editorKey) {
+        event.preventDefault();
+        this.toggle('editor');
+      } else if (pressed === inspectKey) {
+        event.preventDefault();
+        this.toggle('inspect');
+      }
     }
     if (this.#active && event.key === 'Escape') {
       event.preventDefault();
@@ -293,11 +354,21 @@ class LitSourceOverlay extends HTMLElement {
   };
 
   #select(info: ElementInfo) {
-    // Cancel the whole selection mode on any deliberate pick, before opening —
+    const mode = this.#mode;
+    const target = this.#targetEl;
+    // Cancel the whole selection mode on any deliberate pick, before acting —
     // the editor may open via a URL scheme that doesn't navigate this tab away,
     // so we can't rely on the open outcome to dismiss the inspector.
     this.deactivate();
     this.#options.onSelect?.(info);
+    if (mode === 'inspect') {
+      // Report the picked element to the DevTools panel, which selects it in the
+      // Components tree. Identity matches the inspector runtime via idOf().
+      if (target !== null) {
+        this.#hot?.send(INSPECT_DATA_CHANNEL, {type: 'pick', id: idOf(target)});
+      }
+      return;
+    }
     this.#openInEditor(info.source.filePath, info.source.lineNumber);
   }
 

@@ -146,6 +146,11 @@
         >
       </div>
 
+      <!-- Temporarily disabled: the clocks re-render every second and flood the
+           DevTools Timeline. The custom elements stay registered and the `now`
+           signal keeps ticking (harmless with no subscribers); uncomment to
+           demo the clocks again. -->
+      <!--
       <div class="card">
         <hmr-clock></hmr-clock>
         <span class="problem"
@@ -161,6 +166,7 @@
           display and picker survive HMR independently</span
         >
       </div>
+      -->
 
       <h2 class="section-header">Context &amp; Data</h2>
 

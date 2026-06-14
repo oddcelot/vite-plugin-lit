@@ -1,5 +1,6 @@
 /index.*
 /lib/
+/types/
 /.e2e-tmp/
 /.vite/
 *.tsbuildinfo
