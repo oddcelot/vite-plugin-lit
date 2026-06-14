@@ -4,17 +4,29 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {LitElement, html, css} from 'lit';
+import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
-import type {TimelineEvent, TimelineLayer} from '../types/timeline.js';
-import {TIMELINE_LAYERS} from '../types/timeline.js';
-import type {LayerState} from './timeline-layers.js';
-import './timeline-layers.js';
-import './timeline-event-list.js';
+import './timeline-view.js';
 
-const LS_KEY = 'lit-devtools-timeline-layers';
+interface Tab {
+  id: string;
+  label: string;
+}
 
-/** Root element of the Lit Timeline DevTools panel. */
+/**
+ * Tabs hosted by the panel. The Timeline is the first; this list is the
+ * extension point for future Lit DevTools views (components, etc.).
+ */
+const TABS: readonly Tab[] = [
+  {id: 'timeline', label: 'Timeline'},
+  {id: 'about', label: 'About'},
+];
+
+/**
+ * Root of the Lit DevTools panel — a tabbed shell. Each tab's view is kept
+ * mounted and merely hidden when inactive, so the Timeline keeps recording
+ * (and holds its events) while another tab is in front.
+ */
 @customElement('timeline-app')
 export class TimelineApp extends LitElement {
   static override styles = css`
@@ -34,8 +46,8 @@ export class TimelineApp extends LitElement {
     header {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
+      gap: 16px;
+      padding: 0 12px;
       border-bottom: 1px solid #2d2d35;
       background: #16161b;
       flex-shrink: 0;
@@ -46,179 +58,107 @@ export class TimelineApp extends LitElement {
       font-size: 12px;
       letter-spacing: 0.05em;
       text-transform: uppercase;
+      padding: 10px 0;
     }
-    .spacer {
-      flex: 1;
+    .tabs {
+      display: flex;
+      gap: 2px;
+      align-self: stretch;
     }
-    button {
-      padding: 4px 10px;
-      border-radius: 4px;
-      border: 1px solid #2d2d35;
-      background: #2d2d35;
-      color: #d4d4d8;
-      font-size: 11px;
+    .tab {
+      appearance: none;
+      border: 0;
+      background: none;
+      color: #888;
+      font: inherit;
+      font-size: 12px;
+      padding: 0 12px;
       cursor: pointer;
+      border-bottom: 2px solid transparent;
     }
-    button:hover {
-      background: #3d3d45;
-      border-color: #3d3d45;
+    .tab:hover {
+      color: #d4d4d8;
     }
-    .record.active {
-      border-color: #ef4444;
-      background: #7f1d1d;
-      color: #fca5a5;
+    .tab.active {
+      color: #d4d4d8;
+      border-bottom-color: #4fc08d;
     }
-    timeline-event-list {
+    .view {
+      display: flex;
+      flex-direction: column;
       flex: 1;
       overflow: hidden;
     }
+    .about {
+      padding: 16px 20px;
+      line-height: 1.6;
+      color: #a0a0b0;
+      overflow-y: auto;
+    }
+    .about h2 {
+      margin: 0 0 4px;
+      font-size: 14px;
+      color: #d4d4d8;
+    }
+    .about ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+    .about code {
+      color: #4fc08d;
+      font-family: ui-monospace, monospace;
+    }
   `;
 
-  @state() private _recording = false;
-  @state() private _events: TimelineEvent[] = [];
-  @state() private _layers: LayerState[] = TIMELINE_LAYERS.map((l) => ({
-    ...l,
-    enabled: true,
-  }));
+  @state() private _tab = 'timeline';
 
-  private _es: EventSource | null = null;
-
-  override connectedCallback() {
-    super.connectedCallback();
-    this._loadStorage();
-    this._es = new EventSource('/__lit-timeline-events');
-    this._es.onmessage = (e: MessageEvent<string>) => {
-      if (!this._recording) return;
-      try {
-        const batch = JSON.parse(e.data) as TimelineEvent[];
-        if (Array.isArray(batch)) {
-          this._events = [...this._events, ...batch];
-        }
-      } catch {
-        // ignore malformed data
-      }
-    };
-    // Custom layers pushed from app code via addTimelineLayer().
-    this._es.addEventListener('layer', (e: Event) => {
-      try {
-        const layer = JSON.parse(
-          (e as MessageEvent<string>).data
-        ) as TimelineLayer;
-        if (layer?.id && !this._layers.some((l) => l.id === layer.id)) {
-          this._layers = [...this._layers, {...layer, enabled: true}];
-        }
-      } catch {
-        // ignore
-      }
-    });
+  private _select(id: string) {
+    this._tab = id;
   }
 
-  override disconnectedCallback() {
-    super.disconnectedCallback();
-    this._es?.close();
-    this._es = null;
-  }
-
-  // ---------------------------------------------------------------------------
-  // State persistence
-  // ---------------------------------------------------------------------------
-
-  private _loadStorage(): void {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw !== null) {
-        const saved = JSON.parse(raw) as Record<string, boolean>;
-        this._layers = this._layers.map((l) => ({
-          ...l,
-          enabled: saved[l.id] ?? l.enabled,
-        }));
-      }
-    } catch {
-      // ignore (private/storage unavailable)
-    }
-  }
-
-  private _saveStorage(): void {
-    try {
-      localStorage.setItem(
-        LS_KEY,
-        JSON.stringify(
-          Object.fromEntries(this._layers.map((l) => [l.id, l.enabled]))
-        )
-      );
-    } catch {
-      // ignore
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Server sync
-  // ---------------------------------------------------------------------------
-
-  private _layersToState(): Record<string, boolean> {
-    const enabled = (id: string): boolean =>
-      this._layers.find((l) => l.id === id)?.enabled ?? true;
-    return {
-      litLifecycleEnabled: enabled('lit-lifecycle'),
-      litRenderEnabled: enabled('lit-render'),
-      mouseEventEnabled: enabled('mouse'),
-      keyboardEventEnabled: enabled('keyboard'),
-    };
-  }
-
-  /** POST layer/recording state to the server control endpoint. */
-  private _postControl(body: Record<string, unknown>): void {
-    fetch('/__lit-timeline-control', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body),
-    }).catch(() => {
-      // dev tool — ignore network errors
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Actions
-  // ---------------------------------------------------------------------------
-
-  private _toggleRecord() {
-    this._recording = !this._recording;
-    this._postControl({recording: this._recording});
-  }
-
-  private _clear() {
-    this._events = [];
-  }
-
-  private _onLayerToggle(e: CustomEvent<{id: string}>) {
-    this._layers = this._layers.map((l) =>
-      l.id === e.detail.id ? {...l, enabled: !l.enabled} : l
-    );
-    this._postControl(this._layersToState());
-    this._saveStorage();
+  private _renderAbout() {
+    return html`
+      <div class="about">
+        <h2>Lit DevTools</h2>
+        <p>
+          Development tooling for Lit, served by
+          <code>@lit-labs/vite-plugin-lit</code>.
+        </p>
+        <ul>
+          <li>
+            <strong>Timeline</strong> — record lifecycle, render and input
+            events per element.
+          </li>
+          <li>Hot module replacement for Lit components.</li>
+          <li>Source overlay — jump from a rendered element to its source.</li>
+        </ul>
+      </div>
+    `;
   }
 
   override render() {
     return html`
       <header>
-        <span class="logo">Lit Timeline</span>
-        <span class="spacer"></span>
-        <button @click=${this._clear}>Clear</button>
-        <button
-          class="record ${this._recording ? 'active' : ''}"
-          @click=${this._toggleRecord}
-        >
-          ${this._recording ? '⏹ Stop' : '▶ Record'}
-        </button>
+        <span class="logo">Lit DevTools</span>
+        <nav class="tabs" role="tablist">
+          ${TABS.map(
+            (t) => html`
+              <button
+                role="tab"
+                aria-selected=${t.id === this._tab}
+                class="tab ${t.id === this._tab ? 'active' : ''}"
+                @click=${() => this._select(t.id)}
+              >
+                ${t.label}
+              </button>
+            `
+          )}
+        </nav>
       </header>
-      <timeline-layers
-        .layers=${this._layers}
-        @layer-toggle=${this._onLayerToggle}
-      ></timeline-layers>
-      <timeline-event-list
-        .events=${this._events}
-        .layers=${this._layers}
-      ></timeline-event-list>
+      <div class="view">
+        <timeline-view ?hidden=${this._tab !== 'timeline'}></timeline-view>
+        ${this._tab === 'about' ? this._renderAbout() : nothing}
+      </div>
     `;
   }
 }
