@@ -36,7 +36,8 @@ class LitDevtoolsIndicator extends HTMLElement {
         #container{
           place-self:var(--lit-devtools-hmr-indicator-align,end end);
           display:flex;align-items:stretch;
-          background:rgba(26,26,46,.85);color:#fff;
+          background:rgba(26,26,46,.72);color:#fff;
+          backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
           border-radius:var(--lit-devtools-radius,6px);
           font:12px/1 ${FONT_MONO_VAR};font-variant-numeric:tabular-nums;
           overflow:hidden;opacity:${idleOpacity}

@@ -47,8 +47,10 @@ export const OVERLAY_HTML = `
       pointer-events: auto;
       max-width: min(90vw, 480px);
       border-radius: var(--lit-devtools-radius, 6px);
-      background: rgba(26,26,46,0.92);
-      color: #e8e8f0;
+      background: rgba(26,26,46,0.72);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #fff;
       font: 12px/1.4 ${FONT_MONO_VAR};
       box-shadow: 0 2px 8px rgba(0,0,0,0.25);
       overflow: hidden;
@@ -91,7 +93,7 @@ export const OVERLAY_HTML = `
       text-overflow: ellipsis;
     }
     #path {
-      color: rgba(232,232,240,0.6);
+      color: rgba(255,255,255,0.6);
       font-size: 11px;
       word-break: break-all;
     }
