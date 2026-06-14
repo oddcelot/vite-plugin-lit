@@ -42,6 +42,10 @@ class LitSourceOverlay extends HTMLElement {
   #scrollTimer: ReturnType<typeof setTimeout> | undefined;
   #resizeObserver: ResizeObserver | undefined;
   #cursorStyle: HTMLStyleElement | null = null;
+  // Whether the Vite HMR WebSocket is currently connected. Used to suppress the
+  // editor-URL-scheme fallback once the dev server is gone — otherwise a failed
+  // open-in-editor fetch would navigate the tab to `vscode://…`.
+  #connected = true;
   #lastMouseX = 0;
   #lastMouseY = 0;
 
@@ -71,9 +75,12 @@ class LitSourceOverlay extends HTMLElement {
   connectedCallback() {
     document.addEventListener('mousemove', this.#onTrackMouse, true);
     document.addEventListener('keydown', this.#onKeyDown, true);
-    (
+    const hot = (
       import.meta as {hot?: {on: (event: string, cb: () => void) => void}}
-    ).hot?.on('vite:beforeFullReload', () => this.deactivate());
+    ).hot;
+    hot?.on('vite:beforeFullReload', () => this.deactivate());
+    hot?.on('vite:ws:disconnect', () => (this.#connected = false));
+    hot?.on('vite:ws:connect', () => (this.#connected = true));
   }
 
   disconnectedCallback() {
@@ -152,6 +159,10 @@ class LitSourceOverlay extends HTMLElement {
     } catch {
       // Fall back to editor URL schemes (e.g. StackBlitz previews).
     }
+    // Skip the URL-scheme fallback when the dev server is gone: a fetch failure
+    // there means "server quit", not "no endpoint", and navigating the tab to
+    // `vscode://…` on shutdown is jarring and unwanted.
+    if (!this.#connected) return;
     window.open(this.#editor.url(path, lineNumber), '_self');
   }
 
