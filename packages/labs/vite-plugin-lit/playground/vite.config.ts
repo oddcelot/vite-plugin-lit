@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+import Inspect from 'vite-plugin-inspect';
 import {defineConfig, loadEnv} from 'vite';
 
 export default defineConfig(async ({mode}) => {
@@ -28,6 +29,7 @@ export default defineConfig(async ({mode}) => {
       port,
       strictPort: true,
     },
+    devtools: true,
     css: {
       // Process all CSS with Lightning CSS instead of PostCSS — applies to
       // dev-served .css files and built assets alike. The conservative
@@ -41,19 +43,15 @@ export default defineConfig(async ({mode}) => {
       },
     },
     build: {
-      // The cssMinify pass strips the color fallbacks the transform just
-      // generated: under Vite 8 (monorepo) Lightning CSS minifies without
-      // receiving css.lightningcss.targets, and under Vite 7 (standalone)
-      // the esbuild default merges duplicate declarations. Skip
-      // minification — these are demo stylesheets meant to be read anyway.
+      // CSS minification would strip the color fallbacks the transform just
+      // generated — skip it, these are demo stylesheets meant to be read.
       cssMinify: false,
       // Skip minification — these are demo assets meant to be read.
       minify: false,
-      // Split each HMR component into its own chunk for better visibility
-      // and debugging of the HMR output.
-      rollupOptions: {
+      // Split each HMR component into its own chunk for better visibility.
+      rolldownOptions: {
         output: {
-          manualChunks(id) {
+          manualChunks(id: string) {
             if (id.includes('/src/hmr-') && id.endsWith('.ts')) {
               const match = id.match(/\/src\/(hmr-[\w-]+)\.ts$/);
               if (match) return match[1];
@@ -62,6 +60,6 @@ export default defineConfig(async ({mode}) => {
         },
       },
     },
-    plugins: [litPlugin()],
+    plugins: [litPlugin(), Inspect()],
   };
 });
