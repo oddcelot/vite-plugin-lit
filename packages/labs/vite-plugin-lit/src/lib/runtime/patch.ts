@@ -94,7 +94,8 @@ const ownKeys = (o: object): PropertyKey[] => [
  * vanished from `source`, then copies every own descriptor of `source`.
  * Individual copies are best-effort (non-configurable slots are skipped).
  */
-const syncOwnMembers = (
+// Exported for unit testing; otherwise module-internal.
+export const syncOwnMembers = (
   target: object,
   source: object,
   skip: ReadonlyArray<PropertyKey>
