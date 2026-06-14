@@ -13,6 +13,7 @@ import {injectSourceMeta} from './source-meta.js';
 import {INSTALL_ID, VIRTUAL_PREFIX, transformLitModule} from './transform.js';
 import type {SourceOverlayOptions} from './types.js';
 import {WRAP_TABLE} from './wrap-table.js';
+import {litTimelinePlugin} from './timeline-plugin.js';
 
 /**
  * On-page HMR feedback: a small pulsing indicator in the corner of the host
@@ -82,6 +83,18 @@ export interface LitPluginOptions {
    * Toggle with Ctrl+Shift+S (configurable via `key`). Defaults to `false`.
    */
   sourceOverlay?: boolean | SourceOverlayOptions;
+
+  /**
+   * Vite DevTools Timeline panel — a Vue DevTools–style layered event stream
+   * for Lit lifecycle, render, mouse, and keyboard events.
+   *
+   * Requires `@vitejs/devtools` in the Vite config and the `@vitejs/devtools`
+   * Vite plugin (`DevTools()`) to be active. Defaults to `false` while
+   * experimental.
+   *
+   * `true` enables all built-in layers with defaults.
+   */
+  timeline?: boolean;
 }
 
 /** Plugin options after merging explicit options, env vars, and defaults. */
@@ -91,6 +104,7 @@ interface ResolvedOptions {
   onIncompatible: 'reload' | 'warn';
   indicator: false | {count: boolean};
   sourceOverlay: false | SourceOverlayOptions;
+  timeline: boolean;
 }
 
 /** Env var prefix consumed at config time. */
@@ -157,7 +171,17 @@ const resolveOptions = (
     sourceOverlay = base;
   }
 
-  return {hmrEnabled, reconnect, onIncompatible, indicator, sourceOverlay};
+  const timeline =
+    options.timeline ?? envBool(env[`${ENV_PREFIX}_TIMELINE`]) ?? false;
+
+  return {
+    hmrEnabled,
+    reconnect,
+    onIncompatible,
+    indicator,
+    sourceOverlay,
+    timeline,
+  };
 };
 
 /**
@@ -608,5 +632,14 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
   // The source-overlay plugin is always present; its hooks no-op when the
   // feature is disabled (which env may decide), so inclusion can't be gated
   // on the synchronously-known options here.
-  return [litCssQueries(), litCssLiterals(), sourceOverlayPlugin, hmr];
+  const plugins: Plugin[] = [
+    litCssQueries(),
+    litCssLiterals(),
+    sourceOverlayPlugin,
+    hmr,
+  ];
+  if (resolved.timeline) {
+    plugins.push(litTimelinePlugin());
+  }
+  return plugins;
 };
