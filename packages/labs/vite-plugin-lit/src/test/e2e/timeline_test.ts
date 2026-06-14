@@ -55,12 +55,12 @@ const port = (): number => {
 };
 
 test('SSE endpoint returns text/event-stream content-type', async () => {
-  const result = await getUrl(port(), '/__lit-timeline-events');
+  const result = await getUrl(port(), '/__lit-devtools-events');
   expect(result.headers['content-type']).toBe('text/event-stream');
 });
 
-test('panel HTML is served at /__lit-timeline/', async () => {
-  const result = await getUrl(port(), '/__lit-timeline/');
+test('panel HTML is served at /__lit-devtools/', async () => {
+  const result = await getUrl(port(), '/__lit-devtools/');
   expect(result.status).toBe(200);
   expect(result.headers['content-type']).toMatch(/text\/html/);
   expect(result.body).toContain('<timeline-app>');
@@ -76,7 +76,7 @@ test('control endpoint accepts recording state via POST', async () => {
       {
         hostname: '127.0.0.1',
         port: p,
-        path: '/__lit-timeline-control',
+        path: '/__lit-devtools-control',
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
       },

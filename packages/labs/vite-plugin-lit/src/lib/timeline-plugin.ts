@@ -78,13 +78,13 @@ declare module 'vite' {
 
 // ---------------------------------------------------------------------------
 // SSE push channel — streams batches of TimelineEvents from the server to
-// the panel iframe. The panel subscribes to /__lit-timeline-events using the
+// the panel iframe. The panel subscribes to /__lit-devtools-events using the
 // native EventSource API; the browser runtime pushes events via Vite HMR.
 // ---------------------------------------------------------------------------
 
-const PANEL_PATH = '/__lit-timeline';
-const SSE_PATH = '/__lit-timeline-events';
-const CONTROL_PATH = '/__lit-timeline-control';
+const PANEL_PATH = '/__lit-devtools';
+const SSE_PATH = '/__lit-devtools-events';
+const CONTROL_PATH = '/__lit-devtools-control';
 /** Read-only feature settings consumed by the panel's Settings tab. */
 const SETTINGS_PATH = '/__lit-devtools-settings';
 
@@ -213,7 +213,7 @@ export const litTimelinePlugin = (settings?: FeatureSettings): Plugin => {
   };
 
   return {
-    name: 'lit-timeline',
+    name: 'lit-devtools',
     apply: 'serve',
 
     configureServer(server) {
@@ -381,7 +381,7 @@ export const litTimelinePlugin = (settings?: FeatureSettings): Plugin => {
         // Register the dock entry. HTML is served by the configureServer
         // middleware above (with /@fs/ injection); hostStatic is not used.
         ctx.docks.register({
-          id: 'lit-timeline',
+          id: 'lit-devtools',
           type: 'iframe',
           // This dock represents the whole Lit plugin (HMR, source overlay,
           // timeline), so it's branded "Lit" rather than the timeline panel

@@ -80,7 +80,7 @@ export class TimelineView extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     this._loadStorage();
-    this._es = new EventSource('/__lit-timeline-events');
+    this._es = new EventSource('/__lit-devtools-events');
     this._es.onmessage = (e: MessageEvent<string>) => {
       if (!this._recording) return;
       try {
@@ -162,7 +162,7 @@ export class TimelineView extends LitElement {
 
   /** POST layer/recording state to the server control endpoint. */
   private _postControl(body: Record<string, unknown>): void {
-    fetch('/__lit-timeline-control', {
+    fetch('/__lit-devtools-control', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(body),
