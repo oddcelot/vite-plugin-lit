@@ -49,3 +49,28 @@ export const DEFAULT_LAYERS_STATE: TimelineLayersState = {
   mouseEventEnabled: false,
   keyboardEventEnabled: false,
 };
+
+/**
+ * Read-only snapshot of the plugin's resolved feature settings, surfaced in the
+ * panel's Settings tab. The plugin produces this at config time (explicit
+ * options > LIT_PLUGIN_* env > defaults) and serves it from the panel server;
+ * these are config-time settings, so the panel shows them rather than mutating
+ * them (change them via plugin options or env, then restart the dev server).
+ */
+export interface FeatureSettings {
+  hmr: {
+    enabled: boolean;
+    reconnect: boolean;
+    onIncompatible: 'reload' | 'warn';
+    indicatorEnabled: boolean;
+    indicatorCount: boolean;
+  };
+  sourceOverlay: {
+    enabled: boolean;
+    /** Hotkey letter combined with Ctrl+Shift to toggle the overlay. */
+    key: string;
+    editor: string;
+    throttleMs: number;
+  };
+  timeline: boolean;
+}

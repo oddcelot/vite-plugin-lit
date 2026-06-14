@@ -9,7 +9,11 @@ import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import type {Plugin, ViteDevServer} from 'vite';
-import type {TimelineEvent, TimelineLayer} from '../types/timeline.js';
+import type {
+  FeatureSettings,
+  TimelineEvent,
+  TimelineLayer,
+} from '../types/timeline.js';
 
 // ---------------------------------------------------------------------------
 // Minimal type shims for the @vitejs/devtools-kit surface we use.
@@ -79,6 +83,8 @@ declare module 'vite' {
 const PANEL_PATH = '/__lit-timeline';
 const SSE_PATH = '/__lit-timeline-events';
 const CONTROL_PATH = '/__lit-timeline-control';
+/** Read-only feature settings consumed by the panel's Settings tab. */
+const SETTINGS_PATH = '/__lit-devtools-settings';
 
 // The official Lit logo mark (Iconify `logos:lit-icon`). Its native viewBox is
 // 256×320 — taller than wide — so when the DevTools dock sizes an icon to its
@@ -163,7 +169,7 @@ const installSseMiddleware = (
   );
 };
 
-export const litTimelinePlugin = (): Plugin => {
+export const litTimelinePlugin = (settings?: FeatureSettings): Plugin => {
   const sseClients = new Set<SseClient>();
 
   /** Push a batch of events to all subscribed panel SSE clients. */
@@ -186,6 +192,30 @@ export const litTimelinePlugin = (): Plugin => {
     configureServer(server) {
       // SSE endpoint: panel iframe subscribes here for event push.
       installSseMiddleware(server, sseClients);
+
+      // Settings endpoint: the panel's Settings tab GETs the resolved feature
+      // settings (read-only mirror of the plugin's config-time options).
+      server.middlewares.use(
+        SETTINGS_PATH,
+        (
+          req: {method?: string},
+          res: {
+            statusCode: number;
+            setHeader: (k: string, v: string) => void;
+            end: (body: string) => void;
+          },
+          next: () => void
+        ) => {
+          if (req.method !== 'GET') {
+            next();
+            return;
+          }
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-cache');
+          res.end(JSON.stringify(settings ?? null));
+        }
+      );
 
       // Serve the panel HTML with the Lit SPA entry injected via /@fs/ so
       // Vite can transform the TypeScript source on the fly.

@@ -7,6 +7,7 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 import './timeline-view.js';
+import './devtools-settings.js';
 
 interface Tab {
   id: string;
@@ -19,7 +20,7 @@ interface Tab {
  */
 const TABS: readonly Tab[] = [
   {id: 'timeline', label: 'Timeline'},
-  {id: 'about', label: 'About'},
+  {id: 'settings', label: 'Settings'},
 ];
 
 /**
@@ -89,51 +90,12 @@ export class TimelineApp extends LitElement {
       flex: 1;
       overflow: hidden;
     }
-    .about {
-      padding: 16px 20px;
-      line-height: 1.6;
-      color: #a0a0b0;
-      overflow-y: auto;
-    }
-    .about h2 {
-      margin: 0 0 4px;
-      font-size: 14px;
-      color: #d4d4d8;
-    }
-    .about ul {
-      margin: 8px 0 0;
-      padding-left: 18px;
-    }
-    .about code {
-      color: #4fc08d;
-      font-family: ui-monospace, monospace;
-    }
   `;
 
   @state() private _tab = 'timeline';
 
   private _select(id: string) {
     this._tab = id;
-  }
-
-  private _renderAbout() {
-    return html`
-      <div class="about">
-        <h2>Lit DevTools</h2>
-        <p>
-          Development tooling for Lit, served by
-          <code>@lit-labs/vite-plugin-lit</code>.
-        </p>
-        <ul>
-          <li>
-            <strong>Timeline</strong> — record lifecycle, render and input
-            events per element.
-          </li>
-          <li>Hot module replacement for Lit components.</li>
-          <li>Source overlay — jump from a rendered element to its source.</li>
-        </ul>
-      </div>
-    `;
   }
 
   override render() {
@@ -157,7 +119,9 @@ export class TimelineApp extends LitElement {
       </header>
       <div class="view">
         <timeline-view ?hidden=${this._tab !== 'timeline'}></timeline-view>
-        ${this._tab === 'about' ? this._renderAbout() : nothing}
+        ${this._tab === 'settings'
+          ? html`<devtools-settings></devtools-settings>`
+          : nothing}
       </div>
     `;
   }

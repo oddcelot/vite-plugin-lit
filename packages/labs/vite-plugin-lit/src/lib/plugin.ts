@@ -12,6 +12,7 @@ import MagicString from 'magic-string';
 import {injectSourceMeta} from './source-meta.js';
 import {INSTALL_ID, VIRTUAL_PREFIX, transformLitModule} from './transform.js';
 import type {SourceOverlayOptions} from './types.js';
+import type {FeatureSettings} from '../types/timeline.js';
 import {WRAP_TABLE} from './wrap-table.js';
 import {litTimelinePlugin} from './timeline-plugin.js';
 
@@ -181,6 +182,34 @@ const resolveOptions = (
     indicator,
     sourceOverlay,
     timeline,
+  };
+};
+
+/**
+ * Flattens resolved options into the JSON-serializable shape the panel's
+ * Settings tab consumes (callback options like `exclude`/`onSelect` dropped;
+ * a custom editor object reported as `"custom"`). Default key/editor/throttle
+ * are applied here so the panel shows the effective values the runtime uses.
+ */
+const toFeatureSettings = (r: ResolvedOptions): FeatureSettings => {
+  const so = r.sourceOverlay;
+  const editor = so === false ? undefined : so.editor;
+  return {
+    hmr: {
+      enabled: r.hmrEnabled,
+      reconnect: r.reconnect,
+      onIncompatible: r.onIncompatible,
+      indicatorEnabled: r.indicator !== false,
+      indicatorCount: r.indicator !== false && r.indicator.count,
+    },
+    sourceOverlay: {
+      enabled: so !== false,
+      key: (so === false ? undefined : so.key) ?? 's',
+      editor:
+        typeof editor === 'string' ? editor : editor ? 'custom' : 'vscode',
+      throttleMs: (so === false ? undefined : so.throttleMs) ?? 50,
+    },
+    timeline: r.timeline,
   };
 };
 
@@ -677,7 +706,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
     hmr,
   ];
   if (resolved.timeline) {
-    plugins.push(litTimelinePlugin());
+    plugins.push(litTimelinePlugin(toFeatureSettings(resolved)));
   }
   return plugins;
 };
