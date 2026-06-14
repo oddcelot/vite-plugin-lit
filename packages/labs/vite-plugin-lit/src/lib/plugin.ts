@@ -533,6 +533,10 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       return {optimizeDeps: {exclude: ['@lit-labs/vite-plugin-lit']}};
     },
     resolveId(id) {
+      // Public timeline API virtual module.
+      if (id === 'virtual:lit-plugin/timeline') {
+        return '\0virtual:lit-plugin/timeline';
+      }
       // Resolve the browser CSS helpers and indicator runtime to the copy
       // shipped next to this plugin, so they work even when the package
       // isn't reachable through node resolution from the served root (and
@@ -552,6 +556,23 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       return null;
     },
     load(id) {
+      // Public timeline API — re-export the runtime module when timeline is
+      // enabled, otherwise a no-op stub so imports don't throw in prod builds.
+      if (id === '\0virtual:lit-plugin/timeline') {
+        if (!resolved.timeline) {
+          return {
+            code:
+              'export const addTimelineEvent = () => {};\n' +
+              'export const addTimelineLayer = () => {};\n',
+            moduleType: 'js',
+          };
+        }
+        const apiPath = resolveRuntimeModule('timeline/public-api');
+        return {
+          code: `export * from ${JSON.stringify(apiPath)};\n`,
+          moduleType: 'js',
+        };
+      }
       if (!resolved.hmrEnabled || !id.startsWith(VIRTUAL_PREFIX)) {
         return null;
       }
