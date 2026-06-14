@@ -293,15 +293,18 @@ export class DevtoolsSettings extends LitElement {
           <td class="key">on incompatible</td>
           <td class="val">
             <select
-              .value=${onIncompatible}
               @change=${(e: Event) =>
                 this._set(
                   'hmrOnIncompatible',
                   (e.target as HTMLSelectElement).value as 'reload' | 'warn'
                 )}
             >
-              <option value="reload">reload</option>
-              <option value="warn">warn</option>
+              <option value="reload" ?selected=${onIncompatible === 'reload'}>
+                reload
+              </option>
+              <option value="warn" ?selected=${onIncompatible === 'warn'}>
+                warn
+              </option>
             </select>
             ${this._ovr(o.hmrOnIncompatible !== undefined)}
           </td>
@@ -392,8 +395,6 @@ export class DevtoolsSettings extends LitElement {
                 <td class="key">editor</td>
                 <td class="val">
                   <select
-                    .value=${this._override.sourceOverlayEditor ??
-                    s.sourceOverlay.editor}
                     @change=${(e: Event) =>
                       this._set(
                         'sourceOverlayEditor',
@@ -402,7 +403,14 @@ export class DevtoolsSettings extends LitElement {
                   >
                     ${SOURCE_OVERLAY_EDITORS.map(
                       (ed) =>
-                        html`<option value=${ed.value}>${ed.label}</option>`
+                        html`<option
+                          value=${ed.value}
+                          ?selected=${ed.value ===
+                          (this._override.sourceOverlayEditor ??
+                            s.sourceOverlay.editor)}
+                        >
+                          ${ed.label}
+                        </option>`
                     )}
                   </select>
                   ${this._ovr(this._override.sourceOverlayEditor !== undefined)}
