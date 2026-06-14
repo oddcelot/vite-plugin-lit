@@ -15,6 +15,13 @@ import {customElement} from 'lit/decorators.js';
  * Lightning CSS over `css` tagged template literals too, downleveling them
  * for the configured targets just like .css files — inspect the adopted
  * stylesheet to see the flattened rules.
+ *
+ * Tradeoffs — the idiomatic choice for a component's *own* styles. ✅ Lit
+ * caches one constructed sheet per class, shared across all instances; styles
+ * live with the component; pipeline-processed. ❌ Not a sharing mechanism —
+ * each component type that repeats the same rules gets its own sheet. For
+ * cross-component utility CSS, adopt a shared sheet (`hmr-shared-sheet` /
+ * `?css-sheet`) alongside this — ../../docs/css-delivery.md.
  */
 @customElement('hmr-styled')
 export class HmrStyled extends LitElement {

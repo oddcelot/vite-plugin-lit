@@ -22,6 +22,12 @@ import cssUrl from './hmr-css-url.css?url';
  * so without help the browser would keep the stale stylesheet —
  * `devCacheBust` gives each module execution a fresh href, forcing a
  * refetch.
+ *
+ * Tradeoffs — per-element delivery (the lower-level form of `hmr-linked-css`,
+ * wiring the `<link>` yourself). ✅ Real cacheable `.css` asset; full control
+ * of the href. ❌ One `<link>` + `CSSStyleSheet` per instance; CSS edits
+ * re-render the component. For a shared utility sheet prefer `?css-sheet` —
+ * see ../../docs/css-delivery.md (benchmarked in bench/).
  */
 
 // Module scope: one fresh href per module execution, not per render.

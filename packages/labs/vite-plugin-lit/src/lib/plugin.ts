@@ -8,7 +8,9 @@ import {existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import type {CSSOptions, Plugin} from 'vite';
 import MagicString from 'magic-string';
+import {injectSourceMeta} from './source-meta.js';
 import {INSTALL_ID, VIRTUAL_PREFIX, transformLitModule} from './transform.js';
+import type {SourceOverlayOptions} from './types.js';
 import {WRAP_TABLE} from './wrap-table.js';
 
 /**
@@ -47,6 +49,12 @@ export interface LitPluginOptions {
    * - `false` or omitted — disabled. Defaults to `false`.
    */
   updateIndicator?: boolean | {count?: boolean};
+
+  /**
+   * Dev-only click-to-open-in-IDE inspector for Lit custom elements.
+   * Toggle with Ctrl+Shift+S (configurable via `key`). Defaults to `false`.
+   */
+  sourceOverlay?: boolean | SourceOverlayOptions;
 }
 
 /**
@@ -66,6 +74,65 @@ const resolveRuntimeModule = (name: string): string => {
 
 const JS_FILE_RE = /\.[cm]?[jt]sx?$/;
 
+const OPEN_IN_EDITOR_PATH = '/__lit-open-in-editor';
+
+const normalizeSourceOverlayOptions = (
+  option: boolean | SourceOverlayOptions | undefined
+): false | SourceOverlayOptions => {
+  if (!option) return false;
+  if (typeof option === 'boolean') return {};
+  return option;
+};
+
+const createOpenInEditorMiddleware = () => {
+  return (
+    req: {url?: string},
+    res: {statusCode: number; end: (msg: string) => void},
+    next: (err?: unknown) => void
+  ) => {
+    if (req.url === undefined) {
+      next();
+      return;
+    }
+    const query = req.url.includes('?')
+      ? req.url.slice(req.url.indexOf('?') + 1)
+      : '';
+    const params = new URLSearchParams(query);
+    const file = params.get('file');
+    if (file === null) {
+      res.statusCode = 400;
+      res.end('missing file parameter');
+      return;
+    }
+    const line = params.get('line') ?? '1';
+    const column = params.get('column') ?? '1';
+    const fileRef = `${file}:${line}:${column}`;
+    import('launch-editor')
+      .then(
+        (mod: {
+          default?: (
+            file: string,
+            cb: (fileName: string, errorMessage: string | null) => void
+          ) => void;
+        }) => {
+          const launch = (mod.default ?? mod) as (
+            file: string,
+            cb: (fileName: string, errorMessage: string | null) => void
+          ) => void;
+          launch(fileRef, (_fileName: string, errorMessage: string | null) => {
+            if (errorMessage !== null) {
+              res.statusCode = 500;
+              res.end(errorMessage);
+              return;
+            }
+            res.end('ok');
+          });
+        }
+      )
+      .catch(next);
+  };
+};
+
 /**
  * `import href from './x.css?hmr-url'` — `?url` semantics with working HMR.
  * The string is a real stylesheet URL (dev-served CSS file; hashed `.css`
@@ -76,15 +143,30 @@ const JS_FILE_RE = /\.[cm]?[jt]sx?$/;
  */
 const CSS_URL_QUERY_RE = /^([^?]+\.css)\?(?:[^&]*&)*hmr-url(?:&.*)?$/;
 const CSS_URL_VIRTUAL_PREFIX = '\0lit-plugin:hmr-url:';
+
+/**
+ * `import sheet from './x.css?css-sheet'` — a constructed, shareable
+ * `CSSStyleSheet` backed by the `.css` asset that hot-swaps in place. Adopt it
+ * from any number of components (`static styles = [sheet]`); a source edit
+ * re-fetches and `replaceSync()`s it, updating every shadow root that adopted
+ * it without re-rendering a component or reloading the page.
+ *
+ * This is the `urlSheet()` helper plus its irreducible HMR wiring, lifted into
+ * a plugin-generated module: the `import.meta.hot.accept` lives here (where
+ * Vite's static analysis sees the literal specifier), so callers write a bare
+ * import and never touch `import.meta.hot` themselves.
+ */
+const CSS_SHEET_QUERY_RE = /^([^?]+\.css)\?(?:[^&]*&)*css-sheet(?:&.*)?$/;
+const CSS_SHEET_VIRTUAL_PREFIX = '\0lit-plugin:css-sheet:';
 // The virtual id must not end in `.css`, or Vite's CSS plugins (which match
 // the id's extension regardless of `\0`) would compile the wrapper as CSS.
-const CSS_URL_VIRTUAL_SUFFIX = '.js';
+const CSS_VIRTUAL_SUFFIX = '.js';
 
 /**
  * Import-query support, served in dev and build alike (source code using
- * `?hmr-url` must keep working under `vite build`, where the HMR plugin
- * doesn't apply). Exported for the baseline e2e run, which needs the query
- * working without the HMR plugin.
+ * `?hmr-url`/`?css-sheet` must keep working under `vite build`, where the HMR
+ * plugin doesn't apply). Exported for the baseline e2e run, which needs the
+ * queries working without the HMR plugin.
  */
 export const litCssQueries = (): Plugin => ({
   name: 'lit-css-query',
@@ -92,30 +174,55 @@ export const litCssQueries = (): Plugin => ({
   // before normal plugins get a look, so resolve ahead of it.
   enforce: 'pre',
   async resolveId(id, importer) {
-    const match = CSS_URL_QUERY_RE.exec(id);
-    if (match === null) {
+    const prefix = CSS_URL_QUERY_RE.test(id)
+      ? CSS_URL_VIRTUAL_PREFIX
+      : CSS_SHEET_QUERY_RE.test(id)
+        ? CSS_SHEET_VIRTUAL_PREFIX
+        : null;
+    if (prefix === null) {
       return null;
     }
-    const resolved = await this.resolve(match[1], importer);
+    const file = id.slice(0, id.indexOf('?'));
+    const resolved = await this.resolve(file, importer);
     if (resolved === null) {
       return null;
     }
-    return CSS_URL_VIRTUAL_PREFIX + resolved.id + CSS_URL_VIRTUAL_SUFFIX;
+    return prefix + resolved.id + CSS_VIRTUAL_SUFFIX;
   },
   load(id) {
-    if (!id.startsWith(CSS_URL_VIRTUAL_PREFIX)) {
-      return null;
-    }
-    const file = id.slice(
-      CSS_URL_VIRTUAL_PREFIX.length,
-      -CSS_URL_VIRTUAL_SUFFIX.length
-    );
     const helperPath = resolveRuntimeModule('css');
-    return (
-      `import url from ${JSON.stringify(`${file}?url`)};\n` +
-      `import {devCacheBust} from ${JSON.stringify(helperPath)};\n` +
-      `export default devCacheBust(url);\n`
-    );
+    if (id.startsWith(CSS_URL_VIRTUAL_PREFIX)) {
+      const file = id.slice(
+        CSS_URL_VIRTUAL_PREFIX.length,
+        -CSS_VIRTUAL_SUFFIX.length
+      );
+      return (
+        `import url from ${JSON.stringify(`${file}?url`)};\n` +
+        `import {devCacheBust} from ${JSON.stringify(helperPath)};\n` +
+        `export default devCacheBust(url);\n`
+      );
+    }
+    if (id.startsWith(CSS_SHEET_VIRTUAL_PREFIX)) {
+      const file = id.slice(
+        CSS_SHEET_VIRTUAL_PREFIX.length,
+        -CSS_VIRTUAL_SUFFIX.length
+      );
+      // The accept specifier must be byte-identical to the import above —
+      // Vite resolves accepted HMR deps by static analysis. Generating both
+      // here is exactly what frees the caller from writing it. The swap is
+      // self-accepted at this boundary, so it never propagates to adopters.
+      const urlSpecifier = JSON.stringify(`${file}?url`);
+      return (
+        `import url from ${urlSpecifier};\n` +
+        `import {urlSheet} from ${JSON.stringify(helperPath)};\n` +
+        `const {sheet, onHotUpdate} = urlSheet(url);\n` +
+        `export default sheet;\n` +
+        `if (import.meta.hot) {\n` +
+        `  import.meta.hot.accept(${urlSpecifier}, onHotUpdate);\n` +
+        `}\n`
+      );
+    }
+    return null;
   },
 });
 
@@ -210,9 +317,78 @@ const litCssLiterals = (): Plugin => {
  */
 export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
   const enableHmr = options.hmr ?? true;
+  const sourceOverlayOptions = normalizeSourceOverlayOptions(
+    options.sourceOverlay
+  );
   const runtimeOptions = {
     reconnect: options.reconnect ?? false,
     onIncompatible: options.onIncompatible ?? 'reload',
+  };
+  const sourceOverlayPlugin: Plugin = {
+    name: 'lit-source-overlay',
+    apply: 'serve',
+    // Run before Vite's esbuild TS transform so source-meta line numbers are
+    // measured against the author's raw source (and the `@customElement … class`
+    // forms are still intact), not against transpiled output.
+    enforce: 'pre',
+    resolveId(id) {
+      if (id === '@lit-labs/vite-plugin-lit/source-overlay.js') {
+        return resolveRuntimeModule('source-overlay');
+      }
+      return null;
+    },
+    configureServer(server) {
+      if (!sourceOverlayOptions) return;
+      server.middlewares.use(
+        OPEN_IN_EDITOR_PATH,
+        createOpenInEditorMiddleware()
+      );
+    },
+    transform(code, id, transformOptions) {
+      if (!sourceOverlayOptions) return null;
+      if (transformOptions?.ssr) return null;
+      if (
+        id.startsWith('\0') ||
+        id.includes('__x00__') ||
+        id.includes('lit-plugin:') ||
+        id.includes('/node_modules/')
+      ) {
+        return null;
+      }
+      const [file] = id.split('?', 2);
+      if (!JS_FILE_RE.test(file) && !id.includes('?html-proxy')) {
+        return null;
+      }
+      if (!code.includes('customElement') && !code.includes('customElements')) {
+        return null;
+      }
+      const ms = new MagicString(code);
+      if (!injectSourceMeta(code, file, ms)) {
+        return null;
+      }
+      return {code: ms.toString(), map: ms.generateMap({hires: true})};
+    },
+    transformIndexHtml() {
+      if (!sourceOverlayOptions) return;
+      const overlayUrl = `/@fs/${resolveRuntimeModule('source-overlay')}`;
+      const {
+        exclude: _exclude,
+        onSelect: _onSelect,
+        ...overlayInit
+      } = sourceOverlayOptions;
+      const initConfig = {
+        ...overlayInit,
+        openInEditorPath: OPEN_IN_EDITOR_PATH,
+      };
+      return [
+        {
+          tag: 'script',
+          attrs: {type: 'module'},
+          children: `import {initSourceOverlay} from ${JSON.stringify(overlayUrl)};\ninitSourceOverlay(${JSON.stringify(initConfig)});\n`,
+          injectTo: 'body',
+        },
+      ];
+    },
   };
   const hmr: Plugin = {
     name: 'lit-plugin',
@@ -237,6 +413,9 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       }
       if (id === '@lit-labs/vite-plugin-lit/indicator.js') {
         return resolveRuntimeModule('indicator');
+      }
+      if (id === '@lit-labs/vite-plugin-lit/source-overlay.js') {
+        return resolveRuntimeModule('source-overlay');
       }
       if (enableHmr && id.startsWith(VIRTUAL_PREFIX)) {
         return id;
@@ -318,5 +497,10 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       ];
     },
   };
-  return [litCssQueries(), litCssLiterals(), hmr];
+  const plugins = [litCssQueries(), litCssLiterals()];
+  if (sourceOverlayOptions) {
+    plugins.push(sourceOverlayPlugin);
+  }
+  plugins.push(hmr);
+  return plugins;
 };

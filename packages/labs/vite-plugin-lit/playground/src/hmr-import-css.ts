@@ -20,6 +20,13 @@ import cssHref from './hmr-import-css.css?hmr-url';
  * wrapper module to this component module. Re-execution imports a freshly
  * cache-busted URL and the component re-renders, making the browser refetch
  * the stylesheet.
+ *
+ * Tradeoffs — per-element delivery, the heaviest variant. ✅ Real cacheable
+ * `.css` asset; works where you specifically need a `<style>`. ❌ One `<style>`
+ * + `CSSStyleSheet` per instance, the `@import` adds a request *chain* (the
+ * `<style>` must parse before the import is even discovered → slowest first
+ * paint), and CSS edits re-render the component. Avoid for shared CSS; use a
+ * shared adopted sheet — see ../../docs/css-delivery.md (benchmarked in bench/).
  */
 
 @customElement('hmr-import-css')

@@ -12,6 +12,15 @@ import rawCss from './hmr-shared.css?raw';
  * directly — it calls `replaceSync()` on the existing sheet, which updates
  * all shadow roots that adopted it. The component modules are never
  * re-executed, so their state and DOM are fully preserved.
+ *
+ * Tradeoffs — inline shared sheet, the benchmark's all-round winner. ✅ One
+ * parsed sheet shared by every adopter (fewest objects/nodes, fastest mount),
+ * no runtime fetch so **no FOUC**, and in-place HMR with no component
+ * re-render. ❌ Bytes ship in a JS chunk (not an independently cacheable
+ * asset), and `?raw` skips the CSS pipeline. When the bytes should stay a
+ * cacheable `.css` asset (e.g. a large generated utility sheet), use
+ * `?css-sheet` instead and accept a brief FOUC — ../../docs/css-delivery.md
+ * (benchmarked in bench/).
  */
 const sheet = new CSSStyleSheet();
 sheet.replaceSync(rawCss);

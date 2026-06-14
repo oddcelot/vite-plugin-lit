@@ -12,6 +12,8 @@ import utilitySheet from './hmr-utility-sheet.js';
  * Badge styled via the same shared utility sheet as `hmr-utility-btn`.
  * A completely different component type, sharing the same set of utility
  * classes. CSS edits propagate to both without re-render.
+ *
+ * Approach benefits/problems: see `hmr-utility-sheet` (fetched shared sheet).
  */
 
 @customElement('hmr-utility-badge')

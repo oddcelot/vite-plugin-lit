@@ -16,6 +16,8 @@ import sharedSheet from './hmr-shared-sheet.js';
  *
  * Compare with `hmr-linked-css` where a `<link>` href changes forces a
  * full re-render on each HMR cycle.
+ *
+ * Approach benefits/problems: see `hmr-shared-sheet` (inline shared sheet).
  */
 
 @customElement('hmr-shared-css-a')

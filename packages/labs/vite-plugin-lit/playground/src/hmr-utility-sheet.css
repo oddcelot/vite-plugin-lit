@@ -50,7 +50,7 @@
   font-weight: 700;
 }
 .font-mono {
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono, ui-monospace, monospace);
 }
 .border-none {
   border: none;

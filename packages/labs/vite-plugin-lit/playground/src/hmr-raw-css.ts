@@ -24,6 +24,14 @@ import rawCss from './hmr-raw-css.css?raw';
  * Caveat: `?raw` returns the file text verbatim, bypassing Vite's CSS
  * pipeline — no Lightning CSS/PostCSS processing applies (unlike the
  * `?hmr-url` demos), so stick to natively supported syntax here.
+ *
+ * Tradeoffs — inline, per component *class*. ✅ Bytes ride in the JS bundle:
+ * no runtime fetch, no FOUC; Lit caches one sheet per class, shared across all
+ * instances of *this* component. ❌ A *different* component type that inlines
+ * the same CSS gets its own sheet and its own copy of the bytes in its chunk;
+ * `?raw` skips the CSS pipeline. Right for a component's own styles — for a
+ * sheet shared across many types, import one shared sheet (see
+ * `hmr-shared-sheet` / `?css-sheet`) — ../../docs/css-delivery.md.
  */
 
 @customElement('hmr-raw-css')

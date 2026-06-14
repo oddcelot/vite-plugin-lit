@@ -44,8 +44,8 @@ export default defineConfig({
 ```
 
 The HMR feature only applies to the dev server (`apply: 'serve'`); production
-builds are untouched. The CSS query (`?hmr-url`) and Lightning CSS literal
-processing apply in both dev and build.
+builds are untouched. The CSS queries (`?hmr-url`, `?css-sheet`) and Lightning
+CSS literal processing apply in both dev and build.
 
 ## Options
 
@@ -59,6 +59,10 @@ processing apply in both dev and build.
 
 CSS in shadow roots can be delivered a few ways, with different HMR
 behaviors. The plugin ships helpers under `@lit-labs/vite-plugin-lit/css.js`.
+For choosing between them at scale — e.g. a large utility sheet (Tailwind,
+UnoCSS) shared across many components — see
+[`docs/css-delivery.md`](./docs/css-delivery.md), with a reproducible
+benchmark in [`bench/`](./bench/README.md).
 
 ### Shared adopted stylesheet from a `.css` asset
 
@@ -93,6 +97,45 @@ export class MyEl extends LitElement {
   static override styles = [sheet];
 }
 ```
+
+### Shared adopted stylesheet with no boilerplate (`?css-sheet`)
+
+The `import.meta.hot.accept` line above is irreducible in a **runtime** helper —
+Vite resolves accepted HMR deps by static analysis, so the literal specifier
+has to appear in the importing module. The plugin sidesteps that by generating
+the wiring for you: `import sheet from './x.css?css-sheet'` returns the same
+hot-swapping, shareable `CSSStyleSheet` as `urlSheet()`, but the `urlSheet()`
+call and the `accept` registration live in a plugin-generated virtual module,
+so your code is a bare import.
+
+```ts
+// any component — no helper import, no import.meta.hot
+import sheet from './utility-sheet.css?css-sheet';
+
+@customElement('my-el')
+export class MyEl extends LitElement {
+  static override styles = [sheet];
+}
+```
+
+Every module that imports the same `./x.css?css-sheet` shares one
+`CSSStyleSheet` instance, so an edit updates all adopters in place. Add the
+ambient type via `/// <reference types="@lit-labs/vite-plugin-lit/client" />`
+(or the `types` tsconfig field) so the import resolves to `CSSStyleSheet`.
+
+This targets utility-first CSS frameworks (Tailwind, UnoCSS): the framework
+generates one complete `.css` file of utility classes, and every component
+adopts it through a single shared sheet. In a `vite build` that file stays a
+**standalone, content-hashed `.css` asset** — pipeline-processed (Lightning
+CSS/PostCSS) and fetched once at runtime, never inlined into a JS chunk — so
+the bundle keeps one cacheable stylesheet shared across the app. The `accept`
+wiring is dev-only and is stripped from the build. (When the framework
+regenerates the file in dev, the hot-swap relies on its Vite plugin emitting
+an HMR update for the imported `.css` module — verify against your specific
+Tailwind/UnoCSS integration.) Same FOUC caveat as `urlSheet()` (a runtime
+fetch backs it); the tradeoff is control — reach for `urlSheet()` directly when
+you need a custom fetch/transform, or when the importing code must run without
+this plugin.
 
 ### External stylesheet via `<link>`
 

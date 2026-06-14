@@ -15,3 +15,8 @@ declare module '*.css?hmr-url' {
   const href: string;
   export default href;
 }
+
+declare module '*.css?css-sheet' {
+  const sheet: CSSStyleSheet;
+  export default sheet;
+}

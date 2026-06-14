@@ -56,6 +56,6 @@ export default defineConfig(async () => {
         },
       },
     },
-    plugins: [litPlugin({updateIndicator: {count: true}})],
+    plugins: [litPlugin({updateIndicator: {count: true}, sourceOverlay: true})],
   };
 });

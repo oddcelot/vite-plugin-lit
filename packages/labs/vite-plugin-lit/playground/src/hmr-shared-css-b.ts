@@ -12,6 +12,8 @@ import sharedSheet from './hmr-shared-sheet.js';
  * Second component sharing the `hmr-shared.css` stylesheet via a shared
  * `CSSStyleSheet` object. Same pattern as `hmr-shared-css-a` — both adopt
  * the same sheet, so CSS edits update both without re-rendering either.
+ *
+ * Approach benefits/problems: see `hmr-shared-sheet` (inline shared sheet).
  */
 
 @customElement('hmr-shared-css-b')

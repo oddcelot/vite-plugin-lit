@@ -16,6 +16,13 @@
         --card-bg: #ffffff;
         --card-border: #cccccc;
         --muted: #666666;
+        --font-mono:
+          ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas,
+          'DejaVu Sans Mono', monospace;
+        --font-sans: system-ui, sans-serif;
+        /* Theme the injected devtools UI with the same monospace stack.
+           Inherited custom properties pierce the devtools' shadow roots. */
+        --lit-devtools-font-mono: var(--font-mono);
       }
       :root[data-theme='dark'] {
         color-scheme: dark;
@@ -26,7 +33,7 @@
         --muted: #9a9ab0;
       }
       body {
-        font-family: system-ui, sans-serif;
+        font-family: var(--font-sans);
         margin: 1rem;
         background: var(--bg);
         color: var(--fg);
@@ -254,6 +261,17 @@
         <span class="problem"
           >Utility-class badge: CSS edits propagate across different component
           types without re-render</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-vsheet-a></hmr-vsheet-a>
+        <hmr-vsheet-b></hmr-vsheet-b>
+        <span class="problem"
+          ><code>?css-sheet</code> plugin query: a bare CSS import yields a
+          shared hot-swapping <code>CSSStyleSheet</code> — no
+          <code>urlSheet()</code> or <code>import.meta.hot</code> in user
+          code</span
         >
       </div>
 
