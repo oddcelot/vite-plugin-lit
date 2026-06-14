@@ -28,11 +28,16 @@ export class HmrVsheetA extends LitElement {
   private renders = 0;
 
   override render() {
-    return html`<span class="chip" id="chip">A</span>`;
+    return html`<span class="chip" id="chip">A</span>
+      <span id="badge">renders: 0</span>`;
   }
 
   override updated() {
     this.renders++;
     this.setAttribute('data-renders', String(this.renders));
+    const badge = this.renderRoot.querySelector('#badge');
+    if (badge !== null) {
+      badge.textContent = `renders: ${this.renders}`;
+    }
   }
 }
