@@ -20,6 +20,45 @@ export class TimelineEventList extends LitElement {
       flex: 1;
       overflow: hidden;
     }
+    .filterbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-bottom: 1px solid #1e1e26;
+      font-size: 11px;
+      color: #888;
+      flex-shrink: 0;
+    }
+    .filterbar select {
+      background: #2d2d35;
+      color: #d4d4d8;
+      border: 1px solid #3d3d45;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-family: ui-monospace, monospace;
+    }
+    .filterbar input.regex {
+      background: #2d2d35;
+      color: #d4d4d8;
+      border: 1px solid #3d3d45;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-family: ui-monospace, monospace;
+      min-width: 140px;
+    }
+    .filterbar input.regex::placeholder {
+      color: #555;
+    }
+    .filterbar input.regex.invalid {
+      border-color: #ef4444;
+    }
+    .filterbar .count {
+      margin-left: auto;
+      color: #555;
+    }
     .scroll {
       flex: 1;
       overflow-y: auto;
@@ -117,13 +156,33 @@ export class TimelineEventList extends LitElement {
     a:hover {
       text-decoration: underline;
     }
+    .filter-link {
+      cursor: pointer;
+      margin-left: 8px;
+      font-size: 10px;
+    }
   `;
 
   @property({type: Array}) events: TimelineEvent[] = [];
   @property({type: Array}) layers: LayerState[] = [];
   @state() private _selected: TimelineEvent | null = null;
+  /** Element id to filter the list to, or null for all elements. */
+  @state() private _elementFilter: number | null = null;
+  /** Case-insensitive regex (source text) matched against tag/title/subtitle. */
+  @state() private _regex = '';
 
   private readonly _scrollRef = createRef<HTMLDivElement>();
+
+  override willUpdate(changed: Map<string, unknown>) {
+    // Drop a stale element filter when its element is no longer in the events
+    // (e.g. after Clear), otherwise the list would silently show nothing.
+    if (changed.has('events') && this._elementFilter !== null) {
+      const present = this.events.some(
+        (ev) => ev.meta?.elementId === this._elementFilter
+      );
+      if (!present) this._elementFilter = null;
+    }
+  }
 
   override updated(changed: Map<string, unknown>) {
     if (changed.has('events')) {
@@ -140,12 +199,101 @@ export class TimelineEventList extends LitElement {
 
   private _isVisible(ev: TimelineEvent): boolean {
     const l = this.layers.find((l) => l.id === ev.layerId);
-    return l ? l.enabled : true;
+    if (l && !l.enabled) return false;
+    if (
+      this._elementFilter !== null &&
+      ev.meta?.elementId !== this._elementFilter
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  /** Distinct elements (by stable id) seen across the recorded events. */
+  private _elements(): Array<{id: number; tag: string}> {
+    const seen = new Map<number, string>();
+    for (const ev of this.events) {
+      const id = ev.meta?.elementId;
+      if (id != null && !seen.has(id)) {
+        seen.set(id, ev.meta?.tagName ?? 'unknown');
+      }
+    }
+    return [...seen].map(([id, tag]) => ({id, tag}));
+  }
+
+  private _onFilterChange(e: Event) {
+    const v = (e.target as HTMLSelectElement).value;
+    this._elementFilter = v === '' ? null : Number(v);
+  }
+
+  private _onRegexInput(e: Event) {
+    this._regex = (e.target as HTMLInputElement).value;
+  }
+
+  /** Text searched by the regex filter — element tag, title and subtitle. */
+  private _haystack(ev: TimelineEvent): string {
+    return `${ev.meta?.tagName ?? ''} ${ev.title ?? ''} ${ev.subtitle ?? ''}`;
   }
 
   override render() {
-    const visible = this.events.filter((ev) => this._isVisible(ev));
+    const elements = this._elements();
+    // Compile the regex once per render; invalid patterns disable the filter
+    // (rather than hiding everything) and flag the input.
+    let re: RegExp | null = null;
+    let regexInvalid = false;
+    if (this._regex !== '') {
+      try {
+        re = new RegExp(this._regex, 'i');
+      } catch {
+        regexInvalid = true;
+      }
+    }
+    const visible = this.events.filter(
+      (ev) =>
+        this._isVisible(ev) && (re === null || re.test(this._haystack(ev)))
+    );
     return html`
+      ${this.events.length > 0
+        ? html`
+            <div class="filterbar">
+              ${elements.length > 0
+                ? html`
+                    <span>Element:</span>
+                    <select @change=${this._onFilterChange}>
+                      <option
+                        value=""
+                        ?selected=${this._elementFilter === null}
+                      >
+                        All elements
+                      </option>
+                      ${elements.map(
+                        (el) => html`
+                          <option
+                            value=${el.id}
+                            ?selected=${this._elementFilter === el.id}
+                          >
+                            &lt;${el.tag}&gt; #${el.id}
+                          </option>
+                        `
+                      )}
+                    </select>
+                  `
+                : nothing}
+              <input
+                class="regex ${regexInvalid ? 'invalid' : ''}"
+                type="text"
+                spellcheck="false"
+                placeholder="filter regex…"
+                title="Case-insensitive regex matched against element tag, title and subtitle"
+                .value=${this._regex}
+                @input=${this._onRegexInput}
+              />
+              <span class="count"
+                >${visible.length} / ${this.events.length}</span
+              >
+            </div>
+          `
+        : nothing}
       <div class="scroll" ${ref(this._scrollRef)}>
         ${visible.length === 0
           ? html`
@@ -196,7 +344,18 @@ export class TimelineEventList extends LitElement {
           ${meta?.tagName
             ? html`<tr>
                 <td class="key">element</td>
-                <td class="val">&lt;${meta.tagName}&gt; #${meta.elementId}</td>
+                <td class="val">
+                  &lt;${meta.tagName}&gt; #${meta.elementId}
+                  ${meta.elementId != null
+                    ? html`<a
+                        class="filter-link"
+                        @click=${() => {
+                          this._elementFilter = meta.elementId!;
+                        }}
+                        >filter</a
+                      >`
+                    : nothing}
+                </td>
               </tr>`
             : nothing}
           ${src

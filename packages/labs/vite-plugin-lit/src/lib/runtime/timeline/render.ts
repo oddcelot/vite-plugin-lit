@@ -18,6 +18,7 @@
  */
 
 import type {TimelineEvent} from '../../../types/timeline.js';
+import {idOf, sourceOf} from './identity.js';
 
 type EmitFn = (event: TimelineEvent) => void;
 type RecordingFn = () => boolean;
@@ -29,7 +30,27 @@ interface LitDebugDetail {
   id?: number;
   template?: unknown;
   instance?: unknown;
+  /** Render options passed to lit-html's `render()`; `host` is the element. */
+  options?: {host?: unknown};
 }
+
+/**
+ * Builds the element-identity `meta` for a render event from the render
+ * `host` (the LitElement whose `render()` produced these debug events).
+ * Uses the same id/source maps as the lifecycle layer so an element keeps one
+ * stable id across both layers. Returns undefined for host-less renders
+ * (e.g. a bare lit-html `render()` call not driven by a LitElement).
+ */
+const hostMeta = (
+  host: unknown
+): NonNullable<TimelineEvent['meta']> | undefined => {
+  if (host === null || typeof host !== 'object') return undefined;
+  return {
+    elementId: idOf(host),
+    tagName: (host as Element).localName ?? 'unknown',
+    source: sourceOf(host),
+  };
+};
 
 type LitDebugEvent = CustomEvent<LitDebugDetail>;
 
@@ -50,25 +71,33 @@ const onLitDebug = (
   const {kind, id} = detail;
 
   switch (kind) {
-    case 'begin render':
+    case 'begin render': {
+      const meta = hostMeta(detail.options?.host);
       emit({
         layerId: 'lit-render',
         time,
         groupId: id,
         title: 'render:start',
+        subtitle: meta?.tagName,
         data: {kind, id},
+        meta,
       });
       break;
+    }
 
-    case 'end render':
+    case 'end render': {
+      const meta = hostMeta(detail.options?.host);
       emit({
         layerId: 'lit-render',
         time,
         groupId: id,
         title: 'render:end',
+        subtitle: meta?.tagName,
         data: {kind, id},
+        meta,
       });
       break;
+    }
 
     // `template prep` fires once per *unique* template, the first time it's
     // compiled — low volume, useful as a "new template" marker.
