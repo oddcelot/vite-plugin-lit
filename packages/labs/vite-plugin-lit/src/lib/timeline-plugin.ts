@@ -9,10 +9,12 @@ import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import type {Plugin, ViteDevServer} from 'vite';
-import type {
-  FeatureSettings,
-  TimelineEvent,
-  TimelineLayer,
+import {
+  SETTINGS_OVERRIDE_CHANNEL,
+  type FeatureSettings,
+  type SettingsOverride,
+  type TimelineEvent,
+  type TimelineLayer,
 } from '../types/timeline.js';
 
 // ---------------------------------------------------------------------------
@@ -128,6 +130,31 @@ const resolvePanel = (): PanelPaths => {
   throw new Error('[lit-plugin:timeline] panel directory not found');
 };
 
+/** Subset of Node's readable-stream `on` used to collect a request body. */
+type ReadableOn = (event: string, handler: (chunk: Buffer) => void) => void;
+
+/**
+ * Reads and JSON-parses a request body, invoking `done` with the parsed object
+ * (or `null` on a malformed/empty body). Used by the control + settings POST
+ * endpoints.
+ */
+const readJsonBody = (
+  req: {on?: ReadableOn},
+  done: (body: Record<string, unknown> | null) => void
+): void => {
+  const chunks: Buffer[] = [];
+  req.on?.('data', (chunk) => chunks.push(chunk));
+  req.on?.('end', () => {
+    try {
+      done(
+        JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>
+      );
+    } catch {
+      done(null);
+    }
+  });
+};
+
 /** Minimal typing for Node's ServerResponse (already fully typed by `node:http`
  *  but we want to avoid pulling in @types/node in a browser runtime module). */
 type SseClient = {
@@ -193,27 +220,41 @@ export const litTimelinePlugin = (settings?: FeatureSettings): Plugin => {
       // SSE endpoint: panel iframe subscribes here for event push.
       installSseMiddleware(server, sseClients);
 
-      // Settings endpoint: the panel's Settings tab GETs the resolved feature
-      // settings (read-only mirror of the plugin's config-time options).
+      // Settings endpoint. GET returns the resolved feature settings (the
+      // baseline the panel renders). POST carries a SettingsOverride which we
+      // rebroadcast to the app runtime via HMR so it takes effect live.
       server.middlewares.use(
         SETTINGS_PATH,
         (
-          req: {method?: string},
+          req: {method?: string; on?: ReadableOn},
           res: {
             statusCode: number;
             setHeader: (k: string, v: string) => void;
-            end: (body: string) => void;
+            end: (body?: string) => void;
           },
           next: () => void
         ) => {
-          if (req.method !== 'GET') {
-            next();
+          if (req.method === 'GET') {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.end(JSON.stringify(settings ?? null));
             return;
           }
-          res.statusCode = 200;
-          res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.setHeader('Cache-Control', 'no-cache');
-          res.end(JSON.stringify(settings ?? null));
+          if (req.method === 'POST') {
+            readJsonBody(req, (body) => {
+              if (body !== null) {
+                server.hot.send(
+                  SETTINGS_OVERRIDE_CHANNEL,
+                  body as SettingsOverride
+                );
+              }
+              res.statusCode = 204;
+              res.end();
+            });
+            return;
+          }
+          next();
         }
       );
 
@@ -270,17 +311,8 @@ export const litTimelinePlugin = (settings?: FeatureSettings): Plugin => {
           next();
           return;
         }
-        const chunks: Buffer[] = [];
-        const readable = req as unknown as {
-          on: (event: string, handler: (chunk: Buffer) => void) => void;
-        };
-        readable.on('data', (chunk: Buffer) => chunks.push(chunk));
-        readable.on('end', () => {
-          try {
-            const body = JSON.parse(Buffer.concat(chunks).toString()) as Record<
-              string,
-              unknown
-            >;
+        readJsonBody(req as {on?: ReadableOn}, (body) => {
+          if (body !== null) {
             if (typeof body.recording === 'boolean') {
               server.hot.send('lit:timeline:recording-changed', {
                 recording: body.recording,
@@ -301,13 +333,8 @@ export const litTimelinePlugin = (settings?: FeatureSettings): Plugin => {
             if (Object.keys(layersUpdate).length > 0) {
               server.hot.send('lit:timeline:layers-changed', layersUpdate);
             }
-          } catch {
-            // ignore malformed body
           }
-          const r = res as {
-            statusCode: number;
-            end: () => void;
-          };
+          const r = res as {statusCode: number; end: () => void};
           r.statusCode = 204;
           r.end();
         });

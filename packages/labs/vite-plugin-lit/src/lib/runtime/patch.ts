@@ -20,6 +20,11 @@
  * custom elements, which get prototype/static patching only).
  */
 
+import {subscribeOverride} from './overrides.js';
+
+/** Minimal `import.meta.hot` shape used to receive live setting overrides. */
+type HotChannel = {on: (event: string, cb: (data: unknown) => void) => void};
+
 export interface PatchOptions {
   /**
    * Cycle `disconnectedCallback()`/`connectedCallback()` on live instances
@@ -406,6 +411,15 @@ export const install = (options: PatchOptions = {}): void => {
     },
   };
   g[STATE_KEY] = state;
+
+  // Let the DevTools panel override these behaviours live (and persist across
+  // reloads) on top of the config-time defaults above.
+  subscribeOverride((import.meta as {hot?: HotChannel}).hot, (o) => {
+    if (o.hmrReconnect !== undefined) state.options.reconnect = o.hmrReconnect;
+    if (o.hmrOnIncompatible !== undefined) {
+      state.options.onIncompatible = o.hmrOnIncompatible;
+    }
+  });
 
   const nativeDefine = customElements.define;
   customElements.define = function (

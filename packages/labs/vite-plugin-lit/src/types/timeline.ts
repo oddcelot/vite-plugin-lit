@@ -51,11 +51,11 @@ export const DEFAULT_LAYERS_STATE: TimelineLayersState = {
 };
 
 /**
- * Read-only snapshot of the plugin's resolved feature settings, surfaced in the
- * panel's Settings tab. The plugin produces this at config time (explicit
- * options > LIT_PLUGIN_* env > defaults) and serves it from the panel server;
- * these are config-time settings, so the panel shows them rather than mutating
- * them (change them via plugin options or env, then restart the dev server).
+ * Snapshot of the plugin's resolved feature settings, surfaced in the panel's
+ * Settings tab. The plugin produces this at config time (explicit options >
+ * LIT_PLUGIN_* env > defaults) and serves it from the panel server. It's the
+ * baseline the panel shows; some HMR settings can then be overridden live (see
+ * {@link SettingsOverride}).
  */
 export interface FeatureSettings {
   hmr: {
@@ -74,3 +74,25 @@ export interface FeatureSettings {
   };
   timeline: boolean;
 }
+
+/**
+ * Runtime overrides the panel applies on top of the resolved env config, for
+ * settings whose runtime is already injected (so they can change live). A
+ * feature disabled at config time has no runtime, so it can't be enabled here
+ * — only the behaviour of already-enabled features is overridable.
+ *
+ * Persisted under {@link SETTINGS_OVERRIDE_LS_KEY} (the panel and app share an
+ * origin) so overrides survive reloads, and pushed live over
+ * {@link SETTINGS_OVERRIDE_CHANNEL} via Vite HMR for immediate effect.
+ */
+export interface SettingsOverride {
+  hmrReconnect?: boolean;
+  hmrOnIncompatible?: 'reload' | 'warn';
+  hmrIndicatorVisible?: boolean;
+}
+
+/** localStorage key holding the {@link SettingsOverride}. */
+export const SETTINGS_OVERRIDE_LS_KEY = 'lit-devtools-overrides';
+
+/** Vite HMR channel the server uses to push overrides to the app runtime. */
+export const SETTINGS_OVERRIDE_CHANNEL = 'lit-devtools:settings-override';

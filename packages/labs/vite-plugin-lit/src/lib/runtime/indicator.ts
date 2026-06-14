@@ -12,6 +12,7 @@
 
 import {FONT_MONO_VAR} from './fonts.js';
 import {FLAME_ICON} from './icons.js';
+import {subscribeOverride} from './overrides.js';
 
 class LitDevtoolsIndicator extends HTMLElement {
   #initialized = false;
@@ -61,15 +62,24 @@ class LitDevtoolsIndicator extends HTMLElement {
   connectedCallback() {
     if (this.#initialized) return;
     this.#initialized = true;
-    (
-      import.meta as {hot?: {on: (event: string, cb: () => void) => void}}
-    ).hot?.on('vite:afterUpdate', () => {
+    const hot = (
+      import.meta as {
+        hot?: {on: (event: string, cb: (data?: unknown) => void) => void};
+      }
+    ).hot;
+    hot?.on('vite:afterUpdate', () => {
       if (this.#countEl !== null) {
         this.#countEl.textContent = String(++this.#count);
       }
       this.#container.classList.remove('active');
       void this.#container.offsetWidth;
       this.#container.classList.add('active');
+    });
+    // Let the DevTools panel hide/show the indicator live (and across reloads).
+    subscribeOverride(hot, (o) => {
+      if (o.hmrIndicatorVisible !== undefined) {
+        this.style.display = o.hmrIndicatorVisible ? '' : 'none';
+      }
     });
   }
 }
