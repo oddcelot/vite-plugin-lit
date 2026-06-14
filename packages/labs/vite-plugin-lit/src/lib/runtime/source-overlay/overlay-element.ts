@@ -41,6 +41,7 @@ class LitSourceOverlay extends HTMLElement {
   #throttleTimer: ReturnType<typeof setTimeout> | undefined;
   #scrollTimer: ReturnType<typeof setTimeout> | undefined;
   #resizeObserver: ResizeObserver | undefined;
+  #cursorStyle: HTMLStyleElement | null = null;
   #lastMouseX = 0;
   #lastMouseY = 0;
 
@@ -91,6 +92,14 @@ class LitSourceOverlay extends HTMLElement {
     this.#active = true;
     this.#dialog.showModal();
     this.#mask.style.background = 'rgba(0,0,0,0.35)';
+    // The overlay is pointer-events:none, so the cursor reflects the hovered
+    // page element. Force a crosshair while inspecting. The closed shadow DOM
+    // tooltip is unaffected, so its buttons keep their own pointer cursor.
+    if (this.#cursorStyle === null) {
+      this.#cursorStyle = document.createElement('style');
+      this.#cursorStyle.textContent = '*{cursor:crosshair !important}';
+    }
+    document.head.append(this.#cursorStyle);
     document.addEventListener('mousemove', this.#onMouseMove, true);
     document.addEventListener('click', this.#onClick, true);
     window.addEventListener('scroll', this.#onScrollOrResize, {passive: true});
@@ -103,6 +112,7 @@ class LitSourceOverlay extends HTMLElement {
     this.#active = false;
     this.#dialog.close();
     this.#mask.style.background = 'rgba(0,0,0,0)';
+    this.#cursorStyle?.remove();
     document.removeEventListener('mousemove', this.#onMouseMove, true);
     document.removeEventListener('click', this.#onClick, true);
     window.removeEventListener('scroll', this.#onScrollOrResize);
