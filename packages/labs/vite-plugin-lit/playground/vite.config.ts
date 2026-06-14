@@ -75,6 +75,6 @@ export default defineConfig(async ({mode}) => {
     },
     // `DevTools()` injects the embedded overlay client. It returns a
     // Promise<Plugin[]>, which Vite awaits and flattens.
-    plugins: [litPlugin(), Inspect(), DevTools()],
+    plugins: [litPlugin({timeline: true}), Inspect(), DevTools()],
   };
 });
