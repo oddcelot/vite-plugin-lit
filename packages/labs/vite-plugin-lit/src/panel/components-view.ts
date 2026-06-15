@@ -470,11 +470,6 @@ export class ComponentsView extends LitElement {
     const stateProps = d.properties.filter((p) => p.state);
     return html`
       <h2>&lt;${d.tagName}&gt;</h2>
-      ${d.componentName !== undefined
-        ? html`<div style="color:var(--text-secondary)">
-            ${d.componentName}
-          </div>`
-        : nothing}
       ${d.source !== undefined
         ? html`<button class="src" @click=${this._openSource}>
             ${d.source.file}:${d.source.line}

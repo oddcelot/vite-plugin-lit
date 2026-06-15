@@ -92,7 +92,7 @@ class LitSourceOverlay extends HTMLElement {
     root.getElementById('copy')!.addEventListener('click', (e) => {
       e.stopPropagation();
       if (this.#info === null) return;
-      const text = `${this.#info.source.filePath}:${this.#info.source.lineNumber}`;
+      const text = `${this.#normalizePath(this.#info.source.filePath)}:${this.#info.source.lineNumber}`;
       navigator.clipboard?.writeText(text);
     });
     this.#dialog.addEventListener('cancel', (e) => e.preventDefault());
@@ -203,7 +203,10 @@ class LitSourceOverlay extends HTMLElement {
 
   #normalizePath(filePath: string): string {
     const root = this.#options.workspaceRoot;
-    if (root !== undefined && filePath.startsWith(root)) return filePath;
+    if (root !== undefined && filePath.startsWith(root)) {
+      const rest = filePath.slice(root.length);
+      return rest.startsWith('/') ? rest.slice(1) : rest;
+    }
     return filePath;
   }
 
@@ -250,7 +253,7 @@ class LitSourceOverlay extends HTMLElement {
   #showTooltip() {
     if (this.#info === null) return;
     this.#tag.textContent = `<${this.#info.tagName}>`;
-    this.#path.textContent = `${this.#info.source.filePath}:${this.#info.source.lineNumber}`;
+    this.#path.textContent = `${this.#normalizePath(this.#info.source.filePath)}:${this.#info.source.lineNumber}`;
     this.#tooltip.style.display = 'flex';
   }
 
