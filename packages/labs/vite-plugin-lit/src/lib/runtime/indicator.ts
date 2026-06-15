@@ -11,7 +11,7 @@
  */
 
 import {FONT_MONO_VAR} from './fonts.js';
-import {FLAME_ICON} from './icons.js';
+import {FLAME_ICON} from '../icons.js';
 import {subscribeOverride} from './overrides.js';
 import {observeEdgeInsets} from './edge-panel.js';
 import {injectTokens} from '../tokens.js';

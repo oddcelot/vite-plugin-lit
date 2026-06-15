@@ -4,13 +4,14 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {LitElement, html, css} from 'lit';
+import {LitElement, html, css, nothing} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
 import {tokens} from './tokens.js';
 
 export interface TabItem {
   id: string;
   label: string;
+  icon?: string;
 }
 
 export type SegTabSize = 'sm' | 'md';
@@ -35,6 +36,7 @@ export class SegmentedTabs extends LitElement {
         appearance: none;
         display: flex;
         align-items: center;
+        gap: var(--space-2);
         border: 0;
         background: none;
         font: inherit;
@@ -59,6 +61,11 @@ export class SegmentedTabs extends LitElement {
       button:focus-visible {
         outline: 2px solid var(--accent-ring);
         outline-offset: -2px;
+      }
+      button svg {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
       }
       :host([size='sm']) button {
         font-size: var(--text-xs);
@@ -106,6 +113,15 @@ export class SegmentedTabs extends LitElement {
             class=${item.id === this.value ? 'active' : ''}
             @click=${() => this._select(item.id)}
           >
+            ${item.icon
+              ? html`<svg
+                  viewBox="0 0 256 256"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d=${item.icon} />
+                </svg>`
+              : nothing}
             ${item.label}
           </button>
         `

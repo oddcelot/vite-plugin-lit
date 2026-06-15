@@ -27,15 +27,16 @@ import type {ComponentsView} from './components-view.js';
 import './devtools-settings.js';
 import '../lib/segmented-tabs.js';
 import type {TabItem} from '../lib/segmented-tabs.js';
+import {CUBE_ICON, CLOCK_ICON, GEAR_ICON} from '../lib/icons.js';
 
 /**
  * Tabs hosted by the panel. The Timeline is the first; this list is the
  * extension point for future Lit DevTools views.
  */
 const TABS: readonly TabItem[] = [
-  {id: 'components', label: 'Components'},
-  {id: 'timeline', label: 'Timeline'},
-  {id: 'settings', label: 'Settings'},
+  {id: 'components', label: 'Components', icon: CUBE_ICON},
+  {id: 'timeline', label: 'Timeline', icon: CLOCK_ICON},
+  {id: 'settings', label: 'Settings', icon: GEAR_ICON},
 ];
 
 /** Inline Lit logo mark. */
