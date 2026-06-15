@@ -33,8 +33,8 @@ import type {TabItem} from '../lib/segmented-tabs.js';
  * extension point for future Lit DevTools views.
  */
 const TABS: readonly TabItem[] = [
-  {id: 'timeline', label: 'Timeline'},
   {id: 'components', label: 'Components'},
+  {id: 'timeline', label: 'Timeline'},
   {id: 'settings', label: 'Settings'},
 ];
 
@@ -113,7 +113,7 @@ export class LitDevtoolsPanel extends LitElement {
     `,
   ];
 
-  @state() private _tab = 'timeline';
+  @state() private _tab = 'components';
 
   @query('components-view') private _componentsView?: ComponentsView;
 
