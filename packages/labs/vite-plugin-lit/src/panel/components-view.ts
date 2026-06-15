@@ -520,7 +520,7 @@ export class ComponentsView extends LitElement {
       <div class="toolbar">
         <button
           class="pick ${this._picking ? 'active' : ''}"
-          title="Pick an element on the page (Ctrl+Shift+E)"
+          title="Pick an element on the page (Meta+Shift+E)"
           @click=${this._togglePick}
         >
           ⌖ Pick
