@@ -129,6 +129,40 @@ export class LitDevtoolsPanel extends LitElement {
     this._componentsView?.selectById(e.detail.id);
   }
 
+  /**
+   * A component was picked via the overlay inspector — switch to the Components
+   * tab and request the parent DevTools shell to bring this dock entry to the
+   * front, so the user can see the picked element without having to manually
+   * open the Lit panel first.
+   */
+  private _onInspectorActivate() {
+    this._tab = 'components';
+    // The panel iframe is same-origin with the Vite DevTools shell — the
+    // parent exposes its DevTools client context on
+    // window.__VITE_DEVTOOLS_CLIENT_CONTEXT__ (set by @vitejs/devtools's
+    // inject.ts). Ask it to select the Lit dock entry so the panel becomes
+    // visible.
+    try {
+      const parent = window.parent;
+      if (
+        parent &&
+        parent !== window &&
+        '__VITE_DEVTOOLS_CLIENT_CONTEXT__' in parent
+      ) {
+        const ctx = (
+          parent as unknown as Record<
+            string,
+            | undefined
+            | {docks?: {switchEntry?: (id: string) => Promise<boolean>}}
+          >
+        ).__VITE_DEVTOOLS_CLIENT_CONTEXT__;
+        ctx?.docks?.switchEntry?.('lit-devtools');
+      }
+    } catch {
+      // Cross-origin or not running inside the DevTools shell — ignore.
+    }
+  }
+
   override render() {
     return html`
       <header>
@@ -145,7 +179,7 @@ export class LitDevtoolsPanel extends LitElement {
              arrive and switch us here even while another tab is in front. -->
         <components-view
           ?hidden=${this._tab !== 'components'}
-          @inspector-activate=${() => (this._tab = 'components')}
+          @inspector-activate=${this._onInspectorActivate}
         ></components-view>
         ${this._tab === 'settings'
           ? html`<devtools-settings></devtools-settings>`
