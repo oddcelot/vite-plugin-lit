@@ -62,10 +62,10 @@ test('panel HTML is served at /__lit-devtools/', async () => {
   const result = await getUrl(port(), '/__lit-devtools/');
   expect(result.status).toBe(200);
   expect(result.headers['content-type']).toMatch(/text\/html/);
-  expect(result.body).toContain('<timeline-app>');
+  expect(result.body).toContain('<lit-devtools-panel>');
   // Entry script injected via /@fs/ so Vite can transform TypeScript
   expect(result.body).toContain('/@fs');
-  expect(result.body).toContain('timeline-app');
+  expect(result.body).toContain('lit-devtools-panel');
 });
 
 test('control endpoint accepts recording state via POST', async () => {

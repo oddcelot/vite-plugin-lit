@@ -224,7 +224,7 @@ export const tokenCSS = `${baseTokenCSS}\n${darkThemeCSS}`;
  * This installs the theme-agnostic base tokens on `:host`. Semantic aliases
  * (`--bg`, `--text`, etc.) are inherited from `:root`, where they are installed
  * by {@link injectTokens}. The panel iframe calls `injectTokens()` from
- * `timeline-app.ts` so all components inherit the same dark/light theme.
+ * \`lit-devtools-panel.ts\` so all components inherit the same dark/light theme.
  */
 export const tokens = css`
   :host {

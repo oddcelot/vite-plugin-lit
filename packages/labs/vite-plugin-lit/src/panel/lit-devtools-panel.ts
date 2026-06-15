@@ -66,8 +66,8 @@ const LIT_LOGO_SVG = html`<svg
  * mounted and merely hidden when inactive, so the Timeline keeps recording
  * (and holds its events) while another tab is in front.
  */
-@customElement('timeline-app')
-export class TimelineApp extends LitElement {
+@customElement('lit-devtools-panel')
+export class LitDevtoolsPanel extends LitElement {
   static override styles = [
     tokens,
     css`
@@ -156,6 +156,6 @@ export class TimelineApp extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'timeline-app': TimelineApp;
+    'lit-devtools-panel': LitDevtoolsPanel;
   }
 }

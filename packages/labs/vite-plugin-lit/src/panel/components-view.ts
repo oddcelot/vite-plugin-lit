@@ -22,7 +22,7 @@ const LIVE_LS_KEY = 'lit-devtools-components-live';
 /**
  * The Components view: a hierarchical tree of the page's Lit elements (left)
  * and a details pane for the selected one (right). A tab of the DevTools panel
- * shell (`timeline-app`).
+ * shell (\`lit-devtools-panel\`).
  *
  * It can't touch the page DOM directly (separate iframe), so it drives the
  * page's inspector runtime over the transport: it POSTs {@link InspectorCommand}s

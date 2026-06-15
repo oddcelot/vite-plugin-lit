@@ -17,7 +17,7 @@ const LS_KEY = 'lit-devtools-timeline-layers';
 
 /**
  * The Timeline view: records and lists Lit lifecycle / render / input events.
- * One tab of the DevTools panel shell (`timeline-app`); owns its own event
+ * One tab of the DevTools panel shell (\`lit-devtools-panel\`); owns its own event
  * stream (SSE), recording state and layer toggles so it keeps recording while
  * other tabs are in front.
  */

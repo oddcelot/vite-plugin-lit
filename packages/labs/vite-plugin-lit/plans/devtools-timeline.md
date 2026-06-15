@@ -38,7 +38,7 @@ The feature is enabled with `litPlugin({timeline: true})` in `vite.config.ts`.
 └─────────────────────────────────────────────────────┘
                              │ SSE
 ┌─── panel iframe ────────────────────────────────────┐
-│  src/panel/timeline-app.ts      root LitElement      │
+│  src/panel/lit-devtools-panel.ts      root LitElement      │
 │  src/panel/timeline-layers.ts   layer pill toggles   │
 │  src/panel/timeline-event-list.ts  scrollable log    │
 │   • EventSource /__lit-timeline-events               │
@@ -62,7 +62,7 @@ The feature is enabled with `litPlugin({timeline: true})` in `vite.config.ts`.
 | `src/lib/runtime/timeline/identity.ts`   | WeakMap element ids, source-meta lookup, changed-key extraction                                           |
 | `src/lib/runtime/timeline/public-api.ts` | `addTimelineEvent` / `addTimelineLayer` (Phase 5 API)                                                     |
 | `src/panel/index.html`                   | Minimal shell; entry script injected dynamically                                                          |
-| `src/panel/timeline-app.ts`              | Root `<timeline-app>` LitElement                                                                          |
+| `src/panel/lit-devtools-panel.ts`        | Root `<lit-devtools-panel>` LitElement                                                                    |
 | `src/panel/timeline-event-list.ts`       | Scrollable event log with click-to-detail                                                                 |
 | `src/panel/timeline-layers.ts`           | Layer pill toggle strip                                                                                   |
 | `src/test/e2e/timeline_test.ts`          | e2e: SSE content-type, panel HTML, control endpoint, script injection                                     |
@@ -78,7 +78,7 @@ The feature is enabled with `litPlugin({timeline: true})` in `vite.config.ts`.
 
 ### Key design decisions
 
-**`/@fs/` for the panel** — the panel HTML is served dynamically by a `configureServer` middleware that injects a `<script type="module" src="/@fs/...timeline-app.ts">`. Vite's transform pipeline compiles the TypeScript and resolves bare `lit` imports. No separate panel build step needed in dev.
+**`/@fs/` for the panel** — the panel HTML is served dynamically by a `configureServer` middleware that injects a `<script type="module" src="/@fs/...lit-devtools-panel.ts">`. Vite's transform pipeline compiles the TypeScript and resolves bare `lit` imports. No separate panel build step needed in dev.
 
 **`src/panel/**`excluded from tsc** — the panel files use`experimentalDecorators`(Lit`@state`/`@property`) but the plugin's own tsconfig does not. They're excluded from the plugin's `tsc`check; Vite/esbuild uses the playground's tsconfig (which has`experimentalDecorators: true`) to transform them.
 
@@ -476,7 +476,7 @@ packages/labs/vite-plugin-lit/
 │   │           └── identity.ts         ← WeakMap id + source-meta lookup
 │   ├── panel/                          ← Lit SPA for the devframe view
 │   │   ├── index.html
-│   │   ├── timeline-app.ts
+│   │   ├── lit-devtools-panel.ts
 │   │   ├── timeline-event-list.ts
 │   │   └── timeline-layers.ts
 │   └── types/timeline.ts

@@ -139,8 +139,8 @@ interface PanelPaths {
  */
 const resolvePanel = (): PanelPaths => {
   for (const [htmlRel, appRel] of [
-    ['../panel/index.html', '../panel/timeline-app.js'],
-    ['../src/panel/index.html', '../src/panel/timeline-app.ts'],
+    ['../panel/index.html', '../panel/lit-devtools-panel.js'],
+    ['../src/panel/index.html', '../src/panel/lit-devtools-panel.ts'],
   ] as const) {
     const htmlUrl = new URL(htmlRel, import.meta.url);
     if (existsSync(htmlUrl)) {
