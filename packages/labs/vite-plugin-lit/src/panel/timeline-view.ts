@@ -6,6 +6,7 @@
 
 import {LitElement, html, css} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
+import {tokens} from '../lib/tokens.js';
 import type {TimelineEvent, TimelineLayer} from '../types/timeline.js';
 import {TIMELINE_LAYERS} from '../types/timeline.js';
 import type {LayerState} from './timeline-layers.js';
@@ -16,57 +17,60 @@ const LS_KEY = 'lit-devtools-timeline-layers';
 
 /**
  * The Timeline view: records and lists Lit lifecycle / render / input events.
- * One tab of the DevTools panel shell (`timeline-app`); owns its own event
+ * One tab of the DevTools panel shell (\`lit-devtools-panel\`); owns its own event
  * stream (SSE), recording state and layer toggles so it keeps recording while
  * other tabs are in front.
  */
 @customElement('timeline-view')
 export class TimelineView extends LitElement {
-  static override styles = css`
-    :host {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      overflow: hidden;
-    }
-    :host([hidden]) {
-      display: none;
-    }
-    .toolbar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-bottom: 1px solid #2d2d35;
-      background: #16161b;
-      flex-shrink: 0;
-    }
-    .spacer {
-      flex: 1;
-    }
-    button {
-      padding: 4px 10px;
-      border-radius: 4px;
-      border: 1px solid #2d2d35;
-      background: #2d2d35;
-      color: #d4d4d8;
-      font-size: 11px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #3d3d45;
-      border-color: #3d3d45;
-    }
-    .record.active {
-      border-color: #ef4444;
-      background: #7f1d1d;
-      color: #fca5a5;
-    }
-    timeline-event-list {
-      flex: 1;
-      overflow: hidden;
-    }
-  `;
+  static override styles = [
+    tokens,
+    css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        overflow: hidden;
+      }
+      :host([hidden]) {
+        display: none;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        padding: var(--space-3) var(--space-5);
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-low);
+        flex-shrink: 0;
+      }
+      .spacer {
+        flex: 1;
+      }
+      button {
+        padding: var(--space-2) var(--space-5);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--surface-elevated);
+        color: var(--text);
+        font-size: var(--text-2xs);
+        cursor: pointer;
+      }
+      button:hover {
+        background: var(--surface-hover);
+        border-color: var(--border-strong);
+      }
+      .record.active {
+        border-color: var(--error);
+        background: var(--error-soft);
+        color: var(--error);
+      }
+      timeline-event-list {
+        flex: 1;
+        overflow: hidden;
+      }
+    `,
+  ];
 
   @state() private _recording = false;
   @state() private _events: TimelineEvent[] = [];

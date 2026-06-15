@@ -7,161 +7,165 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, property, state} from 'lit/decorators.js';
 import {ref, createRef} from 'lit/directives/ref.js';
+import {tokens} from '../lib/tokens.js';
 import type {TimelineEvent} from '../types/timeline.js';
 import type {LayerState} from './timeline-layers.js';
 
 /** Scrollable list of recorded timeline events with an inline detail pane. */
 @customElement('timeline-event-list')
 export class TimelineEventList extends LitElement {
-  static override styles = css`
-    :host {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      overflow: hidden;
-    }
-    .filterbar {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 12px;
-      border-bottom: 1px solid #1e1e26;
-      font-size: 11px;
-      color: #888;
-      flex-shrink: 0;
-    }
-    .filterbar select {
-      background: #2d2d35;
-      color: #d4d4d8;
-      border: 1px solid #3d3d45;
-      border-radius: 4px;
-      padding: 2px 6px;
-      font-size: 11px;
-      font-family: ui-monospace, monospace;
-    }
-    .filterbar input.regex {
-      background: #2d2d35;
-      color: #d4d4d8;
-      border: 1px solid #3d3d45;
-      border-radius: 4px;
-      padding: 2px 6px;
-      font-size: 11px;
-      font-family: ui-monospace, monospace;
-      min-width: 140px;
-    }
-    .filterbar input.regex::placeholder {
-      color: #555;
-    }
-    .filterbar input.regex.invalid {
-      border-color: #ef4444;
-    }
-    .filterbar .count {
-      margin-left: auto;
-      color: #555;
-    }
-    .scroll {
-      flex: 1;
-      overflow-y: auto;
-      padding: 4px 0;
-    }
-    .empty {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      gap: 8px;
-      color: #555;
-      font-size: 12px;
-    }
-    .hint {
-      font-size: 10px;
-      color: #444;
-    }
-    .row {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      padding: 4px 12px;
-      font-size: 11px;
-      font-family: ui-monospace, monospace;
-      border-bottom: 1px solid #1e1e26;
-      cursor: pointer;
-    }
-    .row:hover {
-      background: #1e1e26;
-    }
-    .row.selected {
-      background: #252530;
-    }
-    .time {
-      color: #666;
-      flex-shrink: 0;
-      width: 56px;
-      text-align: right;
-    }
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      margin-top: 2px;
-    }
-    .title {
-      flex: 1;
-      color: #d4d4d8;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .subtitle {
-      color: #666;
-      flex-shrink: 0;
-      max-width: 200px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .detail {
-      border-top: 1px solid #2d2d35;
-      background: #16161b;
-      padding: 10px 12px;
-      font-size: 11px;
-      font-family: ui-monospace, monospace;
-      color: #a0a0b0;
-      flex-shrink: 0;
-      max-height: 130px;
-      overflow-y: auto;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-    }
-    td {
-      padding: 2px 8px 2px 0;
-      vertical-align: top;
-    }
-    .key {
-      color: #666;
-      white-space: nowrap;
-    }
-    .val {
-      color: #d4d4d8;
-      word-break: break-all;
-    }
-    a {
-      color: #4fc08d;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-    .filter-link {
-      cursor: pointer;
-      margin-left: 8px;
-      font-size: 10px;
-    }
-  `;
+  static override styles = [
+    tokens,
+    css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        overflow: hidden;
+      }
+      .filterbar {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-2) var(--space-5);
+        border-bottom: 1px solid var(--border);
+        font-size: var(--text-2xs);
+        color: var(--text-muted);
+        flex-shrink: 0;
+      }
+      .filterbar select {
+        background: var(--surface-elevated);
+        color: var(--text);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: var(--space-1) var(--space-3);
+        font-size: var(--text-2xs);
+        font-family: var(--font-mono);
+      }
+      .filterbar input.regex {
+        background: var(--surface-elevated);
+        color: var(--text);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: var(--space-1) var(--space-3);
+        font-size: var(--text-2xs);
+        font-family: var(--font-mono);
+        min-width: 140px;
+      }
+      .filterbar input.regex::placeholder {
+        color: var(--text-muted);
+      }
+      .filterbar input.regex.invalid {
+        border-color: var(--error);
+      }
+      .filterbar .count {
+        margin-left: auto;
+        color: var(--text-muted);
+      }
+      .scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: var(--space-2) 0;
+      }
+      .empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        gap: var(--space-4);
+        color: var(--text-muted);
+        font-size: var(--text-xs);
+      }
+      .hint {
+        font-size: var(--text-2xs);
+        color: var(--text-muted);
+      }
+      .row {
+        display: flex;
+        align-items: baseline;
+        gap: var(--space-4);
+        padding: var(--space-2) var(--space-5);
+        font-size: var(--text-2xs);
+        font-family: var(--font-mono);
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+      }
+      .row:hover {
+        background: var(--surface-hover);
+      }
+      .row.selected {
+        background: var(--surface-active);
+      }
+      .time {
+        color: var(--text-muted);
+        flex-shrink: 0;
+        width: 56px;
+        text-align: right;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+      .title {
+        flex: 1;
+        color: var(--text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .subtitle {
+        color: var(--text-muted);
+        flex-shrink: 0;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .detail {
+        border-top: 1px solid var(--border);
+        background: var(--surface-low);
+        padding: var(--space-5) var(--space-5);
+        font-size: var(--text-2xs);
+        font-family: var(--font-mono);
+        color: var(--text-secondary);
+        flex-shrink: 0;
+        max-height: 130px;
+        overflow-y: auto;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      td {
+        padding: var(--space-1) var(--space-4) var(--space-1) 0;
+        vertical-align: top;
+      }
+      .key {
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+      .val {
+        color: var(--text);
+        word-break: break-all;
+      }
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .filter-link {
+        cursor: pointer;
+        margin-left: var(--space-4);
+        font-size: var(--text-2xs);
+      }
+    `,
+  ];
 
   @property({type: Array}) events: TimelineEvent[] = [];
   @property({type: Array}) layers: LayerState[] = [];

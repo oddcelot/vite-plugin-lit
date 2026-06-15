@@ -472,6 +472,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
   // `config` hook re-resolves with the loaded env once Vite hands us the mode;
   // this initial pass covers code paths that run before (or without) it.
   let resolved: ResolvedOptions = resolveOptions(options, {});
+  let root = '';
   const sourceOverlayPlugin: Plugin = {
     name: 'lit-source-overlay',
     apply: 'serve',
@@ -479,6 +480,9 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
     // measured against the author's raw source (and the `@customElement … class`
     // forms are still intact), not against transpiled output.
     enforce: 'pre',
+    configResolved(config) {
+      root = config.root;
+    },
     resolveId(id) {
       if (id === '@lit-labs/vite-plugin-lit/source-overlay.js') {
         return resolveRuntimeModule('source-overlay');
@@ -511,7 +515,10 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
         return null;
       }
       const ms = new MagicString(code);
-      if (!injectSourceMeta(code, file, ms)) {
+      const relativeFile = file.startsWith(root + '/')
+        ? file.slice(root.length + 1)
+        : file;
+      if (!injectSourceMeta(code, relativeFile, ms)) {
         return null;
       }
       return {code: ms.toString(), map: ms.generateMap({hires: true})};

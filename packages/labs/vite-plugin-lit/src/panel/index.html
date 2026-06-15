@@ -15,8 +15,15 @@
         overflow: hidden;
       }
     </style>
+    <!--
+      The anti-FOUC theme bootstrap script is injected into <head> at serve
+      time by timeline-plugin.ts (generated from lib/theme.ts, so the storage
+      key stays single-sourced). It resolves the saved preference — defaulting
+      to the system color scheme — before paint; lit-devtools-panel.ts then owns the
+      theme at runtime and follows OS changes live while in `auto`.
+    -->
   </head>
   <body>
-    <timeline-app></timeline-app>
+    <lit-devtools-panel></lit-devtools-panel>
   </body>
 </html>

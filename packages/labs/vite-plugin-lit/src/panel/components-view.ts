@@ -6,6 +6,7 @@
 
 import {LitElement, html, css, nothing, type TemplateResult} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
+import {tokens} from '../lib/tokens.js';
 import {
   INSPECT_PATH,
   INSPECT_SSE_EVENT,
@@ -21,7 +22,7 @@ const LIVE_LS_KEY = 'lit-devtools-components-live';
 /**
  * The Components view: a hierarchical tree of the page's Lit elements (left)
  * and a details pane for the selected one (right). A tab of the DevTools panel
- * shell (`timeline-app`).
+ * shell (\`lit-devtools-panel\`).
  *
  * It can't touch the page DOM directly (separate iframe), so it drives the
  * page's inspector runtime over the transport: it POSTs {@link InspectorCommand}s
@@ -31,184 +32,187 @@ const LIVE_LS_KEY = 'lit-devtools-components-live';
  */
 @customElement('components-view')
 export class ComponentsView extends LitElement {
-  static override styles = css`
-    :host {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      overflow: hidden;
-    }
-    :host([hidden]) {
-      display: none;
-    }
-    .toolbar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-bottom: 1px solid #2d2d35;
-      background: #16161b;
-      flex-shrink: 0;
-    }
-    .spacer {
-      flex: 1;
-    }
-    button {
-      padding: 4px 10px;
-      border-radius: 4px;
-      border: 1px solid #2d2d35;
-      background: #2d2d35;
-      color: #d4d4d8;
-      font-size: 11px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #3d3d45;
-      border-color: #3d3d45;
-    }
-    button.pick.active,
-    button.live.active {
-      border-color: #4fc08d;
-      background: #16352a;
-      color: #4fc08d;
-    }
-    button:disabled {
-      opacity: 0.4;
-      cursor: default;
-    }
-    .body {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
-    .tree {
-      flex: 1;
-      overflow: auto;
-      padding: 4px 0;
-      min-width: 0;
-    }
-    .empty {
-      padding: 16px;
-      color: #71717a;
-      font-size: 12px;
-    }
-    .row {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 1px 8px;
-      white-space: nowrap;
-      cursor: pointer;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 12px;
-      line-height: 18px;
-    }
-    .row:hover {
-      background: #23232b;
-    }
-    .row.selected {
-      background: #2a3f36;
-    }
-    .twisty {
-      width: 12px;
-      text-align: center;
-      color: #71717a;
-      flex-shrink: 0;
-    }
-    .twisty.leaf {
-      visibility: hidden;
-    }
-    .tag {
-      color: #4fc08d;
-    }
-    .tag .punct {
-      color: #71717a;
-    }
-    .details {
-      width: 340px;
-      flex-shrink: 0;
-      border-left: 1px solid #2d2d35;
-      overflow: auto;
-      padding: 10px 12px;
-      font-size: 12px;
-    }
-    .details h2 {
-      font-size: 12px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      color: #4fc08d;
-      margin: 0 0 2px;
-    }
-    .src {
-      background: none;
-      border: 0;
-      padding: 0;
-      color: #6ea8fe;
-      font-size: 11px;
-      cursor: pointer;
-      text-decoration: underline;
-      word-break: break-all;
-      text-align: left;
-    }
-    section {
-      margin-top: 12px;
-    }
-    section > .label {
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      font-size: 10px;
-      color: #71717a;
-      margin-bottom: 4px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    }
-    td {
-      padding: 2px 6px 2px 0;
-      vertical-align: top;
-      word-break: break-word;
-    }
-    td.name {
-      color: #d4d4d8;
-      white-space: nowrap;
-    }
-    td.val {
-      color: #e5c07b;
-      width: 100%;
-    }
-    .badge {
-      display: inline-block;
-      margin-left: 4px;
-      padding: 0 4px;
-      border-radius: 3px;
-      font-size: 9px;
-      background: #2d2d35;
-      color: #a1a1aa;
-      vertical-align: middle;
-    }
-    .flags {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .flag {
-      padding: 1px 6px;
-      border-radius: 3px;
-      background: #2d2d35;
-      color: #a1a1aa;
-      font-size: 10px;
-    }
-    .flag.on {
-      background: #16352a;
-      color: #4fc08d;
-    }
-    .placeholder {
-      color: #71717a;
-      padding: 24px 0;
-      text-align: center;
-    }
-  `;
+  static override styles = [
+    tokens,
+    css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        overflow: hidden;
+      }
+      :host([hidden]) {
+        display: none;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        padding: var(--space-3) var(--space-5);
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-low);
+        flex-shrink: 0;
+      }
+      .spacer {
+        flex: 1;
+      }
+      button {
+        padding: var(--space-2) var(--space-5);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--surface-elevated);
+        color: var(--text);
+        font-size: var(--text-2xs);
+        cursor: pointer;
+      }
+      button:hover {
+        background: var(--surface-hover);
+        border-color: var(--border-strong);
+      }
+      button.pick.active,
+      button.live.active {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .body {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+      .tree {
+        flex: 1;
+        overflow: auto;
+        padding: var(--space-2) 0;
+        min-width: 0;
+      }
+      .empty {
+        padding: var(--space-6);
+        color: var(--text-muted);
+        font-size: var(--text-xs);
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: 1px var(--space-5);
+        white-space: nowrap;
+        cursor: pointer;
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        line-height: 18px;
+      }
+      .row:hover {
+        background: var(--surface-hover);
+      }
+      .row.selected {
+        background: var(--surface-active);
+      }
+      .twisty {
+        width: 12px;
+        text-align: center;
+        color: var(--text-muted);
+        flex-shrink: 0;
+      }
+      .twisty.leaf {
+        visibility: hidden;
+      }
+      .tag {
+        color: var(--accent);
+      }
+      .tag .punct {
+        color: var(--text-muted);
+      }
+      .details {
+        width: 340px;
+        flex-shrink: 0;
+        border-left: 1px solid var(--border);
+        overflow: auto;
+        padding: var(--space-5) var(--space-5);
+        font-size: var(--text-xs);
+      }
+      .details h2 {
+        font-size: var(--text-xs);
+        font-family: var(--font-mono);
+        color: var(--accent);
+        margin: 0 0 var(--space-1);
+      }
+      .src {
+        background: none;
+        border: 0;
+        padding: 0;
+        color: var(--text-link);
+        font-size: var(--text-2xs);
+        cursor: pointer;
+        text-decoration: underline;
+        word-break: break-all;
+        text-align: left;
+      }
+      section {
+        margin-top: var(--space-5);
+      }
+      section > .label {
+        text-transform: uppercase;
+        letter-spacing: var(--tracking-caps);
+        font-size: var(--text-2xs);
+        color: var(--text-muted);
+        margin-bottom: var(--space-2);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: var(--font-mono);
+      }
+      td {
+        padding: 2px var(--space-4) 2px 0;
+        vertical-align: top;
+        word-break: break-word;
+      }
+      td.name {
+        color: var(--text);
+        white-space: nowrap;
+      }
+      td.val {
+        color: var(--warning);
+        width: 100%;
+      }
+      .badge {
+        display: inline-block;
+        margin-left: var(--space-2);
+        padding: 0 var(--space-2);
+        border-radius: var(--radius-xs);
+        font-size: 9px;
+        background: var(--surface-elevated);
+        color: var(--text-secondary);
+        vertical-align: middle;
+      }
+      .flags {
+        display: flex;
+        gap: var(--space-4);
+        flex-wrap: wrap;
+      }
+      .flag {
+        padding: 1px var(--space-4);
+        border-radius: var(--radius-xs);
+        background: var(--surface-elevated);
+        color: var(--text-secondary);
+        font-size: var(--text-2xs);
+      }
+      .flag.on {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .placeholder {
+        color: var(--text-muted);
+        padding: var(--space-8) 0;
+        text-align: center;
+      }
+    `,
+  ];
 
   @state() private _roots: InspectorTreeNode[] = [];
   @state() private _selectedId: number | null = null;
@@ -466,9 +470,6 @@ export class ComponentsView extends LitElement {
     const stateProps = d.properties.filter((p) => p.state);
     return html`
       <h2>&lt;${d.tagName}&gt;</h2>
-      ${d.componentName !== undefined
-        ? html`<div style="color:#a1a1aa">${d.componentName}</div>`
-        : nothing}
       ${d.source !== undefined
         ? html`<button class="src" @click=${this._openSource}>
             ${d.source.file}:${d.source.line}
@@ -519,7 +520,7 @@ export class ComponentsView extends LitElement {
       <div class="toolbar">
         <button
           class="pick ${this._picking ? 'active' : ''}"
-          title="Pick an element on the page (Ctrl+Shift+E)"
+          title="Pick an element on the page (Meta+Shift+E)"
           @click=${this._togglePick}
         >
           ⌖ Pick

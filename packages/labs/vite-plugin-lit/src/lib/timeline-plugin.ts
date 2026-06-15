@@ -9,9 +9,9 @@ import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import type {Plugin, ViteDevServer} from 'vite';
+import {themeBootstrapScript} from './theme.js';
 import {
   SETTINGS_OVERRIDE_CHANNEL,
-  SOURCE_OVERLAY_TOGGLE_CHANNEL,
   type FeatureSettings,
   type SettingsOverride,
   type TimelineEvent,
@@ -139,8 +139,8 @@ interface PanelPaths {
  */
 const resolvePanel = (): PanelPaths => {
   for (const [htmlRel, appRel] of [
-    ['../panel/index.html', '../panel/timeline-app.js'],
-    ['../src/panel/index.html', '../src/panel/timeline-app.ts'],
+    ['../panel/index.html', '../panel/lit-devtools-panel.js'],
+    ['../src/panel/index.html', '../src/panel/lit-devtools-panel.ts'],
   ] as const) {
     const htmlUrl = new URL(htmlRel, import.meta.url);
     if (existsSync(htmlUrl)) {
@@ -330,6 +330,10 @@ export const litTimelinePlugin = (
               next();
               return;
             }
+            // Inject the anti-FOUC theme bootstrap into <head> so it runs
+            // synchronously during parse, before the deferred panel module.
+            const bootTag = `  <script>${themeBootstrapScript()}</script>\n`;
+            html = html.replace('</head>', bootTag + '</head>');
             // Inject the panel entry as a /@fs/ module so Vite's transform
             // pipeline compiles TypeScript and resolves bare specifiers (lit, etc).
             const scriptTag = `  <script type="module" src="/@fs${appModule}"></script>\n`;
@@ -454,34 +458,20 @@ export const litTimelinePlugin = (
           category: 'framework',
         });
 
-        // Register the source-overlay toggle as a DevTools command so it shows
-        // in the command palette and as a managed shortcut. The handler runs
+        // Register the overlay toggle as a DevTools command so it shows in the
+        // command palette and as a managed shortcut. The handler runs
         // server-side; it broadcasts to the app runtime, which toggles the
         // overlay. Only meaningful when the overlay is enabled.
         const so = getSettings?.()?.sourceOverlay;
         if (so?.enabled && ctx.commands?.register) {
-          const key = (so.key || 's').toUpperCase();
           ctx.commands.register({
-            id: 'lit:source-overlay:toggle',
-            title: 'Toggle Source Overlay',
-            description: 'Inspect Lit elements and open them in your editor',
+            id: 'lit:overlay:toggle',
+            title: 'Pick Lit Element',
+            description:
+              'Click to inspect in the Components panel, hold Meta/Ctrl and click to open in your editor',
             icon: 'ph:crosshair-duotone',
             category: 'Lit',
-            keybindings: [{key: `Ctrl+Shift+${key}`}],
-            handler: () => devServer?.hot.send(SOURCE_OVERLAY_TOGGLE_CHANNEL),
-          });
-
-          // Second picker mode: select the clicked element in the Components
-          // tab instead of opening it in the editor. Reuses the overlay (hence
-          // gated on it being enabled); the panel itself comes from this plugin.
-          ctx.commands.register({
-            id: 'lit:inspect:toggle',
-            title: 'Inspect Lit Element',
-            description:
-              'Pick a Lit element to inspect in the Components panel',
-            icon: 'ph:tree-structure-duotone',
-            category: 'Lit',
-            keybindings: [{key: 'Ctrl+Shift+E'}],
+            keybindings: [{key: 'Meta+Shift+E'}],
             handler: () => devServer?.hot.send(INSPECT_OVERLAY_TOGGLE_CHANNEL),
           });
         }
