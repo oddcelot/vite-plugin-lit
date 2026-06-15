@@ -17,6 +17,11 @@ import {
 /** GET resolved settings / POST a {@link SettingsOverride} (server rebroadcasts). */
 const SETTINGS_PATH = '/__lit-devtools-settings';
 
+/** localStorage key for the panel UI color-scheme preference. */
+const THEME_LS_KEY = 'lit-devtools-theme';
+
+export type ThemePreference = 'auto' | 'dark' | 'light';
+
 /**
  * Settings view. Shows the plugin's resolved feature settings and lets the
  * HMR ones be overridden live — persisted (same-origin localStorage, read by
@@ -163,10 +168,13 @@ export class DevtoolsSettings extends LitElement {
   @state() private _settings: FeatureSettings | null = null;
   @state() private _override: SettingsOverride = {};
   @state() private _loaded = false;
+  @state() private _theme: ThemePreference = 'auto';
 
   override connectedCallback() {
     super.connectedCallback();
     this._override = this._readOverride();
+    this._theme = this._readTheme();
+    this._applyTheme(this._theme);
     void this._fetch();
   }
 
@@ -178,6 +186,34 @@ export class DevtoolsSettings extends LitElement {
       // ignore
     }
     return {};
+  }
+
+  private _readTheme(): ThemePreference {
+    try {
+      const raw = localStorage.getItem(THEME_LS_KEY);
+      if (raw === 'auto' || raw === 'dark' || raw === 'light') return raw;
+    } catch {
+      // ignore
+    }
+    return 'auto';
+  }
+
+  private _applyTheme(theme: ThemePreference): void {
+    const root = document.documentElement;
+    root.classList.remove('theme-light', 'theme-dark');
+    if (theme === 'light' || theme === 'dark') {
+      root.classList.add('theme-' + theme);
+    }
+  }
+
+  private _setTheme(theme: ThemePreference): void {
+    this._theme = theme;
+    this._applyTheme(theme);
+    try {
+      localStorage.setItem(THEME_LS_KEY, theme);
+    } catch {
+      // ignore
+    }
   }
 
   private async _fetch() {
@@ -260,6 +296,43 @@ export class DevtoolsSettings extends LitElement {
           ${env ? html`<span class="env">${env}</span>` : nothing}
         </td>
       </tr>
+    `;
+  }
+
+  private _renderAppearance() {
+    return html`
+      <section>
+        <h3>Appearance</h3>
+        <table>
+          <tr>
+            <td class="key">theme</td>
+            <td class="val">
+              <select
+                @change=${(e: Event) =>
+                  this._setTheme(
+                    (e.target as HTMLSelectElement).value as ThemePreference
+                  )}
+              >
+                ${(
+                  [
+                    ['auto', 'Auto'],
+                    ['dark', 'Dark'],
+                    ['light', 'Light'],
+                  ] as Array<[ThemePreference, string]>
+                ).map(
+                  ([value, label]) =>
+                    html`<option
+                      value=${value}
+                      ?selected=${this._theme === value}
+                    >
+                      ${label}
+                    </option>`
+                )}
+              </select>
+            </td>
+          </tr>
+        </table>
+      </section>
     `;
   }
 
@@ -367,8 +440,10 @@ export class DevtoolsSettings extends LitElement {
       return html`<p class="loading">Loading settings…</p>`;
     }
     const s = this._settings;
+    const appearance = this._renderAppearance();
     if (s === null) {
-      return html`<p class="empty">Settings unavailable.</p>`;
+      return html`${appearance}
+        <p class="empty">Settings unavailable.</p>`;
     }
     const hasOverride = Object.keys(this._override).length > 0;
     return html`
@@ -383,6 +458,8 @@ export class DevtoolsSettings extends LitElement {
             </button>`
           : nothing}
       </p>
+
+      ${appearance}
 
       <section>
         <h3>HMR ${this._pill(s.hmr.enabled)}</h3>

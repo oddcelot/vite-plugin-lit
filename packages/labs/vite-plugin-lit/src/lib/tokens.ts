@@ -10,19 +10,27 @@ import {css, unsafeCSS} from 'lit';
  * Design token CSS custom properties for the Lit DevTools.
  *
  * Two entry points:
- *  - **`tokens`** — Lit `css` template for panel components. Use as
- *    `static styles = [tokens, css`…`]`.
- *  - **`injectTokens()`** — injects `:root { … }` into the page head for
- *    runtime-elements that construct their own shadow DOM via innerHTML.
+ *  - **`tokens`** — Lit `css` template that defines the theme-agnostic base
+ *    tokens on `:host`. Semantic color aliases (`--bg`, `--surface`, `--text`,
+ *    etc.) are inherited from `:root`, where {@link injectTokens} installs them.
+ *    Use as `static styles = [tokens, css`…`]`.
+ *  - **`injectTokens()`** — injects `:root { … }` into the page `<head>` once.
+ *    This makes semantic aliases available to every devtools surface, both
+ *    runtime elements (indicator, source-overlay) that build their shadow DOM
+ *    via `innerHTML` and Lit panel components that inherit from `:root`.
+ *    The injected stylesheet reacts to `prefers-color-scheme` and to
+ *    `.theme-light` / `.theme-dark` classes on `:root`.
  *
- * Sourced from the lit-design skill (`tokens/colors.css`, `typography.css`,
- * `spacing.css`). Defaults to the dark DevTools theme — the only surface the
- * panel renders in (the Vite DevTools environment is always dark).
+ * Sourced from the lit-design skill (`tokens/colors.css`). Defaults to the
+ * dark DevTools theme; the light lit.dev website palette is applied when the
+ * OS/browser requests a light color scheme or when `:root` has the matching
+ * theme class.
  *
  * Fonts are system stacks (no webfonts). For the branded Manrope + Roboto Mono
  * see the lit-design skill's `fonts/` directory.
  */
-export const tokenCSS = `
+
+const baseTokenCSS = `
   /* ---- Brand · the Lit flame ---- */
   --lit-blue:        #324fff;
   --lit-blue-bright: #4d63ff;
@@ -46,46 +54,6 @@ export const tokenCSS = `
   --ink-11: hsl(0 0% 78%);
   --ink-12: hsl(0 0% 89%);
   --ink-13: hsl(0 0% 100%);
-
-  /* ---- DARK · DevTools theme ---- */
-  --accent:               var(--lit-blue-bright);
-  --accent-hover:         #6478ff;
-  --accent-pressed:       #3d54f0;
-  --accent-soft:          hsla(232 100% 65% / 0.16);
-  --accent-ring:          hsla(232 100% 65% / 0.45);
-  --on-accent:            #ffffff;
-  --accent-cyan:          var(--lit-dark-cyan);
-
-  --bg:                   var(--ink-0);
-  --surface:             var(--ink-2);
-  --surface-low:          var(--ink-1);
-  --surface-container:    var(--ink-4);
-  --surface-container-high: var(--ink-5);
-  --surface-elevated:     var(--ink-6);
-  --surface-hover:        hsl(0 0% 100% / 0.04);
-  --surface-active:       hsl(0 0% 100% / 0.07);
-
-  --text:                 var(--ink-12);
-  --text-strong:          var(--ink-13);
-  --text-secondary:       var(--ink-10);
-  --text-muted:           var(--ink-8);
-  --text-link:            var(--lit-blue-bright);
-
-  --border:               var(--ink-6);
-  --border-strong:        var(--ink-7);
-  --border-subtle:        hsl(0 0% 100% / 0.06);
-
-  --success:              hsl(158 74% 53%);
-  --success-soft:         hsl(158 74% 53% / 0.15);
-  --warning:              #f4bf4f;
-  --warning-soft:         hsl(43 88% 63% / 0.15);
-  --error:                #ff6b6b;
-  --error-soft:           hsl(0 100% 71% / 0.15);
-  --info:                 var(--lit-dark-cyan);
-  --info-soft:            hsl(187 100% 47% / 0.15);
-
-  --selection-bg:         var(--accent);
-  --on-selection:         #ffffff;
 
   /* ---- Typography ---- */
   --font-sans:  system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -147,9 +115,102 @@ export const tokenCSS = `
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --dur-fast:    140ms;
   --dur-normal:  220ms;
+`;
+
+const darkThemeCSS = `
+  /* ---- DARK · DevTools theme ---- */
+  --accent:               var(--lit-blue-bright);
+  --accent-hover:         #6478ff;
+  --accent-pressed:       #3d54f0;
+  --accent-soft:          hsla(232 100% 65% / 0.16);
+  --accent-ring:          hsla(232 100% 65% / 0.45);
+  --on-accent:            #ffffff;
+  --accent-cyan:          var(--lit-dark-cyan);
+
+  --bg:                   var(--ink-0);
+  --surface:             var(--ink-2);
+  --surface-low:          var(--ink-1);
+  --surface-container:    var(--ink-4);
+  --surface-container-high: var(--ink-5);
+  --surface-elevated:     var(--ink-6);
+  --surface-hover:        hsl(0 0% 100% / 0.04);
+  --surface-active:       hsl(0 0% 100% / 0.07);
+
+  --text:                 var(--ink-12);
+  --text-strong:          var(--ink-13);
+  --text-secondary:       var(--ink-10);
+  --text-muted:           var(--ink-8);
+  --text-link:            var(--lit-blue-bright);
+
+  --border:               var(--ink-6);
+  --border-strong:        var(--ink-7);
+  --border-subtle:        hsl(0 0% 100% / 0.06);
+
+  --success:              hsl(158 74% 53%);
+  --success-soft:         hsl(158 74% 53% / 0.15);
+  --warning:              #f4bf4f;
+  --warning-soft:         hsl(43 88% 63% / 0.15);
+  --error:                #ff6b6b;
+  --error-soft:           hsl(0 100% 71% / 0.15);
+  --info:                 var(--lit-dark-cyan);
+  --info-soft:            hsl(187 100% 47% / 0.15);
+
+  --selection-bg:         var(--accent);
+  --on-selection:         #ffffff;
 
   color-scheme: dark;
 `;
+
+const lightThemeCSS = `
+  /* ---- LIGHT · lit.dev website theme ---- */
+  --accent:               var(--lit-blue);
+  --accent-hover:         #1f3bff;
+  --accent-pressed:       #2a2c9d;
+  --accent-soft:          hsla(232 100% 60% / 0.12);
+  --accent-ring:          hsla(232 100% 60% / 0.40);
+  --on-accent:            #ffffff;
+  --accent-cyan:          var(--lit-dark-cyan);
+
+  --bg:                   #f4f4f4;
+  --surface:              #ffffff;
+  --surface-low:          #f3f3f3;
+  --surface-container:    #ffffff;
+  --surface-container-high: #e8e8e8;
+  --surface-elevated:     #ffffff;
+  --surface-hover:        hsl(0 0% 0% / 0.04);
+  --surface-active:       hsl(0 0% 0% / 0.07);
+
+  --text:                 #242424;
+  --text-strong:          #000000;
+  --text-secondary:       #6e6e6e;
+  --text-muted:           #949494;
+  --text-link:            #005dc7;
+
+  --border:               #e2e2e2;
+  --border-strong:        #c6c6c6;
+  --border-subtle:        hsl(0 0% 0% / 0.07);
+
+  --success:              #00865b;
+  --success-soft:         hsl(158 100% 26% / 0.10);
+  --warning:              #b26a00;
+  --warning-soft:         hsl(40 100% 35% / 0.10);
+  --error:                #ba1a1a;
+  --error-soft:           hsl(0 75% 42% / 0.10);
+  --info:                 #005dc7;
+  --info-soft:            hsl(210 100% 39% / 0.10);
+
+  --selection-bg:         var(--accent);
+  --on-selection:         #ffffff;
+
+  color-scheme: light;
+`;
+
+/**
+ * Default dark theme tokens as a flat string, primarily for use by
+ * {@link injectTokens}. Prefer importing `tokens` for Lit components so the
+ * semantic aliases are inherited from `:root`.
+ */
+export const tokenCSS = `${baseTokenCSS}\n${darkThemeCSS}`;
 
 /**
  * Lit `css` template for use in panel component shadow roots.
@@ -159,28 +220,51 @@ export const tokenCSS = `
  * // ...
  * static override styles = [tokens, css`…`];
  * ```
+ *
+ * This installs the theme-agnostic base tokens on `:host`. Semantic aliases
+ * (`--bg`, `--text`, etc.) are inherited from `:root`, where they are installed
+ * by {@link injectTokens}. The panel iframe calls `injectTokens()` from
+ * `timeline-app.ts` so all components inherit the same dark/light theme.
  */
 export const tokens = css`
   :host {
-    ${unsafeCSS(tokenCSS)}
+    ${unsafeCSS(baseTokenCSS)}
   }
 `;
 
 let _injected = false;
 
 /**
- * Injects `:root { …tokenCSS… }` into the page `<head>` once.
+ * Injects `:root { … }` into the page `<head>` once.
  *
  * CSS custom properties defined on `:root` cascade through shadow DOM
- * boundaries, so this makes every `var(--accent)` etc. resolve inside
- * runtime elements (indicator, source-overlay) that build their shadow
- * DOM via `innerHTML` rather than Lit's `css` template.
+ * boundaries, so this makes every `var(--accent)` etc. resolve inside both
+ * runtime elements (indicator, source-overlay) and Lit panel components.
+ *
+ * The injected stylesheet reacts to `prefers-color-scheme` and to
+ * `.theme-light` / `.theme-dark` classes on the document root.
  */
 export const injectTokens = (): void => {
   if (_injected) return;
   _injected = true;
   const style = document.createElement('style');
   style.setAttribute('data-lit-devtools-tokens', '');
-  style.textContent = `:root{${tokenCSS}}`;
+  style.textContent = `
+    :root {
+      ${baseTokenCSS}
+      ${darkThemeCSS}
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        ${lightThemeCSS}
+      }
+    }
+    :root.theme-light {
+      ${lightThemeCSS}
+    }
+    :root.theme-dark {
+      ${darkThemeCSS}
+    }
+  `;
   document.head.prepend(style);
 };

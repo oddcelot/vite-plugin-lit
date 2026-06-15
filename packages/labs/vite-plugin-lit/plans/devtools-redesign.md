@@ -34,4 +34,4 @@ swap the Vue-green accent for flame blue, and add the Lit flame brand mark.
 - **Fonts**: Keep system stacks (`--font-sans`: system-ui, `--font-mono`: ui-monospace). No Manrope/Roboto Mono — saves network cost in the Vite side-panel iframe.
 - **Flame logo**: Inline `flame.svg` paths in the header next to "Lit DevTools" text.
 - **Dual token delivery**: Panel components consume `tokens` (Lit `css` for shadow roots); runtime components call `injectTokens()` which adds `:root { ... }` to the page head (CSS custom properties cascade into shadow DOM).
-- **No light theme**: The devtools surfaces solely in the Vite DevTools dark environment.
+- **Light theme**: The token layer now ships both the dark DevTools theme and the lit.dev light theme. The active theme follows `prefers-color-scheme` by default and can be overridden per-host via `.theme-light` / `.theme-dark`. The Settings tab adds an Appearance selector (Auto / Dark / Light) that drives `color-scheme` on the panel root.
