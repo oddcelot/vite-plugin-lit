@@ -18,6 +18,23 @@ export type ThemePreference = 'auto' | 'dark' | 'light';
 /** localStorage key for the panel UI color-scheme preference. */
 export const THEME_LS_KEY = 'lit-devtools-theme';
 
+/**
+ * Source for the anti-FOUC inline script injected into the panel's `<head>`
+ * (see `timeline-plugin.ts`). It must run synchronously before paint, so it
+ * can't import this module — but it derives {@link THEME_LS_KEY} from here and
+ * mirrors {@link resolveTheme}, keeping the key single-sourced and the twin
+ * resolve expressions adjacent. A classic inline script in `<head>` runs during
+ * parse, ahead of the deferred panel module that later calls {@link applyTheme}.
+ */
+export const themeBootstrapScript = (): string => `(() => {
+  try {
+    const t = localStorage.getItem('${THEME_LS_KEY}');
+    const dark = t === 'dark' ||
+      (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.classList.add(dark ? 'theme-dark' : 'theme-light');
+  } catch {}
+})();`;
+
 /** Read the saved preference, defaulting to `auto`. */
 export const readThemePreference = (): ThemePreference => {
   try {

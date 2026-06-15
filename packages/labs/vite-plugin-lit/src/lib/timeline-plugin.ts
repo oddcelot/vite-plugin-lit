@@ -9,6 +9,7 @@ import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import type {Plugin, ViteDevServer} from 'vite';
+import {themeBootstrapScript} from './theme.js';
 import {
   SETTINGS_OVERRIDE_CHANNEL,
   type FeatureSettings,
@@ -329,6 +330,10 @@ export const litTimelinePlugin = (
               next();
               return;
             }
+            // Inject the anti-FOUC theme bootstrap into <head> so it runs
+            // synchronously during parse, before the deferred panel module.
+            const bootTag = `  <script>${themeBootstrapScript()}</script>\n`;
+            html = html.replace('</head>', bootTag + '</head>');
             // Inject the panel entry as a /@fs/ module so Vite's transform
             // pipeline compiles TypeScript and resolves bare specifiers (lit, etc).
             const scriptTag = `  <script type="module" src="/@fs${appModule}"></script>\n`;

@@ -16,30 +16,12 @@
       }
     </style>
     <!--
-      Apply the panel theme class as early as possible to avoid a flash.
-      Respects the saved preference; defaults to the system color scheme.
-      The matching theme tokens are injected by timeline-app.ts on load.
+      The anti-FOUC theme bootstrap script is injected into <head> at serve
+      time by timeline-plugin.ts (generated from lib/theme.ts, so the storage
+      key stays single-sourced). It resolves the saved preference — defaulting
+      to the system color scheme — before paint; timeline-app.ts then owns the
+      theme at runtime and follows OS changes live while in `auto`.
     -->
-    <script>
-      (() => {
-        try {
-          const theme = localStorage.getItem('lit-devtools-theme');
-          if (theme === 'light' || theme === 'dark') {
-            document.documentElement.classList.add('theme-' + theme);
-          } else {
-            // No saved preference — follow the system color scheme.
-            const prefersDark = window.matchMedia(
-              '(prefers-color-scheme: dark)'
-            ).matches;
-            document.documentElement.classList.add(
-              prefersDark ? 'theme-dark' : 'theme-light'
-            );
-          }
-        } catch {
-          // ignore
-        }
-      })();
-    </script>
   </head>
   <body>
     <timeline-app></timeline-app>
