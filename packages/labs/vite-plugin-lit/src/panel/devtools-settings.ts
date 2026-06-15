@@ -8,6 +8,11 @@ import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 import {tokens} from '../lib/tokens.js';
 import {
+  readThemePreference,
+  setThemePreference,
+  type ThemePreference,
+} from '../lib/theme.js';
+import {
   SETTINGS_OVERRIDE_LS_KEY,
   SOURCE_OVERLAY_EDITORS,
   type FeatureSettings,
@@ -16,11 +21,6 @@ import {
 
 /** GET resolved settings / POST a {@link SettingsOverride} (server rebroadcasts). */
 const SETTINGS_PATH = '/__lit-devtools-settings';
-
-/** localStorage key for the panel UI color-scheme preference. */
-const THEME_LS_KEY = 'lit-devtools-theme';
-
-export type ThemePreference = 'auto' | 'dark' | 'light';
 
 /**
  * Settings view. Shows the plugin's resolved feature settings and lets the
@@ -173,8 +173,7 @@ export class DevtoolsSettings extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     this._override = this._readOverride();
-    this._theme = this._readTheme();
-    this._applyTheme(this._theme);
+    this._theme = readThemePreference();
     void this._fetch();
   }
 
@@ -188,32 +187,9 @@ export class DevtoolsSettings extends LitElement {
     return {};
   }
 
-  private _readTheme(): ThemePreference {
-    try {
-      const raw = localStorage.getItem(THEME_LS_KEY);
-      if (raw === 'auto' || raw === 'dark' || raw === 'light') return raw;
-    } catch {
-      // ignore
-    }
-    return 'auto';
-  }
-
-  private _applyTheme(theme: ThemePreference): void {
-    const root = document.documentElement;
-    root.classList.remove('theme-light', 'theme-dark');
-    if (theme === 'light' || theme === 'dark') {
-      root.classList.add('theme-' + theme);
-    }
-  }
-
   private _setTheme(theme: ThemePreference): void {
     this._theme = theme;
-    this._applyTheme(theme);
-    try {
-      localStorage.setItem(THEME_LS_KEY, theme);
-    } catch {
-      // ignore
-    }
+    setThemePreference(theme);
   }
 
   private async _fetch() {

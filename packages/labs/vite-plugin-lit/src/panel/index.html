@@ -16,7 +16,8 @@
       }
     </style>
     <!--
-      Apply the saved panel theme class as early as possible to avoid a flash.
+      Apply the panel theme class as early as possible to avoid a flash.
+      Respects the saved preference; defaults to the system color scheme.
       The matching theme tokens are injected by timeline-app.ts on load.
     -->
     <script>
@@ -25,6 +26,14 @@
           const theme = localStorage.getItem('lit-devtools-theme');
           if (theme === 'light' || theme === 'dark') {
             document.documentElement.classList.add('theme-' + theme);
+          } else {
+            // No saved preference — follow the system color scheme.
+            const prefersDark = window.matchMedia(
+              '(prefers-color-scheme: dark)'
+            ).matches;
+            document.documentElement.classList.add(
+              prefersDark ? 'theme-dark' : 'theme-light'
+            );
           }
         } catch {
           // ignore

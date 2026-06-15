@@ -7,11 +7,21 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, query, state} from 'lit/decorators.js';
 import {tokens, injectTokens} from '../lib/tokens.js';
+import {
+  applyTheme,
+  readThemePreference,
+  startThemeAutoSync,
+} from '../lib/theme.js';
 import './timeline-view.js';
 
 // Install the shared design tokens on the panel iframe's :root before the
 // views render. Panel components inherit the semantic aliases from :root.
 injectTokens();
+// Own the theme class once the panel module is live: re-assert the saved
+// preference (the Settings tab mounts lazily, so it can't), and follow the OS
+// color scheme live while in `auto`.
+applyTheme(readThemePreference());
+startThemeAutoSync();
 import './components-view.js';
 import type {ComponentsView} from './components-view.js';
 import './devtools-settings.js';
