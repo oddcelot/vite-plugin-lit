@@ -345,6 +345,30 @@ class LitSourceOverlay extends HTMLElement {
     // Components tree. Identity matches the inspector runtime via idOf().
     if (target !== null) {
       this.#hot?.send(INSPECT_DATA_CHANNEL, {type: 'pick', id: idOf(target)});
+      this.#openDevtoolsPanel();
+    }
+  }
+
+  /**
+   * Bring the Lit DevTools dock entry to the front so a pick is visible even
+   * when the panel was closed. The panel mirrors this from its own
+   * `inspector-activate` handler, but only once its iframe is mounted — and the
+   * @vitejs/devtools shell does not mount that iframe until the entry has been
+   * opened at least once. This overlay always runs on the page, so calling
+   * `switchEntry` here covers the cold-start case where no panel exists yet to
+   * receive the `pick` message.
+   */
+  #openDevtoolsPanel() {
+    try {
+      const ctx = (
+        window as unknown as Record<
+          string,
+          undefined | {docks?: {switchEntry?: (id: string) => Promise<boolean>}}
+        >
+      ).__VITE_DEVTOOLS_CLIENT_CONTEXT__;
+      ctx?.docks?.switchEntry?.('lit-devtools');
+    } catch {
+      // Not running inside the DevTools shell — ignore.
     }
   }
 

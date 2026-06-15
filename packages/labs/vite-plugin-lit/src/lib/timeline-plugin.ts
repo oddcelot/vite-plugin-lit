@@ -187,7 +187,8 @@ type SseClient = {
 
 const installSseMiddleware = (
   server: ViteDevServer,
-  clients: Set<SseClient>
+  clients: Set<SseClient>,
+  onConnect?: (client: SseClient) => void
 ): void => {
   server.middlewares.use(
     SSE_PATH,
@@ -214,9 +215,19 @@ const installSseMiddleware = (
 
       clients.add(res);
       res.on('close', () => clients.delete(res));
+      // Replay a just-emitted overlay pick to a panel that connects right after
+      // it (the cold-start case: picking an element opens the dock, but the
+      // panel iframe subscribes here only after the `pick` was already
+      // broadcast to zero clients). See `pendingPick` in `litTimelinePlugin`.
+      onConnect?.(res);
     }
   );
 };
+
+/** How long a pending overlay pick stays replayable to a freshly-connected
+ *  panel. Long enough to cover the dock iframe mounting + subscribing, short
+ *  enough that an unrelated later reconnect won't resurrect a stale selection. */
+const PICK_REPLAY_WINDOW_MS = 3000;
 
 export const litTimelinePlugin = (
   getSettings?: () => FeatureSettings | undefined
@@ -225,6 +236,9 @@ export const litTimelinePlugin = (
   // Captured in configureServer so the (server-side) DevTools command handler
   // can broadcast to the app runtime; it only runs after the server is up.
   let devServer: ViteDevServer | undefined;
+  // The most recent overlay `pick`, framed as an SSE payload, kept briefly so a
+  // panel that mounts in response to the pick (cold start) still receives it.
+  let pendingPick: {payload: string; expires: number} | null = null;
 
   /** Write a pre-framed SSE payload to every client, pruning dead sockets. */
   const broadcast = (payload: string): void => {
@@ -255,8 +269,26 @@ export const litTimelinePlugin = (
 
     configureServer(server) {
       devServer = server;
-      // SSE endpoint: panel iframe subscribes here for event push.
-      installSseMiddleware(server, sseClients);
+      // SSE endpoint: panel iframe subscribes here for event push. A client that
+      // connects within the replay window gets the pending pick replayed.
+      installSseMiddleware(server, sseClients, (client) => {
+        if (pendingPick === null) return;
+        if (Date.now() >= pendingPick.expires) {
+          pendingPick = null;
+          return;
+        }
+        // Replay to every client connecting within the window, not just the
+        // first: the panel opens two SSE subscriptions (components-view and
+        // timeline-view) and only components-view acts on `pick`. A one-shot
+        // replay could land on timeline-view and be dropped. Replaying to all
+        // is safe — timeline-view ignores the event, and components-view's
+        // selection is idempotent. The pick clears on expiry, below.
+        try {
+          client.write(pendingPick.payload);
+        } catch {
+          // Socket already gone — nothing to replay to.
+        }
+      });
 
       // Settings endpoint. GET returns the resolved feature settings (the
       // baseline the panel renders). POST carries a SettingsOverride which we
@@ -436,6 +468,14 @@ export const litTimelinePlugin = (
       });
 
       server.hot.on(INSPECT_DATA_CHANNEL, (data: InspectorMessage) => {
+        // Remember overlay picks so a cold-started panel (opened by the pick
+        // itself) can replay it on connect — see `pendingPick`.
+        if (data.type === 'pick') {
+          pendingPick = {
+            payload: `event: ${INSPECT_SSE_EVENT}\ndata: ${JSON.stringify(data)}\n\n`,
+            expires: Date.now() + PICK_REPLAY_WINDOW_MS,
+          };
+        }
         pushEvent(INSPECT_SSE_EVENT, data);
       });
     },
