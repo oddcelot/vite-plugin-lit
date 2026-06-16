@@ -16,6 +16,37 @@ import {subscribeOverride} from './overrides.js';
 import {observeEdgeInsets} from './edge-panel.js';
 import {injectTokens} from '../tokens.js';
 
+/** One entry of a Vite `vite:afterUpdate` payload. */
+interface ViteUpdate {
+  type?: string;
+  path?: string;
+  acceptedPath?: string;
+}
+
+/**
+ * True when an HMR batch is purely a stylesheet swap — every update is either
+ * a `css-update` or a `js-update` whose accepted module is a `.css` source
+ * (the shared-sheet queries `?css-sheet`/`?raw`/`?url` all accept a `.css`
+ * path). Such a batch restyles adopted sheets in place with no re-render.
+ *
+ * Heuristic: keyed on the accepted path ending in `.css`. Robust for this
+ * plugin's own queries; a user hand-wiring `import.meta.hot.accept` on a raw
+ * `.css` would also read as a style swap, which is the intended grouping. An
+ * empty/missing payload can't be classified, so it counts as a re-render
+ * rather than being silently dropped.
+ */
+function isStyleSwap(data: unknown): boolean {
+  const updates = (data as {updates?: ViteUpdate[]} | undefined)?.updates;
+  if (!Array.isArray(updates) || updates.length === 0) return false;
+  return updates.every((u) => {
+    if (u.type === 'css-update') return true;
+    if (u.type === 'js-update') {
+      return (u.acceptedPath ?? u.path ?? '').split('?')[0].endsWith('.css');
+    }
+    return false;
+  });
+}
+
 class LitDevtoolsIndicator extends HTMLElement {
   #initialized = false;
   #count = 0;
@@ -62,6 +93,9 @@ class LitDevtoolsIndicator extends HTMLElement {
           border-left:1px solid var(--lit-devtools-border-subtle)
         }
         .dot{width:8px;height:8px;border-radius:50%;background:var(--lit-devtools-success);flex-shrink:0}
+        /* Style-only swaps (shared adopted stylesheet hot-swap, no re-render)
+           pulse in the calmer info color and don't bump the count. */
+        #container.style-swap .dot{background:var(--lit-devtools-info)}
         .count{display:none}
         #container.with-count .count{display:inline}
       </style>
@@ -86,10 +120,15 @@ class LitDevtoolsIndicator extends HTMLElement {
         hot?: {on: (event: string, cb: (data?: unknown) => void) => void};
       }
     ).hot;
-    hot?.on('vite:afterUpdate', () => {
-      if (this.#countEl !== null) {
+    hot?.on('vite:afterUpdate', (data) => {
+      // Count only updates that actually re-render/re-execute a component;
+      // a pure shared-stylesheet swap (?css-sheet / ?raw / ?url adopted sheet)
+      // restyles in place without re-rendering, so it pulses but doesn't count.
+      const styleSwap = isStyleSwap(data);
+      if (!styleSwap && this.#countEl !== null) {
         this.#countEl.textContent = String(++this.#count);
       }
+      this.#container.classList.toggle('style-swap', styleSwap);
       this.#container.classList.remove('active');
       void this.#container.offsetWidth;
       this.#container.classList.add('active');

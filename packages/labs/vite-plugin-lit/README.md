@@ -358,6 +358,28 @@ Edit the templates, styles, and labels in `playground/src/*.ts` and watch
 counts, focus, and DOM identity survive. The page HUD counts HMR updates;
 every component shows a `renders: n` badge.
 
+### What the HMR indicator counts
+
+The injected indicator (`hmr.indicator`, with `hmr.indicator.count` for the
+running total) counts only updates that actually **re-render a component**. A
+pure shared-stylesheet hot-swap restyles adopted sheets in place without
+re-rendering, so it pulses in the calmer info color and leaves the count
+untouched; a per-element `.css` or any component-module edit both re-renders and
+counts (green pulse). A non-accepted edit (e.g. `main.ts`) falls back to a full
+reload, which remounts everything and resets the count.
+
+| Playground edit         | Delivery                  | Re-renders? | Counts? | Pulse           |
+| ----------------------- | ------------------------- | ----------- | ------- | --------------- |
+| `hmr-vsheet.css`        | `?css-sheet` shared sheet | no          | no      | info (cyan)     |
+| `hmr-shared.css`        | `?raw` → shared sheet     | no          | no      | info (cyan)     |
+| `hmr-utility-sheet.css` | `?url` → shared sheet     | no          | no      | info (cyan)     |
+| `hmr-linked-css.css`    | `?hmr-url` `<link>`       | yes         | yes     | success (green) |
+| `hmr-import-css.css`    | `?hmr-url` `@import`      | yes         | yes     | success (green) |
+| `hmr-css-url.css`       | `?url` + `devCacheBust()` | yes         | yes     | success (green) |
+| `hmr-raw-css.css`       | `?raw` static styles      | yes         | yes     | success (green) |
+| any `*.ts` component    | component module          | yes         | yes     | success (green) |
+| `main.ts`               | not self-accepting        | full reload | resets  | —               |
+
 Standalone runs use the interim npm publish of this plugin
 (`@oddsquad/vite-plugin-lit`) on Vite 7 — Vite 8's rolldown wasm binding
 currently crashes in WebContainers
