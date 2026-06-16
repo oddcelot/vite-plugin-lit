@@ -27,11 +27,14 @@ afterAll(async () => {
 test('@property and array/object @state survive; accessors stay live', async () => {
   const {page, edit} = fixture;
 
-  // Build up state: two items, dark theme, an externally-assigned reflected
-  // property, and a numeric property.
+  // Build up state: two items, a dark color scheme, an externally-assigned
+  // reflected property, and a numeric property.
   await page.click('hmr-properties #add-item');
   await page.click('hmr-properties #add-item');
-  await page.click('hmr-properties #toggle-theme');
+  // Pin the OS preference to light so the toggle (which flips the *resolved*
+  // scheme) deterministically lands on dark from the `auto` default.
+  await page.emulateMedia({colorScheme: 'light'});
+  await page.click('hmr-properties #toggle-color-scheme');
   await page.evaluate(() => {
     const el = document.querySelector('hmr-properties') as HTMLElement & {
       label: string;
@@ -43,23 +46,23 @@ test('@property and array/object @state survive; accessors stay live', async () 
   await expect
     .poll(() => shadowText(page, 'hmr-properties >> #items'))
     .toBe('items: item1,item2');
-  expect(await shadowText(page, 'hmr-properties >> #theme')).toBe(
-    'theme: dark'
+  expect(await shadowText(page, 'hmr-properties >> #color-scheme')).toBe(
+    'color-scheme: dark'
   );
   expect(await shadowText(page, 'hmr-properties >> #label')).toBe(
     'label: assigned'
   );
   expect(await shadowText(page, 'hmr-properties >> #factor')).toBe('factor: 7');
-  // The theme state actually themes the page (html[data-theme] drives the
-  // css custom properties in index.html).
+  // The color-scheme state actually themes the page (html[data-color-scheme]
+  // drives the css custom properties in index.html).
   await expect
     .poll(() =>
       page.evaluate(() => ({
-        theme: document.documentElement.dataset['theme'],
+        colorScheme: document.documentElement.dataset['colorScheme'],
         background: getComputedStyle(document.body).backgroundColor,
       }))
     )
-    .toEqual({theme: 'dark', background: 'rgb(20, 20, 31)'});
+    .toEqual({colorScheme: 'dark', background: 'rgb(20, 20, 31)'});
   // reflect: true wrote the attribute.
   await expect
     .poll(() =>
@@ -81,17 +84,17 @@ test('@property and array/object @state survive; accessors stay live', async () 
   expect(await shadowText(page, 'hmr-properties >> #items')).toBe(
     'items: item1,item2'
   );
-  expect(await shadowText(page, 'hmr-properties >> #theme')).toBe(
-    'theme: dark'
+  expect(await shadowText(page, 'hmr-properties >> #color-scheme')).toBe(
+    'color-scheme: dark'
   );
   expect(await shadowText(page, 'hmr-properties >> #label')).toBe(
     'label: assigned'
   );
   expect(await shadowText(page, 'hmr-properties >> #factor')).toBe('factor: 7');
   expect(await sameAsKept(page, 'props-host', 'hmr-properties')).toBe(true);
-  // The page theme survived the patch (state restored → updated() re-ran).
+  // The page color scheme survived the patch (state restored → updated() re-ran).
   expect(
-    await page.evaluate(() => document.documentElement.dataset['theme'])
+    await page.evaluate(() => document.documentElement.dataset['colorScheme'])
   ).toBe('dark');
 
   // The patched accessors are still functional: state mutation re-renders

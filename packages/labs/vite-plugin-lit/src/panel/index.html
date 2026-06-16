@@ -16,11 +16,11 @@
       }
     </style>
     <!--
-      The anti-FOUC theme bootstrap script is injected into <head> at serve
-      time by timeline-plugin.ts (generated from lib/theme.ts, so the storage
-      key stays single-sourced). It resolves the saved preference — defaulting
-      to the system color scheme — before paint; lit-devtools-panel.ts then owns the
-      theme at runtime and follows OS changes live while in `auto`.
+      Color scheme: lit-devtools-panel.ts applies the saved preference on load
+      (see lib/color-scheme.ts). The default `auto` needs no JS — the injected
+      tokens'
+      `prefers-color-scheme` @media owns it, following the host/OS; an explicit
+      light/dark pins a `.color-scheme-*` class on :root.
     -->
   </head>
   <body>

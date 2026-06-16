@@ -3,18 +3,24 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Hints the UA to paint the canvas/scrollbars for the OS scheme before
+         the inline CSS parses (anti-FOUC). The actual theming is driven by the
+         `color-scheme` CSS on `:root` below — Lightning CSS keys its
+         `light-dark()` lowering off that, not off this meta. -->
+    <meta name="color-scheme" content="light dark" />
     <title>@lit-labs/vite-plugin-lit playground</title>
     <link rel="icon" href="data:," />
     <style>
-      /* Driven by hmr-properties' theme @state (its `updated()` mirrors
-         config.theme onto <html data-theme>). Inherited custom properties
-         pierce shadow roots, so components pick these up too. */
       /* Theme follows the OS automatically: `color-scheme: light dark` lets
-         `light-dark()` pick each value from the system preference. The toggle
-         in <hmr-properties> sets [data-theme] to pin `color-scheme` to one
-         scheme as a manual override; absent => follow the OS. The used
-         color-scheme also propagates into the docked DevTools iframe, so the
-         panel's Auto theme tracks the app. */
+         `light-dark()` pick each value from the system preference. (This CSS
+         declaration is load-bearing — the Lightning CSS pipeline lowers
+         `light-dark()` against it; the <meta> in <head> only hints the UA's
+         pre-CSS canvas paint.) The toggle in <hmr-properties> sets
+         [data-color-scheme] to pin `color-scheme` to one scheme as a manual
+         override; absent => follow the OS. The used color-scheme also
+         propagates into the docked DevTools iframe, so the panel's Auto theme
+         tracks the app. Inherited custom properties pierce shadow roots, so
+         components pick these up too. */
       :root {
         color-scheme: light dark;
         --bg: light-dark(#ffffff, #14141f);
@@ -30,10 +36,10 @@
            Inherited custom properties pierce the devtools' shadow roots. */
         --lit-devtools-font-mono: var(--font-mono);
       }
-      :root[data-theme='light'] {
+      :root[data-color-scheme='light'] {
         color-scheme: light;
       }
-      :root[data-theme='dark'] {
+      :root[data-color-scheme='dark'] {
         color-scheme: dark;
       }
       body {

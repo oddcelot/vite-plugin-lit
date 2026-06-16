@@ -32,7 +32,7 @@ export class HmrProperties extends LitElement {
   private items: string[] = [];
 
   @state()
-  private config = {theme: 'auto'};
+  private config = {colorScheme: 'auto'};
 
   private renders = 0;
 
@@ -42,9 +42,11 @@ export class HmrProperties extends LitElement {
       <p id="label">label: ${this.label}</p>
       <p id="factor">factor: ${this.factor}</p>
       <p id="items">items: ${this.items.join(',') || '(none)'}</p>
-      <p id="theme">theme: ${this.config.theme}</p>
+      <p id="color-scheme">color-scheme: ${this.config.colorScheme}</p>
       <button id="add-item" @click=${this.addItem}>add item</button>
-      <button id="toggle-theme" @click=${this.toggleTheme}>toggle theme</button>
+      <button id="toggle-color-scheme" @click=${this.toggleColorScheme}>
+        toggle color scheme
+      </button>
       <span class="badge" id="badge">renders: 0</span>
     `;
   }
@@ -56,15 +58,16 @@ export class HmrProperties extends LitElement {
     if (badge !== null) {
       badge.textContent = `renders: ${this.renders}`;
     }
-    // Apply the theme state to the page. `auto` removes the attribute so the
-    // OS preference drives via `color-scheme: light dark` + `light-dark()` in
-    // index.html; `light`/`dark` pin [data-theme] as a manual override.
-    // Because the @state survives a hot patch and this runs after the patch's
-    // re-render, the theme survives too.
-    if (this.config.theme === 'auto') {
-      delete document.documentElement.dataset['theme'];
+    // Apply the color-scheme state to the page. `auto` removes the attribute
+    // so the OS preference drives via the document `color-scheme` (declared by
+    // the <meta> in index.html) + `light-dark()`; `light`/`dark` pin
+    // [data-color-scheme] as a manual override. Because the @state survives a
+    // hot patch and this runs after the patch's re-render, the choice survives
+    // too.
+    if (this.config.colorScheme === 'auto') {
+      delete document.documentElement.dataset['colorScheme'];
     } else {
-      document.documentElement.dataset['theme'] = this.config.theme;
+      document.documentElement.dataset['colorScheme'] = this.config.colorScheme;
     }
   }
 
@@ -72,17 +75,17 @@ export class HmrProperties extends LitElement {
     this.items = [...this.items, `item${this.items.length + 1}`];
   }
 
-  private toggleTheme() {
+  private toggleColorScheme() {
     // Flip the *resolved* scheme: from `auto` that's the current OS preference,
     // so a dark system toggles to light (and vice versa). An explicit
     // light/dark just inverts.
     const resolved =
-      this.config.theme === 'auto'
+      this.config.colorScheme === 'auto'
         ? window.matchMedia('(prefers-color-scheme: dark)').matches
           ? 'dark'
           : 'light'
-        : this.config.theme;
-    this.config = {theme: resolved === 'dark' ? 'light' : 'dark'};
+        : this.config.colorScheme;
+    this.config = {colorScheme: resolved === 'dark' ? 'light' : 'dark'};
   }
 }
 

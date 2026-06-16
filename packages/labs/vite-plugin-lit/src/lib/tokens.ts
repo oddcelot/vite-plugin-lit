@@ -19,7 +19,7 @@ import {css, unsafeCSS} from 'lit';
  *    runtime elements (indicator, source-overlay) that build their shadow DOM
  *    via `innerHTML` and Lit panel components that inherit from `:root`.
  *    The injected stylesheet reacts to `prefers-color-scheme` and to
- *    `.theme-light` / `.theme-dark` classes on `:root`.
+ *    `.color-scheme-light` / `.color-scheme-dark` classes on `:root`.
  *
  * Sourced from the lit-design skill (`tokens/colors.css`). Defaults to the
  * dark DevTools theme; the light lit.dev website palette is applied when the
@@ -242,7 +242,7 @@ let _injected = false;
  * runtime elements (indicator, source-overlay) and Lit panel components.
  *
  * The injected stylesheet reacts to `prefers-color-scheme` and to
- * `.theme-light` / `.theme-dark` classes on the document root.
+ * `.color-scheme-light` / `.color-scheme-dark` classes on the document root.
  */
 export const injectTokens = (): void => {
   if (_injected) return;
@@ -259,10 +259,10 @@ export const injectTokens = (): void => {
         ${lightThemeCSS}
       }
     }
-    :root.theme-light {
+    :root.color-scheme-light {
       ${lightThemeCSS}
     }
-    :root.theme-dark {
+    :root.color-scheme-dark {
       ${darkThemeCSS}
     }
   `;

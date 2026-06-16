@@ -8,10 +8,10 @@ import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 import {tokens} from '../lib/tokens.js';
 import {
-  readThemePreference,
-  setThemePreference,
-  type ThemePreference,
-} from '../lib/theme.js';
+  readColorSchemePreference,
+  setColorSchemePreference,
+  type ColorSchemePreference,
+} from '../lib/color-scheme.js';
 import {
   SETTINGS_OVERRIDE_LS_KEY,
   SOURCE_OVERLAY_EDITORS,
@@ -168,12 +168,12 @@ export class DevtoolsSettings extends LitElement {
   @state() private _settings: FeatureSettings | null = null;
   @state() private _override: SettingsOverride = {};
   @state() private _loaded = false;
-  @state() private _theme: ThemePreference = 'auto';
+  @state() private _colorScheme: ColorSchemePreference = 'auto';
 
   override connectedCallback() {
     super.connectedCallback();
     this._override = this._readOverride();
-    this._theme = readThemePreference();
+    this._colorScheme = readColorSchemePreference();
     void this._fetch();
   }
 
@@ -187,9 +187,9 @@ export class DevtoolsSettings extends LitElement {
     return {};
   }
 
-  private _setTheme(theme: ThemePreference): void {
-    this._theme = theme;
-    setThemePreference(theme);
+  private _setColorScheme(scheme: ColorSchemePreference): void {
+    this._colorScheme = scheme;
+    setColorSchemePreference(scheme);
   }
 
   private async _fetch() {
@@ -281,12 +281,13 @@ export class DevtoolsSettings extends LitElement {
         <h3>Appearance</h3>
         <table>
           <tr>
-            <td class="key">theme</td>
+            <td class="key">color scheme</td>
             <td class="val">
               <select
                 @change=${(e: Event) =>
-                  this._setTheme(
-                    (e.target as HTMLSelectElement).value as ThemePreference
+                  this._setColorScheme(
+                    (e.target as HTMLSelectElement)
+                      .value as ColorSchemePreference
                   )}
               >
                 ${(
@@ -294,12 +295,12 @@ export class DevtoolsSettings extends LitElement {
                     ['auto', 'Auto'],
                     ['dark', 'Dark'],
                     ['light', 'Light'],
-                  ] as Array<[ThemePreference, string]>
+                  ] as Array<[ColorSchemePreference, string]>
                 ).map(
                   ([value, label]) =>
                     html`<option
                       value=${value}
-                      ?selected=${this._theme === value}
+                      ?selected=${this._colorScheme === value}
                     >
                       ${label}
                     </option>`

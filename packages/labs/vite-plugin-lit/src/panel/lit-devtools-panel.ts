@@ -7,16 +7,19 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, query, state} from 'lit/decorators.js';
 import {tokens, injectTokens} from '../lib/tokens.js';
-import {applyTheme, readThemePreference} from '../lib/theme.js';
+import {
+  applyColorScheme,
+  readColorSchemePreference,
+} from '../lib/color-scheme.js';
 import './timeline-view.js';
 
 // Install the shared design tokens on the panel iframe's :root before the
 // views render. Panel components inherit the semantic aliases from :root.
 injectTokens();
-// Own the theme class once the panel module is live: re-assert the saved
-// preference (the Settings tab mounts lazily, so it can't). `auto` needs no
-// JS — the tokens' `prefers-color-scheme` @media rule resolves it live.
-applyTheme(readThemePreference());
+// Own the color-scheme class once the panel module is live: re-assert the
+// saved preference (the Settings tab mounts lazily, so it can't). `auto` needs
+// no JS — the tokens' `prefers-color-scheme` @media rule resolves it live.
+applyColorScheme(readColorSchemePreference());
 import './components-view.js';
 import type {ComponentsView} from './components-view.js';
 import './devtools-settings.js';
