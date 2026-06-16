@@ -32,7 +32,7 @@ export class HmrProperties extends LitElement {
   private items: string[] = [];
 
   @state()
-  private config = {theme: 'light'};
+  private config = {theme: 'auto'};
 
   private renders = 0;
 
@@ -56,10 +56,16 @@ export class HmrProperties extends LitElement {
     if (badge !== null) {
       badge.textContent = `renders: ${this.renders}`;
     }
-    // Apply the theme state to the page (index.html maps [data-theme] to
-    // css custom properties). Because the @state survives a hot patch and
-    // this runs after the patch's re-render, the theme survives too.
-    document.documentElement.dataset['theme'] = this.config.theme;
+    // Apply the theme state to the page. `auto` removes the attribute so the
+    // OS preference drives via `color-scheme: light dark` + `light-dark()` in
+    // index.html; `light`/`dark` pin [data-theme] as a manual override.
+    // Because the @state survives a hot patch and this runs after the patch's
+    // re-render, the theme survives too.
+    if (this.config.theme === 'auto') {
+      delete document.documentElement.dataset['theme'];
+    } else {
+      document.documentElement.dataset['theme'] = this.config.theme;
+    }
   }
 
   private addItem() {
@@ -67,7 +73,16 @@ export class HmrProperties extends LitElement {
   }
 
   private toggleTheme() {
-    this.config = {theme: this.config.theme === 'light' ? 'dark' : 'light'};
+    // Flip the *resolved* scheme: from `auto` that's the current OS preference,
+    // so a dark system toggles to light (and vice versa). An explicit
+    // light/dark just inverts.
+    const resolved =
+      this.config.theme === 'auto'
+        ? window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light'
+        : this.config.theme;
+    this.config = {theme: resolved === 'dark' ? 'light' : 'dark'};
   }
 }
 

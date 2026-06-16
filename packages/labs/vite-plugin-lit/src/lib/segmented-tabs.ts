@@ -29,37 +29,39 @@ export class SegmentedTabs extends LitElement {
     css`
       :host {
         display: flex;
-        gap: var(--space-1);
+        gap: var(--lit-devtools-space-1);
         align-self: stretch;
       }
       button {
         appearance: none;
         display: flex;
         align-items: center;
-        gap: var(--space-2);
+        gap: var(--lit-devtools-space-2);
         border: 0;
         background: none;
         font: inherit;
-        color: var(--text-muted);
-        padding: 0 var(--space-5);
+        color: var(--lit-devtools-text-muted);
+        padding: 0 var(--lit-devtools-space-5);
         cursor: pointer;
         border-bottom: 2px solid transparent;
         white-space: nowrap;
         transition:
-          color var(--dur-fast) var(--ease-standard),
-          border-color var(--dur-fast) var(--ease-standard),
-          background var(--dur-fast) var(--ease-standard);
+          color var(--lit-devtools-dur-fast) var(--lit-devtools-ease-standard),
+          border-color var(--lit-devtools-dur-fast)
+            var(--lit-devtools-ease-standard),
+          background var(--lit-devtools-dur-fast)
+            var(--lit-devtools-ease-standard);
       }
       button:hover {
-        color: var(--text);
-        background: var(--surface-hover);
+        color: var(--lit-devtools-text);
+        background: var(--lit-devtools-surface-hover);
       }
       button.active {
-        color: var(--accent);
-        border-bottom-color: var(--accent);
+        color: var(--lit-devtools-accent);
+        border-bottom-color: var(--lit-devtools-accent);
       }
       button:focus-visible {
-        outline: 2px solid var(--accent-ring);
+        outline: 2px solid var(--lit-devtools-accent-ring);
         outline-offset: -2px;
       }
       button svg {
@@ -68,13 +70,13 @@ export class SegmentedTabs extends LitElement {
         flex-shrink: 0;
       }
       :host([size='sm']) button {
-        font-size: var(--text-xs);
-        padding: 0 var(--space-4);
+        font-size: var(--lit-devtools-text-xs);
+        padding: 0 var(--lit-devtools-space-4);
       }
       :host([size='md']) button,
       :host(:not([size])) button {
-        font-size: var(--text-sm);
-        padding: 0 var(--space-5);
+        font-size: var(--lit-devtools-text-sm);
+        padding: 0 var(--lit-devtools-space-5);
       }
     `,
   ];

@@ -38,32 +38,32 @@ export class TimelineView extends LitElement {
       .toolbar {
         display: flex;
         align-items: center;
-        gap: var(--space-4);
-        padding: var(--space-3) var(--space-5);
-        border-bottom: 1px solid var(--border);
-        background: var(--surface-low);
+        gap: var(--lit-devtools-space-4);
+        padding: var(--lit-devtools-space-3) var(--lit-devtools-space-5);
+        border-bottom: 1px solid var(--lit-devtools-border);
+        background: var(--lit-devtools-surface-low);
         flex-shrink: 0;
       }
       .spacer {
         flex: 1;
       }
       button {
-        padding: var(--space-2) var(--space-5);
-        border-radius: var(--radius-sm);
-        border: 1px solid var(--border);
-        background: var(--surface-elevated);
-        color: var(--text);
-        font-size: var(--text-2xs);
+        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
+        border-radius: var(--lit-devtools-radius-sm);
+        border: 1px solid var(--lit-devtools-border);
+        background: var(--lit-devtools-surface-elevated);
+        color: var(--lit-devtools-text);
+        font-size: var(--lit-devtools-text-2xs);
         cursor: pointer;
       }
       button:hover {
-        background: var(--surface-hover);
-        border-color: var(--border-strong);
+        background: var(--lit-devtools-surface-hover);
+        border-color: var(--lit-devtools-border-strong);
       }
       .record.active {
-        border-color: var(--error);
-        background: var(--error-soft);
-        color: var(--error);
+        border-color: var(--lit-devtools-error);
+        background: var(--lit-devtools-error-soft);
+        color: var(--lit-devtools-error);
       }
       timeline-event-list {
         flex: 1;

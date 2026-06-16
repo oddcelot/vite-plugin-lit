@@ -7,21 +7,16 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, query, state} from 'lit/decorators.js';
 import {tokens, injectTokens} from '../lib/tokens.js';
-import {
-  applyTheme,
-  readThemePreference,
-  startThemeAutoSync,
-} from '../lib/theme.js';
+import {applyTheme, readThemePreference} from '../lib/theme.js';
 import './timeline-view.js';
 
 // Install the shared design tokens on the panel iframe's :root before the
 // views render. Panel components inherit the semantic aliases from :root.
 injectTokens();
 // Own the theme class once the panel module is live: re-assert the saved
-// preference (the Settings tab mounts lazily, so it can't), and follow the OS
-// color scheme live while in `auto`.
+// preference (the Settings tab mounts lazily, so it can't). `auto` needs no
+// JS — the tokens' `prefers-color-scheme` @media rule resolves it live.
 applyTheme(readThemePreference());
-startThemeAutoSync();
 import './components-view.js';
 import type {ComponentsView} from './components-view.js';
 import './devtools-settings.js';
@@ -76,31 +71,31 @@ export class LitDevtoolsPanel extends LitElement {
         display: flex;
         flex-direction: column;
         height: 100vh;
-        font-family: var(--font-sans);
-        font-size: var(--text-sm);
-        background: var(--bg);
-        color: var(--text);
+        font-family: var(--lit-devtools-font-sans);
+        font-size: var(--lit-devtools-text-sm);
+        background: var(--lit-devtools-bg);
+        color: var(--lit-devtools-text);
         overflow: hidden;
       }
       header {
         display: flex;
         align-items: center;
-        gap: var(--space-6);
-        padding: 0 var(--space-5);
-        border-bottom: 1px solid var(--border);
-        background: var(--surface-low);
+        gap: var(--lit-devtools-space-6);
+        padding: 0 var(--lit-devtools-space-5);
+        border-bottom: 1px solid var(--lit-devtools-border);
+        background: var(--lit-devtools-surface-low);
         flex-shrink: 0;
       }
       .brand {
         display: flex;
         align-items: center;
-        gap: var(--space-4);
-        color: var(--text-strong);
-        font-weight: var(--weight-bold);
-        font-size: var(--text-xs);
-        letter-spacing: var(--tracking-caps);
+        gap: var(--lit-devtools-space-4);
+        color: var(--lit-devtools-text-strong);
+        font-weight: var(--lit-devtools-weight-bold);
+        font-size: var(--lit-devtools-text-xs);
+        letter-spacing: var(--lit-devtools-tracking-caps);
         text-transform: uppercase;
-        padding: var(--space-5) 0;
+        padding: var(--lit-devtools-space-5) 0;
       }
       .brand svg {
         display: block;

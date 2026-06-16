@@ -26,46 +26,46 @@ export class TimelineEventList extends LitElement {
       .filterbar {
         display: flex;
         align-items: center;
-        gap: var(--space-3);
-        padding: var(--space-2) var(--space-5);
-        border-bottom: 1px solid var(--border);
-        font-size: var(--text-2xs);
-        color: var(--text-muted);
+        gap: var(--lit-devtools-space-3);
+        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
+        border-bottom: 1px solid var(--lit-devtools-border);
+        font-size: var(--lit-devtools-text-2xs);
+        color: var(--lit-devtools-text-muted);
         flex-shrink: 0;
       }
       .filterbar select {
-        background: var(--surface-elevated);
-        color: var(--text);
-        border: 1px solid var(--border-strong);
-        border-radius: var(--radius-sm);
-        padding: var(--space-1) var(--space-3);
-        font-size: var(--text-2xs);
-        font-family: var(--font-mono);
+        background: var(--lit-devtools-surface-elevated);
+        color: var(--lit-devtools-text);
+        border: 1px solid var(--lit-devtools-border-strong);
+        border-radius: var(--lit-devtools-radius-sm);
+        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-3);
+        font-size: var(--lit-devtools-text-2xs);
+        font-family: var(--lit-devtools-font-mono);
       }
       .filterbar input.regex {
-        background: var(--surface-elevated);
-        color: var(--text);
-        border: 1px solid var(--border-strong);
-        border-radius: var(--radius-sm);
-        padding: var(--space-1) var(--space-3);
-        font-size: var(--text-2xs);
-        font-family: var(--font-mono);
+        background: var(--lit-devtools-surface-elevated);
+        color: var(--lit-devtools-text);
+        border: 1px solid var(--lit-devtools-border-strong);
+        border-radius: var(--lit-devtools-radius-sm);
+        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-3);
+        font-size: var(--lit-devtools-text-2xs);
+        font-family: var(--lit-devtools-font-mono);
         min-width: 140px;
       }
       .filterbar input.regex::placeholder {
-        color: var(--text-muted);
+        color: var(--lit-devtools-text-muted);
       }
       .filterbar input.regex.invalid {
-        border-color: var(--error);
+        border-color: var(--lit-devtools-error);
       }
       .filterbar .count {
         margin-left: auto;
-        color: var(--text-muted);
+        color: var(--lit-devtools-text-muted);
       }
       .scroll {
         flex: 1;
         overflow-y: auto;
-        padding: var(--space-2) 0;
+        padding: var(--lit-devtools-space-2) 0;
       }
       .empty {
         display: flex;
@@ -73,32 +73,32 @@ export class TimelineEventList extends LitElement {
         align-items: center;
         justify-content: center;
         height: 100%;
-        gap: var(--space-4);
-        color: var(--text-muted);
-        font-size: var(--text-xs);
+        gap: var(--lit-devtools-space-4);
+        color: var(--lit-devtools-text-muted);
+        font-size: var(--lit-devtools-text-xs);
       }
       .hint {
-        font-size: var(--text-2xs);
-        color: var(--text-muted);
+        font-size: var(--lit-devtools-text-2xs);
+        color: var(--lit-devtools-text-muted);
       }
       .row {
         display: flex;
         align-items: baseline;
-        gap: var(--space-4);
-        padding: var(--space-2) var(--space-5);
-        font-size: var(--text-2xs);
-        font-family: var(--font-mono);
-        border-bottom: 1px solid var(--border);
+        gap: var(--lit-devtools-space-4);
+        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
+        font-size: var(--lit-devtools-text-2xs);
+        font-family: var(--lit-devtools-font-mono);
+        border-bottom: 1px solid var(--lit-devtools-border);
         cursor: pointer;
       }
       .row:hover {
-        background: var(--surface-hover);
+        background: var(--lit-devtools-surface-hover);
       }
       .row.selected {
-        background: var(--surface-active);
+        background: var(--lit-devtools-surface-active);
       }
       .time {
-        color: var(--text-muted);
+        color: var(--lit-devtools-text-muted);
         flex-shrink: 0;
         width: 56px;
         text-align: right;
@@ -112,13 +112,13 @@ export class TimelineEventList extends LitElement {
       }
       .title {
         flex: 1;
-        color: var(--text);
+        color: var(--lit-devtools-text);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
       .subtitle {
-        color: var(--text-muted);
+        color: var(--lit-devtools-text-muted);
         flex-shrink: 0;
         max-width: 200px;
         overflow: hidden;
@@ -126,12 +126,12 @@ export class TimelineEventList extends LitElement {
         white-space: nowrap;
       }
       .detail {
-        border-top: 1px solid var(--border);
-        background: var(--surface-low);
-        padding: var(--space-5) var(--space-5);
-        font-size: var(--text-2xs);
-        font-family: var(--font-mono);
-        color: var(--text-secondary);
+        border-top: 1px solid var(--lit-devtools-border);
+        background: var(--lit-devtools-surface-low);
+        padding: var(--lit-devtools-space-5) var(--lit-devtools-space-5);
+        font-size: var(--lit-devtools-text-2xs);
+        font-family: var(--lit-devtools-font-mono);
+        color: var(--lit-devtools-text-secondary);
         flex-shrink: 0;
         max-height: 130px;
         overflow-y: auto;
@@ -141,19 +141,20 @@ export class TimelineEventList extends LitElement {
         width: 100%;
       }
       td {
-        padding: var(--space-1) var(--space-4) var(--space-1) 0;
+        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-4)
+          var(--lit-devtools-space-1) 0;
         vertical-align: top;
       }
       .key {
-        color: var(--text-muted);
+        color: var(--lit-devtools-text-muted);
         white-space: nowrap;
       }
       .val {
-        color: var(--text);
+        color: var(--lit-devtools-text);
         word-break: break-all;
       }
       a {
-        color: var(--accent);
+        color: var(--lit-devtools-accent);
         text-decoration: none;
       }
       a:hover {
@@ -161,8 +162,8 @@ export class TimelineEventList extends LitElement {
       }
       .filter-link {
         cursor: pointer;
-        margin-left: var(--space-4);
-        font-size: var(--text-2xs);
+        margin-left: var(--lit-devtools-space-4);
+        font-size: var(--lit-devtools-text-2xs);
       }
     `,
   ];

@@ -46,9 +46,9 @@ class LitDevtoolsIndicator extends HTMLElement {
         #container{
           place-self:var(--lit-devtools-hmr-indicator-align,end end);
           display:flex;align-items:stretch;
-          background:var(--surface-elevated);color:var(--text-strong);
+          background:var(--lit-devtools-surface-elevated);color:var(--lit-devtools-text-strong);
           backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-          border-radius:var(--radius-md);
+          border-radius:var(--lit-devtools-radius-md);
           font:12px/1 ${FONT_MONO_VAR};font-variant-numeric:tabular-nums;
           overflow:hidden;opacity:var(--idle-op,0)
         }
@@ -59,9 +59,9 @@ class LitDevtoolsIndicator extends HTMLElement {
         #indicator{
           display:flex;align-items:center;gap:6px;
           padding:7px 12px;
-          border-left:1px solid var(--border-subtle)
+          border-left:1px solid var(--lit-devtools-border-subtle)
         }
-        .dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0}
+        .dot{width:8px;height:8px;border-radius:50%;background:var(--lit-devtools-success);flex-shrink:0}
         .count{display:none}
         #container.with-count .count{display:inline}
       </style>

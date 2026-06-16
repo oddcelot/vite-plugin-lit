@@ -11,7 +11,7 @@ import {css, unsafeCSS} from 'lit';
  *
  * Two entry points:
  *  - **`tokens`** — Lit `css` template that defines the theme-agnostic base
- *    tokens on `:host`. Semantic color aliases (`--bg`, `--surface`, `--text`,
+ *    tokens on `:host`. Semantic color aliases (`--lit-devtools-bg`, `--lit-devtools-surface`, `--lit-devtools-text`,
  *    etc.) are inherited from `:root`, where {@link injectTokens} installs them.
  *    Use as `static styles = [tokens, css`…`]`.
  *  - **`injectTokens()`** — injects `:root { … }` into the page `<head>` once.
@@ -32,175 +32,175 @@ import {css, unsafeCSS} from 'lit';
 
 const baseTokenCSS = `
   /* ---- Brand · the Lit flame ---- */
-  --lit-blue:        #324fff;
-  --lit-blue-bright: #4d63ff;
-  --lit-indigo:      #2a2c9d;
-  --lit-dark-blue:   #283198;
-  --lit-cyan:        #00ffff;
-  --lit-dark-cyan:   #00e8ff;
+  --lit-devtools-lit-blue:        #324fff;
+  --lit-devtools-lit-blue-bright: #4d63ff;
+  --lit-devtools-lit-indigo:      #2a2c9d;
+  --lit-devtools-lit-dark-blue:   #283198;
+  --lit-devtools-lit-cyan:        #00ffff;
+  --lit-devtools-lit-dark-cyan:   #00e8ff;
 
   /* ---- Neutral ink scale (0 = near-black, 13 = white) ---- */
-  --ink-0:  hsl(0 0% 1%);
-  --ink-1:  hsl(0 0% 5%);
-  --ink-2:  hsl(0 0% 7%);
-  --ink-3:  hsl(0 0% 11%);
-  --ink-4:  hsl(0 0% 13%);
-  --ink-5:  hsl(0 0% 16%);
-  --ink-6:  hsl(0 0% 21%);
-  --ink-7:  hsl(0 0% 28%);
-  --ink-8:  hsl(0 0% 38%);
-  --ink-9:  hsl(0 0% 57%);
-  --ink-10: hsl(0 0% 63%);
-  --ink-11: hsl(0 0% 78%);
-  --ink-12: hsl(0 0% 89%);
-  --ink-13: hsl(0 0% 100%);
+  --lit-devtools-ink-0:  hsl(0 0% 1%);
+  --lit-devtools-ink-1:  hsl(0 0% 5%);
+  --lit-devtools-ink-2:  hsl(0 0% 7%);
+  --lit-devtools-ink-3:  hsl(0 0% 11%);
+  --lit-devtools-ink-4:  hsl(0 0% 13%);
+  --lit-devtools-ink-5:  hsl(0 0% 16%);
+  --lit-devtools-ink-6:  hsl(0 0% 21%);
+  --lit-devtools-ink-7:  hsl(0 0% 28%);
+  --lit-devtools-ink-8:  hsl(0 0% 38%);
+  --lit-devtools-ink-9:  hsl(0 0% 57%);
+  --lit-devtools-ink-10: hsl(0 0% 63%);
+  --lit-devtools-ink-11: hsl(0 0% 78%);
+  --lit-devtools-ink-12: hsl(0 0% 89%);
+  --lit-devtools-ink-13: hsl(0 0% 100%);
 
   /* ---- Typography ---- */
-  --font-sans:  system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono:  ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --lit-devtools-font-sans:  system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --lit-devtools-font-mono:  ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
-  --weight-regular:   400;
-  --weight-medium:    500;
-  --weight-semibold:  600;
-  --weight-bold:      700;
-  --weight-extrabold: 800;
+  --lit-devtools-weight-regular:   400;
+  --lit-devtools-weight-medium:    500;
+  --lit-devtools-weight-semibold:  600;
+  --lit-devtools-weight-bold:      700;
+  --lit-devtools-weight-extrabold: 800;
 
-  --text-2xs: 11px;
-  --text-xs:  12px;
-  --text-sm:  13px;
-  --text-md:  14px;
-  --text-base:16px;
+  --lit-devtools-text-2xs: 11px;
+  --lit-devtools-text-xs:  12px;
+  --lit-devtools-text-sm:  13px;
+  --lit-devtools-text-md:  14px;
+  --lit-devtools-text-base:16px;
 
-  --leading-tight:   1.15;
-  --leading-snug:    1.3;
-  --leading-normal:  1.5;
+  --lit-devtools-leading-tight:   1.15;
+  --lit-devtools-leading-snug:    1.3;
+  --lit-devtools-leading-normal:  1.5;
 
-  --tracking-tight:  -0.02em;
-  --tracking-snug:   -0.01em;
-  --tracking-normal: 0;
-  --tracking-wide:   0.02em;
-  --tracking-caps:   0.06em;
+  --lit-devtools-tracking-tight:  -0.02em;
+  --lit-devtools-tracking-snug:   -0.01em;
+  --lit-devtools-tracking-normal: 0;
+  --lit-devtools-tracking-wide:   0.02em;
+  --lit-devtools-tracking-caps:   0.06em;
 
   /* ---- Spacing (4px base) ---- */
-  --space-0:  0;
-  --space-1:  2px;
-  --space-2:  4px;
-  --space-3:  6px;
-  --space-4:  8px;
-  --space-5:  12px;
-  --space-6:  16px;
-  --space-7:  20px;
-  --space-8:  24px;
-  --space-9:  32px;
+  --lit-devtools-space-0:  0;
+  --lit-devtools-space-1:  2px;
+  --lit-devtools-space-2:  4px;
+  --lit-devtools-space-3:  6px;
+  --lit-devtools-space-4:  8px;
+  --lit-devtools-space-5:  12px;
+  --lit-devtools-space-6:  16px;
+  --lit-devtools-space-7:  20px;
+  --lit-devtools-space-8:  24px;
+  --lit-devtools-space-9:  32px;
 
   /* ---- Radius ---- */
-  --radius-xs:   3px;
-  --radius-sm:   5px;
-  --radius-md:   8px;
-  --radius-lg:   12px;
-  --radius-xl:   16px;
-  --radius-pill: 999px;
+  --lit-devtools-radius-xs:   3px;
+  --lit-devtools-radius-sm:   5px;
+  --lit-devtools-radius-md:   8px;
+  --lit-devtools-radius-lg:   12px;
+  --lit-devtools-radius-xl:   16px;
+  --lit-devtools-radius-pill: 999px;
 
   /* ---- Elevation ---- */
-  --shadow-xs: 0 1px 2px hsl(0 0% 0% / 0.30);
-  --shadow-sm: 0 1px 5px hsl(0 0% 0% / 0.35);
-  --shadow-md: 0 4px 14px hsl(0 0% 0% / 0.40);
-  --shadow-lg: 0 12px 32px hsl(0 0% 0% / 0.50);
-  --shadow-xl: 0 24px 64px hsl(0 0% 0% / 0.55);
-  --shadow-window: 0 24px 80px hsl(0 0% 0% / 0.6),
+  --lit-devtools-shadow-xs: 0 1px 2px hsl(0 0% 0% / 0.30);
+  --lit-devtools-shadow-sm: 0 1px 5px hsl(0 0% 0% / 0.35);
+  --lit-devtools-shadow-md: 0 4px 14px hsl(0 0% 0% / 0.40);
+  --lit-devtools-shadow-lg: 0 12px 32px hsl(0 0% 0% / 0.50);
+  --lit-devtools-shadow-xl: 0 24px 64px hsl(0 0% 0% / 0.55);
+  --lit-devtools-shadow-window: 0 24px 80px hsl(0 0% 0% / 0.6),
     0 0 0 1px hsl(0 0% 100% / 0.06);
-  --ring: 0 0 0 2px var(--accent-ring);
+  --lit-devtools-ring: 0 0 0 2px var(--lit-devtools-accent-ring);
 
   /* ---- Motion ---- */
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --dur-fast:    140ms;
-  --dur-normal:  220ms;
+  --lit-devtools-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --lit-devtools-dur-fast:    140ms;
+  --lit-devtools-dur-normal:  220ms;
 `;
 
 const darkThemeCSS = `
   /* ---- DARK · DevTools theme ---- */
-  --accent:               var(--lit-blue-bright);
-  --accent-hover:         #6478ff;
-  --accent-pressed:       #3d54f0;
-  --accent-soft:          hsla(232 100% 65% / 0.16);
-  --accent-ring:          hsla(232 100% 65% / 0.45);
-  --on-accent:            #ffffff;
-  --accent-cyan:          var(--lit-dark-cyan);
+  --lit-devtools-accent:               var(--lit-devtools-lit-blue-bright);
+  --lit-devtools-accent-hover:         #6478ff;
+  --lit-devtools-accent-pressed:       #3d54f0;
+  --lit-devtools-accent-soft:          hsla(232 100% 65% / 0.16);
+  --lit-devtools-accent-ring:          hsla(232 100% 65% / 0.45);
+  --lit-devtools-on-accent:            #ffffff;
+  --lit-devtools-accent-cyan:          var(--lit-devtools-lit-dark-cyan);
 
-  --bg:                   var(--ink-0);
-  --surface:             var(--ink-2);
-  --surface-low:          var(--ink-1);
-  --surface-container:    var(--ink-4);
-  --surface-container-high: var(--ink-5);
-  --surface-elevated:     var(--ink-6);
-  --surface-hover:        hsl(0 0% 100% / 0.04);
-  --surface-active:       hsl(0 0% 100% / 0.07);
+  --lit-devtools-bg:                   var(--lit-devtools-ink-0);
+  --lit-devtools-surface:             var(--lit-devtools-ink-2);
+  --lit-devtools-surface-low:          var(--lit-devtools-ink-1);
+  --lit-devtools-surface-container:    var(--lit-devtools-ink-4);
+  --lit-devtools-surface-container-high: var(--lit-devtools-ink-5);
+  --lit-devtools-surface-elevated:     var(--lit-devtools-ink-6);
+  --lit-devtools-surface-hover:        hsl(0 0% 100% / 0.04);
+  --lit-devtools-surface-active:       hsl(0 0% 100% / 0.07);
 
-  --text:                 var(--ink-12);
-  --text-strong:          var(--ink-13);
-  --text-secondary:       var(--ink-10);
-  --text-muted:           var(--ink-8);
-  --text-link:            var(--lit-blue-bright);
+  --lit-devtools-text:                 var(--lit-devtools-ink-12);
+  --lit-devtools-text-strong:          var(--lit-devtools-ink-13);
+  --lit-devtools-text-secondary:       var(--lit-devtools-ink-10);
+  --lit-devtools-text-muted:           var(--lit-devtools-ink-8);
+  --lit-devtools-text-link:            var(--lit-devtools-lit-blue-bright);
 
-  --border:               var(--ink-6);
-  --border-strong:        var(--ink-7);
-  --border-subtle:        hsl(0 0% 100% / 0.06);
+  --lit-devtools-border:               var(--lit-devtools-ink-6);
+  --lit-devtools-border-strong:        var(--lit-devtools-ink-7);
+  --lit-devtools-border-subtle:        hsl(0 0% 100% / 0.06);
 
-  --success:              hsl(158 74% 53%);
-  --success-soft:         hsl(158 74% 53% / 0.15);
-  --warning:              #f4bf4f;
-  --warning-soft:         hsl(43 88% 63% / 0.15);
-  --error:                #ff6b6b;
-  --error-soft:           hsl(0 100% 71% / 0.15);
-  --info:                 var(--lit-dark-cyan);
-  --info-soft:            hsl(187 100% 47% / 0.15);
+  --lit-devtools-success:              hsl(158 74% 53%);
+  --lit-devtools-success-soft:         hsl(158 74% 53% / 0.15);
+  --lit-devtools-warning:              #f4bf4f;
+  --lit-devtools-warning-soft:         hsl(43 88% 63% / 0.15);
+  --lit-devtools-error:                #ff6b6b;
+  --lit-devtools-error-soft:           hsl(0 100% 71% / 0.15);
+  --lit-devtools-info:                 var(--lit-devtools-lit-dark-cyan);
+  --lit-devtools-info-soft:            hsl(187 100% 47% / 0.15);
 
-  --selection-bg:         var(--accent);
-  --on-selection:         #ffffff;
+  --lit-devtools-selection-bg:         var(--lit-devtools-accent);
+  --lit-devtools-on-selection:         #ffffff;
 
   color-scheme: dark;
 `;
 
 const lightThemeCSS = `
   /* ---- LIGHT · lit.dev website theme ---- */
-  --accent:               var(--lit-blue);
-  --accent-hover:         #1f3bff;
-  --accent-pressed:       #2a2c9d;
-  --accent-soft:          hsla(232 100% 60% / 0.12);
-  --accent-ring:          hsla(232 100% 60% / 0.40);
-  --on-accent:            #ffffff;
-  --accent-cyan:          var(--lit-dark-cyan);
+  --lit-devtools-accent:               var(--lit-devtools-lit-blue);
+  --lit-devtools-accent-hover:         #1f3bff;
+  --lit-devtools-accent-pressed:       #2a2c9d;
+  --lit-devtools-accent-soft:          hsla(232 100% 60% / 0.12);
+  --lit-devtools-accent-ring:          hsla(232 100% 60% / 0.40);
+  --lit-devtools-on-accent:            #ffffff;
+  --lit-devtools-accent-cyan:          var(--lit-devtools-lit-dark-cyan);
 
-  --bg:                   #f4f4f4;
-  --surface:              #ffffff;
-  --surface-low:          #f3f3f3;
-  --surface-container:    #ffffff;
-  --surface-container-high: #e8e8e8;
-  --surface-elevated:     #ffffff;
-  --surface-hover:        hsl(0 0% 0% / 0.04);
-  --surface-active:       hsl(0 0% 0% / 0.07);
+  --lit-devtools-bg:                   #f4f4f4;
+  --lit-devtools-surface:              #ffffff;
+  --lit-devtools-surface-low:          #f3f3f3;
+  --lit-devtools-surface-container:    #ffffff;
+  --lit-devtools-surface-container-high: #e8e8e8;
+  --lit-devtools-surface-elevated:     #ffffff;
+  --lit-devtools-surface-hover:        hsl(0 0% 0% / 0.04);
+  --lit-devtools-surface-active:       hsl(0 0% 0% / 0.07);
 
-  --text:                 #242424;
-  --text-strong:          #000000;
-  --text-secondary:       #6e6e6e;
-  --text-muted:           #949494;
-  --text-link:            #005dc7;
+  --lit-devtools-text:                 #242424;
+  --lit-devtools-text-strong:          #000000;
+  --lit-devtools-text-secondary:       #6e6e6e;
+  --lit-devtools-text-muted:           #949494;
+  --lit-devtools-text-link:            #005dc7;
 
-  --border:               #e2e2e2;
-  --border-strong:        #c6c6c6;
-  --border-subtle:        hsl(0 0% 0% / 0.07);
+  --lit-devtools-border:               #e2e2e2;
+  --lit-devtools-border-strong:        #c6c6c6;
+  --lit-devtools-border-subtle:        hsl(0 0% 0% / 0.07);
 
-  --success:              #00865b;
-  --success-soft:         hsl(158 100% 26% / 0.10);
-  --warning:              #b26a00;
-  --warning-soft:         hsl(40 100% 35% / 0.10);
-  --error:                #ba1a1a;
-  --error-soft:           hsl(0 75% 42% / 0.10);
-  --info:                 #005dc7;
-  --info-soft:            hsl(210 100% 39% / 0.10);
+  --lit-devtools-success:              #00865b;
+  --lit-devtools-success-soft:         hsl(158 100% 26% / 0.10);
+  --lit-devtools-warning:              #b26a00;
+  --lit-devtools-warning-soft:         hsl(40 100% 35% / 0.10);
+  --lit-devtools-error:                #ba1a1a;
+  --lit-devtools-error-soft:           hsl(0 75% 42% / 0.10);
+  --lit-devtools-info:                 #005dc7;
+  --lit-devtools-info-soft:            hsl(210 100% 39% / 0.10);
 
-  --selection-bg:         var(--accent);
-  --on-selection:         #ffffff;
+  --lit-devtools-selection-bg:         var(--lit-devtools-accent);
+  --lit-devtools-on-selection:         #ffffff;
 
   color-scheme: light;
 `;
@@ -222,7 +222,7 @@ export const tokenCSS = `${baseTokenCSS}\n${darkThemeCSS}`;
  * ```
  *
  * This installs the theme-agnostic base tokens on `:host`. Semantic aliases
- * (`--bg`, `--text`, etc.) are inherited from `:root`, where they are installed
+ * (`--lit-devtools-bg`, `--lit-devtools-text`, etc.) are inherited from `:root`, where they are installed
  * by {@link injectTokens}. The panel iframe calls `injectTokens()` from
  * \`lit-devtools-panel.ts\` so all components inherit the same dark/light theme.
  */
@@ -238,7 +238,7 @@ let _injected = false;
  * Injects `:root { … }` into the page `<head>` once.
  *
  * CSS custom properties defined on `:root` cascade through shadow DOM
- * boundaries, so this makes every `var(--accent)` etc. resolve inside both
+ * boundaries, so this makes every `var(--lit-devtools-accent)` etc. resolve inside both
  * runtime elements (indicator, source-overlay) and Lit panel components.
  *
  * The injected stylesheet reacts to `prefers-color-scheme` and to

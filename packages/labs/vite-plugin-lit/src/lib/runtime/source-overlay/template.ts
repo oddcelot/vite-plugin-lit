@@ -34,7 +34,7 @@ export const OVERLAY_HTML = `
       left: 0;
       pointer-events: none;
       box-sizing: border-box;
-      border-radius: var(--radius-md);
+      border-radius: var(--lit-devtools-radius-md);
     }
     #tooltip {
       position: fixed;
@@ -47,13 +47,13 @@ export const OVERLAY_HTML = `
       align-items: stretch;
       pointer-events: auto;
       max-width: min(90vw, 480px);
-      border-radius: var(--radius-md);
-      background: var(--surface-elevated);
+      border-radius: var(--lit-devtools-radius-md);
+      background: var(--lit-devtools-surface-elevated);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
-      color: var(--text-strong);
+      color: var(--lit-devtools-text-strong);
       font: 12px/1.4 ${FONT_MONO_VAR};
-      box-shadow: var(--shadow-md);
+      box-shadow: var(--lit-devtools-shadow-md);
       overflow: hidden;
     }
     .icon-btn {
@@ -67,10 +67,10 @@ export const OVERLAY_HTML = `
       color: inherit;
       cursor: pointer;
     }
-    .icon-btn:hover { background: var(--surface-hover); }
+    .icon-btn:hover { background: var(--lit-devtools-surface-hover); }
     /* No outline ring; keyboard focus reuses the subtle hover tint. */
     .icon-btn:focus { outline: none; }
-    .icon-btn:focus-visible { background: var(--surface-hover); }
+    .icon-btn:focus-visible { background: var(--lit-devtools-surface-hover); }
     .icon-btn svg {
       width: 16px;
       height: 16px;
@@ -84,18 +84,18 @@ export const OVERLAY_HTML = `
       gap: 1px;
       min-width: 0;
       padding: 6px 10px;
-      border-left: 1px solid var(--border-subtle);
-      border-right: 1px solid var(--border-subtle);
+      border-left: 1px solid var(--lit-devtools-border-subtle);
+      border-right: 1px solid var(--lit-devtools-border-subtle);
     }
     #tag {
       font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      color: var(--text-strong);
+      color: var(--lit-devtools-text-strong);
     }
     #path {
-      color: var(--text-secondary);
+      color: var(--lit-devtools-text-secondary);
       font-size: 11px;
       word-break: break-all;
     }

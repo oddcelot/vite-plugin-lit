@@ -23,32 +23,33 @@ export class TimelineLayers extends LitElement {
     css`
       :host {
         display: flex;
-        gap: var(--space-2);
-        padding: var(--space-3) var(--space-5);
-        border-bottom: 1px solid var(--border);
-        background: var(--surface-low);
+        gap: var(--lit-devtools-space-2);
+        padding: var(--lit-devtools-space-3) var(--lit-devtools-space-5);
+        border-bottom: 1px solid var(--lit-devtools-border);
+        background: var(--lit-devtools-surface-low);
         flex-shrink: 0;
         flex-wrap: wrap;
       }
       button {
         display: flex;
         align-items: center;
-        gap: var(--space-2);
-        padding: var(--space-2) var(--space-4);
-        border-radius: var(--radius-pill);
-        background: var(--surface-elevated);
+        gap: var(--lit-devtools-space-2);
+        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-4);
+        border-radius: var(--lit-devtools-radius-pill);
+        background: var(--lit-devtools-surface-elevated);
         border: 1px solid transparent;
-        color: var(--text-secondary);
-        font-size: var(--text-2xs);
+        color: var(--lit-devtools-text-secondary);
+        font-size: var(--lit-devtools-text-2xs);
         cursor: pointer;
         user-select: none;
-        transition: opacity var(--dur-fast) var(--ease-standard);
+        transition: opacity var(--lit-devtools-dur-fast)
+          var(--lit-devtools-ease-standard);
       }
       button.on {
-        color: var(--text);
+        color: var(--lit-devtools-text);
       }
       button:hover {
-        background: var(--surface-hover);
+        background: var(--lit-devtools-surface-hover);
       }
       .dot {
         width: 8px;

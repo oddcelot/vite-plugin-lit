@@ -38,129 +38,129 @@ export class DevtoolsSettings extends LitElement {
         display: block;
         flex: 1;
         overflow-y: auto;
-        padding: var(--space-5) var(--space-6);
-        font-size: var(--text-xs);
-        line-height: var(--leading-normal);
+        padding: var(--lit-devtools-space-5) var(--lit-devtools-space-6);
+        font-size: var(--lit-devtools-text-xs);
+        line-height: var(--lit-devtools-leading-normal);
       }
       .note {
-        color: var(--text-muted);
-        margin: 0 0 var(--space-5);
+        color: var(--lit-devtools-text-muted);
+        margin: 0 0 var(--lit-devtools-space-5);
       }
       .note code {
-        color: var(--accent);
-        font-family: var(--font-mono);
+        color: var(--lit-devtools-accent);
+        font-family: var(--lit-devtools-font-mono);
       }
       section {
-        border: 1px solid var(--border);
-        border-radius: var(--radius-md);
-        margin-bottom: var(--space-5);
+        border: 1px solid var(--lit-devtools-border);
+        border-radius: var(--lit-devtools-radius-md);
+        margin-bottom: var(--lit-devtools-space-5);
         overflow: hidden;
       }
       h3 {
         display: flex;
         align-items: center;
-        gap: var(--space-4);
+        gap: var(--lit-devtools-space-4);
         margin: 0;
-        padding: var(--space-3) var(--space-5);
-        font-size: var(--text-xs);
-        background: var(--surface-low);
-        border-bottom: 1px solid var(--border);
+        padding: var(--lit-devtools-space-3) var(--lit-devtools-space-5);
+        font-size: var(--lit-devtools-text-xs);
+        background: var(--lit-devtools-surface-low);
+        border-bottom: 1px solid var(--lit-devtools-border);
       }
       .pill {
-        font-size: var(--text-2xs);
-        font-weight: var(--weight-semibold);
+        font-size: var(--lit-devtools-text-2xs);
+        font-weight: var(--lit-devtools-weight-semibold);
         text-transform: uppercase;
-        letter-spacing: var(--tracking-caps);
-        padding: 1px var(--space-4);
-        border-radius: var(--radius-pill);
-        border: 1px solid var(--border-strong);
-        color: var(--text-muted);
+        letter-spacing: var(--lit-devtools-tracking-caps);
+        padding: 1px var(--lit-devtools-space-4);
+        border-radius: var(--lit-devtools-radius-pill);
+        border: 1px solid var(--lit-devtools-border-strong);
+        color: var(--lit-devtools-text-muted);
       }
       .pill.on {
-        color: var(--accent);
-        border-color: var(--accent);
-        background: var(--accent-soft);
+        color: var(--lit-devtools-accent);
+        border-color: var(--lit-devtools-accent);
+        background: var(--lit-devtools-accent-soft);
       }
       .reset {
         margin-left: auto;
         appearance: none;
-        border: 1px solid var(--border-strong);
-        background: var(--surface-elevated);
-        color: var(--text);
-        border-radius: var(--radius-sm);
+        border: 1px solid var(--lit-devtools-border-strong);
+        background: var(--lit-devtools-surface-elevated);
+        color: var(--lit-devtools-text);
+        border-radius: var(--lit-devtools-radius-sm);
         font: inherit;
-        font-size: var(--text-2xs);
-        padding: var(--space-1) var(--space-4);
+        font-size: var(--lit-devtools-text-2xs);
+        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-4);
         cursor: pointer;
       }
       .reset:hover {
-        background: var(--surface-hover);
+        background: var(--lit-devtools-surface-hover);
       }
       table {
         width: 100%;
         border-collapse: collapse;
       }
       td {
-        padding: var(--space-3) var(--space-5);
+        padding: var(--lit-devtools-space-3) var(--lit-devtools-space-5);
         vertical-align: middle;
       }
       tr:not(:last-child) td {
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid var(--lit-devtools-border);
       }
       .key {
-        color: var(--text-muted);
+        color: var(--lit-devtools-text-muted);
         white-space: nowrap;
         width: 1%;
       }
       .val {
-        color: var(--text);
-        font-family: var(--font-mono);
+        color: var(--lit-devtools-text);
+        font-family: var(--lit-devtools-font-mono);
       }
       .env {
-        color: var(--text-muted);
-        font-family: var(--font-mono);
-        font-size: var(--text-2xs);
+        color: var(--lit-devtools-text-muted);
+        font-family: var(--lit-devtools-font-mono);
+        font-size: var(--lit-devtools-text-2xs);
       }
       .ovr {
-        color: var(--warning);
-        font-size: var(--text-2xs);
-        margin-left: var(--space-3);
+        color: var(--lit-devtools-warning);
+        font-size: var(--lit-devtools-text-2xs);
+        margin-left: var(--lit-devtools-space-3);
         vertical-align: middle;
       }
       label.toggle {
         display: inline-flex;
         align-items: center;
-        gap: var(--space-3);
+        gap: var(--lit-devtools-space-3);
         cursor: pointer;
         vertical-align: middle;
       }
       input,
       select {
-        accent-color: var(--accent);
+        accent-color: var(--lit-devtools-accent);
         font: inherit;
-        font-family: var(--font-mono);
+        font-family: var(--lit-devtools-font-mono);
         vertical-align: middle;
       }
       select {
-        background: var(--surface-elevated);
-        color: var(--text);
-        border: 1px solid var(--border-strong);
-        border-radius: var(--radius-sm);
-        padding: 1px var(--space-2);
+        background: var(--lit-devtools-surface-elevated);
+        color: var(--lit-devtools-text);
+        border: 1px solid var(--lit-devtools-border-strong);
+        border-radius: var(--lit-devtools-radius-sm);
+        padding: 1px var(--lit-devtools-space-2);
       }
       .row-disabled {
         opacity: 0.5;
       }
       .empty {
-        color: var(--text-muted);
-        padding: var(--space-3) var(--space-5);
+        color: var(--lit-devtools-text-muted);
+        padding: var(--lit-devtools-space-3) var(--lit-devtools-space-5);
       }
       .empty code {
-        color: var(--accent);
-        font-family: var(--font-mono);
+        color: var(--lit-devtools-accent);
+        font-family: var(--lit-devtools-font-mono);
       }
       .loading {
-        color: var(--text-muted);
+        color: var(--lit-devtools-text-muted);
       }
     `,
   ];
