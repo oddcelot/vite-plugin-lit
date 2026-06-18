@@ -10,6 +10,7 @@
  */
 
 import type {TimelineEvent} from '../../../types/timeline.js';
+import {now} from './clock.js';
 
 type EmitFn = (event: TimelineEvent) => void;
 type RecordingFn = () => boolean;
@@ -50,7 +51,7 @@ const mouseHandler =
     };
     emit({
       layerId: 'mouse',
-      time: performance.now(),
+      time: now(),
       title: e.type,
       subtitle: `(${data.x}, ${data.y})`,
       data,
@@ -75,7 +76,7 @@ const keyHandler =
     };
     emit({
       layerId: 'keyboard',
-      time: performance.now(),
+      time: now(),
       title: ke.key,
       subtitle: modifiers.length ? modifiers.join('+') : undefined,
       data,

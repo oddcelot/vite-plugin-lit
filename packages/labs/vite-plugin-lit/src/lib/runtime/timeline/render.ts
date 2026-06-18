@@ -22,6 +22,7 @@
 
 import type {TimelineEvent} from '../../../types/timeline.js';
 import {idOf, sourceOf} from './identity.js';
+import {now} from './clock.js';
 
 type EmitFn = (event: TimelineEvent) => void;
 type RecordingFn = () => boolean;
@@ -70,7 +71,7 @@ const onLitDebug = (
   const detail = (e as LitDebugEvent).detail;
   if (!detail?.kind) return;
 
-  const time = performance.now();
+  const time = now();
   const {kind, id} = detail;
 
   switch (kind) {

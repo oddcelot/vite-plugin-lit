@@ -21,6 +21,7 @@
  */
 
 import {idOf, sourceOf, changedKeys} from './identity.js';
+import {now} from './clock.js';
 import type {TimelineEvent} from '../../../types/timeline.js';
 
 type EmitFn = (event: TimelineEvent) => void;
@@ -95,7 +96,7 @@ const wrap = (
     const source = sourceOf(this);
     const tick = tickOf(this);
     const groupId = `${elementId}:${tick}`;
-    const time = performance.now();
+    const time = now();
     const changed = changedKeys(args[0]);
 
     if (!isPoint) {
@@ -117,7 +118,7 @@ const wrap = (
       if (!isPoint) {
         emit({
           layerId: 'lit-lifecycle',
-          time: performance.now(),
+          time: now(),
           groupId,
           title: name + ':end',
           subtitle: tagName,

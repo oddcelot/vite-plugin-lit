@@ -16,6 +16,7 @@
  */
 
 import {emit, setHotClient} from './transport.js';
+import {resetClock} from './clock.js';
 import {installLifecycleLayer} from './lifecycle.js';
 import {installRenderLayer, setRenderDebugEnabled} from './render.js';
 import {installMouseLayer, installKeyboardLayer} from './input.js';
@@ -72,7 +73,11 @@ if (hot !== undefined) {
 
   // Panel → app: toggle recording and per-layer flags.
   hot.on('lit:timeline:recording-changed', (data) => {
-    state.recordingState = (data as {recording: boolean}).recording;
+    const next = (data as {recording: boolean}).recording;
+    // Re-zero the timeline clock on the rising edge so event times read as
+    // "ms since recording started" rather than since page load.
+    if (next && !state.recordingState) resetClock();
+    state.recordingState = next;
     syncRenderDebug();
   });
 
