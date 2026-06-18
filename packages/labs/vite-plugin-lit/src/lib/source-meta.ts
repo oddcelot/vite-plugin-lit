@@ -27,8 +27,8 @@ export const lineNumberAt = (code: string, index: number): number =>
 
 /**
  * Finds the index after the closing `}` of a class body starting at
- * `classStart`. Brace matching only; sufficient for typical Lit component
- * classes.
+ * `classStart`. Skips braces inside strings, template literals, and regex
+ * literals so those don't throw off the count.
  */
 const findClassBodyEnd = (code: string, classStart: number): number => {
   const open = code.indexOf('{', classStart);
@@ -37,6 +37,37 @@ const findClassBodyEnd = (code: string, classStart: number): number => {
   let i = open + 1;
   while (i < code.length && depth > 0) {
     const ch = code[i];
+    if (ch === '"' || ch === "'") {
+      const quote = ch;
+      i++;
+      while (i < code.length && code[i] !== quote) {
+        if (code[i] === '\\') i++;
+        i++;
+      }
+      i++;
+      continue;
+    }
+    if (ch === '`') {
+      i++;
+      while (i < code.length && code[i] !== '`') {
+        if (code[i] === '\\') i++;
+        i++;
+      }
+      i++;
+      continue;
+    }
+    if (ch === '/') {
+      const prev = i > 0 ? code[i - 1] : '';
+      if (/[=:(,+\-!&|?{}[; ]/.test(prev)) {
+        i++;
+        while (i < code.length && code[i] !== '/') {
+          if (code[i] === '\\') i++;
+          i++;
+        }
+        i++;
+        continue;
+      }
+    }
     if (ch === '{') depth++;
     else if (ch === '}') depth--;
     i++;
