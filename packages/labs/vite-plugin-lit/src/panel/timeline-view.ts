@@ -191,7 +191,16 @@ export class TimelineView extends LitElement {
 
   private _toggleRecord() {
     this._recording = !this._recording;
-    this._postControl({recording: this._recording});
+    // On start, push the current layer enablement together with the recording
+    // flag: the runtime defaults mouse/keyboard capture off, and otherwise only
+    // hears about layers when one is toggled — so those layers wouldn't record
+    // on the first session until the user toggled one. Send the full state so
+    // the runtime matches what the panel shows from the first event.
+    this._postControl(
+      this._recording
+        ? {recording: true, ...this._layersToState()}
+        : {recording: false}
+    );
   }
 
   private _clear() {
