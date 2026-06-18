@@ -34,6 +34,21 @@ let nextId = 0;
  */
 const byId = new Map<number, WeakRef<object>>();
 
+/**
+ * Drops `byId` entries as their elements are garbage-collected. The `WeakRef`
+ * already lets the element itself be reclaimed, but the Map slot (id + WeakRef
+ * wrapper) would otherwise linger until the next `elementById(id)` lookup —
+ * which only happens on a panel request for that specific id, so on a churning
+ * page (a list re-rendering thousands of rows) dead entries accumulate for the
+ * whole dev session. Guarded for environments without `FinalizationRegistry`.
+ */
+const byIdRegistry =
+  typeof FinalizationRegistry === 'function'
+    ? new FinalizationRegistry<number>((id) => {
+        byId.delete(id);
+      })
+    : undefined;
+
 /** Returns (and memoises) a stable numeric id for an element instance. */
 export const idOf = (el: object): number => {
   let id = ids.get(el);
@@ -41,6 +56,7 @@ export const idOf = (el: object): number => {
     id = nextId++;
     ids.set(el, id);
     byId.set(id, new WeakRef(el));
+    byIdRegistry?.register(el, id);
   }
   return id;
 };
