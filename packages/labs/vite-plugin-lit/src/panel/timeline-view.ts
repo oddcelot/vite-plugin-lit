@@ -16,6 +16,14 @@ import './timeline-event-list.js';
 const LS_KEY = 'lit-devtools-timeline-layers';
 
 /**
+ * Cap on retained timeline events. The stream is unbounded (the mouse/keyboard
+ * layers can emit at pointer-move rate), so without a cap the buffer — and the
+ * list that re-renders from it — grows for the whole session. Keep the most
+ * recent events; older ones scroll off.
+ */
+const MAX_EVENTS = 5000;
+
+/**
  * The Timeline view: records and lists Lit lifecycle / render / input events.
  * One tab of the DevTools panel shell (\`lit-devtools-panel\`); owns its own event
  * stream (SSE), recording state and layer toggles so it keeps recording while
@@ -90,7 +98,9 @@ export class TimelineView extends LitElement {
       try {
         const batch = JSON.parse(e.data) as TimelineEvent[];
         if (Array.isArray(batch)) {
-          this._events = [...this._events, ...batch];
+          const next = [...this._events, ...batch];
+          this._events =
+            next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
         }
       } catch {
         // ignore malformed data
