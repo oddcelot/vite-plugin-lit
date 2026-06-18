@@ -25,6 +25,7 @@ import type {TimelineEvent} from '../../../types/timeline.js';
 
 type EmitFn = (event: TimelineEvent) => void;
 type RecordingFn = () => boolean;
+type LayerEnabledFn = () => boolean;
 
 /** Phases to instrument with start/end pairs. */
 const UPDATE_PHASES = [
@@ -65,7 +66,8 @@ const wrap = (
   name: string,
   isPoint: boolean,
   emit: EmitFn,
-  recording: RecordingFn
+  recording: RecordingFn,
+  enabled: LayerEnabledFn
 ): void => {
   if (isWrapped(proto, name)) return;
   const orig = proto[name];
@@ -74,8 +76,18 @@ const wrap = (
     this: object,
     ...args: unknown[]
   ) {
-    if (!recording()) {
+    if (!recording() || !enabled()) {
       return orig?.apply(this, args);
+    }
+
+    // Bump the per-instance tick at the *start* of each performUpdate, before
+    // computing the groupId, so this whole update cycle — performUpdate and the
+    // willUpdate/update/updated phases it nests — shares one groupId, distinct
+    // from the previous cycle's. (Reading the tick before bumping put
+    // performUpdate in a different group from its own phases and let adjacent
+    // cycles collide on the same tick.)
+    if (name === 'performUpdate') {
+      ticks.set(this, tickOf(this) + 1);
     }
 
     const elementId = idOf(this);
@@ -96,11 +108,6 @@ const wrap = (
         data: {phase: name, changed},
         meta: {elementId, tagName, source},
       });
-    }
-
-    // Bump tick counter INSIDE performUpdate so nested phases share the tick.
-    if (name === 'performUpdate') {
-      ticks.set(this, tick + 1);
     }
 
     let result: unknown;
@@ -183,7 +190,8 @@ let installed = false;
  */
 export const installLifecycleLayer = (
   emit: EmitFn,
-  recording: RecordingFn
+  recording: RecordingFn,
+  enabled: LayerEnabledFn
 ): void => {
   if (installed) return;
 
@@ -196,7 +204,7 @@ export const installLifecycleLayer = (
       if (!installed) {
         const p = ctor?.prototype as Proto | null;
         if (p && 'performUpdate' in p) {
-          patchProto(p, emit, recording);
+          patchProto(p, emit, recording, enabled);
           installed = true;
           // Restore define (we only need the first Lit element).
           customElements.define = origDefine;
@@ -206,19 +214,20 @@ export const installLifecycleLayer = (
     return;
   }
 
-  patchProto(proto, emit, recording);
+  patchProto(proto, emit, recording, enabled);
   installed = true;
 };
 
 const patchProto = (
   proto: Proto,
   emit: EmitFn,
-  recording: RecordingFn
+  recording: RecordingFn,
+  enabled: LayerEnabledFn
 ): void => {
   for (const name of UPDATE_PHASES) {
-    wrap(proto, name, false, emit, recording);
+    wrap(proto, name, false, emit, recording, enabled);
   }
   for (const name of POINT_PHASES) {
-    wrap(proto, name, true, emit, recording);
+    wrap(proto, name, true, emit, recording, enabled);
   }
 };
