@@ -29,6 +29,15 @@ const queue: TimelineEvent[] = [];
 let flushScheduled = false;
 let hotClient: HotClient | null = null;
 
+/**
+ * Cap on events retained while no hot client is connected. Without a client
+ * `flush()` cannot drain the queue, so an uncapped buffer would grow for the
+ * whole session (in production, or before `install.ts` wires the client).
+ * We keep only the most recent events; the retained tail flushes if a client
+ * later connects.
+ */
+const MAX_PENDING = 1000;
+
 // Callbacks registered before the hot client was available (e.g. addTimelineLayer
 // called at module init time before install.ts has set the client).
 const pendingCallbacks: Array<() => void> = [];
@@ -85,6 +94,14 @@ const flush = (): void => {
  */
 export const emit = (event: TimelineEvent): void => {
   queue.push(event);
+  if (hotClient === null) {
+    // No consumer yet: bound the buffer instead of scheduling a flush that
+    // would only no-op. `setHotClient` drains the retained tail on connect.
+    if (queue.length > MAX_PENDING) {
+      queue.splice(0, queue.length - MAX_PENDING);
+    }
+    return;
+  }
   if (!flushScheduled) {
     flushScheduled = true;
     queueMicrotask(flush);
