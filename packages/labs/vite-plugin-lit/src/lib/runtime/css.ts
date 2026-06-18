@@ -119,11 +119,21 @@ export interface UrlSheet {
  */
 export const urlSheet = (url: string): UrlSheet => {
   const sheet = new CSSStyleSheet();
-  const update = (next: string): Promise<void> =>
-    fetch(devDirect(next))
+  // Guards against out-of-order fetch resolution: two rapid edits fire
+  // overlapping fetches, and a slower earlier one must not land after (and
+  // clobber) a newer one. Only the most recently issued request applies.
+  let latest = 0;
+  const update = (next: string): Promise<void> => {
+    const token = ++latest;
+    return fetch(devDirect(next))
       .then((r) => r.text())
-      .then((css) => sheet.replaceSync(css))
+      .then((css) => {
+        if (token === latest) {
+          sheet.replaceSync(css);
+        }
+      })
       .catch(() => {});
+  };
   update(url);
   return {
     sheet,
