@@ -123,16 +123,9 @@ export const injectSourceMeta = (
     changed = true;
   };
 
-  // @customElement(...) class Foo (same line)
+  // @customElement(...) class Foo (any whitespace between them)
   for (const m of code.matchAll(
-    /@customElement\s*\([^)]*\)\s*(?:export\s+)?class\s+(\w+)/g
-  )) {
-    injectAtClassEnd(m[1], m.index, m[0]);
-  }
-
-  // @customElement(...)\n class Foo (next line)
-  for (const m of code.matchAll(
-    /@customElement\s*\([^)]*\)\s*\n\s*(?:export\s+)?class\s+(\w+)/g
+    /@customElement\s*\([^)]*\)\s+(?:export\s+)?class\s+(\w+)/g
   )) {
     injectAtClassEnd(m[1], m.index, m[0]);
   }
