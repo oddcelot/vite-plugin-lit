@@ -264,8 +264,8 @@ export class ComponentsView extends LitElement {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(cmd),
-    }).catch(() => {
-      // dev tool — ignore network errors
+    }).catch((err) => {
+      console.warn('[lit-devtools] inspector POST failed', err);
     });
   }
 
@@ -397,7 +397,9 @@ export class ComponentsView extends LitElement {
       file: src.file,
       line: String(src.line),
     });
-    fetch(`/__lit-open-in-editor?${params.toString()}`).catch(() => {});
+    fetch(`/__lit-open-in-editor?${params.toString()}`).catch((err) => {
+      console.warn('[lit-devtools] open-in-editor failed', err);
+    });
   }
 
   // ---------------------------------------------------------------------------

@@ -180,8 +180,8 @@ export class TimelineView extends LitElement {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(body),
-    }).catch(() => {
-      // dev tool — ignore network errors
+    }).catch((err) => {
+      console.warn('[lit-devtools] control POST failed', err);
     });
   }
 
