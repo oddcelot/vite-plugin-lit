@@ -563,15 +563,19 @@ export class ComponentsView extends LitElement {
  */
 const findAncestors = (
   nodes: InspectorTreeNode[],
-  id: number,
-  trail: number[] = []
+  id: number
 ): number[] | null => {
-  for (const node of nodes) {
-    if (node.id === id) return trail;
-    const found = findAncestors(node.children, id, [...trail, node.id]);
-    if (found !== null) return found;
-  }
-  return null;
+  const trail: number[] = [];
+  const walk = (list: InspectorTreeNode[]): boolean => {
+    for (const node of list) {
+      if (node.id === id) return true;
+      trail.push(node.id);
+      if (walk(node.children)) return true;
+      trail.pop();
+    }
+    return false;
+  };
+  return walk(nodes) ? [...trail] : null;
 };
 
 declare global {
