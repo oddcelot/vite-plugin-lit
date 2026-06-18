@@ -196,11 +196,20 @@ const usesStandardDecorators = (ctor: ReactiveCtorLike): boolean => {
   if (metadata === undefined || metadata === null) {
     return false;
   }
-  const litPropertyMetadata = (
-    globalThis as {litPropertyMetadata?: WeakMap<object, Map<unknown, unknown>>}
-  ).litPropertyMetadata;
-  const properties = litPropertyMetadata?.get(metadata);
-  return properties !== undefined && properties.size > 0;
+  // litPropertyMetadata is a Lit internal (not public API). Guard against
+  // rename, removal, or shape changes — a false negative here means we try
+  // to hot-patch and crash, which is handled by the outer catch in hotPatch.
+  try {
+    const litPropertyMetadata = (
+      globalThis as {
+        litPropertyMetadata?: WeakMap<object, Map<unknown, unknown>>;
+      }
+    ).litPropertyMetadata;
+    const properties = litPropertyMetadata?.get(metadata);
+    return properties !== undefined && properties.size > 0;
+  } catch {
+    return false;
+  }
 };
 
 /**
