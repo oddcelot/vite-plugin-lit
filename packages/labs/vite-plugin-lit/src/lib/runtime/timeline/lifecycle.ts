@@ -152,32 +152,45 @@ const wrap = (
 };
 
 /**
- * Resolve the ReactiveElement prototype from the custom element registry.
- * Looks for the first registered element that inherits from ReactiveElement
- * (identified by the presence of `reactiveElementVersions` on globalThis).
- * Returns null if no Lit element has been defined yet or if the global
- * version sentinel is missing.
+ * Finds the prototype in `proto`'s chain that *owns* `name` as an own property,
+ * or null if none does.
  */
-const resolveReactiveElementProto = (): Proto | null => {
-  const versions = (globalThis as {reactiveElementVersions?: string[]})
-    .reactiveElementVersions;
-  if (!Array.isArray(versions) || versions.length === 0) return null;
+const ownerOf = (proto: Proto, name: string): Proto | null => {
+  let p: Proto | null = proto;
+  while (p !== null && !Object.prototype.hasOwnProperty.call(p, name)) {
+    p = Object.getPrototypeOf(p) as Proto | null;
+  }
+  return p;
+};
 
-  // Walk the custom element registry looking for a Lit element.
-  const registry = customElements as unknown as {
-    [Symbol.iterator]?: () => Iterator<[string, CustomElementConstructor]>;
-  };
-  // Standard way — iterate the registry.
-  for (const [, ctor] of Object.entries(
-    (
-      registry as unknown as {
-        _registry?: Record<string, CustomElementConstructor>;
-      }
-    )._registry ?? {}
-  )) {
-    const proto = ctor?.prototype;
-    if (proto && 'performUpdate' in proto) {
-      return proto as Proto;
+/**
+ * Returns any defined Lit element's prototype (duck-typed by `performUpdate`),
+ * or null if none can be found yet. One sample is enough: its chain leads to
+ * the shared ReactiveElement/LitElement base prototypes every component
+ * inherits.
+ *
+ * Tries the non-standard `_registry` map first, then falls back to sampling a
+ * live upgraded element from the DOM — `_registry` isn't present in every
+ * engine (e.g. some Chrome builds), and without this fallback an app whose
+ * components were all defined before the runtime installed gets no lifecycle
+ * instrumentation at all.
+ */
+const findLitElementProto = (): Proto | null => {
+  const registry = (
+    customElements as unknown as {
+      _registry?: Record<string, CustomElementConstructor>;
+    }
+  )._registry;
+  if (registry !== undefined) {
+    for (const ctor of Object.values(registry)) {
+      const proto = ctor?.prototype;
+      if (proto != null && 'performUpdate' in proto) return proto as Proto;
+    }
+  }
+  if (typeof document !== 'undefined') {
+    for (const el of document.querySelectorAll('*')) {
+      const proto = Object.getPrototypeOf(el) as Proto | null;
+      if (proto != null && 'performUpdate' in proto) return proto;
     }
   }
   return null;
@@ -186,8 +199,19 @@ const resolveReactiveElementProto = (): Proto | null => {
 let installed = false;
 
 /**
- * Install prototype instrumentation on ReactiveElement.
- * Idempotent — safe to call multiple times.
+ * Install lifecycle instrumentation for *every* Lit element on the page.
+ *
+ * The phases live on the shared ReactiveElement/LitElement base prototypes, so
+ * wrapping them there instruments all components at once — not just the first
+ * one registered (the old behavior, which also silently no-op'd when Vite
+ * served the production Lit build, since that omits the `reactiveElementVersions`
+ * sentinel the resolver gated on).
+ *
+ * A component that overrides `willUpdate`/`updated`/`firstUpdated` *without*
+ * calling `super` shadows the base no-op and won't report that phase — an
+ * accepted limitation; the common case and `super`-calling overrides report.
+ *
+ * Idempotent — wrapping is brand-guarded per prototype+method.
  */
 export const installLifecycleLayer = (
   emit: EmitFn,
@@ -195,40 +219,52 @@ export const installLifecycleLayer = (
   enabled: LayerEnabledFn
 ): void => {
   if (installed) return;
+  installed = true;
 
-  const proto = resolveReactiveElementProto();
-  if (proto === null) {
-    // No Lit elements defined yet; defer to first customElements.define call.
-    const origDefine = customElements.define.bind(customElements);
-    customElements.define = (name, ctor, options) => {
-      origDefine(name, ctor, options);
-      if (!installed) {
-        const p = ctor?.prototype as Proto | null;
-        if (p && 'performUpdate' in p) {
-          patchProto(p, emit, recording, enabled);
-          installed = true;
-          // Restore define (we only need the first Lit element).
-          customElements.define = origDefine;
-        }
-      }
-    };
-    return;
+  // Instrument from a sample already on the page (covers components defined
+  // before the runtime installed — the common case, since the runtime is
+  // injected after the app's modules).
+  const proto = findLitElementProto();
+  if (proto !== null) {
+    patchBases(proto, emit, recording, enabled);
   }
 
-  patchProto(proto, emit, recording, enabled);
-  installed = true;
+  // Also instrument on future defines — both for components registered later
+  // and for the case where none were discoverable above. Kept installed for
+  // the page's lifetime; `patchBases` is idempotent (wrapping is brand-guarded
+  // per prototype+method), so re-running once the shared bases are wrapped is a
+  // cheap no-op.
+  const origDefine = customElements.define.bind(customElements);
+  customElements.define = (name, ctor, options) => {
+    origDefine(name, ctor, options);
+    const p = ctor?.prototype as Proto | null;
+    if (p != null && 'performUpdate' in p) {
+      patchBases(p, emit, recording, enabled);
+    }
+  };
 };
 
-const patchProto = (
-  proto: Proto,
+/**
+ * Wraps the lifecycle phases on the shared base prototypes reachable from
+ * `sample`. `performUpdate` is never overridden by app code, so walking up from
+ * any Lit element lands on `ReactiveElement.prototype` — which owns the update/
+ * connect lifecycle, shared by all components. `update` is wrapped on its
+ * effective owner instead (`LitElement.prototype` overrides it to drive
+ * `render()`), so the timed call is the one that actually runs.
+ */
+const patchBases = (
+  sample: Proto,
   emit: EmitFn,
   recording: RecordingFn,
   enabled: LayerEnabledFn
 ): void => {
+  const reProto = ownerOf(sample, 'performUpdate');
+  if (reProto === null) return;
   for (const name of UPDATE_PHASES) {
-    wrap(proto, name, false, emit, recording, enabled);
+    const owner = name === 'update' ? ownerOf(sample, 'update') : reProto;
+    if (owner !== null) wrap(owner, name, false, emit, recording, enabled);
   }
   for (const name of POINT_PHASES) {
-    wrap(proto, name, true, emit, recording, enabled);
+    wrap(reProto, name, true, emit, recording, enabled);
   }
 };
