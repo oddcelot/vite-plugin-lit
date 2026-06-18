@@ -5,6 +5,7 @@
  */
 
 import './hmr-counter.js';
+import './hmr-lifecycle.js';
 import './hmr-siblings.js';
 import './hmr-parent.js';
 import './hmr-styled.js';
