@@ -176,6 +176,21 @@ const readJsonBody = (
   });
 };
 
+/** True when the request carries no `Origin` or one whose host matches the
+ *  dev-server `Host`. These endpoints drive local dev tooling and (for SSE)
+ *  carry source paths and inspected element data, so we reject cross-origin
+ *  callers — a page the developer happens to visit — rather than opening them
+ *  up with wildcard CORS. */
+const isSameOrigin = (headers: {origin?: string; host?: string}): boolean => {
+  const {origin, host} = headers;
+  if (origin === undefined || origin === 'null') return true;
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+};
+
 /** Minimal typing for Node's ServerResponse (already fully typed by `node:http`
  *  but we want to avoid pulling in @types/node in a browser runtime module). */
 type SseClient = {
@@ -192,11 +207,12 @@ const installSseMiddleware = (
   server.middlewares.use(
     SSE_PATH,
     (
-      req: {method?: string},
+      req: {method?: string; headers?: {origin?: string; host?: string}},
       res: SseClient & {
         statusCode: number;
         setHeader: (k: string, v: string) => void;
         flushHeaders?: () => void;
+        end?: (body?: string) => void;
       },
       next: () => void
     ) => {
@@ -204,11 +220,15 @@ const installSseMiddleware = (
         next();
         return;
       }
+      if (!isSameOrigin(req.headers ?? {})) {
+        res.statusCode = 403;
+        res.end?.('forbidden');
+        return;
+      }
       res.statusCode = 200;
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
-      res.setHeader('Access-Control-Allow-Origin', '*');
       res.flushHeaders?.();
       res.write(':\n\n'); // keep-alive comment
 
@@ -295,7 +315,11 @@ export const litTimelinePlugin = (
       server.middlewares.use(
         SETTINGS_PATH,
         (
-          req: {method?: string; on?: ReadableOn},
+          req: {
+            method?: string;
+            on?: ReadableOn;
+            headers?: {origin?: string; host?: string};
+          },
           res: {
             statusCode: number;
             setHeader: (k: string, v: string) => void;
@@ -303,6 +327,11 @@ export const litTimelinePlugin = (
           },
           next: () => void
         ) => {
+          if (!isSameOrigin(req.headers ?? {})) {
+            res.statusCode = 403;
+            res.end('forbidden');
+            return;
+          }
           if (req.method === 'GET') {
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -380,6 +409,16 @@ export const litTimelinePlugin = (
           next();
           return;
         }
+        const r403 = res as {statusCode: number; end: (body?: string) => void};
+        if (
+          !isSameOrigin(
+            (req as {headers?: {origin?: string; host?: string}}).headers ?? {}
+          )
+        ) {
+          r403.statusCode = 403;
+          r403.end('forbidden');
+          return;
+        }
         readJsonBody(req as {on?: ReadableOn}, (body) => {
           if (body !== null) {
             if (typeof body.recording === 'boolean') {
@@ -444,6 +483,16 @@ export const litTimelinePlugin = (
         const method = (req as {method?: string}).method;
         if (method !== 'POST') {
           next();
+          return;
+        }
+        const r403 = res as {statusCode: number; end: (body?: string) => void};
+        if (
+          !isSameOrigin(
+            (req as {headers?: {origin?: string; host?: string}}).headers ?? {}
+          )
+        ) {
+          r403.statusCode = 403;
+          r403.end('forbidden');
           return;
         }
         readJsonBody(req as {on?: ReadableOn}, (body) => {
