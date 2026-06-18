@@ -286,6 +286,12 @@ export class ComponentsView extends LitElement {
         break;
       case 'tree':
         this._roots = msg.roots;
+        // Re-reveal the selection against the fresh tree: a just-picked node may
+        // not have existed in the previous _roots, so the reveal in _select()
+        // found no ancestors to expand and the node stayed hidden.
+        if (this._selectedId !== null) {
+          this._revealAncestors(this._selectedId);
+        }
         break;
       case 'details':
         if (msg.details.id === this._selectedId) {
