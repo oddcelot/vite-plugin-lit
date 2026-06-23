@@ -9,9 +9,12 @@
  * instead of patching prototypes, so it's zero-cost when the Lit debug flag
  * is off and perfectly accurate for the render layer.
  *
- * `globalThis.emitLitDebugLogEvents = true` gates the events. We set it
- * here and unset it when the layer is disabled. The events are tagged
- * `*Unstable` in the Lit source; we tolerate missing `kind` values gracefully.
+ * `globalThis.emitLitDebugLogEvents = true` gates the events, and lit-html
+ * dispatches a CustomEvent per render whenever it's set — a real per-render
+ * cost. So the caller drives the flag via {@link setRenderDebugEnabled} from
+ * `recording × layer-enabled` rather than leaving it on for the whole session.
+ * The events are tagged `*Unstable` in the Lit source; we tolerate missing
+ * `kind` values gracefully.
  *
  * begin render / end render share a numeric `id` → we use it as groupId so
  * the panel can show a duration bar for each render call.
@@ -19,6 +22,7 @@
 
 import type {TimelineEvent} from '../../../types/timeline.js';
 import {idOf, sourceOf} from './identity.js';
+import {now} from './clock.js';
 
 type EmitFn = (event: TimelineEvent) => void;
 type RecordingFn = () => boolean;
@@ -67,7 +71,7 @@ const onLitDebug = (
   const detail = (e as LitDebugEvent).detail;
   if (!detail?.kind) return;
 
-  const time = performance.now();
+  const time = now();
   const {kind, id} = detail;
 
   switch (kind) {
@@ -132,19 +136,27 @@ export const installRenderLayer = (
 ): void => {
   if (removeListener !== null) return;
 
-  // Enable the Lit debug event system (dev-only; no-op in prod builds).
-  (globalThis as {emitLitDebugLogEvents?: boolean}).emitLitDebugLogEvents =
-    true;
-
+  // The listener is cheap and always attached; the per-render cost lives in the
+  // `emitLitDebugLogEvents` flag, which the caller toggles via
+  // `setRenderDebugEnabled` only while actively capturing.
   const handler = (e: Event) => onLitDebug(e, emit, recording, layerEnabled);
   window.addEventListener('lit-debug', handler);
   removeListener = () => window.removeEventListener('lit-debug', handler);
+};
+
+/**
+ * Toggle Lit's debug event system. Enabling makes lit-html dispatch a
+ * CustomEvent on every render (dev-only; no-op in prod builds), so the caller
+ * keeps it off unless the render layer is actively recording.
+ */
+export const setRenderDebugEnabled = (enabled: boolean): void => {
+  (globalThis as {emitLitDebugLogEvents?: boolean}).emitLitDebugLogEvents =
+    enabled;
 };
 
 /** Remove the listener and clear the Lit debug flag. */
 export const uninstallRenderLayer = (): void => {
   removeListener?.();
   removeListener = null;
-  (globalThis as {emitLitDebugLogEvents?: boolean}).emitLitDebugLogEvents =
-    false;
+  setRenderDebugEnabled(false);
 };

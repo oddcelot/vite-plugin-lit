@@ -16,8 +16,9 @@
  */
 
 import {emit, setHotClient} from './transport.js';
+import {resetClock} from './clock.js';
 import {installLifecycleLayer} from './lifecycle.js';
-import {installRenderLayer} from './render.js';
+import {installRenderLayer, setRenderDebugEnabled} from './render.js';
 import {installMouseLayer, installKeyboardLayer} from './input.js';
 import type {TimelineLayersState} from '../../../types/timeline.js';
 
@@ -34,15 +35,23 @@ const state: TimelineLayersState = {
 };
 
 const recording = (): boolean => state.recordingState;
+const lifecycleEnabled = (): boolean => state.litLifecycleEnabled;
 const renderEnabled = (): boolean => state.litRenderEnabled;
 const mouseEnabled = (): boolean => state.mouseEventEnabled;
 const keyboardEnabled = (): boolean => state.keyboardEventEnabled;
+
+// Drive Lit's debug event flag from recording × render-layer-enabled so
+// lit-html only pays the per-render CustomEvent dispatch cost while we're
+// actually capturing the render layer.
+const syncRenderDebug = (): void => {
+  setRenderDebugEnabled(state.recordingState && state.litRenderEnabled);
+};
 
 // ---------------------------------------------------------------------------
 // Capture layer installation
 // ---------------------------------------------------------------------------
 
-installLifecycleLayer(emit, recording);
+installLifecycleLayer(emit, recording, lifecycleEnabled);
 installRenderLayer(emit, recording, renderEnabled);
 installMouseLayer(emit, recording, mouseEnabled);
 installKeyboardLayer(emit, recording, keyboardEnabled);
@@ -64,11 +73,17 @@ if (hot !== undefined) {
 
   // Panel → app: toggle recording and per-layer flags.
   hot.on('lit:timeline:recording-changed', (data) => {
-    state.recordingState = (data as {recording: boolean}).recording;
+    const next = (data as {recording: boolean}).recording;
+    // Re-zero the timeline clock on the rising edge so event times read as
+    // "ms since recording started" rather than since page load.
+    if (next && !state.recordingState) resetClock();
+    state.recordingState = next;
+    syncRenderDebug();
   });
 
   hot.on('lit:timeline:layers-changed', (data) => {
     Object.assign(state, data as Partial<TimelineLayersState>);
+    syncRenderDebug();
   });
 
   // Announce readiness so the panel can detect the runtime.

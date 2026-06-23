@@ -133,11 +133,19 @@ export const collectDetails = (el: Element): InspectorDetails => {
   const properties: InspectorProp[] = [];
   if (declarations !== undefined) {
     for (const [key, decl] of declarations) {
-      const value = (el as unknown as Record<PropertyKey, unknown>)[key];
+      // Reading a reactive property runs its accessor, which may throw; one bad
+      // getter must not take out the whole details snapshot.
+      let value: unknown;
+      let threw = false;
+      try {
+        value = (el as unknown as Record<PropertyKey, unknown>)[key];
+      } catch {
+        threw = true;
+      }
       properties.push({
         name: typeof key === 'symbol' ? key.toString() : String(key),
-        value: serialize(value),
-        type: typeTag(value),
+        value: threw ? '[getter threw]' : serialize(value),
+        type: threw ? 'error' : typeTag(value),
         attribute: attributeName(key, decl),
         reflects: decl.reflect === true,
         state: decl.state === true,

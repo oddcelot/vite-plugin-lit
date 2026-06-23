@@ -5,7 +5,7 @@
  */
 
 import {existsSync} from 'node:fs';
-import {resolve as resolvePath} from 'node:path';
+import {resolve as resolvePath, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {loadEnv, type CSSOptions, type Plugin} from 'vite';
 import MagicString from 'magic-string';
@@ -232,14 +232,32 @@ const JS_FILE_RE = /\.[cm]?[jt]sx?$/;
 
 const OPEN_IN_EDITOR_PATH = '/__lit-open-in-editor';
 
-const createOpenInEditorMiddleware = () => {
+/** Reject requests whose `Origin` is a different host than the dev server, so
+ *  a page the developer happens to visit can't drive these local-only
+ *  endpoints. Same-origin requests (no `Origin`, or matching `Host`) pass. */
+const isSameOrigin = (headers: {origin?: string; host?: string}): boolean => {
+  const {origin, host} = headers;
+  if (origin === undefined || origin === 'null') return true;
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+};
+
+const createOpenInEditorMiddleware = (root: string) => {
   return (
-    req: {url?: string},
+    req: {url?: string; headers?: {origin?: string; host?: string}},
     res: {statusCode: number; end: (msg: string) => void},
     next: (err?: unknown) => void
   ) => {
     if (req.url === undefined) {
       next();
+      return;
+    }
+    if (!isSameOrigin(req.headers ?? {})) {
+      res.statusCode = 403;
+      res.end('forbidden');
       return;
     }
     const query = req.url.includes('?')
@@ -252,9 +270,30 @@ const createOpenInEditorMiddleware = () => {
       res.end('missing file parameter');
       return;
     }
-    const line = params.get('line') ?? '1';
-    const column = params.get('column') ?? '1';
-    const fileRef = `${file}:${line}:${column}`;
+    // Confine the open to the project root: resolve the requested path and
+    // reject anything that escapes `root` (path traversal, absolute paths to
+    // arbitrary files). `launch-editor` spawns the user's editor on this path,
+    // so an unvalidated `file` is a local-file-open / arg-injection vector.
+    const resolved = resolvePath(root, file);
+    if (resolved !== root && !resolved.startsWith(root + sep)) {
+      res.statusCode = 403;
+      res.end('file outside project root');
+      return;
+    }
+    if (!existsSync(resolved)) {
+      res.statusCode = 404;
+      res.end('file not found');
+      return;
+    }
+    // Coerce to integers so a crafted `line`/`column` can't smuggle extra
+    // shell-visible content through the `file:line:column` ref.
+    const line = String(
+      Math.max(1, Number.parseInt(params.get('line') ?? '1', 10) || 1)
+    );
+    const column = String(
+      Math.max(1, Number.parseInt(params.get('column') ?? '1', 10) || 1)
+    );
+    const fileRef = `${resolved}:${line}:${column}`;
     import('launch-editor')
       .then(
         (mod: {
@@ -493,7 +532,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       if (!resolved.sourceOverlay) return;
       server.middlewares.use(
         OPEN_IN_EDITOR_PATH,
-        createOpenInEditorMiddleware()
+        createOpenInEditorMiddleware(root)
       );
     },
     transform(code, id, transformOptions) {

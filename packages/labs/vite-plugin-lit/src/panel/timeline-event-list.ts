@@ -7,6 +7,7 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, property, state} from 'lit/decorators.js';
 import {ref, createRef} from 'lit/directives/ref.js';
+import {repeat} from 'lit/directives/repeat.js';
 import {tokens} from '../lib/tokens.js';
 import type {TimelineEvent} from '../types/timeline.js';
 import type {LayerState} from './timeline-layers.js';
@@ -177,15 +178,21 @@ export class TimelineEventList extends LitElement {
   @state() private _regex = '';
 
   private readonly _scrollRef = createRef<HTMLDivElement>();
+  /** Distinct elements seen in `events`, recomputed only when `events` changes
+   *  (not on every render driven by selection/filter/regex state). */
+  private _elementsCache: Array<{id: number; tag: string}> = [];
 
   override willUpdate(changed: Map<string, unknown>) {
-    // Drop a stale element filter when its element is no longer in the events
-    // (e.g. after Clear), otherwise the list would silently show nothing.
-    if (changed.has('events') && this._elementFilter !== null) {
-      const present = this.events.some(
-        (ev) => ev.meta?.elementId === this._elementFilter
-      );
-      if (!present) this._elementFilter = null;
+    if (changed.has('events')) {
+      this._elementsCache = this._computeElements();
+      // Drop a stale element filter when its element is no longer in the events
+      // (e.g. after Clear), otherwise the list would silently show nothing.
+      if (
+        this._elementFilter !== null &&
+        !this.events.some((ev) => ev.meta?.elementId === this._elementFilter)
+      ) {
+        this._elementFilter = null;
+      }
     }
   }
 
@@ -215,7 +222,7 @@ export class TimelineEventList extends LitElement {
   }
 
   /** Distinct elements (by stable id) seen across the recorded events. */
-  private _elements(): Array<{id: number; tag: string}> {
+  private _computeElements(): Array<{id: number; tag: string}> {
     const seen = new Map<number, string>();
     for (const ev of this.events) {
       const id = ev.meta?.elementId;
@@ -252,7 +259,7 @@ export class TimelineEventList extends LitElement {
   }
 
   override render() {
-    const elements = this._elements();
+    const elements = this._elementsCache;
     // Compile the regex once per render; invalid patterns disable the filter
     // (rather than hiding everything) and flag the input.
     let re: RegExp | null = null;
@@ -320,7 +327,9 @@ export class TimelineEventList extends LitElement {
                 >
               </div>
             `
-          : visible.map(
+          : repeat(
+              visible,
+              (ev) => ev,
               (ev) => html`
                 <div
                   class="row ${this._selected === ev ? 'selected' : ''}"

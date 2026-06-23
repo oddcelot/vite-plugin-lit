@@ -326,7 +326,14 @@ class LitSourceOverlay extends HTMLElement {
     if (this.#throttleTimer !== undefined) return;
     this.#throttleTimer = setTimeout(() => {
       this.#throttleTimer = undefined;
-      this.#resolveAt(event.clientX, event.clientY);
+      // Resolve against the latest pointer position (kept current by
+      // #onTrackMouse), not the coords captured when this timer was scheduled
+      // ~throttleMs ago — otherwise the highlight lags the cursor during
+      // continuous movement.
+      const x = this.#lastMouseX;
+      const y = this.#lastMouseY;
+      if (this.#pointInTooltip(x, y)) return;
+      this.#resolveAt(x, y);
     }, throttleMs);
   };
 

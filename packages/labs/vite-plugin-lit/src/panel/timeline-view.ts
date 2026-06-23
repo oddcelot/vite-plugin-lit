@@ -16,6 +16,14 @@ import './timeline-event-list.js';
 const LS_KEY = 'lit-devtools-timeline-layers';
 
 /**
+ * Cap on retained timeline events. The stream is unbounded (the mouse/keyboard
+ * layers can emit at pointer-move rate), so without a cap the buffer — and the
+ * list that re-renders from it — grows for the whole session. Keep the most
+ * recent events; older ones scroll off.
+ */
+const MAX_EVENTS = 5000;
+
+/**
  * The Timeline view: records and lists Lit lifecycle / render / input events.
  * One tab of the DevTools panel shell (\`lit-devtools-panel\`); owns its own event
  * stream (SSE), recording state and layer toggles so it keeps recording while
@@ -90,7 +98,9 @@ export class TimelineView extends LitElement {
       try {
         const batch = JSON.parse(e.data) as TimelineEvent[];
         if (Array.isArray(batch)) {
-          this._events = [...this._events, ...batch];
+          const next = [...this._events, ...batch];
+          this._events =
+            next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
         }
       } catch {
         // ignore malformed data
@@ -170,8 +180,8 @@ export class TimelineView extends LitElement {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(body),
-    }).catch(() => {
-      // dev tool — ignore network errors
+    }).catch((err) => {
+      console.warn('[lit-devtools] control POST failed', err);
     });
   }
 
@@ -181,7 +191,16 @@ export class TimelineView extends LitElement {
 
   private _toggleRecord() {
     this._recording = !this._recording;
-    this._postControl({recording: this._recording});
+    // On start, push the current layer enablement together with the recording
+    // flag: the runtime defaults mouse/keyboard capture off, and otherwise only
+    // hears about layers when one is toggled — so those layers wouldn't record
+    // on the first session until the user toggled one. Send the full state so
+    // the runtime matches what the panel shows from the first event.
+    this._postControl(
+      this._recording
+        ? {recording: true, ...this._layersToState()}
+        : {recording: false}
+    );
   }
 
   private _clear() {

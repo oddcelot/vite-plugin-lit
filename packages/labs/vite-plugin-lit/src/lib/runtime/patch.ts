@@ -196,27 +196,29 @@ const usesStandardDecorators = (ctor: ReactiveCtorLike): boolean => {
   if (metadata === undefined || metadata === null) {
     return false;
   }
-  const litPropertyMetadata = (
-    globalThis as {litPropertyMetadata?: WeakMap<object, Map<unknown, unknown>>}
-  ).litPropertyMetadata;
-  const properties = litPropertyMetadata?.get(metadata);
-  return properties !== undefined && properties.size > 0;
+  // litPropertyMetadata is a Lit internal (not public API). Guard against
+  // rename, removal, or shape changes — a false negative here means we try
+  // to hot-patch and crash, which is handled by the outer catch in hotPatch.
+  try {
+    const litPropertyMetadata = (
+      globalThis as {
+        litPropertyMetadata?: WeakMap<object, Map<unknown, unknown>>;
+      }
+    ).litPropertyMetadata;
+    const properties = litPropertyMetadata?.get(metadata);
+    return properties !== undefined && properties.size > 0;
+  } catch {
+    return false;
+  }
 };
 
 /**
- * Re-adopts constructed stylesheets on an instance's shadow root from the
- * (just-patched) static `elementStyles`. Local reimplementation — no lit
- * import. Skips cleanly for light-DOM components and shimmed sheets.
+ * Resolves a static `elementStyles` array to its constructed `CSSStyleSheet`s.
+ * Returns `null` for a non-array or any shimmed sheet (no constructible
+ * stylesheet support), so callers can bail rather than adopt a partial list.
  */
-const readoptStyles = (el: ReactiveElementLike): void => {
-  const root = el.renderRoot;
-  if (typeof ShadowRoot === 'undefined' || !(root instanceof ShadowRoot)) {
-    return;
-  }
-  const styles = (el.constructor as ReactiveCtorLike).elementStyles;
-  if (!Array.isArray(styles)) {
-    return;
-  }
+const stylesToSheets = (styles: unknown): CSSStyleSheet[] | null => {
+  if (!Array.isArray(styles)) return null;
   const sheets: CSSStyleSheet[] = [];
   for (const style of styles) {
     const sheet =
@@ -224,15 +226,43 @@ const readoptStyles = (el: ReactiveElementLike): void => {
         ? style
         : ((style as {styleSheet?: CSSStyleSheet} | null)?.styleSheet ??
           undefined);
-    if (!(sheet instanceof CSSStyleSheet)) {
-      // Shimmed sheet (no constructible stylesheet support); bail out
-      // rather than adopt a partial list.
-      return;
-    }
+    if (!(sheet instanceof CSSStyleSheet)) return null;
     sheets.push(sheet);
   }
-  // Assign (never accumulate): replaces any previously adopted set.
-  root.adoptedStyleSheets = sheets;
+  return sheets;
+};
+
+/**
+ * Re-adopts constructed stylesheets on an instance's shadow root from the
+ * (just-patched) static `elementStyles`. Local reimplementation — no lit
+ * import. Skips cleanly for light-DOM components and shimmed sheets.
+ *
+ * `oldSheets` are the sheets the pre-patch class contributed (captured before
+ * the static sync). We drop exactly those and append the new set, leaving any
+ * sheet adopted imperatively by other code in place rather than clobbering the
+ * whole list.
+ */
+const readoptStyles = (
+  el: ReactiveElementLike,
+  oldSheets: CSSStyleSheet[]
+): void => {
+  const root = el.renderRoot;
+  if (typeof ShadowRoot === 'undefined' || !(root instanceof ShadowRoot)) {
+    return;
+  }
+  const sheets = stylesToSheets(
+    (el.constructor as ReactiveCtorLike).elementStyles
+  );
+  if (sheets === null) {
+    return;
+  }
+  const drop = new Set(oldSheets);
+  const ours = new Set(sheets);
+  // Our styles go first, matching Lit's own order (extra sheets appended).
+  const preserved = [...root.adoptedStyleSheets].filter(
+    (s) => !drop.has(s) && !ours.has(s)
+  );
+  root.adoptedStyleSheets = [...sheets, ...preserved];
 };
 
 const incompatible = (
@@ -309,6 +339,11 @@ const hotPatch = (
       Object.setPrototypeOf(OldClass, newStaticParent);
     }
 
+    // Capture the sheets the OLD class contributed before the static sync
+    // overwrites `elementStyles`, so readoptStyles can drop exactly those and
+    // leave imperatively-adopted sheets in place.
+    const oldSheets = stylesToSheets(OldClass.elementStyles) ?? [];
+
     // 5. Sync own members new → old on the prototype and on statics.
     syncOwnMembers(OldClass.prototype, NewClass.prototype, PROTO_SKIP);
     syncOwnMembers(OldClass, NewClass, STATIC_SKIP);
@@ -370,7 +405,7 @@ const hotPatch = (
           }
         }
       }
-      readoptStyles(el);
+      readoptStyles(el, oldSheets);
       state.generationOf.set(el, record.generation);
       el.requestUpdate?.();
     }

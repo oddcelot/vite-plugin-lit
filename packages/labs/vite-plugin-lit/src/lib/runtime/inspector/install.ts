@@ -48,7 +48,10 @@ if (hot !== undefined && typeof window !== 'undefined') {
   type Updatable = Element & {
     updated?: (changed: unknown) => void;
   };
-  let watched: {el: Updatable; restore: () => void} | null = null;
+  // Hold the watched element via a WeakRef so an active watch doesn't keep a
+  // removed element alive: the override and `restore` only reach `el` through
+  // the ref, leaving the DOM as its sole strong root.
+  let watched: {ref: WeakRef<Updatable>; restore: () => void} | null = null;
 
   const unwatch = (): void => {
     watched?.restore();
@@ -64,15 +67,21 @@ if (hot !== undefined && typeof window !== 'undefined') {
     }
     const hadOwn = Object.prototype.hasOwnProperty.call(el, 'updated');
     const prev = el.updated;
+    const ref = new WeakRef(el);
     el.updated = function (changed: unknown) {
       prev?.call(this, changed);
-      send({type: 'details', details: collectDetails(el)});
+      const cur = ref.deref();
+      if (cur !== undefined) {
+        send({type: 'details', details: collectDetails(cur)});
+      }
     };
     watched = {
-      el,
+      ref,
       restore: () => {
-        if (hadOwn) el.updated = prev;
-        else delete el.updated;
+        const cur = ref.deref();
+        if (cur === undefined) return;
+        if (hadOwn) cur.updated = prev;
+        else delete cur.updated;
       },
     };
     // Push an immediate snapshot so the panel doesn't wait for the next update.

@@ -264,8 +264,8 @@ export class ComponentsView extends LitElement {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(cmd),
-    }).catch(() => {
-      // dev tool — ignore network errors
+    }).catch((err) => {
+      console.warn('[lit-devtools] inspector POST failed', err);
     });
   }
 
@@ -286,6 +286,12 @@ export class ComponentsView extends LitElement {
         break;
       case 'tree':
         this._roots = msg.roots;
+        // Re-reveal the selection against the fresh tree: a just-picked node may
+        // not have existed in the previous _roots, so the reveal in _select()
+        // found no ancestors to expand and the node stayed hidden.
+        if (this._selectedId !== null) {
+          this._revealAncestors(this._selectedId);
+        }
         break;
       case 'details':
         if (msg.details.id === this._selectedId) {
@@ -391,7 +397,9 @@ export class ComponentsView extends LitElement {
       file: src.file,
       line: String(src.line),
     });
-    fetch(`/__lit-open-in-editor?${params.toString()}`).catch(() => {});
+    fetch(`/__lit-open-in-editor?${params.toString()}`).catch((err) => {
+      console.warn('[lit-devtools] open-in-editor failed', err);
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -555,15 +563,19 @@ export class ComponentsView extends LitElement {
  */
 const findAncestors = (
   nodes: InspectorTreeNode[],
-  id: number,
-  trail: number[] = []
+  id: number
 ): number[] | null => {
-  for (const node of nodes) {
-    if (node.id === id) return trail;
-    const found = findAncestors(node.children, id, [...trail, node.id]);
-    if (found !== null) return found;
-  }
-  return null;
+  const trail: number[] = [];
+  const walk = (list: InspectorTreeNode[]): boolean => {
+    for (const node of list) {
+      if (node.id === id) return true;
+      trail.push(node.id);
+      if (walk(node.children)) return true;
+      trail.pop();
+    }
+    return false;
+  };
+  return walk(nodes) ? [...trail] : null;
 };
 
 declare global {

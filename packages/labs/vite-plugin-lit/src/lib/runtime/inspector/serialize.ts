@@ -71,6 +71,18 @@ const serializeAt = (
     return Array.isArray(value) ? `Array(${value.length})` : typeTag(value);
   }
 
+  // Typed arrays are indexable but not `Array.isArray`; routing them through
+  // the generic object branch would make `Object.keys` materialize every index
+  // (e.g. a million-element Uint8Array) before slicing. Handle them as arrays.
+  if (ArrayBuffer.isView(value) && !(value instanceof DataView)) {
+    const arr = value as unknown as {length: number; [i: number]: number};
+    const shown = Math.min(arr.length, MAX_ITEMS);
+    const items: string[] = [];
+    for (let i = 0; i < shown; i++) items.push(String(arr[i]));
+    if (arr.length > MAX_ITEMS) items.push(`…+${arr.length - MAX_ITEMS}`);
+    return `${obj.constructor?.name ?? 'TypedArray'}(${arr.length}) [${items.join(', ')}]`;
+  }
+
   seen.add(obj);
   try {
     if (Array.isArray(value)) {
@@ -80,12 +92,20 @@ const serializeAt = (
       if (value.length > MAX_ITEMS) items.push(`…+${value.length - MAX_ITEMS}`);
       return `[${items.join(', ')}]`;
     }
-    const entries = Object.entries(value as Record<string, unknown>);
-    const parts = entries
-      .slice(0, MAX_ITEMS)
-      .map(([k, v]) => `${k}: ${serializeAt(v, depth + 1, seen)}`);
-    if (entries.length > MAX_ITEMS) {
-      parts.push(`…+${entries.length - MAX_ITEMS}`);
+    // Read each property individually (keys, not entries) so a single throwing
+    // getter degrades to a placeholder instead of aborting the whole preview.
+    const keys = Object.keys(value as Record<string, unknown>);
+    const parts = keys.slice(0, MAX_ITEMS).map((k) => {
+      let v: unknown;
+      try {
+        v = (value as Record<string, unknown>)[k];
+      } catch {
+        return `${k}: [getter threw]`;
+      }
+      return `${k}: ${serializeAt(v, depth + 1, seen)}`;
+    });
+    if (keys.length > MAX_ITEMS) {
+      parts.push(`…+${keys.length - MAX_ITEMS}`);
     }
     const name = obj.constructor?.name;
     const prefix = name !== undefined && name !== 'Object' ? `${name} ` : '';
