@@ -1,6 +1,6 @@
 {
   "name": "@oddsquad/vite-plugin-lit",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "description": "Vite plugin providing true HMR for Lit components, plus CSS helpers and a DevTools panel",
   "license": "BSD-3-Clause",
   "author": "Oddsquad (based on @lit-labs/vite-hmr by Google LLC)",
