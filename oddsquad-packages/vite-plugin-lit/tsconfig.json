@@ -5,7 +5,7 @@
     "moduleResolution": "NodeNext",
     "lib": ["es2022", "DOM", "DOM.Iterable"],
     "outDir": ".",
-    "rootDir": "../../packages/labs/vite-hmr/src",
+    "rootDir": "../../packages/labs/vite-plugin-lit/src",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -19,9 +19,11 @@
     "noImplicitThis": true,
     "noImplicitOverride": true,
     "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["../../packages/labs/vite-hmr/src/**/*.ts"],
-  "exclude": ["../../packages/labs/vite-hmr/src/test/**"]
+  "include": ["../../packages/labs/vite-plugin-lit/src/**/*.ts"],
+  "exclude": ["../../packages/labs/vite-plugin-lit/src/test/**"]
 }
