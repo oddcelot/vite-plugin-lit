@@ -64,6 +64,25 @@ export interface HmrOptions {
 }
 
 /**
+ * What a `?css-sheet` import compiles to under `vite build`.
+ *
+ * - `'url'`: fetch-backed sheet over the emitted `.css` asset.
+ * - `'inline'`: css text embedded in the JS chunk, processed by the css
+ *   pipeline (`?inline`).
+ * - `'inline-raw'`: css text embedded verbatim, skipping the css pipeline
+ *   (`?raw`).
+ * - `'auto'`: `'inline'` when `build.lib` is set, `'url'` otherwise.
+ */
+export type CssSheetBuild = 'auto' | 'url' | 'inline' | 'inline-raw';
+
+const CSS_SHEET_BUILD_MODES: readonly CssSheetBuild[] = [
+  'auto',
+  'url',
+  'inline',
+  'inline-raw',
+];
+
+/**
  * Options for the Lit Vite plugin.
  *
  * Every option also resolves from environment variables (and `.env` files)
@@ -96,16 +115,31 @@ export interface LitPluginOptions {
    * `true` enables all built-in layers with defaults.
    */
   timeline?: boolean;
+
+  /**
+   * What a `?css-sheet` import compiles to under `vite build`.
+   * - `'url'`:        fetch-backed sheet over the emitted `.css` asset
+   * - `'inline'`:     css text embedded in the JS chunk, processed by the css
+   *                   pipeline (`?inline`)
+   * - `'inline-raw'`: css text embedded verbatim, skipping the css pipeline
+   *                   (`?raw`)
+   * - `'auto'`:       `'inline'` when `build.lib` is set, `'url'` otherwise
+   *
+   * Dev is always the fetch-backed HMR form regardless of this setting.
+   * Defaults to `'auto'`.
+   */
+  cssSheetBuild?: CssSheetBuild;
 }
 
 /** Plugin options after merging explicit options, env vars, and defaults. */
-interface ResolvedOptions {
+export interface ResolvedOptions {
   hmrEnabled: boolean;
   reconnect: boolean;
   onIncompatible: 'reload' | 'warn';
   indicator: false | {count: boolean};
   sourceOverlay: false | SourceOverlayOptions;
   timeline: boolean;
+  cssSheetBuild: CssSheetBuild;
 }
 
 /** Env var prefix consumed at config time. */
@@ -127,10 +161,29 @@ const envNum = (v: string | undefined): number | undefined => {
 };
 
 /**
+ * Parse a string against a closed set of values; `undefined` (with a warning)
+ * when set to something outside it, so a typo falls back to the default
+ * instead of silently disabling a feature.
+ */
+const envEnum = <T extends string>(
+  v: string | undefined,
+  allowed: readonly T[],
+  source: string
+): T | undefined => {
+  if (v === undefined || v === '') return undefined;
+  if ((allowed as readonly string[]).includes(v)) return v as T;
+  console.warn(
+    `[lit-plugin] ignoring ${source}=${JSON.stringify(v)}; expected one of ` +
+      allowed.map((a) => JSON.stringify(a)).join(', ')
+  );
+  return undefined;
+};
+
+/**
  * Merge explicit options over env vars over defaults (in that precedence) into
  * the flat shape the plugin hooks consume.
  */
-const resolveOptions = (
+export const resolveOptions = (
   options: LitPluginOptions,
   env: Record<string, string>
 ): ResolvedOptions => {
@@ -175,6 +228,15 @@ const resolveOptions = (
   const timeline =
     options.timeline ?? envBool(env[`${ENV_PREFIX}_TIMELINE`]) ?? false;
 
+  const cssSheetBuild =
+    envEnum(options.cssSheetBuild, CSS_SHEET_BUILD_MODES, 'cssSheetBuild') ??
+    envEnum(
+      env[`${ENV_PREFIX}_CSS_SHEET_BUILD`],
+      CSS_SHEET_BUILD_MODES,
+      `${ENV_PREFIX}_CSS_SHEET_BUILD`
+    ) ??
+    'auto';
+
   return {
     hmrEnabled,
     reconnect,
@@ -182,6 +244,7 @@ const resolveOptions = (
     indicator,
     sourceOverlay,
     timeline,
+    cssSheetBuild,
   };
 };
 
@@ -342,6 +405,11 @@ const CSS_URL_VIRTUAL_PREFIX = '\0lit-plugin:hmr-url:';
  * a plugin-generated module: the `import.meta.hot.accept` lives here (where
  * Vite's static analysis sees the literal specifier), so callers write a bare
  * import and never touch `import.meta.hot` themselves.
+ *
+ * Under `vite build` the generated module can instead inline the css text (see
+ * `cssSheetBuild`) — a library's consumers bundle its JS only, so a
+ * fetch-backed sheet would 404 on the `.css` asset that never reached their
+ * build.
  */
 const CSS_SHEET_QUERY_RE = /^([^?]+\.css)\?(?:[^&]*&)*css-sheet(?:&.*)?$/;
 const CSS_SHEET_VIRTUAL_PREFIX = '\0lit-plugin:css-sheet:';
@@ -354,68 +422,103 @@ const CSS_VIRTUAL_SUFFIX = '.js';
  * `?hmr-url`/`?css-sheet` must keep working under `vite build`, where the HMR
  * plugin doesn't apply). Exported for the baseline e2e run, which needs the
  * queries working without the HMR plugin.
+ *
+ * `getCssSheetBuild` is a getter, not a value: `litPlugin()` re-resolves its
+ * options against the loaded env in a `config` hook, which runs after the
+ * plugin array is built. Standalone (no getter) it behaves like the `'auto'`
+ * default.
  */
-export const litCssQueries = (): Plugin => ({
-  name: 'lit-css-query',
-  // Vite's core resolver claims `./x.css?hmr-url` for the CSS pipeline
-  // before normal plugins get a look, so resolve ahead of it.
-  enforce: 'pre',
-  async resolveId(id, importer) {
-    const prefix = CSS_URL_QUERY_RE.test(id)
-      ? CSS_URL_VIRTUAL_PREFIX
-      : CSS_SHEET_QUERY_RE.test(id)
-        ? CSS_SHEET_VIRTUAL_PREFIX
-        : null;
-    if (prefix === null) {
+export const litCssQueries = (
+  getCssSheetBuild: () => CssSheetBuild = () => 'auto'
+): Plugin => {
+  let isBuild = false;
+  let isLib = false;
+  return {
+    name: 'lit-css-query',
+    // Vite's core resolver claims `./x.css?hmr-url` for the CSS pipeline
+    // before normal plugins get a look, so resolve ahead of it.
+    enforce: 'pre',
+    configResolved(config) {
+      isBuild = config.command === 'build';
+      isLib = config.build.lib !== false && config.build.lib !== undefined;
+    },
+    async resolveId(id, importer) {
+      const prefix = CSS_URL_QUERY_RE.test(id)
+        ? CSS_URL_VIRTUAL_PREFIX
+        : CSS_SHEET_QUERY_RE.test(id)
+          ? CSS_SHEET_VIRTUAL_PREFIX
+          : null;
+      if (prefix === null) {
+        return null;
+      }
+      const file = id.slice(0, id.indexOf('?'));
+      const resolved = await this.resolve(file, importer);
+      if (resolved === null) {
+        return null;
+      }
+      return prefix + resolved.id + CSS_VIRTUAL_SUFFIX;
+    },
+    load(id) {
+      const helperPath = resolveRuntimeModule('css');
+      if (id.startsWith(CSS_URL_VIRTUAL_PREFIX)) {
+        const file = id.slice(
+          CSS_URL_VIRTUAL_PREFIX.length,
+          -CSS_VIRTUAL_SUFFIX.length
+        );
+        return {
+          code:
+            `import url from ${JSON.stringify(`${file}?url`)};\n` +
+            `import {devCacheBust} from ${JSON.stringify(helperPath)};\n` +
+            `export default devCacheBust(url);\n`,
+          moduleType: 'js',
+        };
+      }
+      if (id.startsWith(CSS_SHEET_VIRTUAL_PREFIX)) {
+        const file = id.slice(
+          CSS_SHEET_VIRTUAL_PREFIX.length,
+          -CSS_VIRTUAL_SUFFIX.length
+        );
+        const mode = getCssSheetBuild();
+        const inlineQuery =
+          !isBuild || mode === 'url' || (mode === 'auto' && !isLib)
+            ? null
+            : mode === 'inline-raw'
+              ? '?raw'
+              : '?inline';
+        if (inlineQuery !== null) {
+          // Build only, so no `import.meta.hot` block. The sheet is still
+          // constructed once per virtual module, so adopters share it exactly
+          // as they do in the fetch-backed form.
+          return {
+            code:
+              `import css from ${JSON.stringify(`${file}${inlineQuery}`)};\n` +
+              `const sheet = new CSSStyleSheet();\n` +
+              `sheet.replaceSync(css);\n` +
+              `export default sheet;\n`,
+            moduleType: 'js',
+          };
+        }
+        // The accept specifier must be byte-identical to the import above —
+        // Vite resolves accepted HMR deps by static analysis. Generating both
+        // here is exactly what frees the caller from writing it. The swap is
+        // self-accepted at this boundary, so it never propagates to adopters.
+        const urlSpecifier = JSON.stringify(`${file}?url`);
+        return {
+          code:
+            `import url from ${urlSpecifier};\n` +
+            `import {urlSheet} from ${JSON.stringify(helperPath)};\n` +
+            `const {sheet, onHotUpdate} = urlSheet(url);\n` +
+            `export default sheet;\n` +
+            `if (import.meta.hot) {\n` +
+            `  import.meta.hot.accept(${urlSpecifier}, onHotUpdate);\n` +
+            `}\n`,
+          moduleType: 'js',
+        };
+      }
       return null;
-    }
-    const file = id.slice(0, id.indexOf('?'));
-    const resolved = await this.resolve(file, importer);
-    if (resolved === null) {
-      return null;
-    }
-    return prefix + resolved.id + CSS_VIRTUAL_SUFFIX;
-  },
-  load(id) {
-    const helperPath = resolveRuntimeModule('css');
-    if (id.startsWith(CSS_URL_VIRTUAL_PREFIX)) {
-      const file = id.slice(
-        CSS_URL_VIRTUAL_PREFIX.length,
-        -CSS_VIRTUAL_SUFFIX.length
-      );
-      return {
-        code:
-          `import url from ${JSON.stringify(`${file}?url`)};\n` +
-          `import {devCacheBust} from ${JSON.stringify(helperPath)};\n` +
-          `export default devCacheBust(url);\n`,
-        moduleType: 'js',
-      };
-    }
-    if (id.startsWith(CSS_SHEET_VIRTUAL_PREFIX)) {
-      const file = id.slice(
-        CSS_SHEET_VIRTUAL_PREFIX.length,
-        -CSS_VIRTUAL_SUFFIX.length
-      );
-      // The accept specifier must be byte-identical to the import above —
-      // Vite resolves accepted HMR deps by static analysis. Generating both
-      // here is exactly what frees the caller from writing it. The swap is
-      // self-accepted at this boundary, so it never propagates to adopters.
-      const urlSpecifier = JSON.stringify(`${file}?url`);
-      return {
-        code:
-          `import url from ${urlSpecifier};\n` +
-          `import {urlSheet} from ${JSON.stringify(helperPath)};\n` +
-          `const {sheet, onHotUpdate} = urlSheet(url);\n` +
-          `export default sheet;\n` +
-          `if (import.meta.hot) {\n` +
-          `  import.meta.hot.accept(${urlSpecifier}, onHotUpdate);\n` +
-          `}\n`,
-        moduleType: 'js',
-      };
-    }
-    return null;
-  },
-});
+    },
+  };
+};
 
 /**
  * A `css` tagged template literal with no interpolations and no escape
@@ -508,10 +611,30 @@ const litCssLiterals = (): Plugin => {
  */
 export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
   // Resolved from explicit options first, env vars second, defaults last. The
-  // `config` hook re-resolves with the loaded env once Vite hands us the mode;
-  // this initial pass covers code paths that run before (or without) it.
+  // `lit-plugin-options` `config` hook below re-resolves with the loaded env
+  // once Vite hands us the mode; this initial pass covers code paths that run
+  // before (or without) it.
   let resolved: ResolvedOptions = resolveOptions(options, {});
   let root = '';
+  // Env resolution lives in its own always-applied plugin: `?css-sheet` is a
+  // build-time feature too, and the HMR plugin (`apply: 'serve'`) never gets a
+  // `config` hook under `vite build`. `enforce: 'pre'` and first position put
+  // it ahead of every other hook that reads `resolved`.
+  const optionsPlugin: Plugin = {
+    name: 'lit-plugin-options',
+    enforce: 'pre',
+    config(viteConfig, {mode}) {
+      // `loadEnv` reads `.env*` files from the env dir (root by default) and
+      // merges in matching `process.env` keys, filtered to the `LIT_PLUGIN`
+      // prefix. Explicit options still win (handled in resolveOptions).
+      const envDir = viteConfig.envDir
+        ? resolvePath(viteConfig.envDir)
+        : viteConfig.root
+          ? resolvePath(viteConfig.root)
+          : process.cwd();
+      resolved = resolveOptions(options, loadEnv(mode, envDir, ENV_PREFIX));
+    },
+  };
   const sourceOverlayPlugin: Plugin = {
     name: 'lit-source-overlay',
     apply: 'serve',
@@ -587,17 +710,9 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
   const hmr: Plugin = {
     name: 'lit-plugin',
     apply: 'serve',
-    config: (viteConfig, {mode}) => {
-      // Resolve options against the loaded env now that Vite hands us the mode.
-      // `loadEnv` reads `.env*` files from the env dir (root by default) and
-      // merges in matching `process.env` keys, filtered to the `LIT_PLUGIN`
-      // prefix. Explicit options still win (handled in resolveOptions).
-      const envDir = viteConfig.envDir
-        ? resolvePath(viteConfig.envDir)
-        : viteConfig.root
-          ? resolvePath(viteConfig.root)
-          : process.cwd();
-      resolved = resolveOptions(options, loadEnv(mode, envDir, ENV_PREFIX));
+    config: () => {
+      // Options are already resolved against the loaded env by
+      // `lit-plugin-options`, which runs first.
       if (!resolved.hmrEnabled) {
         return;
       }
@@ -755,7 +870,10 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
   // feature is disabled (which env may decide), so inclusion can't be gated
   // on the synchronously-known options here.
   const plugins: Plugin[] = [
-    litCssQueries(),
+    optionsPlugin,
+    // Getter, not a snapshot: `resolved` is re-resolved against the loaded env
+    // in `optionsPlugin`'s `config` hook, which runs after this array is built.
+    litCssQueries(() => resolved.cssSheetBuild),
     litCssLiterals(),
     sourceOverlayPlugin,
     hmr,

@@ -52,16 +52,17 @@ CSS literal processing apply in both dev and build.
 `litPlugin()` takes a single options object. `hmr` groups the HMR feature and
 its on-page indicator; `sourceOverlay` is the click-to-open-in-IDE inspector.
 
-| Option                | Type                              | Default    | Description                                                                                                                        |
-| --------------------- | --------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `hmr`                 | `boolean \| HmrOptions`           | `true`     | HMR for Lit components and its feedback. `false` disables patching **and** the indicator.                                          |
-| `hmr.enabled`         | `boolean`                         | `true`     | Enable in-place HMR for Lit component classes.                                                                                     |
-| `hmr.reconnect`       | `boolean`                         | `false`    | Cycle `disconnectedCallback()`/`connectedCallback()` on live instances after a hot patch. Interning makes this mostly unnecessary. |
-| `hmr.onIncompatible`  | `'reload' \| 'warn'`              | `'reload'` | What to do when a component can't be hot-patched in place: reload the page, or only warn in the console.                           |
-| `hmr.indicator`       | `boolean \| {enabled?, count?}`   | `true`     | On-page pulsing indicator that animates on each HMR update. Forced off when HMR is disabled.                                       |
-| `hmr.indicator.count` | `boolean`                         | `false`    | Show a cumulative update count in the indicator.                                                                                   |
-| `sourceOverlay`       | `boolean \| SourceOverlayOptions` | `false`    | Dev-only click-to-open-in-IDE inspector. Toggle with Ctrl+Shift+S (configurable via `key`).                                        |
-| `timeline`            | `boolean`                         | `false`    | Dev-only Timeline panel inside Vite DevTools. Records Lit lifecycle, render, mouse, and keyboard events in real time.              |
+| Option                | Type                                          | Default    | Description                                                                                                                                                            |
+| --------------------- | --------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hmr`                 | `boolean \| HmrOptions`                       | `true`     | HMR for Lit components and its feedback. `false` disables patching **and** the indicator.                                                                              |
+| `hmr.enabled`         | `boolean`                                     | `true`     | Enable in-place HMR for Lit component classes.                                                                                                                         |
+| `hmr.reconnect`       | `boolean`                                     | `false`    | Cycle `disconnectedCallback()`/`connectedCallback()` on live instances after a hot patch. Interning makes this mostly unnecessary.                                     |
+| `hmr.onIncompatible`  | `'reload' \| 'warn'`                          | `'reload'` | What to do when a component can't be hot-patched in place: reload the page, or only warn in the console.                                                               |
+| `hmr.indicator`       | `boolean \| {enabled?, count?}`               | `true`     | On-page pulsing indicator that animates on each HMR update. Forced off when HMR is disabled.                                                                           |
+| `hmr.indicator.count` | `boolean`                                     | `false`    | Show a cumulative update count in the indicator.                                                                                                                       |
+| `sourceOverlay`       | `boolean \| SourceOverlayOptions`             | `false`    | Dev-only click-to-open-in-IDE inspector. Toggle with Ctrl+Shift+S (configurable via `key`).                                                                            |
+| `timeline`            | `boolean`                                     | `false`    | Dev-only Timeline panel inside Vite DevTools. Records Lit lifecycle, render, mouse, and keyboard events in real time.                                                  |
+| `cssSheetBuild`       | `'auto' \| 'url' \| 'inline' \| 'inline-raw'` | `'auto'`   | What a [`?css-sheet`](#build-output-csssheetbuild) import compiles to under `vite build`. `'auto'` inlines in a `build.lib` build, fetches an emitted asset otherwise. |
 
 ### Environment variables
 
@@ -81,6 +82,7 @@ take precedence over env vars, which take precedence over the defaults.
 | `LIT_PLUGIN_SOURCE_OVERLAY_EDITOR`      | `sourceOverlay.editor`     |
 | `LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS` | `sourceOverlay.throttleMs` |
 | `LIT_PLUGIN_TIMELINE`                   | `timeline` (enable)        |
+| `LIT_PLUGIN_CSS_SHEET_BUILD`            | `cssSheetBuild`            |
 
 ## Timeline
 
@@ -235,17 +237,66 @@ ambient type via `/// <reference types="@lit-labs/vite-plugin-lit/client" />`
 
 This targets utility-first CSS frameworks (Tailwind, UnoCSS): the framework
 generates one complete `.css` file of utility classes, and every component
-adopts it through a single shared sheet. In a `vite build` that file stays a
-**standalone, content-hashed `.css` asset** — pipeline-processed (Lightning
-CSS/PostCSS) and fetched once at runtime, never inlined into a JS chunk — so
-the bundle keeps one cacheable stylesheet shared across the app. The `accept`
-wiring is dev-only and is stripped from the build. (When the framework
+adopts it through a single shared sheet. In an **app** `vite build` that file
+stays a **standalone, content-hashed `.css` asset** — pipeline-processed
+(Lightning CSS/PostCSS) and fetched once at runtime, never inlined into a JS
+chunk — so the bundle keeps one cacheable stylesheet shared across the app. The
+`accept` wiring is dev-only and is stripped from the build. (When the framework
 regenerates the file in dev, the hot-swap relies on its Vite plugin emitting
 an HMR update for the imported `.css` module — verify against your specific
 Tailwind/UnoCSS integration.) Same FOUC caveat as `urlSheet()` (a runtime
 fetch backs it); the tradeoff is control — reach for `urlSheet()` directly when
 you need a custom fetch/transform, or when the importing code must run without
 this plugin.
+
+#### Build output (`cssSheetBuild`)
+
+A **library** build is the exception: consumers bundle your JS only, so the
+`.css` asset never reaches their build and the runtime fetch 404s into a
+silently empty sheet. Under `build.lib` the plugin therefore embeds the css
+text in the JS chunk instead, and no `.css` asset is emitted.
+
+| Where                      | `?css-sheet` compiles to                                      |
+| -------------------------- | ------------------------------------------------------------- |
+| dev server                 | fetch over the dev-served file, with the HMR swap wired up    |
+| `vite build` (app)         | fetch over the emitted content-hashed `.css` asset            |
+| `vite build` + `build.lib` | `new CSSStyleSheet()` + `replaceSync()` over inlined css text |
+
+`cssSheetBuild` overrides the build-time choice (dev is always the fetch-backed
+HMR form):
+
+| Value          | Build output                                                        |
+| -------------- | ------------------------------------------------------------------- |
+| `'auto'`       | default — `'inline'` when `build.lib` is set, `'url'` otherwise     |
+| `'url'`        | always fetch-backed over an emitted `.css` asset                    |
+| `'inline'`     | css text in the JS chunk, processed by the css pipeline (`?inline`) |
+| `'inline-raw'` | css text in the JS chunk verbatim, skipping the pipeline (`?raw`)   |
+
+`'inline'` matches the `'url'` form (that asset is pipeline-processed too), so
+it's the consistent default. `'inline-raw'` is the escape hatch for css the
+configured transformer rejects — e.g. Lightning CSS errors on the spec-invalid
+but widely shipped `@property` + `initial-value: var(…)`:
+
+```css
+@property --chip-bg {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: var(
+    --brand
+  ); /* Lightning CSS: Unexpected token Function("var") */
+}
+```
+
+```ts
+litPlugin({cssSheetBuild: 'inline-raw'});
+```
+
+Both inline flavors keep the properties the fetch-backed form has: one sheet
+object per css file, shared by every importer, and no FOUC (there's no fetch to
+wait on). They construct the sheet at module top level, so importing the built
+module requires constructable-stylesheet support (browsers ≥ Safari 16.4; jsdom
+and Node SSR throw at import). The `'url'` form has the same requirement via
+`urlSheet()`, just lazier.
 
 ### External stylesheet via `<link>`
 
