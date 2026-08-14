@@ -163,6 +163,31 @@ describe('injectSourceMeta nested braces', () => {
     expect(out).toContain(`MyEl[${SOURCE_META_SYM}]=`);
   });
 
+  test('division with spaces in a class body is not a regex literal', () => {
+    const code =
+      `@customElement('my-el')\n` +
+      `export class MyEl extends LitElement {\n` +
+      `  ratio = this.value / this.max;\n` +
+      '  render() {\n' +
+      '    return html`<div>${this.value / this.max}</div>`;\n' +
+      '  }\n' +
+      `}\n`;
+    const {changed, out} = run(code);
+    expect(changed).toBe(true);
+    expect(out).toContain(`MyEl[${SOURCE_META_SYM}]=`);
+  });
+
+  test('regex literal with braces and a char class is skipped', () => {
+    const code =
+      `@customElement('my-el')\n` +
+      `export class MyEl extends LitElement {\n` +
+      `  matches(s) { return /[}/]{2}/.test(s); }\n` +
+      `}\n`;
+    const {changed, out} = run(code);
+    expect(changed).toBe(true);
+    expect(out).toContain(`MyEl[${SOURCE_META_SYM}]=`);
+  });
+
   test('two components after a nested-template class both inject', () => {
     const code =
       `@customElement('el-one')\n` +

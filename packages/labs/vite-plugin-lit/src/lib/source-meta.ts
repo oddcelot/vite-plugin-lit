@@ -91,15 +91,37 @@ const findClassBodyEnd = (code: string, classStart: number): number => {
         i += 2;
         continue;
       }
-      const prev = i > 0 ? code[i - 1] : '';
-      if (/[=:(,+\-!&|?{}[; ]/.test(prev)) {
-        i++;
-        while (i < code.length && code[i] !== '/') {
-          if (code[i] === '\\') i++;
-          i++;
+      // Regex literal vs division: scan back over whitespace to the last
+      // significant char — a regex can only follow an operator, opening
+      // punctuation, or a keyword like `return`. `a / b` has an identifier
+      // there, so it's division and scans on as plain code.
+      let j = i - 1;
+      while (j >= 0 && /\s/.test(code[j])) j--;
+      const prev = j >= 0 ? code[j] : '';
+      const regexPossible =
+        j < 0 ||
+        /[=:(,+\-!&|?{}[;]/.test(prev) ||
+        /(?:^|[^\w$])(?:return|typeof|case|instanceof|in|of|new|delete|void|throw|do|else|yield|await)$/.test(
+          code.slice(Math.max(0, j - 11), j + 1)
+        );
+      if (regexPossible) {
+        let k = i + 1;
+        let inCharClass = false;
+        while (
+          k < code.length &&
+          code[k] !== '\n' &&
+          (inCharClass || code[k] !== '/')
+        ) {
+          if (code[k] === '\\') k++;
+          else if (code[k] === '[') inCharClass = true;
+          else if (code[k] === ']') inCharClass = false;
+          k++;
         }
-        i++;
-        continue;
+        if (code[k] === '/') {
+          i = k + 1;
+          continue;
+        }
+        // No closing `/` before the line ends — not a regex after all.
       }
     }
     if (ch === '{') {
