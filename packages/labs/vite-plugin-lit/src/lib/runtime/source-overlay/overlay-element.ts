@@ -213,10 +213,13 @@ class LitSourceOverlay extends HTMLElement {
       .getPropertyValue('--lit-devtools-radius')
       .trim();
     const r = parseFloat(raw) || 6;
-    this.#highlight.style.left = `${rect.left - r}px`;
-    this.#highlight.style.top = `${rect.top - r}px`;
-    this.#highlight.style.width = `${rect.width + 2 * r}px`;
-    this.#highlight.style.height = `${rect.height + 2 * r}px`;
+    // The tinted box hugs the element's exact rect — that's the boundary being
+    // picked; only the spotlight cutout gets the breathing room of `r`.
+    this.#highlight.style.display = 'block';
+    this.#highlight.style.left = `${rect.left}px`;
+    this.#highlight.style.top = `${rect.top}px`;
+    this.#highlight.style.width = `${rect.width}px`;
+    this.#highlight.style.height = `${rect.height}px`;
     this.#mask.style.clipPath = buildSpotlightClipPath(
       rect.left - r,
       rect.top - r,
@@ -236,6 +239,7 @@ class LitSourceOverlay extends HTMLElement {
   #clearTarget() {
     this.#targetEl = null;
     this.#info = null;
+    this.#highlight.style.display = 'none';
     this.#highlight.style.left = '0';
     this.#highlight.style.top = '0';
     this.#highlight.style.width = '0';

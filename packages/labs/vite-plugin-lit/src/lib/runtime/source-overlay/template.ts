@@ -32,9 +32,15 @@ export const OVERLAY_HTML = `
       position: fixed;
       top: 0;
       left: 0;
+      display: none;
       pointer-events: none;
       box-sizing: border-box;
-      border-radius: var(--lit-devtools-radius-md);
+      border-radius: 2px;
+      /* Same box the inspector panel draws on tree hover (inspector/install.ts),
+         so picking and panel-hovering read as the same selection. */
+      background: rgba(77, 99, 255, 0.25);
+      outline: 1px solid #4d63ff;
+      transition: all 80ms ease-out;
     }
     #tooltip {
       position: fixed;
