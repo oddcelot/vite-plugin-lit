@@ -27,16 +27,42 @@ export const lineNumberAt = (code: string, index: number): number =>
 
 /**
  * Finds the index after the closing `}` of a class body starting at
- * `classStart`. Skips braces inside strings, template literals, and regex
- * literals so those don't throw off the count.
+ * `classStart`. Skips braces inside strings, comments, regex literals, and
+ * template literals — including code in `${…}` interpolations, where nested
+ * templates (Lit's `html\`…\`` inside `.map()` etc.) recurse arbitrarily.
  */
 const findClassBodyEnd = (code: string, classStart: number): number => {
   const open = code.indexOf('{', classStart);
   if (open === -1) return -1;
+  // Brace depth of the code scope currently being scanned. Entering a `${…}`
+  // interpolation pushes the enclosing scope's depth and restarts at 1 (the
+  // `${` counts as the open brace); balancing it pops back into the template.
   let depth = 1;
+  const interpolationStack: number[] = [];
+  let inTemplate = false;
   let i = open + 1;
-  while (i < code.length && depth > 0) {
+  while (i < code.length) {
     const ch = code[i];
+    if (inTemplate) {
+      if (ch === '\\') {
+        i += 2;
+        continue;
+      }
+      if (ch === '`') {
+        inTemplate = false;
+        i++;
+        continue;
+      }
+      if (ch === '$' && code[i + 1] === '{') {
+        interpolationStack.push(depth);
+        depth = 1;
+        inTemplate = false;
+        i += 2;
+        continue;
+      }
+      i++;
+      continue;
+    }
     if (ch === '"' || ch === "'") {
       const quote = ch;
       i++;
@@ -48,15 +74,23 @@ const findClassBodyEnd = (code: string, classStart: number): number => {
       continue;
     }
     if (ch === '`') {
-      i++;
-      while (i < code.length && code[i] !== '`') {
-        if (code[i] === '\\') i++;
-        i++;
-      }
+      inTemplate = true;
       i++;
       continue;
     }
     if (ch === '/') {
+      const next = code[i + 1];
+      if (next === '/') {
+        i = code.indexOf('\n', i);
+        if (i === -1) return -1;
+        continue;
+      }
+      if (next === '*') {
+        i = code.indexOf('*/', i + 2);
+        if (i === -1) return -1;
+        i += 2;
+        continue;
+      }
       const prev = i > 0 ? code[i - 1] : '';
       if (/[=:(,+\-!&|?{}[; ]/.test(prev)) {
         i++;
@@ -68,11 +102,22 @@ const findClassBodyEnd = (code: string, classStart: number): number => {
         continue;
       }
     }
-    if (ch === '{') depth++;
-    else if (ch === '}') depth--;
+    if (ch === '{') {
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        const enclosing = interpolationStack.pop();
+        if (enclosing === undefined) {
+          return i + 1;
+        }
+        depth = enclosing;
+        inTemplate = true;
+      }
+    }
     i++;
   }
-  return depth === 0 ? i : -1;
+  return -1;
 };
 
 const makeAssignment = (
