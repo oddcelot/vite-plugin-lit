@@ -378,14 +378,23 @@ export const createOpenInEditorMiddleware = (
             file: string,
             cb: (fileName: string, errorMessage: string | null) => void
           ) => void;
+          // `launch-editor` invokes the callback only on failure — synchronously
+          // when it can't guess an editor, later if the spawn errors. Reply `ok`
+          // right after launching; the guard keeps a sync failure's 500 first
+          // and drops a late async failure (the response is long gone).
+          let finished = false;
+          const finish = (statusCode: number, msg: string) => {
+            if (finished) return;
+            finished = true;
+            res.statusCode = statusCode;
+            res.end(msg);
+          };
           launch(fileRef, (_fileName: string, errorMessage: string | null) => {
             if (errorMessage !== null) {
-              res.statusCode = 500;
-              res.end(errorMessage);
-              return;
+              finish(500, errorMessage);
             }
-            res.end('ok');
           });
+          finish(200, 'ok');
         }
       )
       .catch(next);

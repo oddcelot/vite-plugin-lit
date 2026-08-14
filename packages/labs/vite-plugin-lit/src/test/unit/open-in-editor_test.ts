@@ -135,6 +135,33 @@ describe('createOpenInEditorMiddleware', () => {
     }
   });
 
+  test('replies ok immediately — launch-editor only calls back on failure', async () => {
+    launchMock.mockImplementationOnce(() => {
+      // Successful launch: the callback is never invoked.
+    });
+    const {status, body} = await run(
+      middleware,
+      `file=${encodeURIComponent(appFile)}`
+    );
+    expect(status).toBe(200);
+    expect(body).toBe('ok');
+  });
+
+  test('500s when launch-editor fails synchronously', async () => {
+    launchMock.mockImplementationOnce(
+      (
+        file: string,
+        cb: (fileName: string, errorMessage: string | null) => void
+      ) => cb(file, 'could not guess editor')
+    );
+    const {status, body} = await run(
+      middleware,
+      `file=${encodeURIComponent(appFile)}`
+    );
+    expect(status).toBe(500);
+    expect(body).toBe('could not guess editor');
+  });
+
   test('404s a missing file under an allowed root', async () => {
     const {status, body} = await run(
       middleware,
