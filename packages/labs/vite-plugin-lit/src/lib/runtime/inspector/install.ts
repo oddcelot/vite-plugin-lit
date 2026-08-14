@@ -185,15 +185,41 @@ if (hot !== undefined && typeof window !== 'undefined') {
   };
 
   // -------------------------------------------------------------------------
+  // SPA navigation: a route change swaps the component tree without any HMR
+  // or panel event, so the snapshot went stale until a manual refresh. Push a
+  // deduped tree after each navigation — twice, since routes typically
+  // lazy-load and render async. Redundant while the live observer watches.
+  // -------------------------------------------------------------------------
+
+  const onNavigation = (): void => {
+    if (observer !== null) return;
+    for (const delay of [150, 1000]) {
+      setTimeout(pushTreeIfChanged, delay);
+    }
+  };
+  window.addEventListener('popstate', onNavigation);
+  window.addEventListener('hashchange', onNavigation);
+  for (const method of ['pushState', 'replaceState'] as const) {
+    const original = history[method].bind(history);
+    history[method] = (...args: Parameters<History['pushState']>) => {
+      original(...args);
+      onNavigation();
+    };
+  }
+
+  // -------------------------------------------------------------------------
   // Command dispatch
   // -------------------------------------------------------------------------
 
   hot.on(INSPECT_CMD_CHANNEL, (data) => {
     const cmd = data as InspectorCommand;
     switch (cmd.type) {
-      case 'tree':
-        send({type: 'tree', roots: buildTree()});
+      case 'tree': {
+        const roots = buildTree();
+        lastTreeJson = JSON.stringify(roots);
+        send({type: 'tree', roots});
         break;
+      }
       case 'details': {
         const el = elementById(cmd.id);
         if (el !== undefined) {
