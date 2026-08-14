@@ -308,7 +308,12 @@ const isSameOrigin = (headers: {origin?: string; host?: string}): boolean => {
   }
 };
 
-const createOpenInEditorMiddleware = (root: string) => {
+export const createOpenInEditorMiddleware = (
+  allowedRoots: readonly string[]
+) => {
+  // First entry is the primary root: relative `file` params resolve against
+  // it. Every entry grants open access to files beneath it.
+  const roots = allowedRoots.map((r) => resolvePath(r));
   return (
     req: {url?: string; headers?: {origin?: string; host?: string}},
     res: {statusCode: number; end: (msg: string) => void},
@@ -333,14 +338,18 @@ const createOpenInEditorMiddleware = (root: string) => {
       res.end('missing file parameter');
       return;
     }
-    // Confine the open to the project root: resolve the requested path and
-    // reject anything that escapes `root` (path traversal, absolute paths to
-    // arbitrary files). `launch-editor` spawns the user's editor on this path,
-    // so an unvalidated `file` is a local-file-open / arg-injection vector.
-    const resolved = resolvePath(root, file);
-    if (resolved !== root && !resolved.startsWith(root + sep)) {
+    // Confine the open to the allowed roots: resolve the requested path and
+    // reject anything that escapes all of them (path traversal, absolute
+    // paths to arbitrary files). `launch-editor` spawns the user's editor on
+    // this path, so an unvalidated `file` is a local-file-open /
+    // arg-injection vector.
+    const resolved = resolvePath(roots[0] ?? process.cwd(), file);
+    const allowed = roots.some(
+      (root) => resolved === root || resolved.startsWith(root + sep)
+    );
+    if (!allowed) {
       res.statusCode = 403;
-      res.end('file outside project root');
+      res.end('file outside allowed roots');
       return;
     }
     if (!existsSync(resolved)) {
@@ -653,9 +662,14 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
     },
     configureServer(server) {
       if (!resolved.sourceOverlay) return;
+      // Allow opens from everything vite itself is willing to serve
+      // (`server.fs.allow` defaults to the workspace root), not just
+      // `config.root` — in monorepos, component sources regularly live in
+      // sibling packages outside the served app's root.
+      const fsAllow = server.config.server.fs?.allow ?? [];
       server.middlewares.use(
         OPEN_IN_EDITOR_PATH,
-        createOpenInEditorMiddleware(root)
+        createOpenInEditorMiddleware([root, ...fsAllow])
       );
     },
     transform(code, id, transformOptions) {
