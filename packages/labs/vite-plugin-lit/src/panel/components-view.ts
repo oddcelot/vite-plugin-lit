@@ -397,9 +397,18 @@ export class ComponentsView extends LitElement {
       file: src.file,
       line: String(src.line),
     });
-    fetch(`/__lit-open-in-editor?${params.toString()}`).catch((err) => {
-      console.warn('[lit-devtools] open-in-editor failed', err);
-    });
+    fetch(`/__lit-open-in-editor?${params.toString()}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          console.warn(
+            `[lit-devtools] open-in-editor failed (${res.status})`,
+            await res.text()
+          );
+        }
+      })
+      .catch((err) => {
+        console.warn('[lit-devtools] open-in-editor failed', err);
+      });
   }
 
   // ---------------------------------------------------------------------------
