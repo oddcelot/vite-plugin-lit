@@ -15,7 +15,9 @@ import './timeline-view.js';
 
 // Install the shared design tokens on the panel iframe's :root before the
 // views render. Panel components inherit the semantic aliases from :root.
-injectTokens();
+// The panel owns this document, so it also declares `color-scheme` (host-page
+// injections must not — see `injectTokens`).
+injectTokens({colorScheme: true});
 // Own the color-scheme class once the panel module is live: re-assert the
 // saved preference (the Settings tab mounts lazily, so it can't). `auto` needs
 // no JS — the tokens' `prefers-color-scheme` @media rule resolves it live.
