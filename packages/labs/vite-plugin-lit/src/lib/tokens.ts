@@ -157,9 +157,9 @@ const darkThemeCSS = `
 
   --lit-devtools-selection-bg:         var(--lit-devtools-accent);
   --lit-devtools-on-selection:         #ffffff;
-
-  color-scheme: dark;
 `;
+
+const darkSchemeCSS = `color-scheme: dark;`;
 
 const lightThemeCSS = `
   /* ---- LIGHT · lit.dev website theme ---- */
@@ -201,9 +201,9 @@ const lightThemeCSS = `
 
   --lit-devtools-selection-bg:         var(--lit-devtools-accent);
   --lit-devtools-on-selection:         #ffffff;
-
-  color-scheme: light;
 `;
+
+const lightSchemeCSS = `color-scheme: light;`;
 
 /**
  * Default dark theme tokens as a flat string, primarily for use by
@@ -235,6 +235,56 @@ export const tokens = css`
 let _injected = false;
 
 /**
+ * Options for {@link injectTokens} / {@link tokenStyleText}.
+ */
+export interface InjectTokensOptions {
+  /**
+   * Also declare `color-scheme` on `:root`. Only safe when the devtools OWN
+   * the target document (the panel iframe / standalone panel page). Never set
+   * this when injecting into the host page: `color-scheme` on the embedder's
+   * `:root` makes the UA repaint the canvas dark for apps that don't declare
+   * an opaque background. Defaults to `false`.
+   */
+  colorScheme?: boolean;
+}
+
+/**
+ * Builds the token stylesheet text injected by {@link injectTokens}.
+ *
+ * By default the sheet defines custom properties only — inert for the host
+ * page. With `colorScheme: true` it additionally declares `color-scheme` so
+ * the owning document's UA surfaces (canvas, form controls, scrollbars)
+ * follow the devtools theme.
+ */
+export const tokenStyleText = ({
+  colorScheme = false,
+}: InjectTokensOptions = {}): string => {
+  const dark = colorScheme
+    ? `${darkThemeCSS}\n  ${darkSchemeCSS}`
+    : darkThemeCSS;
+  const light = colorScheme
+    ? `${lightThemeCSS}\n  ${lightSchemeCSS}`
+    : lightThemeCSS;
+  return `
+    :root {
+      ${baseTokenCSS}
+      ${dark}
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        ${light}
+      }
+    }
+    :root.color-scheme-light {
+      ${light}
+    }
+    :root.color-scheme-dark {
+      ${dark}
+    }
+  `;
+};
+
+/**
  * Injects `:root { … }` into the page `<head>` once.
  *
  * CSS custom properties defined on `:root` cascade through shadow DOM
@@ -243,28 +293,14 @@ let _injected = false;
  *
  * The injected stylesheet reacts to `prefers-color-scheme` and to
  * `.color-scheme-light` / `.color-scheme-dark` classes on the document root.
+ * It never sets `color-scheme` on the host page; the panel opts in via
+ * {@link InjectTokensOptions.colorScheme} for its own document.
  */
-export const injectTokens = (): void => {
+export const injectTokens = (options?: InjectTokensOptions): void => {
   if (_injected) return;
   _injected = true;
   const style = document.createElement('style');
   style.setAttribute('data-lit-devtools-tokens', '');
-  style.textContent = `
-    :root {
-      ${baseTokenCSS}
-      ${darkThemeCSS}
-    }
-    @media (prefers-color-scheme: light) {
-      :root {
-        ${lightThemeCSS}
-      }
-    }
-    :root.color-scheme-light {
-      ${lightThemeCSS}
-    }
-    :root.color-scheme-dark {
-      ${darkThemeCSS}
-    }
-  `;
+  style.textContent = tokenStyleText(options);
   document.head.prepend(style);
 };
