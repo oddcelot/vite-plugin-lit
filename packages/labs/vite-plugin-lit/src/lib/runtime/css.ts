@@ -20,6 +20,17 @@
  */
 
 /**
+ * Vite's dev flag. Accessed as a direct member expression (`import.meta.env.DEV`)
+ * so the bundler can statically replace it per key. Aliasing the whole object
+ * (`const env = import.meta.env`) instead defeats that replacement and makes
+ * Vite inline the ENTIRE serialized `import.meta.env` — every env var — into the
+ * consumer bundle. Optional chaining keeps this safe where `import.meta.env` is
+ * absent (non-Vite runtimes).
+ */
+const isDev = (): boolean =>
+  (import.meta as {env?: {DEV?: boolean}}).env?.DEV === true;
+
+/**
  * Appends a cache-busting query to a `?url`-imported CSS file URL in dev.
  *
  * Call this at *module scope* (not in `render()`, where every render would
@@ -39,8 +50,7 @@
  * ```
  */
 export const devCacheBust = (url: string): string => {
-  const env = (import.meta as {env?: {DEV?: boolean}}).env;
-  return env?.DEV ? `${url}?t=${Date.now()}` : url;
+  return isDev() ? `${url}?t=${Date.now()}` : url;
 };
 
 /**
@@ -56,8 +66,7 @@ export const devCacheBust = (url: string): string => {
  * it carries `?t=…`).
  */
 const devDirect = (url: string): string => {
-  const env = (import.meta as {env?: {DEV?: boolean}}).env;
-  if (!env?.DEV) {
+  if (!isDev()) {
     return url;
   }
   return `${url}${url.includes('?') ? '&' : '?'}direct`;
