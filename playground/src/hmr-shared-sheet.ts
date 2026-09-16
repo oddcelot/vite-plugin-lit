@@ -30,7 +30,7 @@ export default sheet;
 if (import.meta.hot) {
   import.meta.hot.accept(['./hmr-shared.css?raw'], ([mod]) => {
     if (mod) {
-      sheet.replaceSync((mod as {default: string}).default);
+      sheet.replaceSync(mod.default as string);
     }
   });
 }

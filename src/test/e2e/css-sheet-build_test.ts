@@ -10,7 +10,7 @@ import * as path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {build, preview, type PreviewServer} from 'vite';
 import {chromium, type Browser} from 'playwright-core';
-import {afterAll, expect, test} from 'vitest';
+import {afterAll, expect, test} from 'vite-plus/test';
 import {litPlugin, type LitPluginOptions} from '../../index.js';
 
 /**

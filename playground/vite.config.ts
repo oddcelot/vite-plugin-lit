@@ -5,7 +5,8 @@
  */
 
 import Inspect from 'vite-plugin-inspect';
-import {defineConfig, loadEnv} from 'vite';
+import {defineConfig, loadEnv} from 'vite-plus';
+import {lazyPlugins} from 'vite-plus';
 
 export default defineConfig(async ({mode}) => {
   // Inside the monorepo, use the built package output (`npm run dev` via
@@ -76,6 +77,9 @@ export default defineConfig(async ({mode}) => {
         },
       },
     },
-    plugins: [litPlugin({timeline: true, sourceOverlay: true}), Inspect()],
+    plugins: lazyPlugins(() => [
+      litPlugin({timeline: true, sourceOverlay: true}),
+      Inspect(),
+    ]),
   };
 });

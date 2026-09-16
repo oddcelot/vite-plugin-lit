@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {afterEach, describe, expect, test, vi} from 'vitest';
+import {afterEach, describe, expect, test, vi} from 'vite-plus/test';
 import {devCacheBust, urlSheet} from '../../lib/runtime/css.js';
 
 /**

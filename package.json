@@ -35,17 +35,18 @@
     "url": "https://github.com/oddcelot/vite-plugin-lit/issues"
   },
   "scripts": {
-    "build": "tsc --pretty && node scripts/copy-panel-html.mjs && prettier --write --ignore-path /dev/null \"index.js\" \"lib/**/*.js\"",
+    "build": "tsc --pretty && node scripts/copy-panel-html.mjs && node scripts/format-build-output.mjs",
     "build:lit-canary": "node scripts/build-lit-canary.mjs",
-    "dev": "pnpm run build && vite playground",
+    "dev": "pnpm run build && vp dev playground",
     "test": "pnpm run test:unit && pnpm run test:e2e",
-    "test:unit": "vitest run --project unit",
-    "test:e2e": "pnpm run build && vitest run --project e2e",
+    "test:unit": "vp test run --project unit",
+    "test:e2e": "pnpm run build && vp test run --project e2e",
     "bench": "node bench/run.mjs",
     "bench:serve": "node bench/run.mjs --serve",
-    "format": "prettier \"**/*.{cjs,html,js,json,md,ts,yaml}\" --write",
-    "format:check": "prettier \"**/*.{cjs,html,js,json,md,ts,yaml}\" --check",
-    "prepublishOnly": "pnpm run build"
+    "format": "vp fmt \"**/*.{cjs,html,js,json,md,ts,yaml}\"",
+    "format:check": "vp fmt \"**/*.{cjs,html,js,json,md,ts,yaml}\" --check",
+    "prepublishOnly": "pnpm run build",
+    "prepare": "vp config"
   },
   "dependencies": {
     "es-module-lexer": "^3.0.2",
@@ -71,10 +72,9 @@
     "lightningcss": "^1.33.0",
     "lit": "^3.3.3",
     "playwright-core": "^1.63.0",
-    "prettier": "^3.9.7",
     "typescript": "^7.0.2",
-    "vite": "^8.3.0",
-    "vitest": "^5.0.1"
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
   },
   "engines": {
     "node": ">=20"

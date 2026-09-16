@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {describe, expect, test} from 'vitest';
+import {describe, expect, test} from 'vite-plus/test';
 import {syncOwnMembers} from '../../lib/runtime/patch.js';
 
 describe('syncOwnMembers', () => {

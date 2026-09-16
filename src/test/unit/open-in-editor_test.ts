@@ -7,7 +7,7 @@
 import {mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {afterAll, beforeEach, describe, expect, test, vi} from 'vitest';
+import {afterAll, beforeEach, describe, expect, test, vi} from 'vite-plus/test';
 import {createOpenInEditorMiddleware} from '../../lib/plugin.js';
 
 /**

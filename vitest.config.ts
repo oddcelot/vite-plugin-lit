@@ -5,7 +5,7 @@
  */
 
 // eslint-disable-next-line import/extensions
-import {defineConfig} from 'vitest/config';
+import {defineConfig} from 'vite-plus';
 import {canarySettings} from './src/test/canary.js';
 
 export default defineConfig({
