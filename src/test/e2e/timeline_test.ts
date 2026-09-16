@@ -6,7 +6,7 @@
 
 import * as http from 'node:http';
 import {afterAll, beforeAll, expect, test} from 'vite-plus/test';
-import {type Fixture, startFixture} from './utils.js';
+import {type Fixture, sameOriginHeaders, startFixture} from './utils.js';
 
 let fixture: Fixture;
 
@@ -23,25 +23,29 @@ const getUrl = (
   path: string
 ): Promise<{status: number; headers: http.IncomingHttpHeaders; body: string}> =>
   new Promise((resolve, reject) => {
-    const req = http.get(`http://127.0.0.1:${port}${path}`, (res) => {
-      let body = '';
-      let resolved = false;
-      const done = () => {
-        if (resolved) return;
-        resolved = true;
-        resolve({status: res.statusCode ?? 0, headers: res.headers, body});
-      };
-      res.on('data', (chunk: Buffer) => {
-        body += chunk.toString();
-      });
-      res.on('end', done);
-      // SSE connections never end; destroy after we've collected headers and
-      // resolve on the resulting 'close' event.
-      res.on('close', done);
-      if (res.headers['content-type']?.includes('event-stream')) {
-        setTimeout(() => res.destroy(), 50);
+    const req = http.get(
+      `http://127.0.0.1:${port}${path}`,
+      {headers: sameOriginHeaders(port, 'GET')},
+      (res) => {
+        let body = '';
+        let resolved = false;
+        const done = () => {
+          if (resolved) return;
+          resolved = true;
+          resolve({status: res.statusCode ?? 0, headers: res.headers, body});
+        };
+        res.on('data', (chunk: Buffer) => {
+          body += chunk.toString();
+        });
+        res.on('end', done);
+        // SSE connections never end; destroy after we've collected headers and
+        // resolve on the resulting 'close' event.
+        res.on('close', done);
+        if (res.headers['content-type']?.includes('event-stream')) {
+          setTimeout(() => res.destroy(), 50);
+        }
       }
-    });
+    );
     req.on('error', reject);
   });
 
@@ -68,16 +72,18 @@ test('panel HTML is served at /__lit-devtools/', async () => {
   expect(result.body).toContain('lit-devtools-panel');
 });
 
-test('control endpoint accepts recording state via POST', async () => {
-  const p = port();
-  const result = await new Promise<number>((resolve, reject) => {
+const postControl = (
+  p: number,
+  headers: Record<string, string>
+): Promise<number> =>
+  new Promise((resolve, reject) => {
     const req = http.request(
       {
         hostname: '127.0.0.1',
         port: p,
         path: '/__lit-devtools-control',
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', ...headers},
       },
       (res) => {
         res.resume();
@@ -88,7 +94,17 @@ test('control endpoint accepts recording state via POST', async () => {
     req.write(JSON.stringify({recording: true}));
     req.end();
   });
-  expect(result).toBe(204);
+
+test('control endpoint accepts recording state via POST', async () => {
+  const p = port();
+  expect(await postControl(p, sameOriginHeaders(p))).toBe(204);
+});
+
+// The other tests here always send the same-origin headers, so on their own
+// they would still pass if the trust check stopped rejecting anything. This
+// is the case that fails loudly if it does.
+test('control endpoint rejects a request with no origin signals', async () => {
+  expect(await postControl(port(), {})).toBe(403);
 });
 
 test('timeline runtime script is injected into served HTML', async () => {
