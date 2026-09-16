@@ -70,7 +70,7 @@ export const transformLitModule = async (
   if (code.includes(VIRTUAL_PREFIX)) {
     return null;
   }
-  await init;
+  await init();
   let imports;
   try {
     [imports] = parse(code);
@@ -82,8 +82,11 @@ export const transformLitModule = async (
   let changed = false;
   let hasLitFamilyImport = false;
   for (const imp of imports) {
-    const spec = imp.n;
-    if (spec === undefined) {
+    // `import.meta` reports a null specifier; a dynamic import reports
+    // undefined when its argument is not statically analyzable, and a glob
+    // (template literal) specifier is a pattern rather than a real id.
+    const spec = imp.specifier;
+    if (spec == null || (imp.type === 'dynamic' && imp.glob)) {
       continue;
     }
     if (isLitFamilySpecifier(spec)) {
@@ -92,13 +95,13 @@ export const transformLitModule = async (
     if (!WRAP_TABLE.has(spec)) {
       continue;
     }
-    if (imp.d > -1) {
-      // Dynamic import: [s, e) includes the quotes (or backticks) — narrow
-      // them to plain quotes around the rewritten specifier.
-      ms.overwrite(imp.s, imp.e, `'${VIRTUAL_PREFIX}${spec}'`);
+    if (imp.type === 'dynamic') {
+      // Dynamic import: [start, end) includes the quotes (or backticks) —
+      // narrow them to plain quotes around the rewritten specifier.
+      ms.overwrite(imp.start, imp.end, `'${VIRTUAL_PREFIX}${spec}'`);
     } else {
-      // Static import / export-from: [s, e) is the bare specifier text.
-      ms.overwrite(imp.s, imp.e, `${VIRTUAL_PREFIX}${spec}`);
+      // Static import / export-from: [start, end) is the bare specifier text.
+      ms.overwrite(imp.start, imp.end, `${VIRTUAL_PREFIX}${spec}`);
     }
     changed = true;
   }
