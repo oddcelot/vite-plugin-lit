@@ -203,3 +203,46 @@ describe('injectSourceMeta nested braces', () => {
     expect(out).toContain(`ElTwo[${SOURCE_META_SYM}]=`);
   });
 });
+
+describe('injectSourceMeta scope', () => {
+  test('does not reference a function-scoped class at module top level', () => {
+    const code =
+      `import {LitElement} from 'lit';\n` +
+      `export const defineIcon = (name) => {\n` +
+      `  class Icon extends LitElement {}\n` +
+      `  customElements.define(name, Icon);\n` +
+      `};\n`;
+    const {out} = run(code);
+    // The assignment must never appear after the closing brace of the arrow
+    // function, where `Icon` is out of scope.
+    const assignment = out.indexOf(`Icon[${SOURCE_META_SYM}]=`);
+    if (assignment !== -1) {
+      expect(assignment).toBeLessThan(out.indexOf('};'));
+    }
+  });
+
+  test('skips a nested class declared inside a block', () => {
+    const code =
+      `import {LitElement} from 'lit';\n` +
+      `if (true) {\n` +
+      `  class Icon extends LitElement {}\n` +
+      `  customElements.define('x-icon', Icon);\n` +
+      `}\n`;
+    const {changed, out} = run(code);
+    expect(changed).toBe(false);
+    expect(out).not.toContain(`Icon[${SOURCE_META_SYM}]=`);
+  });
+
+  test('decorator path injects right after the class body', () => {
+    const code =
+      `import {LitElement} from 'lit';\n` +
+      `import {customElement} from 'lit/decorators.js';\n` +
+      `@customElement('my-el')\nexport class MyEl extends LitElement {}\n` +
+      `export const AFTER = 1;\n`;
+    const {changed, out} = run(code);
+    expect(changed).toBe(true);
+    expect(out.indexOf(`MyEl[${SOURCE_META_SYM}]=`)).toBeLessThan(
+      out.indexOf('export const AFTER')
+    );
+  });
+});

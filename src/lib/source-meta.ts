@@ -149,12 +149,21 @@ const makeAssignment = (
 ) =>
   `${className}[${SOURCE_META_SYM}]={filePath:${JSON.stringify(filePath)},lineNumber:${lineNumber},componentName:${JSON.stringify(className)}};`;
 
-/** True when `className` is declared as a class/let/const in module code. */
+/**
+ * True when `className` is declared at module top level (column 0). Nested
+ * declarations are skipped deliberately: the metadata assignment for this path
+ * is appended at the end of the module, where a function/block-scoped binding
+ * would not be in scope (a `ReferenceError` at module evaluation).
+ */
 const isClassDeclaredInModule = (code: string, className: string): boolean =>
   new RegExp(
-    `^\\s*(?:export\\s+)?(?:class|let|const|var)\\s+${className}\\b`,
+    `^(?:export\\s+)?(?:class|let|const|var)\\s+${className}\\b`,
     'm'
   ).test(code);
+
+/** True when `index` starts a line (module top level in emitted output). */
+const isAtLineStart = (code: string, index: number): boolean =>
+  index === 0 || code[index - 1] === '\n';
 
 /**
  * Injects component source metadata onto custom element class constructors.
@@ -185,7 +194,10 @@ export const injectSourceMeta = (
     // Report the match start (the `@customElement` decorator) rather than the
     // `class` keyword, so the overlay points at the top of the component.
     const line = lineNumberAt(code, matchIndex);
-    ms.append('\n' + makeAssignment(className, filePath, line));
+    // Insert right after the class body so the assignment lives in the same
+    // scope as the declaration — appending at module end breaks for a class
+    // declared inside a function or block.
+    ms.appendLeft(end, '\n' + makeAssignment(className, filePath, line));
     injected.add(className);
     changed = true;
   };
@@ -218,7 +230,7 @@ export const injectSourceMeta = (
     /(\w+)\s*=\s*__decorate\w*\(\s*\[[\s\S]*?customElement\s*\([^)]*\)[\s\S]*?\],\s*\1\)/g
   )) {
     const className = m[1];
-    if (injected.has(className)) continue;
+    if (injected.has(className) || !isAtLineStart(code, m.index)) continue;
     const line = lineNumberAt(code, m.index);
     ms.append('\n' + makeAssignment(className, filePath, line));
     injected.add(className);
