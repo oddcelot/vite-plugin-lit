@@ -9,6 +9,7 @@ import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import type {Plugin, ViteDevServer} from 'vite';
+import {isTrustedRequest, type TrustHeaders} from './http.js';
 import {
   SETTINGS_OVERRIDE_CHANNEL,
   type FeatureSettings,
@@ -176,21 +177,6 @@ const readJsonBody = (
   });
 };
 
-/** True when the request carries no `Origin` or one whose host matches the
- *  dev-server `Host`. These endpoints drive local dev tooling and (for SSE)
- *  carry source paths and inspected element data, so we reject cross-origin
- *  callers — a page the developer happens to visit — rather than opening them
- *  up with wildcard CORS. */
-const isSameOrigin = (headers: {origin?: string; host?: string}): boolean => {
-  const {origin, host} = headers;
-  if (origin === undefined || origin === 'null') return true;
-  try {
-    return new URL(origin).host === host;
-  } catch {
-    return false;
-  }
-};
-
 /** Minimal typing for Node's ServerResponse (already fully typed by `node:http`
  *  but we want to avoid pulling in @types/node in a browser runtime module). */
 type SseClient = {
@@ -207,7 +193,7 @@ const installSseMiddleware = (
   server.middlewares.use(
     SSE_PATH,
     (
-      req: {method?: string; headers?: {origin?: string; host?: string}},
+      req: {method?: string; headers?: TrustHeaders},
       res: SseClient & {
         statusCode: number;
         setHeader: (k: string, v: string) => void;
@@ -220,7 +206,7 @@ const installSseMiddleware = (
         next();
         return;
       }
-      if (!isSameOrigin(req.headers ?? {})) {
+      if (!isTrustedRequest(req.headers ?? {})) {
         res.statusCode = 403;
         res.end?.('forbidden');
         return;
@@ -318,7 +304,7 @@ export const litTimelinePlugin = (
           req: {
             method?: string;
             on?: ReadableOn;
-            headers?: {origin?: string; host?: string};
+            headers?: TrustHeaders;
           },
           res: {
             statusCode: number;
@@ -327,7 +313,7 @@ export const litTimelinePlugin = (
           },
           next: () => void
         ) => {
-          if (!isSameOrigin(req.headers ?? {})) {
+          if (!isTrustedRequest(req.headers ?? {})) {
             res.statusCode = 403;
             res.end('forbidden');
             return;
@@ -411,9 +397,7 @@ export const litTimelinePlugin = (
         }
         const r403 = res as {statusCode: number; end: (body?: string) => void};
         if (
-          !isSameOrigin(
-            (req as {headers?: {origin?: string; host?: string}}).headers ?? {}
-          )
+          !isTrustedRequest((req as {headers?: TrustHeaders}).headers ?? {})
         ) {
           r403.statusCode = 403;
           r403.end('forbidden');
@@ -487,9 +471,7 @@ export const litTimelinePlugin = (
         }
         const r403 = res as {statusCode: number; end: (body?: string) => void};
         if (
-          !isSameOrigin(
-            (req as {headers?: {origin?: string; host?: string}}).headers ?? {}
-          )
+          !isTrustedRequest((req as {headers?: TrustHeaders}).headers ?? {})
         ) {
           r403.statusCode = 403;
           r403.end('forbidden');

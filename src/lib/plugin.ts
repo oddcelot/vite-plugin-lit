@@ -9,6 +9,7 @@ import {resolve as resolvePath, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {loadEnv, type CSSOptions, type Plugin} from 'vite';
 import MagicString from 'magic-string';
+import {isTrustedRequest, type TrustHeaders} from './http.js';
 import {injectSourceMeta} from './source-meta.js';
 import {INSTALL_ID, VIRTUAL_PREFIX, transformLitModule} from './transform.js';
 import type {SourceOverlayOptions} from './types.js';
@@ -295,19 +296,6 @@ const JS_FILE_RE = /\.[cm]?[jt]sx?$/;
 
 const OPEN_IN_EDITOR_PATH = '/__lit-open-in-editor';
 
-/** Reject requests whose `Origin` is a different host than the dev server, so
- *  a page the developer happens to visit can't drive these local-only
- *  endpoints. Same-origin requests (no `Origin`, or matching `Host`) pass. */
-const isSameOrigin = (headers: {origin?: string; host?: string}): boolean => {
-  const {origin, host} = headers;
-  if (origin === undefined || origin === 'null') return true;
-  try {
-    return new URL(origin).host === host;
-  } catch {
-    return false;
-  }
-};
-
 export const createOpenInEditorMiddleware = (
   allowedRoots: readonly string[]
 ) => {
@@ -315,7 +303,7 @@ export const createOpenInEditorMiddleware = (
   // it. Every entry grants open access to files beneath it.
   const roots = allowedRoots.map((r) => resolvePath(r));
   return (
-    req: {url?: string; headers?: {origin?: string; host?: string}},
+    req: {url?: string; method?: string; headers?: TrustHeaders},
     res: {statusCode: number; end: (msg: string) => void},
     next: (err?: unknown) => void
   ) => {
@@ -323,7 +311,12 @@ export const createOpenInEditorMiddleware = (
       next();
       return;
     }
-    if (!isSameOrigin(req.headers ?? {})) {
+    if (req.method !== undefined && req.method !== 'GET') {
+      res.statusCode = 405;
+      res.end('method not allowed');
+      return;
+    }
+    if (!isTrustedRequest(req.headers ?? {})) {
       res.statusCode = 403;
       res.end('forbidden');
       return;

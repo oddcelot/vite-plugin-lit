@@ -20,7 +20,7 @@ below so nothing is lost.
 
 | Plan | Title                                                       | Priority | Effort | Depends on | Status |
 | ---- | ----------------------------------------------------------- | -------- | ------ | ---------- | ------ |
-| 001  | Reject cross-site requests to the dev-server endpoints      | P1       | S      | —          | TODO   |
+| 001  | Reject cross-site requests to the dev-server endpoints      | P1       | S      | —          | DONE   |
 | 002  | Add a CI verification baseline                              | P1       | S      | —          | TODO   |
 | 003  | Stop source-meta injection referencing out-of-scope classes | P1       | S      | —          | TODO   |
 | 004  | Keep the DevTools element watch working across a hot patch  | P2       | S      | —          | TODO   |
