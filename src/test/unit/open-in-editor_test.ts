@@ -49,10 +49,19 @@ beforeEach(() => {
   launchMock.mockClear();
 });
 
+/**
+ * Default headers stand in for a request the dev server's own page made: the
+ * middleware now requires at least one same-origin signal, so tests that are
+ * about path confinement rather than the trust check pass one.
+ */
 const run = (
   middleware: ReturnType<typeof createOpenInEditorMiddleware>,
   query: string,
-  headers: {origin?: string; host?: string} = {}
+  headers: {
+    origin?: string;
+    host?: string;
+    'sec-fetch-site'?: string;
+  } = {host: 'localhost:5173', 'sec-fetch-site': 'same-origin'}
 ) =>
   new Promise<{status: number; body: string}>((resolve, reject) => {
     const res = {
@@ -185,5 +194,47 @@ describe('createOpenInEditorMiddleware', () => {
     expect(status).toBe(403);
     expect(body).toBe('forbidden');
     expect(launchMock).not.toHaveBeenCalled();
+  });
+
+  test('rejects a request with no Origin and no Sec-Fetch-Site', async () => {
+    const {status, body} = await run(
+      middleware,
+      `file=${encodeURIComponent(appFile)}`,
+      {host: 'localhost:5173'}
+    );
+    expect(status).toBe(403);
+    expect(body).toBe('forbidden');
+    expect(launchMock).not.toHaveBeenCalled();
+  });
+
+  test('rejects a cross-site GET that carries no Origin', async () => {
+    const {status, body} = await run(
+      middleware,
+      `file=${encodeURIComponent(appFile)}`,
+      {host: 'localhost:5173', 'sec-fetch-site': 'cross-site'}
+    );
+    expect(status).toBe(403);
+    expect(body).toBe('forbidden');
+    expect(launchMock).not.toHaveBeenCalled();
+  });
+
+  test('allows a same-origin request that carries only Sec-Fetch-Site', async () => {
+    const {status, body} = await run(
+      middleware,
+      `file=${encodeURIComponent(appFile)}`,
+      {host: 'localhost:5173', 'sec-fetch-site': 'same-origin'}
+    );
+    expect(status).toBe(200);
+    expect(body).toBe('ok');
+    expect(launchMock).toHaveBeenCalled();
+  });
+
+  test('allows a direct navigation (Sec-Fetch-Site: none)', async () => {
+    const {status} = await run(
+      middleware,
+      `file=${encodeURIComponent(appFile)}`,
+      {host: 'localhost:5173', 'sec-fetch-site': 'none'}
+    );
+    expect(status).toBe(200);
   });
 });
