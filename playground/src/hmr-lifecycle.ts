@@ -115,9 +115,11 @@ export class HmrLifecycle extends LitElement {
           ${this.mounted ? 'Unmount child' : 'Mount child'}
         </button>
       </div>
-      ${this.mounted
-        ? html`<hmr-lifecycle-child></hmr-lifecycle-child>`
-        : nothing}
+      ${
+        this.mounted
+          ? html`<hmr-lifecycle-child></hmr-lifecycle-child>`
+          : nothing
+      }
     `;
   }
 }

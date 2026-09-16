@@ -18,9 +18,15 @@ export const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 export const CANARY_ENABLED = process.env['LIT_CANARY'] === '1';
 
-// Bare specifier -> package directory inside the lit submodule.
+// Bare specifier -> package directory inside the lit submodule. The lit
+// family is aliased as a unit: `lit` re-exports from `lit-html`,
+// `lit-element`, and `@lit/reactive-element`, so aliasing `lit` alone would
+// mix lit `main` with the published copies of its parts.
 const CANARY_PACKAGES = [
   {id: 'lit', dir: 'packages/lit'},
+  {id: 'lit-html', dir: 'packages/lit-html'},
+  {id: 'lit-element', dir: 'packages/lit-element'},
+  {id: '@lit/reactive-element', dir: 'packages/reactive-element'},
   {id: '@lit/context', dir: 'packages/context'},
   {id: '@lit/task', dir: 'packages/task'},
   {id: '@lit-labs/signals', dir: 'packages/labs/signals'},
@@ -43,9 +49,7 @@ export const canarySettings = (): CanarySettings => {
   if (!CANARY_ENABLED) {
     return {};
   }
-  if (
-    !existsSync(path.join(LIT_DIR, 'packages', 'lit', 'index.js'))
-  ) {
+  if (!existsSync(path.join(LIT_DIR, 'packages', 'lit', 'index.js'))) {
     throw new Error(
       'LIT_CANARY=1 but the lit submodule is not built — run: pnpm build:lit-canary'
     );

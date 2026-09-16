@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {urlSheet} from '@lit-labs/vite-plugin-lit/css.js';
+import {urlSheet} from '@oddsquad/vite-plugin-lit/css.js';
 import sheetUrl from './hmr-utility-sheet.css?url';
 
 /**

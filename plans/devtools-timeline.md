@@ -354,9 +354,7 @@ function instrument(proto, name, phase) {
     try {
       return orig.apply(this, args);
     } finally {
-      emit({
-        /* …phase end, same group… */
-      });
+      emit({/* …phase end, same group… */});
     }
   };
 }

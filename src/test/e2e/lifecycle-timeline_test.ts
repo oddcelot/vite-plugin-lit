@@ -75,9 +75,7 @@ test('lifecycle layer reports update phases over SSE', async () => {
       const child = document
         .querySelector('hmr-lifecycle')
         ?.shadowRoot?.querySelector('hmr-lifecycle-child') as
-        | {requestUpdate?: () => void}
-        | null
-        | undefined;
+        {requestUpdate?: () => void} | null | undefined;
       child?.requestUpdate?.();
     });
     return page.evaluate(() =>

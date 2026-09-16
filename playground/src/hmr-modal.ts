@@ -89,9 +89,11 @@ export class HmrModal extends LitElement {
             ✕
           </button>
         </div>
-        ${this.discardChild && !this.open
-          ? nothing
-          : html` <hmr-modal-child id="child"></hmr-modal-child> `}
+        ${
+          this.discardChild && !this.open
+            ? nothing
+            : html` <hmr-modal-child id="child"></hmr-modal-child> `
+        }
         <label class="discard-toggle">
           <input
             type="checkbox"
