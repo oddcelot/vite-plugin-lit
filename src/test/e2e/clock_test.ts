@@ -8,6 +8,7 @@ import {afterAll, beforeAll, expect, test} from 'vite-plus/test';
 import {
   type Fixture,
   keepShadow,
+  mountElement,
   sameAsKept,
   shadowText,
   startFixture,
@@ -17,6 +18,7 @@ let fixture: Fixture;
 
 beforeAll(async () => {
   fixture = await startFixture();
+  await mountElement(fixture.page, 'hmr-clock');
 });
 
 afterAll(async () => {
