@@ -49,6 +49,16 @@ test('cached DOM refs and observers survive a same-module sibling edit', async (
   expect(await probeCall<boolean>('isCachedAlive')).toBe(true);
 
   // The IntersectionObserver created in firstUpdated is still firing.
+  // Scroll the probe in first: it sits ~2000px down the playground page, and
+  // toggling `hidden` on an already non-intersecting target leaves the
+  // intersection state unchanged, so no callback would fire.
+  await page.evaluate(() =>
+    document.querySelector('hmr-probe')?.scrollIntoView()
+  );
+  await expect
+    .poll(() => probeCall<number>('getObserverFired'), {timeout: 10_000})
+    .toBeGreaterThan(1);
+
   const firedBefore = (await probeCall<number>('getObserverFired'))!;
   await page.evaluate(() =>
     (document.querySelector('hmr-probe') as ProbeElement).pokeObserver()
