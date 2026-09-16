@@ -35,22 +35,23 @@
     "url": "https://github.com/oddcelot/vite-plugin-lit/issues"
   },
   "scripts": {
-    "build": "tsc --pretty && node scripts/copy-panel-html.mjs && prettier --write --ignore-path /dev/null \"index.js\" \"lib/**/*.js\"",
+    "build": "tsc --pretty && node scripts/copy-panel-html.mjs && node scripts/format-build-output.mjs",
     "build:lit-canary": "node scripts/build-lit-canary.mjs",
-    "dev": "pnpm run build && vite playground",
+    "dev": "pnpm run build && vp dev playground",
     "test": "pnpm run test:unit && pnpm run test:e2e",
-    "test:unit": "vitest run --project unit",
-    "test:e2e": "pnpm run build && vitest run --project e2e",
+    "test:unit": "vp test run --project unit",
+    "test:e2e": "pnpm run build && vp test run --project e2e",
     "bench": "node bench/run.mjs",
     "bench:serve": "node bench/run.mjs --serve",
-    "format": "prettier \"**/*.{cjs,html,js,json,md,ts,yaml}\" --write",
-    "format:check": "prettier \"**/*.{cjs,html,js,json,md,ts,yaml}\" --check",
-    "prepublishOnly": "pnpm run build"
+    "format": "vp fmt \"**/*.{cjs,html,js,json,md,ts,yaml}\"",
+    "format:check": "vp fmt \"**/*.{cjs,html,js,json,md,ts,yaml}\" --check",
+    "prepublishOnly": "pnpm run build",
+    "prepare": "vp config"
   },
   "dependencies": {
-    "es-module-lexer": "^1.5.4",
-    "launch-editor": "^2.10.0",
-    "magic-string": "^0.30.11"
+    "es-module-lexer": "^3.0.2",
+    "launch-editor": "^2.14.1",
+    "magic-string": "^1.4.1"
   },
   "peerDependencies": {
     "lightningcss": "^1.30.0",
@@ -67,14 +68,13 @@
     "@lit-labs/virtualizer": "^2.1.1",
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
-    "@types/node": "^26.0.0",
-    "lightningcss": "^1.32.0",
+    "@types/node": "^26.6.1",
+    "lightningcss": "^1.33.0",
     "lit": "^3.3.3",
-    "playwright-core": "^1.60.0",
-    "prettier": "^3.6.0",
-    "typescript": "^5.9.0",
-    "vite": "8.0.16",
-    "vitest": "^4.1.8"
+    "playwright-core": "^1.63.0",
+    "typescript": "^7.0.2",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
   },
   "engines": {
     "node": ">=20"

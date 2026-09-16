@@ -116,7 +116,8 @@ const summarizeTrace = (events) => {
     const key = TRACED[e.name];
     if (key) totals[key] += e.dur / 1000; // µs → ms
   }
-  for (const k of Object.keys(totals)) totals[k] = Math.round(totals[k] * 100) / 100;
+  for (const k of Object.keys(totals))
+    totals[k] = Math.round(totals[k] * 100) / 100;
   return totals;
 };
 

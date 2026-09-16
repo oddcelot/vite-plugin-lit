@@ -48,12 +48,15 @@ const serializeAt = (
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
 
-  const t = typeof value;
-  if (t === 'string') return JSON.stringify(truncate(value as string));
-  if (t === 'number' || t === 'boolean') return String(value);
-  if (t === 'bigint') return `${value}n`;
-  if (t === 'symbol') return (value as symbol).toString();
-  if (t === 'function') {
+  // Narrow on `value` rather than a saved `typeof`: the compiler cannot carry
+  // a discriminant through a separate variable.
+  if (typeof value === 'string') return JSON.stringify(truncate(value));
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (typeof value === 'bigint') return `${value}n`;
+  if (typeof value === 'symbol') return value.toString();
+  if (typeof value === 'function') {
     const name = (value as {name?: string}).name;
     return name ? `ƒ ${name}()` : 'ƒ ()';
   }

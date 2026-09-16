@@ -4,10 +4,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {afterAll, beforeAll, expect, test} from 'vitest';
+import {afterAll, beforeAll, expect, test} from 'vite-plus/test';
 import {
   type Fixture,
   keepShadow,
+  mountElement,
   sameAsKept,
   shadowText,
   startFixture,
@@ -17,6 +18,10 @@ let fixture: Fixture;
 
 beforeAll(async () => {
   fixture = await startFixture();
+  // Both clocks: the analog one is asserted on below, since it follows the
+  // same shared `timeZone` signal as the digital display.
+  await mountElement(fixture.page, 'hmr-digital-clock');
+  await mountElement(fixture.page, 'hmr-clock');
 });
 
 afterAll(async () => {

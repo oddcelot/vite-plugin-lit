@@ -375,6 +375,8 @@ const hotPatch = (
     const newPropertyKeys = NewClass.elementProperties?.keys() ?? [];
     // After the static sync this is the NEW class's initializer list.
     const initializers = OldClass._initializers;
+    // Snapshot: the reconnect below mutates record.instances mid-iteration.
+    // oxlint-disable-next-line unicorn/no-useless-spread
     for (const el of [...record.instances]) {
       if (state.options.reconnect) {
         el.disconnectedCallback?.();
@@ -457,6 +459,8 @@ export const install = (options: PatchOptions = {}): void => {
     }
   });
 
+  // Captured to re-invoke below as nativeDefine.call(this, ...).
+  // oxlint-disable-next-line typescript/unbound-method
   const nativeDefine = customElements.define;
   customElements.define = function (
     this: CustomElementRegistry,

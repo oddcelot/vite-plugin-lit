@@ -37,7 +37,7 @@ const LIT_DIR = path.join(REPO_ROOT, 'lit');
 
 export interface CanarySettings {
   resolve?: {alias: Alias[]};
-  optimizeDeps?: {exclude: readonly string[]};
+  optimizeDeps?: {exclude: string[]};
 }
 
 /**

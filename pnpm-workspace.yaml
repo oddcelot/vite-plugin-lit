@@ -1,2 +1,27 @@
 packages:
   - playground
+minimumReleaseAgeExclude:
+  - prettier@3.9.7
+  - '@devframes/agentic@1.0.0'
+  - '@devframes/hub-ui@1.0.0'
+  - '@devframes/hub@1.0.0'
+  - '@devframes/json-render-ui@1.0.0'
+  - '@devframes/json-render@1.0.0'
+  - '@devframes/plugin-inspect@1.0.0'
+  - '@devframes/plugin-messages@1.0.0'
+  - '@devframes/plugin-terminals@1.0.0'
+  - '@devframes/service-open@1.0.0'
+  - '@devframes/vite@1.0.0'
+  - '@vitejs/devtools-kit@0.7.5'
+  - '@vitejs/devtools@0.7.5'
+  - devframe@1.0.0
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@0.3.2
+  vite-plus: 0.3.2
+overrides:
+  vite@*: 'catalog:'
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: '*'

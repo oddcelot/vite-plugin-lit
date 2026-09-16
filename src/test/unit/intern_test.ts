@@ -4,12 +4,14 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {describe, expect, test} from 'vitest';
+import {describe, expect, test} from 'vite-plus/test';
 import {intern, wrapTag} from '../../lib/runtime/intern.js';
 
 // Produces a genuine TemplateStringsArray with fresh identity per call,
 // like a re-executed module does.
 const tsa = (...parts: string[]): TemplateStringsArray => {
+  // A literal would be cached by the engine; the fresh identity is the point.
+  // oxlint-disable-next-line typescript/no-implied-eval
   const make = new Function('t', `return t\`${parts.join('${0}')}\`;`) as (
     t: (s: TemplateStringsArray, ...v: unknown[]) => TemplateStringsArray
   ) => TemplateStringsArray;

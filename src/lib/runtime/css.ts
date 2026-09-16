@@ -143,13 +143,13 @@ export const urlSheet = (url: string): UrlSheet => {
       })
       .catch(() => {});
   };
-  update(url);
+  void update(url);
   return {
     sheet,
     onHotUpdate: (mod) => {
       const next = mod?.['default'];
       if (typeof next === 'string') {
-        update(next);
+        void update(next);
       }
     },
   };

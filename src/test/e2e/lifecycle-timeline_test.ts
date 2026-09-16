@@ -5,7 +5,7 @@
  */
 
 import * as http from 'node:http';
-import {afterAll, beforeAll, expect, test} from 'vitest';
+import {afterAll, beforeAll, expect, test} from 'vite-plus/test';
 import {type Fixture, startFixture} from './utils.js';
 
 let fixture: Fixture;
@@ -75,7 +75,9 @@ test('lifecycle layer reports update phases over SSE', async () => {
       const child = document
         .querySelector('hmr-lifecycle')
         ?.shadowRoot?.querySelector('hmr-lifecycle-child') as
-        {requestUpdate?: () => void} | null | undefined;
+        | {requestUpdate?: () => void}
+        | null
+        | undefined;
       child?.requestUpdate?.();
     });
     return page.evaluate(() =>

@@ -9,7 +9,7 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["vite/client", "@lit-labs/vite-plugin-lit/client"]
+    "types": ["vite/client", "@oddsquad/vite-plugin-lit/client"]
   },
   "include": ["src", "vite.config.ts"]
 }

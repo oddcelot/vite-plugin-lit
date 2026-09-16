@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {DevTools} from '@vitejs/devtools';
 import Inspect from 'vite-plugin-inspect';
-import {defineConfig, loadEnv} from 'vite';
+import {defineConfig, loadEnv} from 'vite-plus';
+import {lazyPlugins} from 'vite-plus';
 
 export default defineConfig(async ({mode}) => {
   // Inside the monorepo, use the built package output (`npm run dev` via
@@ -30,9 +30,10 @@ export default defineConfig(async ({mode}) => {
       port,
       strictPort: true,
     },
-    // Root `devtools` config sets up the DevTools server + auth. Paired with
-    // the `DevTools()` plugin below (which injects the embedded overlay), this
-    // is what makes the floating panel appear.
+    // The `devtools` config sets up the DevTools server + auth, and Vite
+    // registers the `@vitejs/devtools` plugin (the embedded overlay) itself
+    // from it — adding `DevTools()` to `plugins` as well is a duplicate
+    // registration and errors out (DTK0034).
     //
     // `clientAuth: false` skips the per-browser permission prompt. DevTools
     // normally gates connections behind a terminal approval, which can't be
@@ -41,6 +42,9 @@ export default defineConfig(async ({mode}) => {
     // project, especially with `server.host` exposed to LAN/WAN.
     devtools: {
       enabled: true,
+      // Serve only: with DevTools left on for `build`, Vite hands the build
+      // off to the DevTools bundle analyzer, which keeps the process alive.
+      apply: 'serve' as const,
       clientAuth: false,
     },
     css: {
@@ -73,12 +77,9 @@ export default defineConfig(async ({mode}) => {
         },
       },
     },
-    // `DevTools()` injects the embedded overlay client. It returns a
-    // Promise<Plugin[]>, which Vite awaits and flattens.
-    plugins: [
+    plugins: lazyPlugins(() => [
       litPlugin({timeline: true, sourceOverlay: true}),
       Inspect(),
-      DevTools(),
-    ],
+    ]),
   };
 });

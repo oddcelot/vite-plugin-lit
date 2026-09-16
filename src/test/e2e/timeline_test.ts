@@ -5,7 +5,7 @@
  */
 
 import * as http from 'node:http';
-import {afterAll, beforeAll, expect, test} from 'vitest';
+import {afterAll, beforeAll, expect, test} from 'vite-plus/test';
 import {type Fixture, startFixture} from './utils.js';
 
 let fixture: Fixture;

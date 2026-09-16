@@ -211,3 +211,27 @@ export const hmrUpdates = (page: Page): Promise<number> =>
   page.evaluate(
     () => (window as unknown as {__hmr: {updates: number}}).__hmr.updates
   );
+
+/**
+ * Appends `<tag>` to the page and waits for its first render.
+ *
+ * The clock demos are commented out of `playground/index.html` — they
+ * re-render every second and flood the DevTools Timeline — but `main.ts`
+ * still imports their modules, so the elements stay registered and the e2e
+ * runs can mount them on demand.
+ */
+export const mountElement = async (page: Page, tag: string): Promise<void> => {
+  await page.evaluate((tag) => {
+    if (document.querySelector(tag) !== null) {
+      return;
+    }
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.appendChild(document.createElement(tag));
+    (document.querySelector('main') ?? document.body).appendChild(card);
+  }, tag);
+  await page.waitForFunction(
+    (tag) => document.querySelector(tag)?.shadowRoot != null,
+    tag
+  );
+};
