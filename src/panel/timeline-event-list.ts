@@ -276,77 +276,83 @@ export class TimelineEventList extends LitElement {
         this._isVisible(ev) && (re === null || re.test(this._haystack(ev)))
     );
     return html`
-      ${this.events.length > 0
-        ? html`
-            <div class="filterbar">
-              ${elements.length > 0
-                ? html`
-                    <span>Element:</span>
-                    <select @change=${this._onFilterChange}>
-                      <option
-                        value=""
-                        ?selected=${this._elementFilter === null}
-                      >
-                        All elements
-                      </option>
-                      ${elements.map(
-                        (el) => html`
-                          <option
-                            value=${el.id}
-                            ?selected=${this._elementFilter === el.id}
-                          >
-                            &lt;${el.tag}&gt; #${el.id}
-                          </option>
-                        `
-                      )}
-                    </select>
-                  `
-                : nothing}
-              <input
-                class="regex ${regexInvalid ? 'invalid' : ''}"
-                type="text"
-                spellcheck="false"
-                placeholder="filter regex…"
-                title="Case-insensitive regex matched against element tag, title and subtitle"
-                .value=${this._regex}
-                @input=${this._onRegexInput}
-              />
-              <span class="count"
-                >${visible.length} / ${this.events.length}</span
-              >
-            </div>
-          `
-        : nothing}
-      <div class="scroll" ${ref(this._scrollRef)}>
-        ${visible.length === 0
+      ${
+        this.events.length > 0
           ? html`
-              <div class="empty">
-                <span>No events recorded.</span>
-                <span class="hint"
-                  >Press Record then interact with the page.</span
+              <div class="filterbar">
+                ${
+                  elements.length > 0
+                    ? html`
+                        <span>Element:</span>
+                        <select @change=${this._onFilterChange}>
+                          <option
+                            value=""
+                            ?selected=${this._elementFilter === null}
+                          >
+                            All elements
+                          </option>
+                          ${elements.map(
+                            (el) => html`
+                              <option
+                                value=${el.id}
+                                ?selected=${this._elementFilter === el.id}
+                              >
+                                &lt;${el.tag}&gt; #${el.id}
+                              </option>
+                            `
+                          )}
+                        </select>
+                      `
+                    : nothing
+                }
+                <input
+                  class="regex ${regexInvalid ? 'invalid' : ''}"
+                  type="text"
+                  spellcheck="false"
+                  placeholder="filter regex…"
+                  title="Case-insensitive regex matched against element tag, title and subtitle"
+                  .value=${this._regex}
+                  @input=${this._onRegexInput}
+                />
+                <span class="count"
+                  >${visible.length} / ${this.events.length}</span
                 >
               </div>
             `
-          : repeat(
-              visible,
-              (ev) => ev,
-              (ev) => html`
-                <div
-                  class="row ${this._selected === ev ? 'selected' : ''}"
-                  @click=${() => {
-                    this._selected = ev;
-                  }}
-                >
-                  <span class="time">${ev.time.toFixed(1)}ms</span>
-                  <span
-                    class="dot"
-                    style=${'background:' + this._colorOf(ev.layerId)}
-                  ></span>
-                  <span class="title">${ev.title ?? ev.layerId}</span>
-                  <span class="subtitle">${ev.subtitle ?? nothing}</span>
+          : nothing
+      }
+      <div class="scroll" ${ref(this._scrollRef)}>
+        ${
+          visible.length === 0
+            ? html`
+                <div class="empty">
+                  <span>No events recorded.</span>
+                  <span class="hint"
+                    >Press Record then interact with the page.</span
+                  >
                 </div>
               `
-            )}
+            : repeat(
+                visible,
+                (ev) => ev,
+                (ev) => html`
+                  <div
+                    class="row ${this._selected === ev ? 'selected' : ''}"
+                    @click=${() => {
+                      this._selected = ev;
+                    }}
+                  >
+                    <span class="time">${ev.time.toFixed(1)}ms</span>
+                    <span
+                      class="dot"
+                      style=${'background:' + this._colorOf(ev.layerId)}
+                    ></span>
+                    <span class="title">${ev.title ?? ev.layerId}</span>
+                    <span class="subtitle">${ev.subtitle ?? nothing}</span>
+                  </div>
+                `
+              )
+        }
       </div>
       ${this._selected ? this._renderDetail(this._selected) : nothing}
     `;
@@ -366,49 +372,59 @@ export class TimelineEventList extends LitElement {
             <td class="key">time</td>
             <td class="val">${ev.time.toFixed(3)} ms</td>
           </tr>
-          ${meta?.tagName
-            ? html`<tr>
-                <td class="key">element</td>
-                <td class="val">
-                  &lt;${meta.tagName}&gt; #${meta.elementId}
-                  ${meta.elementId != null
-                    ? html`<a
-                          class="filter-link"
-                          @click=${() => {
-                            this._elementFilter = meta.elementId!;
-                          }}
-                          >filter</a
-                        ><a
-                          class="filter-link"
-                          title="Open this element in the Components tab"
-                          @click=${() => this._inspect(meta.elementId!)}
-                          >inspect</a
-                        >`
-                    : nothing}
-                </td>
-              </tr>`
-            : nothing}
-          ${src
-            ? html`<tr>
-                <td class="key">source</td>
-                <td class="val">
-                  <a
-                    href=${'/__lit-open-in-editor?file=' +
-                    encodeURIComponent(src.file) +
-                    '&line=' +
-                    src.line}
-                    target="_blank"
-                    >${src.file}:${src.line}</a
-                  >
-                </td>
-              </tr>`
-            : nothing}
-          ${ev.data != null
-            ? html`<tr>
-                <td class="key">data</td>
-                <td class="val">${JSON.stringify(ev.data)}</td>
-              </tr>`
-            : nothing}
+          ${
+            meta?.tagName
+              ? html`<tr>
+                  <td class="key">element</td>
+                  <td class="val">
+                    &lt;${meta.tagName}&gt; #${meta.elementId}
+                    ${
+                      meta.elementId != null
+                        ? html`<a
+                              class="filter-link"
+                              @click=${() => {
+                                this._elementFilter = meta.elementId!;
+                              }}
+                              >filter</a
+                            ><a
+                              class="filter-link"
+                              title="Open this element in the Components tab"
+                              @click=${() => this._inspect(meta.elementId!)}
+                              >inspect</a
+                            >`
+                        : nothing
+                    }
+                  </td>
+                </tr>`
+              : nothing
+          }
+          ${
+            src
+              ? html`<tr>
+                  <td class="key">source</td>
+                  <td class="val">
+                    <a
+                      href=${
+                        '/__lit-open-in-editor?file=' +
+                        encodeURIComponent(src.file) +
+                        '&line=' +
+                        src.line
+                      }
+                      target="_blank"
+                      >${src.file}:${src.line}</a
+                    >
+                  </td>
+                </tr>`
+              : nothing
+          }
+          ${
+            ev.data != null
+              ? html`<tr>
+                  <td class="key">data</td>
+                  <td class="val">${JSON.stringify(ev.data)}</td>
+                </tr>`
+              : nothing
+          }
         </table>
       </div>
     `;

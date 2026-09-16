@@ -78,7 +78,7 @@ class LitSourceOverlay extends HTMLElement {
       e.stopPropagation();
       if (this.#info === null) return;
       const text = `${this.#normalizePath(this.#info.source.filePath)}:${this.#info.source.lineNumber}`;
-      navigator.clipboard?.writeText(text);
+      void navigator.clipboard?.writeText(text);
     });
     this.#dialog.addEventListener('cancel', (e) => e.preventDefault());
   }
@@ -148,7 +148,7 @@ class LitSourceOverlay extends HTMLElement {
     document.addEventListener('click', this.#onClick, true);
     window.addEventListener('scroll', this.#onScrollOrResize, {passive: true});
     window.addEventListener('resize', this.#onScrollOrResize, {passive: true});
-    this.#resolveAt(this.#lastMouseX, this.#lastMouseY);
+    void this.#resolveAt(this.#lastMouseX, this.#lastMouseY);
   }
 
   deactivate() {
@@ -337,7 +337,7 @@ class LitSourceOverlay extends HTMLElement {
       const x = this.#lastMouseX;
       const y = this.#lastMouseY;
       if (this.#pointInTooltip(x, y)) return;
-      this.#resolveAt(x, y);
+      void this.#resolveAt(x, y);
     }, throttleMs);
   };
 
@@ -349,7 +349,7 @@ class LitSourceOverlay extends HTMLElement {
     this.deactivate();
     this.#options.onSelect?.(info);
     if (openInEditor) {
-      this.#openInEditor(info.source.filePath, info.source.lineNumber);
+      void this.#openInEditor(info.source.filePath, info.source.lineNumber);
       return;
     }
     // Report the picked element to the DevTools panel, which selects it in the
@@ -377,7 +377,7 @@ class LitSourceOverlay extends HTMLElement {
           undefined | {docks?: {switchEntry?: (id: string) => Promise<boolean>}}
         >
       ).__VITE_DEVTOOLS_CLIENT_CONTEXT__;
-      ctx?.docks?.switchEntry?.('lit-devtools');
+      void ctx?.docks?.switchEntry?.('lit-devtools');
     } catch {
       // Not running inside the DevTools shell — ignore.
     }

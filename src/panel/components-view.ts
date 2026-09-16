@@ -439,9 +439,11 @@ export class ComponentsView extends LitElement {
           ></span
         >
       </div>
-      ${hasChildren && expanded
-        ? node.children.map((c) => this._renderNode(c, depth + 1))
-        : nothing}
+      ${
+        hasChildren && expanded
+          ? node.children.map((c) => this._renderNode(c, depth + 1))
+          : nothing
+      }
     `;
   }
 
@@ -454,13 +456,15 @@ export class ComponentsView extends LitElement {
           (p) => html`
             <tr>
               <td class="name">
-                ${p.name}${p.reflects
-                  ? html`<span class="badge" title="reflects to attribute"
-                      >${typeof p.attribute === 'string'
-                        ? p.attribute
-                        : 'attr'}</span
-                    >`
-                  : nothing}
+                ${p.name}${
+                  p.reflects
+                    ? html`<span class="badge" title="reflects to attribute"
+                        >${
+                          typeof p.attribute === 'string' ? p.attribute : 'attr'
+                        }</span
+                      >`
+                    : nothing
+                }
               </td>
               <td class="val">${p.value}</td>
             </tr>
@@ -487,11 +491,13 @@ export class ComponentsView extends LitElement {
     const stateProps = d.properties.filter((p) => p.state);
     return html`
       <h2>&lt;${d.tagName}&gt;</h2>
-      ${d.source !== undefined
-        ? html`<button class="src" @click=${this._openSource}>
-            ${d.source.file}:${d.source.line}
-          </button>`
-        : nothing}
+      ${
+        d.source !== undefined
+          ? html`<button class="src" @click=${this._openSource}>
+              ${d.source.file}:${d.source.line}
+            </button>`
+          : nothing
+      }
       <section>
         <div class="flags">
           <span class="flag ${d.flags.hasUpdated ? 'on' : ''}">updated</span>
@@ -503,32 +509,38 @@ export class ComponentsView extends LitElement {
           >
         </div>
       </section>
-      ${props.length > 0
-        ? html`<section>
-            <div class="label">Properties</div>
-            ${this._renderPropTable(props)}
-          </section>`
-        : nothing}
-      ${stateProps.length > 0
-        ? html`<section>
-            <div class="label">State</div>
-            ${this._renderPropTable(stateProps)}
-          </section>`
-        : nothing}
-      ${d.attributes.length > 0
-        ? html`<section>
-            <div class="label">Attributes</div>
-            <table>
-              ${d.attributes.map(
-                (a) =>
-                  html`<tr>
-                    <td class="name">${a.name}</td>
-                    <td class="val">${a.value}</td>
-                  </tr>`
-              )}
-            </table>
-          </section>`
-        : nothing}
+      ${
+        props.length > 0
+          ? html`<section>
+              <div class="label">Properties</div>
+              ${this._renderPropTable(props)}
+            </section>`
+          : nothing
+      }
+      ${
+        stateProps.length > 0
+          ? html`<section>
+              <div class="label">State</div>
+              ${this._renderPropTable(stateProps)}
+            </section>`
+          : nothing
+      }
+      ${
+        d.attributes.length > 0
+          ? html`<section>
+              <div class="label">Attributes</div>
+              <table>
+                ${d.attributes.map(
+                  (a) =>
+                    html`<tr>
+                      <td class="name">${a.name}</td>
+                      <td class="val">${a.value}</td>
+                    </tr>`
+                )}
+              </table>
+            </section>`
+          : nothing
+      }
     `;
   }
 
@@ -554,11 +566,13 @@ export class ComponentsView extends LitElement {
       </div>
       <div class="body">
         <div class="tree" @mouseleave=${() => this._highlight(null)}>
-          ${this._roots.length === 0
-            ? html`<div class="empty">
-                No Lit components found on the page.
-              </div>`
-            : this._roots.map((n) => this._renderNode(n, 0))}
+          ${
+            this._roots.length === 0
+              ? html`<div class="empty">
+                  No Lit components found on the page.
+                </div>`
+              : this._roots.map((n) => this._renderNode(n, 0))
+          }
         </div>
         <div class="details">${this._renderDetails()}</div>
       </div>

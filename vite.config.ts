@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2026 Oddsquad
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 import {defineConfig} from 'vite-plus';
 
 export default defineConfig({
@@ -12,7 +18,7 @@ export default defineConfig({
       {
         // Lit invokes template event listeners with `this` set to the host,
         // so `@click=${this.foo}` is the idiomatic binding, not a bug.
-        files: ['playground/**'],
+        files: ['playground/**', 'src/panel/**'],
         rules: {'typescript/unbound-method': 'off'},
       },
       {
@@ -22,14 +28,16 @@ export default defineConfig({
         rules: {'typescript/unbound-method': 'off'},
       },
     ],
+    // Leading slashes matter: unanchored `lib/` and `panel/` would also
+    // match src/lib and src/panel, which are source, not build output.
     ignorePatterns: [
-      'index.*',
-      'lib/',
-      'types/',
-      'panel/',
+      '/index.*',
+      '/lib/',
+      '/types/',
+      '/panel/',
+      '/lit/',
       'node_modules/',
       '.e2e-tmp/',
-      'lit/',
       'playground/dist/',
       'bench/results/',
     ],
@@ -45,9 +53,9 @@ export default defineConfig({
     // `vp fmt --ignore-path /dev/null` step in the build script.
     ignorePatterns: [
       'pnpm-lock.yaml',
+      '/lit/',
       'node_modules/',
       '.e2e-tmp/',
-      'lit/',
       'playground/dist/',
       'bench/results/',
     ],

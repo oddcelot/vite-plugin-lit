@@ -156,7 +156,7 @@ export class LitDevtoolsPanel extends LitElement {
             | {docks?: {switchEntry?: (id: string) => Promise<boolean>}}
           >
         ).__VITE_DEVTOOLS_CLIENT_CONTEXT__;
-        ctx?.docks?.switchEntry?.('lit-devtools');
+        void ctx?.docks?.switchEntry?.('lit-devtools');
       }
     } catch {
       // Cross-origin or not running inside the DevTools shell — ignore.
@@ -181,9 +181,11 @@ export class LitDevtoolsPanel extends LitElement {
           ?hidden=${this._tab !== 'components'}
           @inspector-activate=${this._onInspectorActivate}
         ></components-view>
-        ${this._tab === 'settings'
-          ? html`<devtools-settings></devtools-settings>`
-          : nothing}
+        ${
+          this._tab === 'settings'
+            ? html`<devtools-settings></devtools-settings>`
+            : nothing
+        }
       </div>
     `;
   }

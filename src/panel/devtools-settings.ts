@@ -380,11 +380,13 @@ export class DevtoolsSettings extends LitElement {
                     (e.target as HTMLInputElement).checked
                   )}
               />
-              ${s.hmr.indicatorEnabled
-                ? indicatorVisible
-                  ? 'shown'
-                  : 'hidden'
-                : 'off (config)'}
+              ${
+                s.hmr.indicatorEnabled
+                  ? indicatorVisible
+                    ? 'shown'
+                    : 'hidden'
+                  : 'off (config)'
+              }
             </label>
             ${this._ovr(o.hmrIndicatorVisible !== undefined)}
           </td>
@@ -429,11 +431,13 @@ export class DevtoolsSettings extends LitElement {
         startup. Controls below override the running app live; the rest are
         config-time (change them in your Vite config / <code>.env</code> and
         restart).
-        ${hasOverride
-          ? html`<button class="reset" @click=${this._reset}>
-              Reset to env
-            </button>`
-          : nothing}
+        ${
+          hasOverride
+            ? html`<button class="reset" @click=${this._reset}>
+                Reset to env
+              </button>`
+            : nothing
+        }
       </p>
 
       ${appearance}
@@ -445,48 +449,52 @@ export class DevtoolsSettings extends LitElement {
 
       <section>
         <h3>Source Overlay ${this._pill(s.sourceOverlay.enabled)}</h3>
-        ${s.sourceOverlay.enabled
-          ? html`<table>
-              ${this._readonlyRow(
-                'hotkey',
-                `Ctrl+Shift+${s.sourceOverlay.key.toUpperCase()}`,
-                'LIT_PLUGIN_SOURCE_OVERLAY_KEY'
-              )}
-              <tr>
-                <td class="key">editor</td>
-                <td class="val">
-                  <select
-                    @change=${(e: Event) =>
-                      this._set(
-                        'sourceOverlayEditor',
-                        (e.target as HTMLSelectElement).value
+        ${
+          s.sourceOverlay.enabled
+            ? html`<table>
+                ${this._readonlyRow(
+                  'hotkey',
+                  `Ctrl+Shift+${s.sourceOverlay.key.toUpperCase()}`,
+                  'LIT_PLUGIN_SOURCE_OVERLAY_KEY'
+                )}
+                <tr>
+                  <td class="key">editor</td>
+                  <td class="val">
+                    <select
+                      @change=${(e: Event) =>
+                        this._set(
+                          'sourceOverlayEditor',
+                          (e.target as HTMLSelectElement).value
+                        )}
+                    >
+                      ${SOURCE_OVERLAY_EDITORS.map(
+                        (ed) =>
+                          html`<option
+                            value=${ed.value}
+                            ?selected=${
+                              ed.value ===
+                              (this._override.sourceOverlayEditor ??
+                                s.sourceOverlay.editor)
+                            }
+                          >
+                            ${ed.label}
+                          </option>`
                       )}
-                  >
-                    ${SOURCE_OVERLAY_EDITORS.map(
-                      (ed) =>
-                        html`<option
-                          value=${ed.value}
-                          ?selected=${ed.value ===
-                          (this._override.sourceOverlayEditor ??
-                            s.sourceOverlay.editor)}
-                        >
-                          ${ed.label}
-                        </option>`
-                    )}
-                  </select>
-                  ${this._ovr(this._override.sourceOverlayEditor !== undefined)}
-                </td>
-              </tr>
-              ${this._readonlyRow(
-                'throttle (ms)',
-                s.sourceOverlay.throttleMs,
-                'LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS'
-              )}
-            </table>`
-          : html`<p class="empty">
-              Enable with <code>sourceOverlay: true</code> or
-              <code>LIT_PLUGIN_SOURCE_OVERLAY=true</code>.
-            </p>`}
+                    </select>
+                    ${this._ovr(this._override.sourceOverlayEditor !== undefined)}
+                  </td>
+                </tr>
+                ${this._readonlyRow(
+                  'throttle (ms)',
+                  s.sourceOverlay.throttleMs,
+                  'LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS'
+                )}
+              </table>`
+            : html`<p class="empty">
+                Enable with <code>sourceOverlay: true</code> or
+                <code>LIT_PLUGIN_SOURCE_OVERLAY=true</code>.
+              </p>`
+        }
       </section>
 
       <section>

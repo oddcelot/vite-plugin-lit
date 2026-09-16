@@ -115,15 +115,17 @@ export class SegmentedTabs extends LitElement {
             class=${item.id === this.value ? 'active' : ''}
             @click=${() => this._select(item.id)}
           >
-            ${item.icon
-              ? html`<svg
-                  viewBox="0 0 256 256"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path d=${item.icon} />
-                </svg>`
-              : nothing}
+            ${
+              item.icon
+                ? html`<svg
+                    viewBox="0 0 256 256"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d=${item.icon} />
+                  </svg>`
+                : nothing
+            }
             ${item.label}
           </button>
         `
