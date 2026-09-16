@@ -398,10 +398,6 @@ Edit the templates, styles, and labels in `playground/src/*.ts` and watch
 counts, focus, and DOM identity survive. The page HUD counts HMR updates;
 every component shows a `renders: n` badge.
 
-Edit the templates, styles, and labels in `playground/src/*.ts` and watch
-counts, focus, and DOM identity survive. The page HUD counts HMR updates;
-every component shows a `renders: n` badge.
-
 ### What the HMR indicator counts
 
 The injected indicator (`hmr.indicator`, with `hmr.indicator.count` for the
@@ -471,7 +467,7 @@ version).
 ```sh
 pnpm install         # workspace: root package + playground
 pnpm build           # tsc + panel assets -> ./lib, ./panel, ./index.js
-pnpm format:check    # prettier
+pnpm format:check    # oxfmt, via vp fmt
 ```
 
 The repo is a single pnpm workspace: the plugin package at the root, and

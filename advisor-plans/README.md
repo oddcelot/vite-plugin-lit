@@ -24,7 +24,7 @@ below so nothing is lost.
 | 002  | Add a CI verification baseline                              | P1       | S      | —          | DONE   |
 | 003  | Stop source-meta injection referencing out-of-scope classes | P1       | S      | —          | DONE   |
 | 004  | Keep the DevTools element watch working across a hot patch  | P2       | S      | —          | DONE   |
-| 005  | Finish the package rename — dead specifiers and docs        | P2       | S      | —          | TODO   |
+| 005  | Finish the package rename — dead specifiers and docs        | P2       | S      | —          | DONE   |
 | 006  | Characterization unit tests for the HMR patcher             | P2       | M      | —          | TODO   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |

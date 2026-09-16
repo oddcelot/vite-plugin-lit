@@ -657,7 +657,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       root = config.root;
     },
     resolveId(id) {
-      if (id === '@lit-labs/vite-plugin-lit/source-overlay.js') {
+      if (id === '@oddsquad/vite-plugin-lit/source-overlay.js') {
         return resolveRuntimeModule('source-overlay');
       }
       return null;
@@ -736,7 +736,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       // lit family stays prebundle-eligible on purpose: the wrapper modules'
       // bare imports then resolve to the same URL every other importer gets —
       // single lit instance, single template cache.
-      return {optimizeDeps: {exclude: ['@lit-labs/vite-plugin-lit']}};
+      return {optimizeDeps: {exclude: ['@oddsquad/vite-plugin-lit']}};
     },
     resolveId(id) {
       // Public timeline API virtual module.
@@ -747,13 +747,18 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       // shipped next to this plugin, so they work even when the package
       // isn't reachable through node resolution from the served root (and
       // stay out of prebundling).
-      if (id === '@lit-labs/vite-plugin-lit/css.js') {
+      //
+      // These bare specifiers must match the package name in package.json —
+      // consumers import them by name (see README "Stylesheets"), and Vite
+      // only consults this hook for the exact string. A rename that misses
+      // them turns the fallback into silently dead code.
+      if (id === '@oddsquad/vite-plugin-lit/css.js') {
         return resolveRuntimeModule('css');
       }
-      if (id === '@lit-labs/vite-plugin-lit/indicator.js') {
+      if (id === '@oddsquad/vite-plugin-lit/indicator.js') {
         return resolveRuntimeModule('indicator');
       }
-      if (id === '@lit-labs/vite-plugin-lit/source-overlay.js') {
+      if (id === '@oddsquad/vite-plugin-lit/source-overlay.js') {
         return resolveRuntimeModule('source-overlay');
       }
       if (resolved.hmrEnabled && id.startsWith(VIRTUAL_PREFIX)) {

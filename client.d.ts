@@ -7,8 +7,8 @@
 /**
  * Ambient types for the import queries provided by the Lit Vite plugin.
  *
- * Reference via tsconfig (`"types": ["@lit-labs/vite-plugin-lit/client"]`) or
- * `/// <reference types="@lit-labs/vite-plugin-lit/client" />`.
+ * Reference via tsconfig (`"types": ["@oddsquad/vite-plugin-lit/client"]`) or
+ * `/// <reference types="@oddsquad/vite-plugin-lit/client" />`.
  */
 
 declare module '*.css?hmr-url' {
