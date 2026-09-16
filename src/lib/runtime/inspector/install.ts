@@ -66,10 +66,18 @@ if (hot !== undefined && typeof window !== 'undefined') {
       return;
     }
     const hadOwn = Object.prototype.hasOwnProperty.call(el, 'updated');
-    const prev = el.updated;
+    // Only an *own* `updated` is stable across an HMR hot patch. A prototype
+    // implementation is replaced in place on every patch (`syncOwnMembers` in
+    // ../patch.ts), so caching it here would pin the watched instance to the
+    // pre-edit code for the life of the watch — resolve it through the
+    // prototype chain on each call instead. Our wrapper is an own property, so
+    // the lookup skips it and cannot recurse.
+    const ownPrev = hadOwn ? el.updated : undefined;
     const ref = new WeakRef(el);
-    el.updated = function (changed: unknown) {
-      prev?.call(this, changed);
+    el.updated = function (this: Updatable, changed: unknown) {
+      const current =
+        ownPrev ?? (Object.getPrototypeOf(this) as Updatable | null)?.updated;
+      current?.call(this, changed);
       const cur = ref.deref();
       if (cur !== undefined) {
         send({type: 'details', details: collectDetails(cur)});
@@ -80,7 +88,7 @@ if (hot !== undefined && typeof window !== 'undefined') {
       restore: () => {
         const cur = ref.deref();
         if (cur === undefined) return;
-        if (hadOwn) cur.updated = prev;
+        if (hadOwn) cur.updated = ownPrev;
         else delete cur.updated;
       },
     };
