@@ -45,7 +45,7 @@
     "bench:serve": "node bench/run.mjs --serve",
     "format": "vp fmt \"**/*.{cjs,html,js,json,md,ts,yaml}\"",
     "format:check": "vp fmt \"**/*.{cjs,html,js,json,md,ts,yaml}\" --check",
-    "prepublishOnly": "pnpm run build",
+    "prepublishOnly": "pnpm exec vp check && pnpm run test:unit && pnpm run build",
     "prepare": "vp config"
   },
   "dependencies": {

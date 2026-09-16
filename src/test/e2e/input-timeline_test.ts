@@ -6,7 +6,7 @@
 
 import * as http from 'node:http';
 import {afterAll, beforeAll, expect, test} from 'vite-plus/test';
-import {type Fixture, startFixture} from './utils.js';
+import {type Fixture, sameOriginHeaders, startFixture} from './utils.js';
 
 let fixture: Fixture;
 
@@ -24,7 +24,13 @@ const port = (): number =>
 const post = (path: string, body: unknown): Promise<number> =>
   new Promise((resolve, reject) => {
     const req = http.request(
-      {hostname: '127.0.0.1', port: port(), path, method: 'POST'},
+      {
+        hostname: '127.0.0.1',
+        port: port(),
+        path,
+        method: 'POST',
+        headers: sameOriginHeaders(port()),
+      },
       (res) => {
         res.resume();
         res.on('end', () => resolve(res.statusCode ?? 0));
