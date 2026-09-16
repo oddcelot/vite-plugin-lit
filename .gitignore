@@ -1,7 +1,13 @@
+# Build outputs
 /index.*
 /lib/
 /types/
+/panel/
+*.tsbuildinfo
+
+# Tooling caches
 /.e2e-tmp/
 /.vite/
-*.tsbuildinfo
-/node_modules/
+
+# Dependencies
+node_modules/

@@ -1,12 +1,11 @@
-# @lit-labs/vite-plugin-lit
+# @oddsquad/vite-plugin-lit
 
 A Vite plugin for Lit projects with HMR, CSS helpers, and Lightning CSS support.
 
-> [!WARNING]
->
-> This package is part of [Lit Labs](https://lit.dev/docs/libraries/labs/).
-> It is published in order to get feedback on the design and may receive
-> breaking changes or stop being supported.
+Based on `@lit-labs/vite-plugin-lit` (formerly `@lit-labs/vite-hmr`) from the
+[lit monorepo](https://github.com/lit/lit), which is kept checked out as a
+read-only [submodule](./lit) here for reference and opt-in canary testing
+against lit `main`.
 
 ## Why
 
@@ -36,7 +35,7 @@ This plugin fixes that with two cooperating mechanisms:
 ```ts
 // vite.config.ts
 import {defineConfig} from 'vite';
-import {litPlugin} from '@lit-labs/vite-plugin-lit';
+import {litPlugin} from '@oddsquad/vite-plugin-lit';
 
 export default defineConfig({
   plugins: [litPlugin()],
@@ -92,7 +91,7 @@ served as a panel inside [Vite DevTools](https://devtools.vite.dev) (`@vitejs/de
 Enable it in `vite.config.ts`:
 
 ```ts
-import {litPlugin} from '@lit-labs/vite-plugin-lit';
+import {litPlugin} from '@oddsquad/vite-plugin-lit';
 import {DevTools} from '@vitejs/devtools';
 
 export default defineConfig({
@@ -170,7 +169,7 @@ is disabled, so imports are safe to leave in component code.
 ## Stylesheets
 
 CSS in shadow roots can be delivered a few ways, with different HMR
-behaviors. The plugin ships helpers under `@lit-labs/vite-plugin-lit/css.js`.
+behaviors. The plugin ships helpers under `@oddsquad/vite-plugin-lit/css.js`.
 For choosing between them at scale — e.g. a large utility sheet (Tailwind,
 UnoCSS) shared across many components — see
 [`docs/css-delivery.md`](./docs/css-delivery.md), with a reproducible
@@ -188,7 +187,7 @@ unstyled content on initial load while the first fetch resolves.
 
 ```ts
 // utility-sheet.ts
-import {urlSheet} from '@lit-labs/vite-plugin-lit/css.js';
+import {urlSheet} from '@oddsquad/vite-plugin-lit/css.js';
 import sheetUrl from './utility-sheet.css?url';
 
 const {sheet, onHotUpdate} = urlSheet(sheetUrl);
@@ -232,7 +231,7 @@ export class MyEl extends LitElement {
 
 Every module that imports the same `./x.css?css-sheet` shares one
 `CSSStyleSheet` instance, so an edit updates all adopters in place. Add the
-ambient type via `/// <reference types="@lit-labs/vite-plugin-lit/client" />`
+ambient type via `/// <reference types="@oddsquad/vite-plugin-lit/client" />`
 (or the `types` tsconfig field) so the import resolves to `CSSStyleSheet`.
 
 This targets utility-first CSS frameworks (Tailwind, UnoCSS): the framework
@@ -388,22 +387,16 @@ content reflow without moving the scroller.
 
 ## Playground
 
-A manually inspectable fixture app (also the source for the e2e
-fixtures). The dev server runs in a WebContainer, so HMR works live in
-the browser — no local checkout needed:
-
-- [Open on StackBlitz](https://stackblitz.com/fork/github/oddcelot/lit/tree/feat/labs-vite-plugin-lit/packages/labs/vite-plugin-lit/playground?file=src%2Fhmr-counter.ts)
-  (starts the dev server automatically)
-- [Open on bolt.new](https://bolt.new/github.com/oddcelot/lit/tree/feat/labs-vite-plugin-lit/packages/labs/vite-plugin-lit/playground)
-  (run `npm run dev` in the Bolt terminal — URL imports don't
-  auto-start)
-
-Or locally, inside the monorepo:
+A manually inspectable fixture app (also the source for the e2e fixtures).
+Run it locally from the repo root:
 
 ```sh
-cd packages/labs/vite-plugin-lit
-npm run dev   # http://localhost:5179
+pnpm dev   # builds the plugin, then serves http://localhost:5179
 ```
+
+Edit the templates, styles, and labels in `playground/src/*.ts` and watch
+counts, focus, and DOM identity survive. The page HUD counts HMR updates;
+every component shows a `renders: n` badge.
 
 Edit the templates, styles, and labels in `playground/src/*.ts` and watch
 counts, focus, and DOM identity survive. The page HUD counts HMR updates;
@@ -431,19 +424,15 @@ reload, which remounts everything and resets the count.
 | any `*.ts` component    | component module          | yes         | yes     | success (green) |
 | `main.ts`               | not self-accepting        | full reload | resets  | —               |
 
-Standalone runs use the interim npm publish of this plugin
-(`@oddsquad/vite-plugin-lit`) on Vite 7 — Vite 8's rolldown wasm binding
-currently crashes in WebContainers
-([webcontainer-core#2104](https://github.com/stackblitz/webcontainer-core/issues/2104)).
-Inside the monorepo the playground uses the local build on Vite 8.
+The playground runs on Vite 8 and always uses the local plugin build via
+the pnpm workspace link.
 
 ## Tests
 
 ```sh
-cd packages/labs/vite-plugin-lit
-npm test            # unit + e2e
-npm run test:unit   # node-only unit tests
-npm run test:e2e    # spawns vite dev servers + system Chrome
+pnpm test            # unit + e2e
+pnpm run test:unit   # node-only unit tests
+pnpm run test:e2e    # spawns vite dev servers + system Chrome
 ```
 
 The e2e suite drives the real dev server with playwright-core and the system
@@ -454,6 +443,36 @@ Chrome (`channel: 'chrome'`). Environment variables:
   (e.g. after `npx playwright install chromium` if no system Chrome is
   available).
 
-## Contributing
+By default the tests run against the published npm versions of `lit`,
+`@lit/context`, `@lit/task`, `@lit-labs/signals`, and
+`@lit-labs/virtualizer`.
 
-Please see [CONTRIBUTING.md](../../../CONTRIBUTING.md).
+### Canary runs against lit `main`
+
+The [lit monorepo](./lit) is checked out as a submodule — read-only
+reference to the real lit source (not the compiled npm output), and an
+opt-in way to test this plugin against in-development lit changes:
+
+```sh
+git submodule update --init   # once
+pnpm build:lit-canary         # installs + builds lit inside ./lit
+LIT_CANARY=1 pnpm test        # resolves lit imports from ./lit
+```
+
+With `LIT_CANARY=1`, every bare `lit` / `@lit/*` / `@lit-labs/*` import in
+the test fixtures (and the unit tests) is aliased into the built submodule
+output, so the whole suite runs against lit `main`.
+
+## Development
+
+Requires Node 26 and pnpm 12 (`corepack enable` picks up the pinned
+version).
+
+```sh
+pnpm install         # workspace: root package + playground
+pnpm build           # tsc + panel assets -> ./lib, ./panel, ./index.js
+pnpm format:check    # prettier
+```
+
+The repo is a single pnpm workspace: the plugin package at the root, and
+`playground/` linked against it via `workspace:*`.

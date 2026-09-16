@@ -6,8 +6,11 @@
 
 // eslint-disable-next-line import/extensions
 import {defineConfig} from 'vitest/config';
+import {canarySettings} from './src/test/canary.js';
 
 export default defineConfig({
+  // Empty unless LIT_CANARY=1 (see src/test/canary.ts).
+  ...canarySettings(),
   test: {
     projects: [
       {

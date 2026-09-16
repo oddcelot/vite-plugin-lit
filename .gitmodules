@@ -1,0 +1,4 @@
+[submodule "lit"]
+	path = lit
+	url = https://github.com/lit/lit.git
+	update = none

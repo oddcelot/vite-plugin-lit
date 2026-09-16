@@ -8,10 +8,7 @@ import {fileURLToPath} from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkgDir = resolve(__dirname, '..');
-const src = resolve(
-  pkgDir,
-  '../../packages/labs/vite-plugin-lit/src/panel/index.html'
-);
+const src = resolve(pkgDir, 'src/panel/index.html');
 const destDir = resolve(pkgDir, 'panel');
 
 mkdirSync(destDir, {recursive: true});

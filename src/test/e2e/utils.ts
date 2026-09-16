@@ -12,6 +12,7 @@ import {createServer, type ViteDevServer} from 'vite';
 import {chromium, type Browser, type Page} from 'playwright-core';
 import {litPlugin, type LitPluginOptions} from '../../index.js';
 import {litCssQueries} from '../../lib/plugin.js';
+import {canarySettings} from '../canary.js';
 
 const PACKAGE_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const PLAYGROUND_DIR = path.join(PACKAGE_ROOT, 'playground');
@@ -70,6 +71,8 @@ export const startFixture = async (
     root,
     configFile: false,
     logLevel: 'silent',
+    // Empty unless LIT_CANARY=1 (see ../canary.ts).
+    ...canarySettings(),
     server: {host: '127.0.0.1', port: 0},
     // Baseline runs keep the CSS import-query plugin (the playground source
     // can't boot without it) but drop the HMR plugin — the query provides no

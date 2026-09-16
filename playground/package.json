@@ -17,7 +17,7 @@
     "lit": "^3.3.3"
   },
   "devDependencies": {
-    "@oddsquad/vite-plugin-lit": "^0.0.3",
+    "@oddsquad/vite-plugin-lit": "workspace:*",
     "@vitejs/devtools": "^0.3.3",
     "lightningcss": "^1.30.0",
     "vite": "^8.0.16",

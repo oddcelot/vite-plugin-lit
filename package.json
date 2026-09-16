@@ -1,16 +1,16 @@
 {
-  "name": "@lit-labs/vite-plugin-lit",
-  "description": "Vite plugin for Lit with HMR, CSS helpers, and Lightning CSS support",
-  "version": "0.0.1",
-  "author": "Google LLC",
-  "homepage": "https://github.com/lit/lit/tree/main/packages/labs/vite-plugin-lit",
+  "name": "@oddsquad/vite-plugin-lit",
+  "version": "0.2.3",
+  "description": "Vite plugin providing true HMR for Lit components, plus CSS helpers and a DevTools panel",
   "license": "BSD-3-Clause",
+  "author": "Oddsquad (based on @lit-labs/vite-hmr by Google LLC)",
   "type": "module",
   "main": "index.js",
   "module": "index.js",
   "files": [
     "/lib/",
-    "!/lib/test/",
+    "/types/",
+    "/panel/",
     "/index.{d.ts,d.ts.map,js,js.map}",
     "/client.d.ts"
   ],
@@ -29,91 +29,23 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lit/lit.git",
-    "directory": "packages/labs/vite-plugin-lit"
+    "url": "git+https://github.com/oddcelot/vite-plugin-lit.git"
   },
   "bugs": {
-    "url": "https://github.com/lit/lit/issues"
+    "url": "https://github.com/oddcelot/vite-plugin-lit/issues"
   },
   "scripts": {
-    "build": "wireit",
-    "build:ts": "wireit",
-    "dev": "wireit",
-    "test": "npm run test:unit && npm run test:e2e",
-    "test:unit": "wireit",
-    "test:e2e": "wireit",
+    "build": "tsc --pretty && node scripts/copy-panel-html.mjs && prettier --write --ignore-path /dev/null \"index.js\" \"lib/**/*.js\"",
+    "build:lit-canary": "node scripts/build-lit-canary.mjs",
+    "dev": "pnpm run build && vite playground",
+    "test": "pnpm run test:unit && pnpm run test:e2e",
+    "test:unit": "vitest run --project unit",
+    "test:e2e": "vitest run --project e2e",
     "bench": "node bench/run.mjs",
-    "bench:serve": "node bench/run.mjs --serve"
-  },
-  "wireit": {
-    "build": {
-      "dependencies": [
-        "build:ts"
-      ]
-    },
-    "build:ts": {
-      "command": "tsc --build --pretty && npx --no-install prettier --write --ignore-path /dev/null \"index.js\" \"lib/**/*.js\"",
-      "dependencies": [
-        "../../lit:build:ts:types"
-      ],
-      "files": [
-        "src/**/*.ts",
-        "!src/test/**",
-        "tsconfig.json"
-      ],
-      "output": [
-        "lib",
-        "tsconfig.tsbuildinfo",
-        "index.{d.ts,d.ts.map,js,js.map}"
-      ],
-      "clean": "if-file-deleted"
-    },
-    "dev": {
-      "command": "vite playground",
-      "service": true,
-      "dependencies": [
-        "build:ts",
-        "../../lit:build",
-        "../signals:build",
-        "../../context:build",
-        "../../task:build",
-        "../virtualizer:build"
-      ]
-    },
-    "test:unit": {
-      "command": "vitest run --project unit",
-      "files": [
-        "src/**/*.ts",
-        "tsconfig.json",
-        "vitest.config.ts"
-      ],
-      "output": []
-    },
-    "test:e2e": {
-      "command": "vitest run --project e2e",
-      "dependencies": [
-        "../../lit:build",
-        "../signals:build",
-        "../../context:build",
-        "../../task:build",
-        "../virtualizer:build"
-      ],
-      "files": [
-        "src/**/*.ts",
-        "playground/**",
-        "tsconfig.json",
-        "vitest.config.ts"
-      ],
-      "output": [],
-      "env": {
-        "HMR_E2E_HEADED": {
-          "external": true
-        },
-        "HMR_E2E_EXECUTABLE": {
-          "external": true
-        }
-      }
-    }
+    "bench:serve": "node bench/run.mjs --serve",
+    "format": "prettier \"**/*.{cjs,html,js,json,md,ts,yaml}\" --write",
+    "format:check": "prettier \"**/*.{cjs,html,js,json,md,ts,yaml}\" --check",
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
     "es-module-lexer": "^1.5.4",
@@ -122,6 +54,7 @@
   },
   "peerDependencies": {
     "lightningcss": "^1.30.0",
+    "lit": "^3.0.0",
     "vite": "^7.0.0 || ^8.0.0"
   },
   "peerDependenciesMeta": {
@@ -134,14 +67,27 @@
     "@lit-labs/virtualizer": "^2.1.1",
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
+    "@types/node": "^26.0.0",
     "lightningcss": "^1.32.0",
     "lit": "^3.3.3",
     "playwright-core": "^1.60.0",
+    "prettier": "^3.6.0",
+    "typescript": "^5.9.0",
     "vite": "^8.0.16",
     "vitest": "^4.1.8"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=26"
+    },
+    "packageManager": {
+      "name": "pnpm",
+      "version": ">=12"
+    }
   },
   "publishConfig": {
     "access": "public"
