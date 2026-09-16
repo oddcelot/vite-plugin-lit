@@ -5,8 +5,34 @@
  */
 
 import {defineConfig} from 'vite-plus';
+import {canarySettings} from './src/test/canary.js';
 
 export default defineConfig({
+  // Empty unless LIT_CANARY=1 (see src/test/canary.ts).
+  ...canarySettings(),
+  test: {
+    projects: [
+      {
+        test: {
+          name: 'unit',
+          environment: 'node',
+          include: ['src/test/unit/**/*_test.ts'],
+        },
+      },
+      {
+        test: {
+          name: 'e2e',
+          environment: 'node',
+          include: ['src/test/e2e/**/*_test.ts'],
+          // Each e2e file owns a vite dev server + browser; keep them
+          // sequential to avoid port/file contention and CPU thrash.
+          fileParallelism: false,
+          testTimeout: 30_000,
+          hookTimeout: 60_000,
+        },
+      },
+    ],
+  },
   staged: {
     '*': 'vp check --fix',
   },
