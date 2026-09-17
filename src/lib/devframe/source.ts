@@ -24,12 +24,14 @@ import type {
   TimelineLayer,
   TimelineLayersState,
 } from '../../types/timeline.js';
+import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 
 /** The definition's sink for events arriving from the page runtime. */
 export interface TimelineSink {
   pushEvents(events: TimelineEvent[]): void;
   addLayer(layer: TimelineLayer): void;
   inspectorMessage(msg: InspectorMessage): void;
+  hmrIncompatible(event: HmrIncompatibilityEvent): void;
 }
 
 /** Where the definition sends/receives page-runtime traffic. */

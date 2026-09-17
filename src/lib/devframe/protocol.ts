@@ -26,6 +26,7 @@ import type {
   InspectorMessage,
   InspectorTreeNode,
 } from '../../types/inspector.js';
+import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 
 /** The devframe's scope id. RPC names become `lit:*`, MCP wire names `lit_*`. */
 export const LIT_DEVFRAME_ID = 'lit';
@@ -67,6 +68,12 @@ export const RPC_SET_SETTINGS_OVERRIDE = 'set-settings-override';
 
 /** Bare name of the `inspector-message` client (node → panel) event. */
 export const RPC_INSPECTOR_MESSAGE = 'inspector-message';
+
+/** Bare name of the `hmr-incompatibilities` query. */
+export const RPC_HMR_INCOMPATIBILITIES = 'hmr-incompatibilities';
+
+/** Bare name of the `hmr-incompatible` client (node → panel) event. */
+export const RPC_HMR_INCOMPATIBLE = 'hmr-incompatible';
 
 /**
  * Recording/layers snapshot shared between every surface (panel, page
@@ -142,10 +149,12 @@ declare module 'devframe' {
     'lit:set-recording': (args: SetRecordingArgs) => Promise<void>;
     'lit:toggle-layer': (args: ToggleLayerArgs) => Promise<void>;
     'lit:set-settings-override': (override: SettingsOverride) => Promise<void>;
+    'lit:hmr-incompatibilities': () => Promise<HmrIncompatibilityEvent[]>;
   }
 
   interface DevframeRpcClientFunctions {
     'lit:inspector-message': (message: InspectorMessage) => void;
+    'lit:hmr-incompatible': (event: HmrIncompatibilityEvent) => void;
   }
 
   interface DevframeSettingsRegistry {

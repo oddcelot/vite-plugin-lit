@@ -13,6 +13,11 @@ import {
   type InspectorMessage,
   type InspectorTreeNode,
 } from '../types/inspector.js';
+import {
+  describeHmrReason,
+  MAX_HMR_INCOMPATIBILITIES,
+  type HmrIncompatibilityEvent,
+} from '../types/hmr-incompatibility.js';
 import {describeError, litRpc, type LitClient} from './client.js';
 
 /** localStorage key remembering the opt-in live-tree toggle. */
@@ -29,6 +34,13 @@ const LIVE_LS_KEY = 'lit-devtools-components-live';
  * through the registered `inspector-message` client function. An overlay
  * inspect-pick arrives as a `pick` message; the view selects that node and
  * asks its host to switch to this tab.
+ *
+ * It also caches {@link HmrIncompatibilityEvent}s pushed over the
+ * `hmr-incompatible` client function (primed from the node side's own cache
+ * on connect, same as the tree) and renders them as a banner above the tree —
+ * see "Cannot be patched in place" in the limitations docs for what these
+ * mean. `hmr-count-change` bubbles the current count up to the panel shell so
+ * it can badge the tab even while another tab is in front.
  */
 @customElement('components-view')
 export class ComponentsView extends LitElement {
@@ -211,6 +223,73 @@ export class ComponentsView extends LitElement {
         padding: var(--lit-devtools-space-8) 0;
         text-align: center;
       }
+      .hmr-banner {
+        flex-shrink: 0;
+        border-bottom: 1px solid var(--lit-devtools-border);
+        background: var(--lit-devtools-error-soft);
+      }
+      .hmr-toggle {
+        display: flex;
+        align-items: center;
+        gap: var(--lit-devtools-space-3);
+        width: 100%;
+        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
+        border: 0;
+        background: none;
+        color: var(--lit-devtools-error);
+        font-size: var(--lit-devtools-text-xs);
+        font-weight: var(--lit-devtools-weight-semibold);
+        text-align: left;
+        cursor: pointer;
+      }
+      .hmr-toggle:hover {
+        background: var(--lit-devtools-surface-hover);
+      }
+      .hmr-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 16px;
+        padding: 0 var(--lit-devtools-space-2);
+        border-radius: var(--lit-devtools-radius-pill);
+        background: var(--lit-devtools-error);
+        color: var(--lit-devtools-bg);
+        font-size: var(--lit-devtools-text-2xs);
+        font-weight: var(--lit-devtools-weight-bold);
+      }
+      .hmr-chevron {
+        margin-left: auto;
+        color: var(--lit-devtools-error);
+      }
+      .hmr-list {
+        list-style: none;
+        margin: 0;
+        padding: 0 var(--lit-devtools-space-5) var(--lit-devtools-space-3);
+        max-height: 160px;
+        overflow-y: auto;
+      }
+      .hmr-item {
+        display: flex;
+        align-items: baseline;
+        gap: var(--lit-devtools-space-3);
+        padding: var(--lit-devtools-space-2) 0;
+        border-top: 1px solid var(--lit-devtools-border-subtle);
+        font-size: var(--lit-devtools-text-2xs);
+      }
+      .hmr-item:first-child {
+        border-top: 0;
+      }
+      .hmr-reason {
+        flex: 1;
+        min-width: 0;
+        color: var(--lit-devtools-text);
+      }
+      .hmr-outcome,
+      .hmr-time {
+        flex-shrink: 0;
+        color: var(--lit-devtools-text-muted);
+        white-space: nowrap;
+      }
     `,
   ];
 
@@ -225,6 +304,11 @@ export class ComponentsView extends LitElement {
   @state() private _live = false;
   /** Set when the devframe connection fails; rendered in place of the tree. */
   @state() private _error: string | null = null;
+  /** Cached HMR-incompatibility events, most recent last; primed from the
+   *  node side's cache, then appended to as `hmr-incompatible` pushes arrive. */
+  @state() private _hmrIncompatibilities: HmrIncompatibilityEvent[] = [];
+  /** Collapse state of the banner; the events themselves are never cleared. */
+  @state() private _hmrExpanded = true;
 
   private _rpc: LitClient | null = null;
 
@@ -240,16 +324,37 @@ export class ComponentsView extends LitElement {
     if (this._live) this._call({type: 'observe', enabled: false});
   }
 
+  override updated(changed: Map<string, unknown>) {
+    if (changed.has('_hmrIncompatibilities')) {
+      // Let the panel shell badge the Components tab even while another tab
+      // is in front — same cross-tab-visibility need `inspector-activate`
+      // solves for overlay picks, but passive: no tab switch.
+      this.dispatchEvent(
+        new CustomEvent('hmr-count-change', {
+          detail: {count: this._hmrIncompatibilities.length},
+          bubbles: true,
+          composed: true,
+        })
+      );
+    }
+  }
+
+  /** Count of cached HMR-incompatibility events; the panel shell's tab badge. */
+  get hmrIncompatibilityCount(): number {
+    return this._hmrIncompatibilities.length;
+  }
+
   // ---------------------------------------------------------------------------
   // Transport
   // ---------------------------------------------------------------------------
 
   /**
    * Connects to the shared devframe client and registers the node → panel
-   * `inspector-message` push. Primes the tree from the node side's cache
-   * (so a panel opened after the page loaded isn't blank), then requests a
-   * fresh tree — mirroring the old SSE `open` handler, which kicked off the
-   * first `tree` request only once the stream was subscribed.
+   * `inspector-message` and `hmr-incompatible` pushes. Primes the tree and
+   * the HMR-incompatibility list from the node side's caches (so a panel
+   * opened after the page loaded isn't blank), then requests a fresh tree —
+   * mirroring the old SSE `open` handler, which kicked off the first `tree`
+   * request only once the stream was subscribed.
    */
   private async _connect(): Promise<void> {
     try {
@@ -260,7 +365,13 @@ export class ComponentsView extends LitElement {
         type: 'event',
         handler: this._onMessage,
       });
+      rpc.rpc.register({
+        name: 'hmr-incompatible',
+        type: 'event',
+        handler: this._onHmrIncompatible,
+      });
       this._roots = await rpc.rpc.call('list-components');
+      this._hmrIncompatibilities = await rpc.rpc.call('hmr-incompatibilities');
       void rpc.rpc.call('inspect', {type: 'tree'});
     } catch (err) {
       this._error = describeError(err);
@@ -314,6 +425,18 @@ export class ComponentsView extends LitElement {
         );
         break;
     }
+  };
+
+  /**
+   * A component couldn't be hot-patched in place; append it to the banner,
+   * keeping only the newest {@link MAX_HMR_INCOMPATIBILITIES} so a long
+   * session with many failing edits can't grow this without bound — the same
+   * cap the node-side cache applies before it ever broadcasts.
+   */
+  private _onHmrIncompatible = (event: HmrIncompatibilityEvent): void => {
+    this._hmrIncompatibilities = [...this._hmrIncompatibilities, event].slice(
+      -MAX_HMR_INCOMPATIBILITIES
+    );
   };
 
   // ---------------------------------------------------------------------------
@@ -388,6 +511,10 @@ export class ComponentsView extends LitElement {
 
   private _highlight(id: number | null): void {
     this._call({type: 'highlight', id});
+  }
+
+  private _toggleHmrExpanded(): void {
+    this._hmrExpanded = !this._hmrExpanded;
   }
 
   private _openSource(): void {
@@ -544,6 +671,66 @@ export class ComponentsView extends LitElement {
     `;
   }
 
+  /**
+   * Collapsible banner listing components that couldn't be hot-patched in
+   * place, most recent first. Rendered only when there's at least one —
+   * see `hmrIncompatibilityCount` for the tab-strip badge that covers the
+   * case where the developer is parked on another tab.
+   */
+  private _renderHmrBanner(): TemplateResult | typeof nothing {
+    if (this._hmrIncompatibilities.length === 0) return nothing;
+    return html`
+      <section class="hmr-banner">
+        <button
+          class="hmr-toggle"
+          aria-expanded=${this._hmrExpanded}
+          @click=${this._toggleHmrExpanded}
+        >
+          <span class="hmr-title">HMR issues</span>
+          <span class="hmr-count">${this._hmrIncompatibilities.length}</span>
+          <span class="hmr-chevron">${this._hmrExpanded ? '▾' : '▸'}</span>
+        </button>
+        ${
+          this._hmrExpanded
+            ? html`
+                <ul class="hmr-list">
+                  ${[...this._hmrIncompatibilities].reverse().map(
+                    (e) => html`
+                      <li class="hmr-item">
+                        <span class="tag"
+                          ><span class="punct">&lt;</span>${e.tagName}<span
+                            class="punct"
+                            >&gt;</span
+                          ></span
+                        >
+                        <span class="hmr-reason"
+                          >${describeHmrReason(e.reason)}</span
+                        >
+                        ${
+                          e.action !== 'none'
+                            ? html`<span class="hmr-outcome"
+                                >${
+                                  e.action === 'reload'
+                                    ? 'reloaded'
+                                    : 'warned only'
+                                }</span
+                              >`
+                            : nothing
+                        }
+                        <span class="hmr-time"
+                          >${formatRelativeTime(e.time)}</span
+                        >
+                      </li>
+                    `
+                  )}
+                </ul>
+              `
+            : nothing
+        }
+      </section>
+    `;
+  }
+
   override render() {
     return html`
       <div class="toolbar">
@@ -564,6 +751,7 @@ export class ComponentsView extends LitElement {
         </button>
         <button @click=${this._refresh} ?disabled=${this._live}>Refresh</button>
       </div>
+      ${this._renderHmrBanner()}
       <div class="body">
         <div class="tree" @mouseleave=${() => this._highlight(null)}>
           ${
@@ -581,6 +769,21 @@ export class ComponentsView extends LitElement {
     `;
   }
 }
+
+/**
+ * Coarse relative time for an {@link HmrIncompatibilityEvent}'s `Date.now()`
+ * timestamp (there is no live clock tick in this view — good enough for a
+ * banner of rare, one-off events, unlike the timeline's precise `ms` display).
+ */
+const formatRelativeTime = (time: number): string => {
+  const seconds = Math.max(0, Math.round((Date.now() - time) / 1000));
+  if (seconds < 5) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  return `${hours}h ago`;
+};
 
 /**
  * Returns the ids of every ancestor of `id` (nearest last), or `null` if `id`

@@ -34,6 +34,8 @@ import type {
   InspectorCommand,
   InspectorMessage,
 } from '../../types/inspector.js';
+import {HMR_INCOMPATIBLE_CHANNEL} from '../../types/hmr-incompatibility.js';
+import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 import {SETTINGS_OVERRIDE_CHANNEL} from '../../types/timeline.js';
 import type {
   FeatureSettings,
@@ -124,6 +126,10 @@ export class HotTimelineSource implements TimelineSource {
         this.#hub?.docks?.activate?.(LIT_DEVFRAME_ID);
       }
       this.#sink?.inspectorMessage(data);
+    });
+
+    hot.on(HMR_INCOMPATIBLE_CHANNEL, (event: HmrIncompatibilityEvent) => {
+      this.#sink?.hmrIncompatible(event);
     });
   }
 

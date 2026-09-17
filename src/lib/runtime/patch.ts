@@ -21,9 +21,21 @@
  */
 
 import {subscribeOverride} from './overrides.js';
+import {
+  HMR_INCOMPATIBLE_CHANNEL,
+  describeHmrReason,
+  type HmrIncompatibilityEvent,
+  type HmrIncompatibilityReason,
+} from '../../types/hmr-incompatibility.js';
 
-/** Minimal `import.meta.hot` shape used to receive live setting overrides. */
-type HotChannel = {on: (event: string, cb: (data: unknown) => void) => void};
+/**
+ * Minimal `import.meta.hot` shape used to receive live setting overrides and
+ * to report HMR-incompatibility events.
+ */
+type HotChannel = {
+  on: (event: string, cb: (data: unknown) => void) => void;
+  send: (event: string, data: unknown) => void;
+};
 
 export interface PatchOptions {
   /**
@@ -67,6 +79,8 @@ interface PatchState {
   /** Generation a (possibly detached) instance last caught up to. */
   generationOf: WeakMap<ReactiveElementLike, number>;
   options: Required<PatchOptions>;
+  /** Set in `install()`; reports HMR-incompatibility events when present. */
+  hot?: HotChannel;
 }
 
 type LifecycleName = 'connectedCallback' | 'disconnectedCallback';
@@ -265,19 +279,37 @@ const readoptStyles = (
   root.adoptedStyleSheets = [...sheets, ...preserved];
 };
 
+/**
+ * Builds the structured event reported over {@link HMR_INCOMPATIBLE_CHANNEL}.
+ * Exported for unit testing; otherwise module-internal. Whether the send
+ * survives the `location.reload()` that may follow it can only be checked by
+ * hand against a real dev server.
+ */
+export const buildHmrIncompatibleEvent = (
+  tagName: string,
+  reason: HmrIncompatibilityReason,
+  action: HmrIncompatibilityEvent['action']
+): HmrIncompatibilityEvent => ({tagName, time: Date.now(), reason, action});
+
 const incompatible = (
   state: PatchState,
   tagName: string,
-  reason: string
+  reason: HmrIncompatibilityReason
 ): void => {
+  const message = describeHmrReason(reason);
+  const action = state.options.onIncompatible === 'warn' ? 'warn' : 'reload';
+  state.hot?.send(
+    HMR_INCOMPATIBLE_CHANNEL,
+    buildHmrIncompatibleEvent(tagName, reason, action)
+  );
   if (state.options.onIncompatible === 'warn') {
     console.warn(
-      `[lit-plugin] <${tagName}> can't be hot-patched (${reason}). ` +
+      `[lit-plugin] <${tagName}> can't be hot-patched (${message}). ` +
         `Reload the page to pick up the change.`
     );
   } else {
     console.info(
-      `[lit-plugin] <${tagName}>: ${reason} — performing full reload.`
+      `[lit-plugin] <${tagName}>: ${message} — performing full reload.`
     );
     location.reload();
   }
@@ -302,7 +334,7 @@ const hotPatch = (
 
     // 2. Standard-decorator `accessor` properties can't be patched in place.
     if (usesStandardDecorators(NewClass)) {
-      incompatible(state, record.tagName, 'standard accessor decorators');
+      incompatible(state, record.tagName, {code: 'accessor-decorators'});
       return;
     }
 
@@ -369,6 +401,14 @@ const hotPatch = (
         `[lit-plugin] <${record.tagName}> changed observedAttributes; the ` +
           `platform registry can't pick this up — reload recommended.`
       );
+      state.hot?.send(
+        HMR_INCOMPATIBLE_CHANNEL,
+        buildHmrIncompatibleEvent(
+          record.tagName,
+          {code: 'observed-attributes-changed'},
+          'none'
+        )
+      );
     }
 
     // 7. Update live instances.
@@ -412,11 +452,10 @@ const hotPatch = (
       el.requestUpdate?.();
     }
   } catch (e) {
-    incompatible(
-      state,
-      record.tagName,
-      `patching failed: ${e instanceof Error ? e.message : String(e)}`
-    );
+    incompatible(state, record.tagName, {
+      code: 'patch-failed',
+      detail: e instanceof Error ? e.message : String(e),
+    });
   }
 };
 
@@ -440,6 +479,7 @@ export const install = (options: PatchOptions = {}): void => {
     }
     return;
   }
+  const hot = (import.meta as {hot?: HotChannel}).hot;
   const state: PatchState = {
     records: new Map(),
     generationOf: new WeakMap(),
@@ -447,12 +487,13 @@ export const install = (options: PatchOptions = {}): void => {
       reconnect: options.reconnect ?? false,
       onIncompatible: options.onIncompatible ?? 'reload',
     },
+    hot,
   };
   g[STATE_KEY] = state;
 
   // Let the DevTools panel override these behaviours live (and persist across
   // reloads) on top of the config-time defaults above.
-  subscribeOverride((import.meta as {hot?: HotChannel}).hot, (o) => {
+  subscribeOverride(hot, (o) => {
     if (o.hmrReconnect !== undefined) state.options.reconnect = o.hmrReconnect;
     if (o.hmrOnIncompatible !== undefined) {
       state.options.onIncompatible = o.hmrOnIncompatible;

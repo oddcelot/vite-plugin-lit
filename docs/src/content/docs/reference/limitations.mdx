@@ -49,7 +49,10 @@ reload the page (default) or warn in the console.
 
 The console message names the reason before the reload happens. If you are
 chasing a reload you did not expect, set `hmr: {onIncompatible: 'warn'}`
-temporarily — the page stops reloading out from under the message.
+temporarily — the page stops reloading out from under the message. The DevTools
+panel's Components tab also lists these incompatibility events directly, so you
+can inspect the reasons without racing to read the console before the reload
+clears it.
 
 ## Related
 

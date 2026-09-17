@@ -37,6 +37,7 @@ test('lifecycle layer reports update phases over the timeline source', async () 
     pushEvents: (batch) => events.push(...batch),
     addLayer: () => {},
     inspectorMessage: () => {},
+    hmrIncompatible: () => {},
   });
 
   await page.reload();
