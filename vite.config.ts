@@ -66,6 +66,8 @@ export default defineConfig({
       '.e2e-tmp/',
       'playground/dist/',
       'bench/results/',
+      'docs/dist/',
+      'docs/.astro/',
     ],
   },
   fmt: {
@@ -84,6 +86,8 @@ export default defineConfig({
       '.e2e-tmp/',
       'playground/dist/',
       'bench/results/',
+      'docs/dist/',
+      'docs/.astro/',
     ],
   },
 });

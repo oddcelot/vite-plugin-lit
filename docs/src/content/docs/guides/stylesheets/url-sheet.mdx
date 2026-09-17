@@ -1,0 +1,76 @@
+---
+title: urlSheet()
+description: Build the shared, hot-swapping CSSStyleSheet by hand when you need control over the fetch or must run without the plugin.
+sidebar:
+  order: 4
+---
+
+import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+You want this when you need the same shared, hot-swapping sheet that
+[`?css-sheet`](/vite-plugin-lit/guides/stylesheets/css-sheet/) gives you, but
+with the wiring in your own module — because you want a custom fetch or
+transform, or because the importing code has to work in a project that does not
+run this plugin.
+
+## Use it
+
+`urlSheet()` builds a single constructed `CSSStyleSheet` from a `?url`-imported
+CSS file, shareable across any number of components via `adoptedStyleSheets`.
+An edit re-fetches and `replaceSync()`s the sheet in place — every adopter
+updates **without re-rendering a component and without a full-page reload**.
+The CSS stays a standalone, pipeline-processed `.css` file in the build output
+(it isn't inlined into the JS bundle); the only cost is a brief flash of
+unstyled content on initial load while the first fetch resolves.
+
+```ts
+// utility-sheet.ts
+import {urlSheet} from '@oddsquad/vite-plugin-lit/css.js';
+import sheetUrl from './utility-sheet.css?url';
+
+const {sheet, onHotUpdate} = urlSheet(sheetUrl);
+export default sheet;
+
+// The accept must live here with the same literal specifier as the import —
+// Vite resolves accepted HMR deps by static analysis, so it can't be hidden
+// inside the helper.
+import.meta.hot?.accept('./utility-sheet.css?url', onHotUpdate);
+```
+
+```ts
+// any component
+import sheet from './utility-sheet.js';
+
+@customElement('my-el')
+export class MyEl extends LitElement {
+  static override styles = [sheet];
+}
+```
+
+<Aside type="caution" title="The accept line is not optional">
+  It must sit in the module that imports the CSS, with the same literal
+  specifier. Moving it into a helper — or building the specifier from a variable
+  — silently disables the hot swap, because Vite never sees the dependency.
+</Aside>
+
+## Where the sheet lives
+
+One `CSSStyleSheet` object per CSS file, created once at module scope and
+shared by every component that imports the module. Constructing it at module
+top level means importing that module requires constructable-stylesheet support
+(browsers ≥ Safari 16.4; jsdom and Node SSR throw at import).
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="?css-sheet"
+    description="The same thing without the boilerplate."
+    href="/vite-plugin-lit/guides/stylesheets/css-sheet/"
+  />
+  <LinkCard
+    title="Runtime API"
+    description="urlSheet() and devCacheBust() signatures."
+    href="/vite-plugin-lit/reference/runtime-api/"
+  />
+</CardGrid>

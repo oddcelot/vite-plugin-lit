@@ -1,0 +1,98 @@
+---
+title: Development
+description: Clone, install, build, and run the playground — plus the toolchain versions the repository pins.
+sidebar:
+  order: 1
+---
+
+import {Aside, CardGrid, LinkCard, Steps} from '@astrojs/starlight/components';
+
+You want this if you are changing the plugin itself. Requires Node 26 and
+pnpm 12 (`corepack enable` picks up the pinned version); the published package
+only needs Node ≥ 20 at runtime.
+
+<Steps>
+
+1. Clone and install. The repo is a single pnpm workspace: the plugin package
+   at the root, plus `playground/` and `docs/` linked against it via
+   `workspace:*`.
+
+   ```sh
+   git clone https://github.com/oddcelot/vite-plugin-lit.git
+   cd vite-plugin-lit
+   pnpm install
+   ```
+
+2. Build the plugin — `tsc` plus the panel assets, into `./lib`, `./panel`, and
+   `./index.js`:
+
+   ```sh
+   pnpm build
+   ```
+
+3. Run the playground. It builds the plugin first, then serves
+   `http://localhost:5179`:
+
+   ```sh
+   pnpm dev
+   ```
+
+</Steps>
+
+## The playground
+
+A manually inspectable fixture app, and the source for the e2e fixtures. Edit
+the templates, styles, and labels in `playground/src/*.ts` and watch counts,
+focus, and DOM identity survive. The page HUD counts HMR updates; every
+component shows a `renders: n` badge. It runs on Vite 8 and always uses the
+local plugin build through the pnpm workspace link.
+
+It is also self-contained enough to open on
+[StackBlitz](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground)
+or bolt.new straight from the repo URL, which is the quickest way to reproduce
+a bug report without a local checkout.
+
+## Checks
+
+```sh
+pnpm exec vp check   # format + lint + type check (oxfmt, oxlint, tsgolint)
+pnpm format:check    # formatting only
+pnpm run test:unit   # node-only unit tests
+```
+
+`vp check` is what CI runs, and what `prepublishOnly` runs before a release
+alongside the unit tests and a build.
+
+## The documentation site
+
+This site lives in `docs/` as its own workspace package (Astro + Starlight):
+
+```sh
+pnpm docs:dev     # serve at http://localhost:4321/vite-plugin-lit/
+pnpm docs:build   # static build, including internal-link validation
+```
+
+`pnpm docs:build` is the gate: it fails on a dead internal link or anchor, so
+run it before opening a docs PR.
+
+<Aside type="caution" title="Links carry the base path">
+  The site is deployed under the `/vite-plugin-lit` GitHub Pages path, and Astro
+  does not rewrite hrefs written in Markdown. Internal links in content are
+  therefore written with that prefix — `/vite-plugin-lit/reference/options/`.
+  The links validator checks every one of them against the real page set.
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Testing"
+    description="Unit, e2e, the env vars they honour, and canary runs against lit main."
+    href="/vite-plugin-lit/contributing/testing/"
+  />
+  <LinkCard
+    title="Design docs"
+    description="The plans behind the features, in the repository."
+    href="/vite-plugin-lit/contributing/design-docs/"
+  />
+</CardGrid>

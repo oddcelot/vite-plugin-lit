@@ -1,4 +1,5 @@
 packages:
+  - docs
   - playground
 minimumReleaseAgeExclude:
   - prettier@3.9.7
@@ -15,6 +16,7 @@ minimumReleaseAgeExclude:
   - '@vitejs/devtools-kit@0.7.5'
   - '@vitejs/devtools@0.7.5'
   - devframe@1.0.0
+  - astro@7.3.3
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.3.2
   vite-plus: 0.3.2
@@ -25,3 +27,6 @@ peerDependencyRules:
     - vite
   allowedVersions:
     vite: '*'
+allowBuilds:
+  # astro bundles with esbuild; its postinstall wires up the platform binary.
+  esbuild: true

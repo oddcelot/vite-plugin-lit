@@ -1,0 +1,85 @@
+---
+title: Lit ecosystem libraries
+description: How signals, context, tasks, and the virtualizer behave across a hot patch, and the caveats for each.
+sidebar:
+  order: 9
+  label: Ecosystem libraries
+---
+
+import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+You want this when your components are not plain `LitElement`s — they use
+signals, context, tasks, or the virtualizer — and you need to know which of
+their state survives an edit. Each section ends with the one caveat that
+actually bites.
+
+## Signals
+
+`@lit-labs/signals` is supported: its `html`/`svg` tags are interned just
+like the core ones, the `SignalWatcher` mixin's regenerated class chain is
+re-parented during a patch, and both per-instance signals and signals
+imported from other modules keep their value and reactivity across an
+update.
+
+One caveat applies to all module-level state, not just signals: a
+module-level `signal()` declared **inside an edited component module** is
+re-created (with its initial value) when that module re-executes. Keep
+shared signals in their own non-component module and import them — that
+module never re-executes, so the signal object survives.
+
+## Context
+
+`@lit/context` is supported, including the experimental-decorator
+`@provide`/`@consume` forms: those keep per-class-evaluation state (a
+WeakMap of instance → controller populated via `addInitializer`), so during
+a patch the runtime re-runs the class initializers for live instances to
+enroll them in the new closures, then restores the provided value through
+the new accessors — subscribed consumers keep both their value and a live
+subscription. Controllers created by previous evaluations stay attached but
+inert; that's bounded by edit count and cleared by any reload.
+
+Define the context key in its own module (and prefer string keys —
+`createContext('my-context')` is identity-by-value, a `Symbol()` key is
+not), the same way you'd isolate any shared module-level state.
+
+## Tasks
+
+`@lit/task` works without special handling: the Task controller and its
+completed value are instance state, which patches preserve. A hot patch
+re-renders without re-fetching (the update re-evaluates `args()`, which are
+shallow-equal, so the task stays `COMPLETE`), and args-driven re-runs keep
+working afterwards. One caveat: the task _function_ is captured by the
+controller at construction, so editing its body only affects future
+instances — reload to swap fetch logic on live ones.
+
+## Virtualizer
+
+`@lit-labs/virtualizer` behaves well under patches: the
+`<lit-virtualizer>` element holds its layout and scroll state, so as long
+as it lives in its own template literal, header edits and even row-template
+edits (the `renderItem` arrow is an interpolation _value_ — its body isn't
+part of the outer literal's strings) preserve the element, the scroll
+offset, and the visible window. Re-created `items` arrays with equal
+content reflow without moving the scroller.
+
+<Aside type="tip" title="The pattern behind all four">
+  Everything above reduces to the same rule: state that lives on the *instance*
+  survives; state that lives in the *edited module's scope* does not. Move
+  shared state — signals, context keys, caches — into their own module and the
+  caveats disappear.
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="HMR"
+    description="What a patch preserves in general, and what forces a reload."
+    href="/vite-plugin-lit/guides/hmr/"
+  />
+  <LinkCard
+    title="Limitations"
+    description="The shapes that cannot be patched in place at all."
+    href="/vite-plugin-lit/reference/limitations/"
+  />
+</CardGrid>

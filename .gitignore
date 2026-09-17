@@ -8,6 +8,8 @@
 # Tooling caches
 /.e2e-tmp/
 /.vite/
+docs/dist/
+docs/.astro/
 
 # Dependencies
 node_modules/

@@ -1,0 +1,50 @@
+---
+title: Design docs
+description: Index of the feature design docs and audit plans kept in the repository.
+sidebar:
+  order: 3
+---
+
+import {CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+The repository keeps two sets of working documents. They are not copied here —
+these are links to the source of truth on GitHub, which is where they are
+edited and where their status is updated.
+
+## Feature design docs (`plans/`)
+
+Hand-written design docs for features, written before the implementation.
+
+- [`?css-sheet` — inline mode for library builds](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/css-sheet-inline-build.md)
+- [DevTools redesign — align with the Lit design system](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/devtools-redesign.md)
+- [Lit DevTools Timeline (Vue DevTools–style)](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/devtools-timeline.md)
+- [Documentation site with Astro + Starlight](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/docs-site.md)
+
+## Audit plans (`advisor-plans/`)
+
+The output of a read-only codebase audit: one self-contained plan per finding
+worth acting on, plus an index recording every finding that did **not** become
+a plan, so nothing is re-audited.
+
+- [Index, with execution order and status](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/README.md)
+- [001 — Reject cross-site requests to the dev-server endpoints](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/001-harden-dev-endpoint-origin-check.md)
+- [002 — Add a CI verification baseline](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/002-ci-verification-baseline.md)
+- [003 — Stop source-meta injection referencing out-of-scope classes](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/003-source-meta-scope-escape.md)
+- [004 — Keep the DevTools element watch working across a hot patch](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/004-watch-stale-lifecycle.md)
+- [005 — Finish the package rename](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/005-finish-package-rename.md)
+- [006 — Characterization unit tests for the HMR patcher](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/006-patch-characterization-tests.md)
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Development"
+    description="How to build and run what these documents describe."
+    href="/vite-plugin-lit/contributing/development/"
+  />
+  <LinkCard
+    title="How it works"
+    description="The shipped behaviour the design docs led to."
+    href="/vite-plugin-lit/getting-started/how-it-works/"
+  />
+</CardGrid>

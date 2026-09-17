@@ -1,0 +1,113 @@
+---
+title: Source overlay
+description: Click a custom element in the running page to open its source file in your editor.
+sidebar:
+  order: 8
+---
+
+import {Aside, CardGrid, LinkCard, Steps} from '@astrojs/starlight/components';
+
+You want this when you are looking at a component on the page and cannot
+remember which file renders it. The overlay is a dev-only inspector: point at
+an element, see its tag and source path, click to open the file in your editor
+at the right line.
+
+## Enable it
+
+```ts
+// vite.config.ts
+litPlugin({sourceOverlay: true});
+```
+
+Or without touching the config, in `.env.local`:
+
+```
+LIT_PLUGIN_SOURCE_OVERLAY=true
+```
+
+<Steps>
+
+1. Press **Ctrl+Shift+S** in the page to arm the picker.
+
+2. Move the pointer — the element under it is outlined, with a panel showing
+   its tag name and source file.
+
+3. Click to open that file in your editor, or press **Ctrl+Shift+S** again to
+   dismiss.
+
+</Steps>
+
+The panel also has a copy button for the file path, for when you want to paste
+it somewhere instead of opening it.
+
+## Choosing your editor
+
+```ts
+litPlugin({sourceOverlay: {editor: 'zed'}});
+```
+
+Built-in keys: `vscode` (default), `cursor`, `zed`, `idea`, `windsurf`. An
+unknown key falls back to VS Code.
+
+Opening goes through a dev-server middleware, which is what makes it work
+without a URL scheme handler. When the dev server is unreachable — a
+StackBlitz preview, for instance — the overlay falls back to the editor's URL
+scheme. A custom editor is a `{name, url}` pair:
+
+```ts
+litPlugin({
+  sourceOverlay: {
+    editor: {
+      name: 'My Editor',
+      url: (path, line) => `my-editor://open?file=${path}&line=${line}`,
+    },
+  },
+});
+```
+
+## Other options
+
+```ts
+litPlugin({
+  sourceOverlay: {
+    key: 'e', // Ctrl+Shift+E instead of Ctrl+Shift+S
+    workspaceRoot: '/Users/me/projects/app', // prefix for absolute paths
+    throttleMs: 50, // pointer-move throttle, default 50
+    exclude: (el) => el.tagName.startsWith('MY-INTERNAL-'),
+    onSelect: (info) => console.log(info.tagName, info.source.filePath),
+  },
+});
+```
+
+`key` is the letter combined with Ctrl+Shift. `exclude` skips elements during
+inspection; `onSelect` fires with the picked element's info instead of relying
+on the default open-in-editor behaviour.
+
+<Aside type="caution" title="Dev only">
+  The overlay, its middleware, and the injected runtime exist only on the dev
+  server. Nothing about it reaches a production build.
+</Aside>
+
+## It also powers the DevTools picker
+
+The Components tab in the [DevTools
+timeline](/vite-plugin-lit/guides/devtools-timeline/) reuses this picker for
+its **Pick** button and the `Ctrl+Shift+E` shortcut, so selecting an element in
+the tree by pointing at it requires `sourceOverlay` to be enabled. The
+difference is what a click does: `Ctrl+Shift+S` opens the file in your editor,
+a DevTools pick selects the element in the tree.
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Options"
+    description="sourceOverlay and its sub-options."
+    href="/vite-plugin-lit/reference/options/#sourceoverlay"
+  />
+  <LinkCard
+    title="Environment variables"
+    description="Enable and configure the overlay without editing vite.config.ts."
+    href="/vite-plugin-lit/reference/environment-variables/"
+  />
+</CardGrid>

@@ -1,0 +1,131 @@
+---
+title: Runtime API
+description: The browser helpers exported from @oddsquad/vite-plugin-lit/css.js and the virtual:lit-plugin/timeline module.
+sidebar:
+  order: 4
+---
+
+import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+Two runtime entry points ship with the package: the CSS helpers under
+`@oddsquad/vite-plugin-lit/css.js`, and the timeline API behind the
+`virtual:lit-plugin/timeline` module. Both are dependency-free and safe to
+import from component code.
+
+## `@oddsquad/vite-plugin-lit/css.js`
+
+### urlSheet(url)
+
+```ts
+function urlSheet(url: string): UrlSheet;
+
+interface UrlSheet {
+  sheet: CSSStyleSheet;
+  onHotUpdate: (mod: Record<string, unknown> | undefined) => void;
+}
+```
+
+Builds a single constructed `CSSStyleSheet` from a `?url`-imported CSS asset,
+shareable across shadow roots via `adoptedStyleSheets`, that hot-swaps in place
+on edits — no component re-render, no full-page reload.
+
+- **`sheet`** is empty until the first fetch resolves, so expect a brief flash
+  of unstyled content on initial load. That is the cost of keeping the CSS a
+  real asset instead of inlining it into the JS bundle.
+- **`onHotUpdate`** is typed to match Vite's accept callback, so it drops
+  straight into `import.meta.hot?.accept()`. It must be registered in the module
+  that imports the CSS, with the same literal specifier.
+
+```ts
+import {urlSheet} from '@oddsquad/vite-plugin-lit/css.js';
+import sheetUrl from './utils.css?url';
+
+const {sheet, onHotUpdate} = urlSheet(sheetUrl);
+export default sheet; // `static styles = [sheet]` in components
+
+import.meta.hot?.accept('./utils.css?url', onHotUpdate);
+```
+
+Overlapping fetches from rapid edits are resolved in issue order: only the most
+recently issued request is applied, so a slow earlier fetch cannot clobber a
+newer one.
+
+<Aside type="caution" title="Fetch failures are silent">
+  A failed fetch — a wrong path, a 404 — leaves the sheet empty without a
+  console message. If a shared sheet appears to do nothing, check the network
+  panel for the CSS request before suspecting the HMR wiring.
+</Aside>
+
+### devCacheBust(url)
+
+```ts
+function devCacheBust(url: string): string;
+```
+
+Appends a cache-busting query to a `?url`-imported CSS file URL in dev, so that
+each HMR re-execution yields a fresh href and the browser refetches the changed
+stylesheet. In production builds the URL is already a content-hashed asset, so
+the input is returned unchanged.
+
+Call it at **module scope**, not inside `render()` — in a render it would
+refetch the stylesheet on every render.
+
+```ts
+import cssUrl from './my-element.css?url';
+import {devCacheBust} from '@oddsquad/vite-plugin-lit/css.js';
+
+const href = devCacheBust(cssUrl); // module scope
+html`<link rel="stylesheet" href="${href}" />`;
+```
+
+## `virtual:lit-plugin/timeline`
+
+```ts
+function addTimelineLayer(layer: TimelineLayer): void;
+function addTimelineEvent(event: TimelineEvent): void;
+
+interface TimelineLayer {
+  id: string;
+  label: string;
+  /** 0xRRGGBB */
+  color: number;
+}
+
+interface TimelineEvent<TData = unknown> {
+  layerId: string;
+  /** `performance.now()` timestamp in the browser. */
+  time: number;
+  data: TData;
+  title?: string;
+  subtitle?: string;
+  /** Pairs a start event with its matching end event. */
+  groupId?: number | string;
+  logType?: 'default' | 'warning' | 'error';
+}
+```
+
+`addTimelineLayer` registers a custom layer with the panel; the panel appends
+it to the toggle strip after the built-in layers, and duplicate ids are
+ignored. `addTimelineEvent` emits onto a custom layer or one of the built-in
+ids (`'lit-lifecycle'`, `'lit-render'`, `'mouse'`, `'keyboard'`).
+
+The virtual module resolves to a no-op stub in production and when `timeline`
+is disabled, so imports are safe to leave in component code. It has no ambient
+declaration yet — see
+[import queries](/vite-plugin-lit/reference/import-queries/#virtuallit-plugintimeline)
+for the `declare module` workaround.
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="urlSheet() guide"
+    description="The wiring in context, with the accept-line caveat."
+    href="/vite-plugin-lit/guides/stylesheets/url-sheet/"
+  />
+  <LinkCard
+    title="Custom layers"
+    description="Putting your own events on the timeline."
+    href="/vite-plugin-lit/guides/devtools-timeline/custom-layers/"
+  />
+</CardGrid>

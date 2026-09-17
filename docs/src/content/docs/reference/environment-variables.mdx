@@ -1,0 +1,83 @@
+---
+title: Environment variables
+description: The LIT_PLUGIN_* variables, what each maps to, how values are parsed, and the precedence rules.
+sidebar:
+  order: 2
+---
+
+import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+Every option also resolves from environment variables (and `.env` files) with
+the `LIT_PLUGIN` prefix, read at config time. Options passed to `litPlugin()`
+take precedence over env vars, which take precedence over the defaults.
+
+| Env var                                 | Maps to                    |
+| --------------------------------------- | -------------------------- |
+| `LIT_PLUGIN_HMR`                        | `hmr.enabled`              |
+| `LIT_PLUGIN_HMR_RECONNECT`              | `hmr.reconnect`            |
+| `LIT_PLUGIN_HMR_ON_INCOMPATIBLE`        | `hmr.onIncompatible`       |
+| `LIT_PLUGIN_HMR_INDICATOR`              | `hmr.indicator.enabled`    |
+| `LIT_PLUGIN_HMR_INDICATOR_COUNT`        | `hmr.indicator.count`      |
+| `LIT_PLUGIN_SOURCE_OVERLAY`             | `sourceOverlay` (enable)   |
+| `LIT_PLUGIN_SOURCE_OVERLAY_KEY`         | `sourceOverlay.key`        |
+| `LIT_PLUGIN_SOURCE_OVERLAY_EDITOR`      | `sourceOverlay.editor`     |
+| `LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS` | `sourceOverlay.throttleMs` |
+| `LIT_PLUGIN_TIMELINE`                   | `timeline` (enable)        |
+| `LIT_PLUGIN_CSS_SHEET_BUILD`            | `cssSheetBuild`            |
+
+## Precedence
+
+For each individual setting, the first of these that is defined wins:
+
+1. the value passed to `litPlugin()`
+2. the environment variable
+3. the built-in default
+
+Precedence is per setting, not per group: `litPlugin({hmr: {reconnect: true}})`
+fixes `reconnect`, and `LIT_PLUGIN_HMR_INDICATOR_COUNT=1` still applies to the
+indicator.
+
+## How values are parsed
+
+- **Booleans** accept `true`, `1`, `false`, `0`. Anything else is treated as
+  unset, so the option falls through to its default.
+- **Numbers** (`LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS`) must parse as a number;
+  an unparsable value is treated as unset.
+- **`LIT_PLUGIN_CSS_SHEET_BUILD`** is checked against the allowed set. A value
+  outside it logs a warning and falls back to the default — a typo cannot
+  silently change your build output.
+
+<Aside type="caution" title="Two settings without an env var">
+  `sourceOverlay.workspaceRoot`, `sourceOverlay.exclude`, and
+  `sourceOverlay.onSelect` have no environment variable: the latter two are
+  functions, and `workspaceRoot` is a path best kept in the config.
+</Aside>
+
+## Example
+
+```ini
+# .env.local — enable the dev-only tooling without touching vite.config.ts
+LIT_PLUGIN_TIMELINE=true
+LIT_PLUGIN_SOURCE_OVERLAY=true
+LIT_PLUGIN_SOURCE_OVERLAY_EDITOR=zed
+LIT_PLUGIN_HMR_INDICATOR_COUNT=1
+```
+
+Because these are read through Vite's `loadEnv` at config time, they follow
+Vite's usual `.env` file resolution — `.env`, `.env.local`, and the
+mode-specific variants.
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Options"
+    description="The same surface as a config object, with defaults."
+    href="/vite-plugin-lit/reference/options/"
+  />
+  <LinkCard
+    title="Source overlay"
+    description="The feature with the most env-configurable sub-options."
+    href="/vite-plugin-lit/guides/source-overlay/"
+  />
+</CardGrid>

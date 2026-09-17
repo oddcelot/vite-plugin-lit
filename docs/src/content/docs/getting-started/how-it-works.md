@@ -1,0 +1,60 @@
+---
+title: How it works
+description: Why Lit loses state under plain Vite HMR, and the two mechanisms this plugin uses to keep it.
+sidebar:
+  order: 3
+---
+
+Read this when you want to know what the plugin is actually doing to your
+classes, or when you are deciding how much to trust it. Nothing here is
+required to use it.
+
+## The problem
+
+lit-html decides "is this the same template?" by **object identity** of the
+`TemplateStringsArray`, not by content. Vite HMR re-executes an edited
+module, so every `` html`...` `` produces a fresh strings array and lit
+rebuilds the component's **entire** subtree for a one-character edit: focus,
+scroll, and input state are lost, child `@state` resets, and cached DOM
+references are orphaned.
+
+## The two mechanisms
+
+This plugin fixes that with two cooperating mechanisms:
+
+1. **Template-strings interning** — the `html`/`svg`/`mathml`/`css` tags are
+   wrapped in dev so strings arrays are canonicalized by content. Unchanged
+   templates keep their identity across re-execution, so only the **edited**
+   template rebuilds its part of the DOM. Sibling templates, child
+   components, focus, selection, and constructed stylesheets all survive.
+2. **In-place class patching** — a `customElements.define` interceptor
+   catches the duplicate define from the re-executed module and patches the
+   originally-registered class in place: prototype and static descriptors
+   are copied over, reactive property values are snapshotted and restored
+   through the new accessors, styles are re-adopted, and live instances
+   re-render once.
+
+Both run only on the dev server. A production build never sees either one.
+
+## What this buys you
+
+Because the canonical class object is patched rather than replaced, everything
+holding a reference to it stays valid: the custom elements registry, existing
+instances, other modules that imported the class, and controllers that closed
+over it. That is also why the plugin can be honest about the cases it cannot
+handle — see [Limitations](/vite-plugin-lit/reference/limitations/) — instead
+of leaving you in a half-patched state.
+
+## Relationship to the upstream plugin
+
+This package is based on `@lit-labs/vite-plugin-lit` (formerly
+`@lit-labs/vite-hmr`) from the
+[lit monorepo](https://github.com/lit/lit), which is kept checked out as a
+read-only submodule in this repository for reference and opt-in canary testing
+against lit `main`.
+
+A page-by-page account of the behavioural differences from upstream is not
+written yet. Until it is, treat the upstream README as the description of the
+shared core (interning plus in-place patching) and this site as the description
+of what this package ships today: the CSS delivery helpers, the DevTools
+timeline and inspector, the source overlay, and the option/env surface.

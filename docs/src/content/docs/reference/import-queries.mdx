@@ -1,0 +1,118 @@
+---
+title: Import queries
+description: The ?css-sheet and ?hmr-url queries the plugin adds, the Vite queries it builds on, and their ambient types.
+sidebar:
+  order: 3
+---
+
+import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+| Query        | Yields                        | Added by    | HMR behaviour                               |
+| ------------ | ----------------------------- | ----------- | ------------------------------------------- |
+| `?css-sheet` | a shared `CSSStyleSheet`      | this plugin | swaps in place, no component re-render      |
+| `?hmr-url`   | a stylesheet URL (`string`)   | this plugin | re-renders the component with a busted href |
+| `?url`       | an asset URL (`string`)       | Vite        | URL is stable; use `devCacheBust()` in dev  |
+| `?inline`    | processed CSS text (`string`) | Vite        | re-renders the component                    |
+| `?raw`       | verbatim file text (`string`) | Vite        | re-renders the component                    |
+
+The delivery tradeoffs between them are in the
+[stylesheets guide](/vite-plugin-lit/guides/stylesheets/).
+
+## Ambient types
+
+The two queries this plugin adds ship ambient declarations in
+`@oddsquad/vite-plugin-lit/client`:
+
+```ts
+declare module '*.css?hmr-url' {
+  const href: string;
+  export default href;
+}
+
+declare module '*.css?css-sheet' {
+  const sheet: CSSStyleSheet;
+  export default sheet;
+}
+```
+
+Pull them in through the `types` field of your `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "types": ["vite/client", "@oddsquad/vite-plugin-lit/client"]
+  }
+}
+```
+
+or with a triple-slash reference in any `.d.ts` in your project:
+
+```ts
+/// <reference types="@oddsquad/vite-plugin-lit/client" />
+```
+
+`?url`, `?inline`, and `?raw` are typed by `vite/client`, which you almost
+certainly already reference.
+
+<Aside type="caution" title="`types` replaces, it does not extend">
+  Listing `types` at all narrows the ambient packages TypeScript loads. If you
+  add `@oddsquad/vite-plugin-lit/client`, keep `vite/client` (and anything else
+  you relied on) in the same array.
+</Aside>
+
+## virtual:lit-plugin/timeline
+
+The [custom timeline layers](/vite-plugin-lit/guides/devtools-timeline/custom-layers/)
+API is imported from a virtual module:
+
+```ts
+import {addTimelineEvent, addTimelineLayer} from 'virtual:lit-plugin/timeline';
+```
+
+This module currently has **no** ambient declaration, so TypeScript reports
+`TS2307: Cannot find module 'virtual:lit-plugin/timeline'`. Until one ships,
+declare it yourself in a `.d.ts` in your project:
+
+```ts
+declare module 'virtual:lit-plugin/timeline' {
+  export interface TimelineLayer {
+    id: string;
+    label: string;
+    /** 0xRRGGBB */
+    color: number;
+  }
+
+  export interface TimelineEvent<TData = unknown> {
+    layerId: string;
+    /** `performance.now()` timestamp. */
+    time: number;
+    data: TData;
+    title?: string;
+    subtitle?: string;
+    groupId?: number | string;
+    logType?: 'default' | 'warning' | 'error';
+  }
+
+  export function addTimelineEvent(event: TimelineEvent): void;
+  export function addTimelineLayer(layer: TimelineLayer): void;
+}
+```
+
+The runtime shape is stable — this is a typing gap, not a behavioural one. It
+is tracked as a known gap in the repository's
+[advisor plans](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/README.md).
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Runtime API"
+    description="urlSheet(), devCacheBust(), and the timeline exports."
+    href="/vite-plugin-lit/reference/runtime-api/"
+  />
+  <LinkCard
+    title="Link and inline"
+    description="When to reach for ?hmr-url, ?inline, or ?raw."
+    href="/vite-plugin-lit/guides/stylesheets/link-and-inline/"
+  />
+</CardGrid>
