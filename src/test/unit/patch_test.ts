@@ -17,6 +17,7 @@ import {
   syncOwnMembers,
   type PatchOptions,
 } from '../../lib/runtime/patch.js';
+import {HMR_INCOMPATIBLE_CHANNEL} from '../../types/hmr-incompatibility.js';
 
 /**
  * Characterization harness.
@@ -81,6 +82,21 @@ const installFresh = (options: PatchOptions = {}): FakeRegistry => {
 
 const define = (tag: string, ctor: ElementCtor): void => {
   customElements.define(tag, ctor as unknown as CustomElementConstructor);
+};
+
+/**
+ * Injects a fake `HotChannel` directly onto the live `PatchState` singleton
+ * (the same well-known symbol `installFresh` above already manipulates), so
+ * a test can assert on `.send()` calls without a real `import.meta.hot` —
+ * Vitest's `node` environment never provides one.
+ */
+const stubHotChannel = (): {send: ReturnType<typeof vi.fn>} => {
+  const send = vi.fn();
+  const state = (
+    globalThis as unknown as Record<symbol, {hot?: {send: typeof send}}>
+  )[STATE_KEY]!;
+  state.hot = {send};
+  return {send};
 };
 
 /** The class the registry actually holds — the patcher's canonical class. */
@@ -430,6 +446,7 @@ describe('hotPatch', () => {
 
   test('a standard-decorator class bails out instead of patching', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const {send} = stubHotChannel();
     // Node has no Symbol.metadata, and litPropertyMetadata is a lit internal;
     // recreate both in the exact shape `usesStandardDecorators` reads.
     const metadataKey = Symbol('Symbol.metadata');
@@ -464,6 +481,16 @@ describe('hotPatch', () => {
       expect(String(warn.mock.calls[0]?.[0])).toContain(
         'standard accessor decorators'
       );
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(send.mock.calls[0]?.[0]).toBe(HMR_INCOMPATIBLE_CHANNEL);
+      const event = send.mock.calls[0]?.[1] as {
+        tagName: string;
+        reason: {code: string};
+        action: string;
+      };
+      expect(event.tagName).toBe('x-o');
+      expect(event.reason.code).toBe('accessor-decorators');
+      expect(event.action).toBe('warn');
     } finally {
       delete (Symbol as {metadata?: symbol}).metadata;
       delete litGlobal.litPropertyMetadata;

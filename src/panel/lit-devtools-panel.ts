@@ -116,10 +116,33 @@ export class LitDevtoolsPanel extends LitElement {
 
   @state() private _tab = 'components';
 
+  /** Mirrors `ComponentsView.hmrIncompatibilityCount`; see `_onHmrCountChange`. */
+  @state() private _hmrCount = 0;
+
   @query('components-view') private _componentsView?: ComponentsView;
+
+  /**
+   * Tab items for the strip, badging "Components" with the current
+   * HMR-incompatibility count when there is one.
+   */
+  private get _tabs(): readonly TabItem[] {
+    if (this._hmrCount === 0) return TABS;
+    return TABS.map((t) =>
+      t.id === 'components' ? {...t, badge: this._hmrCount} : t
+    );
+  }
 
   private _onTabChange(e: CustomEvent<{value: string}>) {
     this._tab = e.detail.value;
+  }
+
+  /**
+   * A component couldn't be hot-patched in place. Passive badge only — unlike
+   * `_onInspectorActivate`, this must not switch tabs: an incompatibility is
+   * not something the developer asked to look at.
+   */
+  private _onHmrCountChange(e: CustomEvent<{count: number}>) {
+    this._hmrCount = e.detail.count;
   }
 
   /** A timeline event's "inspect" link — open the Components tab on it. */
@@ -148,7 +171,7 @@ export class LitDevtoolsPanel extends LitElement {
       <header>
         <span class="brand">${LIT_LOGO_SVG} Lit DevTools</span>
         <segmented-tabs
-          .items=${TABS}
+          .items=${this._tabs}
           .value=${this._tab}
           @change=${this._onTabChange}
         ></segmented-tabs>
@@ -160,6 +183,7 @@ export class LitDevtoolsPanel extends LitElement {
         <components-view
           ?hidden=${this._tab !== 'components'}
           @inspector-activate=${this._onInspectorActivate}
+          @hmr-count-change=${this._onHmrCountChange}
         ></components-view>
         ${
           this._tab === 'settings'

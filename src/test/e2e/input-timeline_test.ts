@@ -37,6 +37,7 @@ test('mouse and keyboard layers capture when enabled at record start', async () 
     pushEvents: (batch) => events.push(...batch),
     addLayer: () => {},
     inspectorMessage: () => {},
+    hmrIncompatible: () => {},
   });
 
   await page.reload();

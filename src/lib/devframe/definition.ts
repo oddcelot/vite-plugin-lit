@@ -22,6 +22,8 @@ import type {
   InspectorTreeNode,
 } from '../../types/inspector.js';
 import {TIMELINE_LAYERS} from '../../types/timeline.js';
+import {MAX_HMR_INCOMPATIBILITIES} from '../../types/hmr-incompatibility.js';
+import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 import {LIT_LOGO_ICON} from './icon.js';
 import {PANEL_DIST_DIR} from './paths.js';
 import type {
@@ -35,6 +37,8 @@ import {
   LIT_DEVFRAME_ID,
   RPC_COMPONENT_DETAILS,
   RPC_GET_META,
+  RPC_HMR_INCOMPATIBILITIES,
+  RPC_HMR_INCOMPATIBLE,
   RPC_INSPECT,
   RPC_INSPECTOR_MESSAGE,
   RPC_LIST_COMPONENTS,
@@ -104,6 +108,37 @@ export function createLitDevframe(
       let cachedRoots: InspectorTreeNode[] = [];
       const cachedDetails = new Map<number, InspectorDetails>();
 
+      // Recent HMR-incompatibility notices, capped the same way
+      // `runtime/timeline/transport.ts` caps its pending queue — a long
+      // session with many failing edits must not grow this forever.
+      const hmrIncompatibilities: HmrIncompatibilityEvent[] = [];
+
+      // Terminal echo for an audience that only sees dev-server stdout (an
+      // agent, or a CI log) and not the browser console or the panel.
+      // Fire-and-log only — the cache above is the read-back store.
+      const hmrDiagnostics = ctx.diagnostics.defineDiagnostics({
+        docsBase:
+          'https://oddcelot.github.io/vite-plugin-lit/reference/limitations/',
+        codes: {
+          LIT_HMR_ACCESSOR: {
+            why: (p: {tagName: string}) =>
+              `<${p.tagName}> can't be hot-patched: standard accessor decorators`,
+            docs: 'https://oddcelot.github.io/vite-plugin-lit/reference/limitations/#cannot-be-patched-in-place',
+          },
+          LIT_HMR_PATCH_FAILED: {
+            why: (p: {tagName: string; detail: string}) =>
+              `<${p.tagName}> can't be hot-patched: ${p.detail}`,
+            docs: 'https://oddcelot.github.io/vite-plugin-lit/reference/limitations/#cannot-be-patched-in-place',
+          },
+          LIT_HMR_ATTRS_CHANGED: {
+            why: (p: {tagName: string}) =>
+              `<${p.tagName}> changed observedAttributes; reload recommended`,
+            docs: 'https://oddcelot.github.io/vite-plugin-lit/reference/limitations/#cannot-be-patched-in-place',
+          },
+        },
+      });
+      ctx.diagnostics.register(hmrDiagnostics);
+
       // Streaming/source wiring only makes sense for a live session: a
       // static build or MCP run has no page attached (its `source` is a
       // `createNullSource()`), and `ctx.mode` is 'build' there.
@@ -155,6 +190,32 @@ export function createLitDevframe(
               optional: true,
             });
           },
+          hmrIncompatible(event) {
+            hmrIncompatibilities.push(event);
+            if (hmrIncompatibilities.length > MAX_HMR_INCOMPATIBILITIES) {
+              hmrIncompatibilities.splice(
+                0,
+                hmrIncompatibilities.length - MAX_HMR_INCOMPATIBILITIES
+              );
+            }
+            void ctx.rpc.broadcast({
+              method: `${LIT_DEVFRAME_ID}:${RPC_HMR_INCOMPATIBLE}`,
+              args: [event],
+              optional: true,
+            });
+
+            // Informational terminal echo, never a thrown error.
+            if (event.reason.code === 'accessor-decorators') {
+              hmrDiagnostics.LIT_HMR_ACCESSOR({tagName: event.tagName});
+            } else if (event.reason.code === 'patch-failed') {
+              hmrDiagnostics.LIT_HMR_PATCH_FAILED({
+                tagName: event.tagName,
+                detail: event.reason.detail,
+              });
+            } else {
+              hmrDiagnostics.LIT_HMR_ATTRS_CHANGED({tagName: event.tagName});
+            }
+          },
         });
 
         // Single push point for recording/layer changes: fires for the
@@ -202,6 +263,20 @@ export function createLitDevframe(
               'List the live Lit component tree of the inspected page. Call this before asking about a specific element to find its id.',
           },
           handler: async (): Promise<InspectorTreeNode[]> => cachedRoots,
+        })
+      );
+
+      my.rpc.register(
+        defineRpcFunction({
+          name: RPC_HMR_INCOMPATIBILITIES,
+          type: 'query',
+          jsonSerializable: true,
+          agent: {
+            description:
+              "List recent components the Lit plugin could not hot-patch in place, and why. Call this after an unexplained full-page reload during development, or when a component's state resets unexpectedly on edit.",
+          },
+          handler: async (): Promise<HmrIncompatibilityEvent[]> =>
+            hmrIncompatibilities,
         })
       );
 

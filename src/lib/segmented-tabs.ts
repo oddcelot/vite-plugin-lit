@@ -12,6 +12,8 @@ export interface TabItem {
   id: string;
   label: string;
   icon?: string;
+  /** Optional count pill trailing the label. Hidden when absent or zero. */
+  badge?: number;
 }
 
 export type SegTabSize = 'sm' | 'md';
@@ -68,6 +70,17 @@ export class SegmentedTabs extends LitElement {
         width: 18px;
         height: 18px;
         flex-shrink: 0;
+      }
+      .badge {
+        flex-shrink: 0;
+        min-width: 16px;
+        padding: 0 var(--lit-devtools-space-1);
+        border-radius: var(--lit-devtools-radius-pill);
+        background: var(--lit-devtools-error-soft);
+        color: var(--lit-devtools-error);
+        font-size: var(--lit-devtools-text-xs);
+        line-height: 16px;
+        text-align: center;
       }
       :host([size='sm']) button {
         font-size: var(--lit-devtools-text-xs);
@@ -127,6 +140,11 @@ export class SegmentedTabs extends LitElement {
                 : nothing
             }
             ${item.label}
+            ${
+              item.badge
+                ? html`<span class="badge">${item.badge}</span>`
+                : nothing
+            }
           </button>
         `
       )}

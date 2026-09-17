@@ -80,7 +80,9 @@ Ordered by leverage. Each was verified against the code by the advisor.
    silence the compiler" into a real public API. Trade-off: it freezes the
    virtual module's shape as public surface.
 
-2. **Surface HMR-incompatibility diagnostics in the panel.** The plugin already
+2. **Surface HMR-incompatibility diagnostics in the panel.** Superseded by
+   [`plans/roadmap/01-hmr-incompatibility-panel.md`](../plans/roadmap/01-hmr-incompatibility-panel.md),
+   which carries this finding forward as an executable plan. The plugin already
    detects precisely why a component cannot be hot-patched — standard `accessor`
    decorators, `#private` fields, changed `observedAttributes` — and routes each
    through `incompatible(state, tagName, reason)` at
