@@ -459,8 +459,18 @@ export class ComponentsView extends LitElement {
     this._select(id);
   }
 
+  /** The currently selected element id, for the shell's URL sync. */
+  get selectedId(): number | null {
+    return this._selectedId;
+  }
+
   private _select(id: number): void {
     if (this._selectedId === id) return;
+    // Let the shell re-sync the URL hash: a selection is part of "where the
+    // panel is", and a link that drops it would reopen the wrong view.
+    this.dispatchEvent(
+      new CustomEvent('selection-change', {detail: {id}, bubbles: true})
+    );
     if (this._selectedId !== null) {
       this._call({type: 'watch', id: null});
     }
