@@ -380,6 +380,15 @@ export function createLitDevframe(
           name: RPC_SET_RECORDING,
           type: 'action',
           jsonSerializable: true,
+          // The one agent-exposed mutation. `recent-events` is a dead end
+          // when recording is off, so an agent that can read the timeline
+          // but never start it just hands the question back to the human.
+          // Deliberately still the *only* one: the picker and layer toggles
+          // stay panel-only.
+          agent: {
+            description:
+              'Start or stop timeline recording. This is a shared toggle: turning it on also affects the DevTools panel if a developer has it open. Call this if lit:recent-events reports `recording: false`.',
+          },
           handler: async (args: SetRecordingArgs): Promise<void> => {
             session.mutate((state) => {
               state.layers.recordingState = args.recording;

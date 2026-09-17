@@ -101,6 +101,24 @@ describe('lit devframe definition', () => {
     }
   });
 
+  test('exposes exactly one mutating tool to agents', async () => {
+    // `set-recording` is the deliberate exception to the read-only agent
+    // surface (see plans/devframe-foundation.md). Asserting the whole set,
+    // not just its presence, so quietly agent-exposing the picker or a layer
+    // toggle fails here instead of shipping.
+    const {ctx} = await boot();
+    const tools = ctx.agent.list().tools;
+    const exposed = tools
+      .filter((t) => t.rpcName?.startsWith('lit:'))
+      .map((t) => t.rpcName);
+    expect(exposed).toContain('lit:set-recording');
+    expect(exposed).not.toContain('lit:inspect');
+    expect(exposed).not.toContain('lit:toggle-layer');
+
+    const recordingTool = tools.find((t) => t.rpcName === 'lit:set-recording');
+    expect(recordingTool?.description).toContain('shared toggle');
+  });
+
   test('get-meta reports the version and custom layers', async () => {
     const {ctx, source} = await boot();
     source.sink!.addLayer({id: 'custom', label: 'Custom', color: 0xffffff});
