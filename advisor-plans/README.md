@@ -26,7 +26,7 @@ below so nothing is lost.
 | 004  | Keep the DevTools element watch working across a hot patch     | P2       | S      | —          | DONE   |
 | 005  | Finish the package rename — dead specifiers and docs           | P2       | S      | —          | DONE   |
 | 006  | Characterization unit tests for the HMR patcher                | P2       | M      | —          | DONE   |
-| 007  | Make `virtual:lit-plugin/timeline` resolve during `vite build` | P1       | S      | —          | TODO   |
+| 007  | Make `virtual:lit-plugin/timeline` resolve during `vite build` | P1       | S      | —          | DONE   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale)

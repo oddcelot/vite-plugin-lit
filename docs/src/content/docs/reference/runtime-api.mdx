@@ -109,8 +109,10 @@ it to the toggle strip after the built-in layers, and duplicate ids are
 ignored. `addTimelineEvent` emits onto a custom layer or one of the built-in
 ids (`'lit-lifecycle'`, `'lit-render'`, `'mouse'`, `'keyboard'`).
 
-The virtual module resolves to a no-op stub in production and when `timeline`
-is disabled, so imports are safe to leave in component code. Its ambient types
+The virtual module resolves to a no-op stub in any `vite build` — including a
+build with `timeline` enabled, since the events only ever travel over the dev
+server's HMR channel — and in dev when `timeline` is disabled. Imports are safe
+to leave in component code. Its ambient types
 ship in `@oddsquad/vite-plugin-lit/client`, the same declarations that cover
 the CSS queries — see
 [import queries](/vite-plugin-lit/reference/import-queries/#ambient-types) for
