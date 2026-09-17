@@ -20,7 +20,7 @@ forward-looking feature design, not audit findings. They supersede the
 | 5    | 06   | Persist panel settings per project             | MED       | S      | —          | TODO   |
 | 6    | 07   | In-page channel for pick and highlight         | MED       | M      | —          | TODO   |
 | 7    | 08   | Static snapshot for bug reports                | MED       | M      | 02         | TODO   |
-| 8    | 05   | Open-in-editor via `@devframes/service-open`   | LOW       | S      | —          | TODO   |
+| 8    | 05   | Open-in-editor via `@devframes/service-open`   | LOW       | S      | —          | DONE   |
 | 9    | 09   | Deep linking into the panel                    | LOW       | S      | —          | TODO   |
 | 10   | 10   | Nuxt and Next adapters                         | LOW       | M      | 03         | TODO   |
 
@@ -74,6 +74,12 @@ interesting the work is or how much new surface it adds.
   (`src/lib/plugin.ts:903`). So `/__lit-open-in-editor`, `launch-editor`, and
   `src/lib/http.ts` all stay, and the change shrinks to two panel-only callers
   gaining path containment. Still worth doing, no longer worth doing early.
+  Shipped smaller again: the plan assumed the plugin would install
+  `@devframes/service-open` and hand it extra roots, but the Vite DevTools hub
+  already installs it (via `@devframes/plugin-messages`) before its services
+  barrier, so a second install only earns a DF0066 warning on every dev-server
+  start and its options are discarded. The panel therefore consumes the
+  service and installs nothing.
 - **09 is a convenience, and 10 expands the audience** rather than deepening
   the experience — and this plugin's users are on Vite by definition.
 

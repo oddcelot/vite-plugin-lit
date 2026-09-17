@@ -52,7 +52,12 @@ unknown key falls back to VS Code.
 Opening goes through a dev-server middleware, which is what makes it work
 without a URL scheme handler. When the dev server is unreachable — a
 StackBlitz preview, for instance — the overlay falls back to the editor's URL
-scheme. A custom editor is a `{name, url}` pair:
+scheme. This is the overlay's own path and is unaffected by DevTools: the
+overlay runs in the page with no DevTools connection, and works with
+`timeline: false`. (The DevTools panel's source links are separate and prefer
+the shared `@devframes/service-open` service — see
+[DevTools timeline](/vite-plugin-lit/guides/devtools-timeline/). `editor`
+below applies to the overlay only.) A custom editor is a `{name, url}` pair:
 
 ```ts
 litPlugin({
