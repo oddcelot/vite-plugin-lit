@@ -321,8 +321,11 @@ export function createLitDevframe(
             description:
               'Get recent timeline events (lifecycle, render, mouse, keyboard) to diagnose why a component re-rendered or updated. Call list-components first to find an element’s id, then filter by elementId to see just its events. Check the `recording` field in the response — if false, no events are being captured; ask the developer to enable Recording in the Timeline tab before retrying.',
           },
+          // `args` is genuinely absent when an agent calls the tool with no
+          // filters — the most common call — so it must default, not just be
+          // typed optional.
           handler: async (
-            args: RecentEventsArgs
+            args: RecentEventsArgs = {}
           ): Promise<RecentEventsResult> => {
             const recording = session.value().layers.recordingState;
             let filtered = recentEvents;

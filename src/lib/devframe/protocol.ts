@@ -185,7 +185,7 @@ declare module 'devframe' {
       args: ComponentDetailsArgs
     ) => Promise<InspectorDetails | null>;
     'lit:recent-events': (
-      args: RecentEventsArgs
+      args?: RecentEventsArgs
     ) => Promise<RecentEventsResult>;
     'lit:inspect': (command: InspectorCommand) => Promise<void>;
     'lit:set-recording': (args: SetRecordingArgs) => Promise<void>;

@@ -211,6 +211,15 @@ describe('lit devframe definition', () => {
     expect(result.truncated).toBe(true);
   });
 
+  test('recent-events works with no arguments at all', async () => {
+    // An agent calling the tool with no filters sends no argument object at
+    // all, not an empty one — `invokeLocal(name, {})` would not catch this.
+    const {ctx} = await boot();
+    const result = await ctx.rpc.invokeLocal('lit:recent-events');
+    expect(result.recording).toBe(false);
+    expect(result.events).toEqual([]);
+  });
+
   test('recent-events measures sinceMs against the whole buffer', async () => {
     const {ctx, source} = await boot();
     // Element 1 last rendered long ago; mouse events kept flowing since.
