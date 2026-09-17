@@ -119,6 +119,18 @@ describe('lit devframe definition', () => {
     expect(recordingTool?.description).toContain('shared toggle');
   });
 
+  test('does not install the open-in-editor service itself', async () => {
+    // The panel prefers `@devframes/service-open` for its source links, but
+    // consumes it rather than installing it: on a Vite hub
+    // `@devframes/plugin-messages` already installed it before the services
+    // barrier, so declaring it here only earns a DF0066 warning on every dev
+    // server start. A host without it is fine — the panel falls back to
+    // `/__lit-open-in-editor`. Asserting the absence so a future declaration
+    // is a deliberate choice and not a silently reintroduced startup warning.
+    const {ctx} = await boot();
+    expect(ctx.services.has('@devframes/service-open')).toBe(false);
+  });
+
   test('get-meta reports the version and custom layers', async () => {
     const {ctx, source} = await boot();
     source.sink!.addLayer({id: 'custom', label: 'Custom', color: 0xffffff});

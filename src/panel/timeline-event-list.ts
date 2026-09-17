@@ -11,6 +11,7 @@ import {repeat} from 'lit/directives/repeat.js';
 import {tokens} from '../lib/tokens.js';
 import type {TimelineEvent} from '../types/timeline.js';
 import type {LayerState} from './timeline-layers.js';
+import {openInEditor} from './open-in-editor.js';
 
 /** Scrollable list of recorded timeline events with an inline detail pane. */
 @customElement('timeline-event-list')
@@ -160,6 +161,9 @@ export class TimelineEventList extends LitElement {
       }
       a:hover {
         text-decoration: underline;
+      }
+      .src-link {
+        cursor: pointer;
       }
       .filter-link {
         cursor: pointer;
@@ -404,13 +408,9 @@ export class TimelineEventList extends LitElement {
                   <td class="key">source</td>
                   <td class="val">
                     <a
-                      href=${
-                        '/__lit-open-in-editor?file=' +
-                        encodeURIComponent(src.file) +
-                        '&line=' +
-                        src.line
-                      }
-                      target="_blank"
+                      class="src-link"
+                      title="Open this file in your editor"
+                      @click=${() => openInEditor(src.file, src.line)}
                       >${src.file}:${src.line}</a
                     >
                   </td>

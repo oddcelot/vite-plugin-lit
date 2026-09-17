@@ -19,6 +19,7 @@ import {
   type HmrIncompatibilityEvent,
 } from '../types/hmr-incompatibility.js';
 import {describeError, litRpc, type LitClient} from './client.js';
+import {openInEditor} from './open-in-editor.js';
 
 /** localStorage key remembering the opt-in live-tree toggle. */
 const LIVE_LS_KEY = 'lit-devtools-components-live';
@@ -520,22 +521,7 @@ export class ComponentsView extends LitElement {
   private _openSource(): void {
     const src = this._details?.source;
     if (src === undefined) return;
-    const params = new URLSearchParams({
-      file: src.file,
-      line: String(src.line),
-    });
-    fetch(`/__lit-open-in-editor?${params.toString()}`)
-      .then(async (res) => {
-        if (!res.ok) {
-          console.warn(
-            `[lit-devtools] open-in-editor failed (${res.status})`,
-            await res.text()
-          );
-        }
-      })
-      .catch((err) => {
-        console.warn('[lit-devtools] open-in-editor failed', err);
-      });
+    void openInEditor(src.file, src.line);
   }
 
   // ---------------------------------------------------------------------------

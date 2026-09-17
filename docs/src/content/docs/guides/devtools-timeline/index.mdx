@@ -53,8 +53,7 @@ LIT_PLUGIN_TIMELINE=true
 | Keyboard      | `keydown`, `keyup`                                                                                                                                                       |
 
 Click any event row to see the element tag name, stable instance id, source
-file (opens in your editor via the existing source-overlay middleware), and raw
-event data. The element row also has an **inspect** link that opens the
+file (click it to open in your editor), and raw event data. The element row also has an **inspect** link that opens the
 [Components](#components) tab on that element (they share the same instance id).
 
 Layer toggles are remembered between sessions (localStorage).
@@ -67,6 +66,19 @@ one: its reactive properties and internal `@state`, current attributes, update
 flags (`updated` / `update pending` / `shadow root`), and a source link that
 opens the component in your editor. The details refresh in place as the selected
 element updates.
+
+:::note[How the panel opens files]
+Both source links prefer
+[`@devframes/service-open`](https://www.npmjs.com/package/@devframes/service-open),
+the shared open-in-editor service Vite DevTools installs on its host. It only
+opens files under the workspace root, resolving symlinks before it decides.
+When it is not there — or it refuses the path, which happens for a source
+outside the workspace root — the panel falls back to the plugin's own
+`/__lit-open-in-editor` endpoint, which trusts everything Vite itself serves
+(`server.fs.allow`) and is also the only path the in-page
+[source overlay](/vite-plugin-lit/guides/source-overlay/) uses. Either way the
+editor is picked by `launch-editor`, so you land on the same file and line.
+:::
 
 The tree refreshes on demand (the **Refresh** button) and whenever you pick an
 element. For continuous updates, toggle **Live** — an opt-in `MutationObserver`
