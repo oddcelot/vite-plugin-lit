@@ -18,6 +18,29 @@
 
 ## Status
 
+> **Done** (2026-09-17). Shipped smaller than Steps 1–2 describe, for one
+> empirical reason: on a Vite hub `@devframes/plugin-messages` already installs
+> `@devframes/service-open` before the services barrier, so this plugin
+> declaring it too is discarded and warns `DF0066` on every dev-server start
+> (confirmed in `node_modules/devframe/dist/context-BqpgC5tq.mjs:990-995`,
+> which fires the warning on any late duplicate install, not only one carrying
+> options — contrary to the typings' doc comment). The panel therefore
+> **consumes** the service and installs nothing: Step 1 (the `dependencies`
+> move) and Step 2 (declaring it on the definition, with roots) were both
+> reverted, and `@devframes/service-open` stays a `devDependency` used only for
+> its `declare module 'devframe'` type augmentation. Step 3 shipped as written,
+> factored into `src/panel/open-in-editor.ts` and used by both panel callers;
+> `timeline-event-list.ts`'s anchor became a `@click` handler. Step 4 shipped.
+>
+> Verified against a live playground hub (`localhost:5182`) over the real
+> WebSocket transport: `client.services.keys()` reports
+> `['@devframes/service-open']`, `get()` returns a handle scoped to
+> `devframes:service:open`, and `rpc.call('open-in-editor', …)` with an
+> out-of-root path is refused by the service's own containment check. The
+> panel's extra-roots idea is not achievable on a Vite hub at all; sources
+> outside the workspace root fall through to `/__lit-open-in-editor`, which
+> still trusts `[root, ...server.fs.allow]`.
+
 - **Priority**: P3 (roadmap DX-impact: MED; this plan narrows the original
   scope — see below)
 - **Effort**: S (panel-side wiring) — do **not** attempt the "drop
