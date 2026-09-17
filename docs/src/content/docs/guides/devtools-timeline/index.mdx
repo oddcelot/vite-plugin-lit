@@ -92,6 +92,31 @@ _Inspect Lit Element_). This reuses the source-overlay picker, so it requires
 unlike `Ctrl+Shift+S` (which opens the element in your editor), a pick selects
 the element in the Components tree.
 
+## Settings
+
+The **Settings** tab shows the plugin's resolved configuration — `options` on
+top of `LIT_PLUGIN_*` env vars on top of the defaults — and lets you override
+the HMR behaviour and the source-overlay editor live, without restarting the
+dev server or editing `vite.config.ts`. **Reset** drops the overrides and puts
+the resolved values back. A setting whose feature is disabled at config time
+stays read-only: its runtime was never injected into the page.
+
+These overrides, and the panel's own light/dark preference, persist
+per-developer through devframe's settings store — under Vite DevTools that is
+`~/.vite/devtools/settings/lit.json`. They follow you to another browser on
+the same machine, and survive clearing site data or restarting the dev server.
+Nothing is written into the repository, so no `.gitignore` entry is needed —
+and nothing is shared with teammates. Project-wide defaults belong in
+`litPlugin({...})`, which is committed on purpose.
+
+`localStorage` is still written, and still matters: the inspected page reads
+the overrides synchronously as its modules initialise, before any connection
+to DevTools exists, so it cannot wait on the settings store. Treat it as a
+per-browser cache that the panel refills from the durable copy on its first
+connection. The practical consequence: in a browser that has never opened the
+panel for this project, the page starts with the resolved config and picks the
+overrides up once you open the panel.
+
 ## Ask a coding agent
 
 The panel is a [devframe](https://devfra.me), so the same data it renders is

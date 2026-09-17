@@ -99,6 +99,15 @@ export function createLitDevframe(
     async setup(ctx: DevframeNodeContext) {
       const my = ctx.scope(LIT_DEVFRAME_ID);
 
+      // Bind the per-user settings store before any panel can connect.
+      // Both sides build it lazily on first access, but only this one backs
+      // it with a JSON file -- a client that asks first gets a plain
+      // in-memory shared state instead, so the panel's preferences would
+      // round-trip happily and then vanish on restart. The panel is the only
+      // thing that reads or writes these (see `panel/devtools-settings.ts`);
+      // this call exists purely to make them durable.
+      await my.settings.global.all();
+
       const session = await my.rpc.sharedState<SessionState>(
         SESSION_STATE_KEY,
         {

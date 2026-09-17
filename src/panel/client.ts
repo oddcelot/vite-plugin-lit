@@ -20,10 +20,20 @@
 
 import {connectDevframe} from 'devframe/client';
 import type {DevframeScopedClientContext} from 'devframe/client';
+import type {SettingsForNamespace} from 'devframe';
 import {LIT_DEVFRAME_ID} from '../lib/devframe/protocol.js';
 import type {LitGetMetaResult} from '../lib/devframe/protocol.js';
 
-export type LitClient = DevframeScopedClientContext<typeof LIT_DEVFRAME_ID>;
+/**
+ * The `lit:`-scoped client. The second parameter is what makes
+ * `client.settings` typed against `DevframeSettingsRegistry.lit` (see
+ * `lib/devframe/protocol.ts`) instead of a bare `Record<string, any>` —
+ * `client.scope()` infers it, but this alias has to say so.
+ */
+export type LitClient = DevframeScopedClientContext<
+  typeof LIT_DEVFRAME_ID,
+  SettingsForNamespace<typeof LIT_DEVFRAME_ID>
+>;
 
 let connecting: Promise<LitClient> | undefined;
 
