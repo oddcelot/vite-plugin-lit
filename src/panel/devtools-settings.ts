@@ -13,12 +13,18 @@ import {
   type ColorSchemePreference,
 } from '../lib/color-scheme.js';
 import {
-  SETTINGS_OVERRIDE_LS_KEY,
   SOURCE_OVERLAY_EDITORS,
   type FeatureSettings,
   type SettingsOverride,
 } from '../types/timeline.js';
 import {getMeta, litRpc, type LitClient} from './client.js';
+import {
+  adoptOverride,
+  commitOverride,
+  onOverrideChange,
+  readOverride,
+  resetOverride,
+} from './settings-override.js';
 
 /** The settings this panel persists, as `DevframeSettingsRegistry.lit`. */
 type LitSettings = Awaited<ReturnType<LitClient['settings']['global']['all']>>;
@@ -171,16 +177,28 @@ export class DevtoolsSettings extends LitElement {
   @state() private _loaded = false;
   @state() private _colorScheme: ColorSchemePreference = 'auto';
 
+  private _unsubscribeOverride: (() => void) | null = null;
+
   override connectedCallback() {
     super.connectedCallback();
     // Synchronous first, from `localStorage`, so the tab paints the right
     // values (and the panel the right scheme) with no flash. `_hydrate()`
     // then reconciles against the durable store, which is what makes these
     // preferences survive a different browser or cleared site data.
-    this._override = this._readOverride();
+    this._override = readOverride();
+    // Other tabs (Components' Flash button) flip overrides too; stay in sync.
+    this._unsubscribeOverride = onOverrideChange((o) => {
+      this._override = o;
+    });
     this._colorScheme = readColorSchemePreference();
     void this._fetch();
     void this._hydrate();
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this._unsubscribeOverride?.();
+    this._unsubscribeOverride = null;
   }
 
   /**
@@ -228,12 +246,9 @@ export class DevtoolsSettings extends LitElement {
       override !== undefined &&
       JSON.stringify(override) !== JSON.stringify(this._override)
     ) {
-      this._override = override;
-      this._writeOverride(override);
-      // Push to the page so an already-loaded app picks this up live. Not
-      // `_push()`: the value came *from* the store, and writing it back
-      // would be a pointless round trip.
-      this._pushOverride(override);
+      // Mirrors to the page and `localStorage` without writing back to the
+      // store the value just came from; `_override` updates via the listener.
+      adoptOverride(override);
     }
   }
 
@@ -251,16 +266,6 @@ export class DevtoolsSettings extends LitElement {
       .catch(() => {
         // dev tool — ignore connection/call errors
       });
-  }
-
-  private _readOverride(): SettingsOverride {
-    try {
-      const raw = localStorage.getItem(SETTINGS_OVERRIDE_LS_KEY);
-      if (raw !== null) return JSON.parse(raw) as SettingsOverride;
-    } catch {
-      // ignore
-    }
-    return {};
   }
 
   private _setColorScheme(scheme: ColorSchemePreference): void {
@@ -284,24 +289,7 @@ export class DevtoolsSettings extends LitElement {
 
   /** Persist the merged override and push it to the app runtime. */
   private _push(override: SettingsOverride) {
-    this._override = override;
-    this._writeOverride(override);
-    this._persist('override', override);
-    this._pushOverride(override);
-  }
-
-  /**
-   * The page runtime's copy. Kept even though the settings store is now the
-   * durable one: `runtime/overrides.ts` reads it synchronously as the app's
-   * modules initialise, before any DevTools connection exists, and every
-   * settings-store read is async by design.
-   */
-  private _writeOverride(override: SettingsOverride): void {
-    try {
-      localStorage.setItem(SETTINGS_OVERRIDE_LS_KEY, JSON.stringify(override));
-    } catch {
-      // ignore
-    }
+    commitOverride(override);
   }
 
   private _set<K extends keyof SettingsOverride>(
@@ -314,36 +302,22 @@ export class DevtoolsSettings extends LitElement {
   /** Clear overrides and revert the runtime to the resolved env values. */
   private _reset() {
     const s = this._settings;
-    try {
-      localStorage.removeItem(SETTINGS_OVERRIDE_LS_KEY);
-    } catch {
-      // ignore
-    }
-    // Clear the durable copy too, or the next connection would hydrate the
-    // override straight back — and `_pushOverride` below sends the resolved
-    // env values, which must not be re-persisted as an override.
-    this._persist('override', undefined);
-    this._override = {};
-    if (s !== null) {
-      // Send the env values explicitly so the live runtime reverts now (an
-      // empty override would leave the current live values in place).
-      this._pushOverride({
-        hmrReconnect: s.hmr.reconnect,
-        hmrOnIncompatible: s.hmr.onIncompatible,
-        hmrIndicatorVisible: s.hmr.indicatorEnabled,
-        hmrIndicatorCount: s.hmr.indicatorCount,
-        sourceOverlayEditor: s.sourceOverlay.editor,
-      } satisfies SettingsOverride);
-    }
-  }
-
-  /** Send a {@link SettingsOverride} to the app runtime over RPC. */
-  private _pushOverride(override: SettingsOverride): void {
-    litRpc()
-      .then((rpc) => rpc.rpc.call('set-settings-override', override))
-      .catch(() => {
-        // dev tool — ignore connection/call errors
-      });
+    // The env values go along so the live runtime reverts now (an empty
+    // override would leave the current live values in place). Preferences
+    // with no config baseline revert to off.
+    resetOverride(
+      s === null
+        ? undefined
+        : ({
+            hmrReconnect: s.hmr.reconnect,
+            hmrOnIncompatible: s.hmr.onIncompatible,
+            hmrIndicatorVisible: s.hmr.indicatorEnabled,
+            hmrIndicatorCount: s.hmr.indicatorCount,
+            sourceOverlayEditor: s.sourceOverlay.editor,
+            flashUpdates: false,
+            flashUpdatesRamp: false,
+          } satisfies SettingsOverride)
+    );
   }
 
   private _pill(on: boolean) {
@@ -507,6 +481,56 @@ export class DevtoolsSettings extends LitElement {
     `;
   }
 
+  /**
+   * Page-overlay preferences for the Components tab. Pure preferences, no
+   * config-time baseline, so an unset value simply means off and the
+   * "overridden" marker never applies.
+   */
+  private _renderComponents() {
+    const o = this._override;
+    const flash = o.flashUpdates ?? false;
+    const ramp = o.flashUpdatesRamp ?? false;
+    return html`
+      <table>
+        <tr>
+          <td class="key">flash updates</td>
+          <td class="val">
+            <label class="toggle">
+              <input
+                type="checkbox"
+                .checked=${flash}
+                @change=${(e: Event) =>
+                  this._set(
+                    'flashUpdates',
+                    (e.target as HTMLInputElement).checked
+                  )}
+              />
+              ${flash ? 'on' : 'off'}
+            </label>
+          </td>
+        </tr>
+        <tr class=${flash ? '' : 'row-disabled'}>
+          <td class="key">colour by frequency</td>
+          <td class="val">
+            <label class="toggle">
+              <input
+                type="checkbox"
+                .checked=${ramp}
+                ?disabled=${!flash}
+                @change=${(e: Event) =>
+                  this._set(
+                    'flashUpdatesRamp',
+                    (e.target as HTMLInputElement).checked
+                  )}
+              />
+              ${ramp ? 'calm → hot' : 'single colour'}
+            </label>
+          </td>
+        </tr>
+      </table>
+    `;
+  }
+
   override render() {
     if (!this._loaded) {
       return html`<p class="loading">Loading settings…</p>`;
@@ -586,6 +610,19 @@ export class DevtoolsSettings extends LitElement {
             : html`<p class="empty">
                 Enable with <code>sourceOverlay: true</code> or
                 <code>LIT_PLUGIN_SOURCE_OVERLAY=true</code>.
+              </p>`
+        }
+      </section>
+
+      <section>
+        <h3>Components ${this._pill(s.timeline)}</h3>
+        ${
+          s.timeline
+            ? this._renderComponents()
+            : html`<p class="empty">
+                Needs the timeline runtime: enable with
+                <code>timeline: true</code> or
+                <code>LIT_PLUGIN_TIMELINE=true</code>.
               </p>`
         }
       </section>
