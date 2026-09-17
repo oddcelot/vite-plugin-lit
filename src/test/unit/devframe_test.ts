@@ -61,12 +61,13 @@ class FakeSource implements TimelineSource {
 
 let instance: DevframeInstance | undefined;
 
-const boot = async () => {
+const boot = async (options: {sourceRoot?: string} = {}) => {
   const source = new FakeSource();
   const def = createLitDevframe({
     source,
     version: '9.9.9',
     features: () => null,
+    sourceRoot: () => options.sourceRoot,
   });
   instance = initDevframe(def, {
     base: '/__lit/',
@@ -137,6 +138,45 @@ describe('lit devframe definition', () => {
     // is a deliberate choice and not a silently reintroduced startup warning.
     const {ctx} = await boot();
     expect(ctx.services.has('@devframes/service-open')).toBe(false);
+  });
+
+  test('open-source resolves panel paths against the vite root', async () => {
+    // The panel's `file` comes from the transform, so it is relative to the
+    // Vite root -- while the open service resolves relative paths against the
+    // host's `workspaceRoot`. Those differ whenever the served app isn't the
+    // workspace (a monorepo playground, say), and `launchEditor` silently
+    // does nothing for a path that doesn't exist, so the mismatch shows up as
+    // a source link that just doesn't respond.
+    const {ctx} = await boot({sourceRoot: '/workspace/app'});
+    const opened: Array<{path: string; line?: number}> = [];
+    ctx.services.provide('@devframes/service-open', {
+      openInEditor: async (input) => {
+        opened.push({path: input.path, line: input.line});
+      },
+      openInFinder: async () => {},
+    });
+
+    expect(
+      await ctx.rpc.invokeLocal('lit:open-source', {
+        file: 'src/app.ts',
+        line: 12,
+      })
+    ).toEqual({opened: true});
+    expect(opened).toEqual([{path: '/workspace/app/src/app.ts', line: 12}]);
+
+    // A component outside the Vite root is injected with an absolute path,
+    // which has to survive untouched.
+    await ctx.rpc.invokeLocal('lit:open-source', {file: '/pkg/lib/x.ts'});
+    expect(opened[1]?.path).toBe('/pkg/lib/x.ts');
+  });
+
+  test('open-source reports back when no open service is installed', async () => {
+    // `opened: false` rather than a throw: it is the panel's cue to fall back
+    // to `/__lit-open-in-editor` (see `panel/open-in-editor.ts`).
+    const {ctx} = await boot({sourceRoot: '/workspace/app'});
+    expect(
+      await ctx.rpc.invokeLocal('lit:open-source', {file: 'src/app.ts'})
+    ).toEqual({opened: false});
   });
 
   test('settings round-trip through the global store', async () => {

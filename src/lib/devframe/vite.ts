@@ -345,11 +345,15 @@ export function createLitDevframePlugin(
   options: CreateLitDevframePluginOptions
 ): Plugin {
   const source = new HotTimelineSource();
+  // Only known once `setup()` has the dev server, which is after the
+  // definition is built -- hence the getter.
+  let viteRoot: string | undefined;
   const definition = createLitDevframe({
     source,
     version: options.version,
     features: options.features,
     clientAssets: options.clientAssets,
+    sourceRoot: () => viteRoot,
   });
 
   return {
@@ -364,6 +368,7 @@ export function createLitDevframePlugin(
         // which attaches to this source, and the dev server is already
         // available on the context by now.
         if (ctx.viteServer) source.bind(ctx.viteServer, ctx);
+        viteRoot = ctx.viteServer?.config.root;
         await ctx.install(definition);
 
         // The overlay picker as a palette command with a managed shortcut.

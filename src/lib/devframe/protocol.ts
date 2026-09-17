@@ -81,6 +81,28 @@ export const RPC_TOGGLE_LAYER = 'toggle-layer';
 /** Bare name of the `set-settings-override` action. */
 export const RPC_SET_SETTINGS_OVERRIDE = 'set-settings-override';
 
+/** Bare name of the `open-source` action. */
+export const RPC_OPEN_SOURCE = 'open-source';
+
+/** Arguments for {@link RPC_OPEN_SOURCE}. */
+export interface OpenSourceArgs {
+  /**
+   * The path as the panel has it: what the transform injected, so relative
+   * to the Vite root (or absolute, when the file lives outside it).
+   */
+  file: string;
+  line?: number;
+}
+
+/** What {@link RPC_OPEN_SOURCE} reports back. */
+export interface OpenSourceResult {
+  /**
+   * False when no open service is installed on the host, which is the
+   * panel's cue to fall back to `/__lit-open-in-editor`.
+   */
+  opened: boolean;
+}
+
 /** Freeze the current session into a static panel directory. */
 export const RPC_EXPORT_SNAPSHOT = 'export-snapshot';
 
@@ -243,6 +265,7 @@ declare module 'devframe' {
     'lit:set-recording': (args: SetRecordingArgs) => Promise<void>;
     'lit:toggle-layer': (args: ToggleLayerArgs) => Promise<void>;
     'lit:set-settings-override': (override: SettingsOverride) => Promise<void>;
+    'lit:open-source': (args: OpenSourceArgs) => Promise<OpenSourceResult>;
     'lit:export-snapshot': (
       args: ExportSnapshotArgs
     ) => Promise<ExportSnapshotResult>;

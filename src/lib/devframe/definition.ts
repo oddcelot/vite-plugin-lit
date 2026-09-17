@@ -15,6 +15,11 @@
  */
 
 import {defineDevframe, defineRpcFunction} from 'devframe';
+// Type-only: brings in the service's `declare module 'devframe'`
+// augmentation so `ctx.services.get()` types its API. Nothing is
+// imported at runtime, and the service is consumed, never installed
+// here -- a Vite hub already has it (see `panel/open-in-editor.ts`).
+import type {} from '@devframes/service-open';
 import type {DevframeDefinition, DevframeNodeContext} from 'devframe';
 import type {
   InspectorCommand,
@@ -46,6 +51,7 @@ import {
   RPC_RECENT_EVENTS,
   RPC_SET_RECORDING,
   RPC_EXPORT_SNAPSHOT,
+  RPC_OPEN_SOURCE,
   RPC_SET_SETTINGS_OVERRIDE,
   RPC_TOGGLE_LAYER,
   RPC_UPDATE_SUMMARY,
@@ -59,6 +65,8 @@ import {
   type SessionState,
   type ExportSnapshotArgs,
   type ExportSnapshotResult,
+  type OpenSourceArgs,
+  type OpenSourceResult,
   type SetRecordingArgs,
   type ToggleLayerArgs,
   type UpdateSummaryArgs,
@@ -86,6 +94,13 @@ export interface CreateLitDevframeOptions {
    */
   clientAssets?: string;
   /**
+   * Absolute directory the injected `ElementSource.file` paths are relative
+   * to (the Vite root). Read per call, since a host only knows it once its
+   * dev server is up. Without it `open-source` can only open paths that are
+   * already absolute.
+   */
+  sourceRoot?: () => string | undefined;
+  /**
    * Boot from a recorded session instead of a live one. Set only by the
    * static-snapshot build (see `lib/snapshot.ts`): the caches below start
    * populated, so the frozen panel has a timeline and a component tree to
@@ -102,7 +117,7 @@ export interface CreateLitDevframeOptions {
 export function createLitDevframe(
   options: CreateLitDevframeOptions
 ): DevframeDefinition {
-  const {source, version, features, replay} = options;
+  const {source, version, features, replay, sourceRoot} = options;
 
   return defineDevframe({
     id: LIT_DEVFRAME_ID,
@@ -564,6 +579,33 @@ export function createLitDevframe(
           jsonSerializable: true,
           handler: async (override: SettingsOverride): Promise<void> => {
             source.setSettingsOverride(override);
+          },
+        })
+      );
+
+      my.rpc.register(
+        defineRpcFunction({
+          name: RPC_OPEN_SOURCE,
+          type: 'action',
+          jsonSerializable: true,
+          // Resolving here rather than in the panel is the whole point of
+          // the hop: `file` is relative to the Vite root, while the open
+          // service resolves relative paths against the host's
+          // `workspaceRoot` -- in a monorepo (or any setup where the served
+          // app isn't the workspace) those are different directories, and
+          // `launchEditor` silently does nothing for a path that doesn't
+          // exist. Not agent-exposed: it spawns a GUI process.
+          handler: async (args: OpenSourceArgs): Promise<OpenSourceResult> => {
+            const service = ctx.services.get('@devframes/service-open');
+            if (service === undefined) return {opened: false};
+            const {isAbsolute, resolve} = await import('node:path');
+            const root = sourceRoot?.();
+            const path =
+              root !== undefined && !isAbsolute(args.file)
+                ? resolve(root, args.file)
+                : args.file;
+            await service.openInEditor({path, line: args.line});
+            return {opened: true};
           },
         })
       );
