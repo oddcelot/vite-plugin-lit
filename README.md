@@ -55,6 +55,8 @@ CSS literal processing apply in both dev and build.
   — a layered event recorder and live component inspector inside Vite DevTools.
 - **[Source overlay](https://oddcelot.github.io/vite-plugin-lit/guides/source-overlay/)**
   — click any element in the page to open its source in your editor.
+- **[Agent access](#coding-agents-mcp)** — the same component tree and timeline
+  as MCP tools, for coding agents.
 - **[Ecosystem support](https://oddcelot.github.io/vite-plugin-lit/guides/ecosystem/)**
   — signals, context, tasks, and the virtualizer across a patch.
 
@@ -65,6 +67,59 @@ Reference:
 [runtime API](https://oddcelot.github.io/vite-plugin-lit/reference/runtime-api/) ·
 [limitations](https://oddcelot.github.io/vite-plugin-lit/reference/limitations/) ·
 [benchmarks](https://oddcelot.github.io/vite-plugin-lit/reference/benchmarks/)
+
+## Coding agents (MCP)
+
+The DevTools panel's data is also exposed as MCP tools — `lit_list-components`,
+`lit_component-details`, `lit_recent-events`, `lit_get-meta`,
+`lit_hmr-incompatibilities`, `lit_set-recording` — so an agent can read the
+live component tree and timeline instead of guessing from source.
+
+These answer only while a Vite dev server with DevTools is **running**. There
+is no stored data and nothing to go stale: with the server down an agent gets
+a connection error, not an empty answer.
+
+Point an MCP client at it either way:
+
+```sh
+# Auto-discovers every running dev server on this machine.
+claude mcp add lit-devtools -- npx -y @oddsquad/vite-plugin-lit mcp
+
+# Or dial one server directly, if you'd rather pin the port.
+claude mcp add lit-devtools -- npx -y mcp-remote http://localhost:5179/__devtools/__mcp
+```
+
+The equivalent `claude_desktop_config.json` / `mcp.json` entry:
+
+```json
+{
+  "mcpServers": {
+    "lit-devtools": {
+      "command": "npx",
+      "args": ["-y", "@oddsquad/vite-plugin-lit", "mcp"]
+    }
+  }
+}
+```
+
+The two differ in how the server is found, not in what it can do:
+
+- **`... vite-plugin-lit mcp`** runs devframe's connector over stdio. The
+  plugin publishes each running dev server to devframe's instance registry,
+  and the connector lists them through two gateway tools
+  (`devframe_connect_list-instances`, `devframe_connect_call-tool`) — so one
+  entry covers every project you have running, with no port to keep in sync.
+  Being a shared connector, it surfaces every devframe on the machine, not
+  only this plugin's tools.
+- **`mcp-remote <url>`** bridges stdio to one fixed URL and depends on no
+  discovery at all. Reach for it if registry discovery is unavailable — the
+  plugin logs a warning saying so at startup, naming the reason.
+
+The CLI also has `lit-devtools dev`, a standalone devframe server with no page
+attached. It exists to prove the panel definition runs without Vite (a
+framework-neutrality harness, and the groundwork for non-Vite adapters); it
+cannot show a real component tree, so it is not a way to inspect an app
+without a dev server.
 
 ## Playground
 

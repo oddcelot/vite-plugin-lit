@@ -66,6 +66,12 @@ interface DevToolsHubContext {
   ) => Promise<void>;
   docks?: {activate?: (dockId: string) => void};
   commands?: {register?: (command: Record<string, unknown>) => unknown};
+  /**
+   * The hub's host runtime. Structurally the slice of devframe's
+   * `DevframeHost` {@link registerInstance} needs; `DevframeHubContext`
+   * extends `DevframeNodeContext`, which carries it.
+   */
+  host?: {resolveOrigin?: () => string};
 }
 
 declare module 'vite' {
@@ -178,6 +184,153 @@ export class HotTimelineSource implements TimelineSource {
 }
 
 /**
+ * One warning per process, not per dev server: a restart-heavy session
+ * should not paper the terminal with the same advisory. Carries the reason,
+ * because "discovery unavailable" with no cause is the kind of message that
+ * costs an afternoon when the guess below finally goes stale.
+ */
+let warnedDiscoveryUnavailable = false;
+
+const warnDiscoveryUnavailable = (reason: string): void => {
+  if (warnedDiscoveryUnavailable) return;
+  warnedDiscoveryUnavailable = true;
+  console.warn(
+    `[lit-plugin] devframe instance-registry discovery unavailable ` +
+      `(${reason}); stdio MCP clients cannot auto-discover this dev ` +
+      `server. The MCP endpoint itself is unaffected — point clients at ` +
+      `<dev-server-origin>/__devtools/__mcp directly.`
+  );
+};
+
+/**
+ * Publish this devframe in devframe's global instance registry
+ * (`~/.devframe/instances/`), so stdio MCP connectors — `devframe connect`,
+ * this package's own `lit-devtools mcp` — find the running dev server
+ * without port guessing.
+ *
+ * `createDevServer()` registers itself, but this plugin never goes through
+ * it: it mounts into the Vite DevTools hub, and `@vitejs/devtools@0.7.5`
+ * calls `initHub()` with no `register` option, which defaults to off. So a
+ * Vite-hosted devframe is invisible to discovery unless a plugin publishes
+ * the record itself — which is all this does. `registerDevframeInstance()`
+ * is documented for exactly this case ("custom hosts that serve a devframe
+ * in-process call this explicitly with the origin they are reachable at"),
+ * and the registry is a directory of per-`pid`+`port` JSON files, so
+ * registrants coexist.
+ *
+ * The mount path is the soft spot: `/__devtools/` is where this version of
+ * Vite DevTools mounts, not a promise about where a devframe host mounts in
+ * general. So the guess is verified before it is published — the same
+ * `probeDevframeOrigin()` primitive the registry's own liveness check uses
+ * has to answer at that base, or nothing is registered. A record that
+ * doesn't answer is worse than no record: an agent dials it and gets 404s
+ * from a server that claimed to be there.
+ *
+ * The MCP path is then taken from what that probe *reports* rather than
+ * assumed to be the `__mcp` default, which removes the second guess
+ * entirely. Note the two path conventions in play: `__connection.json`
+ * serves `mcp.path` **relative** to the base (`"__mcp"`), while a registry
+ * record stores it **absolute** (`"/__devtools/__mcp"`) because the
+ * connector dials `origin + record.mcp.path` directly. Joining the two is
+ * exactly what devframe's own `probePort()` does with its root-mounted
+ * probe.
+ *
+ * Known sharp edge: records are keyed by `pid`+`port` alone. Another
+ * devframe-hosting plugin in the same Vite process would share this file,
+ * and whichever unregisters first removes it for both. Single-devframe use
+ * is the common case and there is no cross-plugin coordination primitive
+ * today.
+ */
+async function registerInstance(
+  ctx: DevToolsHubContext,
+  name: string
+): Promise<{unregister: () => void} | {reason: string}> {
+  // Both imports are dynamic and optional: `@vitejs/devtools-kit` is an
+  // optional peer this package must never hard-resolve, and `devframe`'s
+  // `internal` subpath is only needed on this path.
+  const constants = await import('@vitejs/devtools-kit/constants').catch(
+    () => null
+  );
+  const internal = await import('devframe/internal').catch(() => null);
+  if (!constants) return {reason: '@vitejs/devtools-kit not resolvable'};
+  if (!internal) return {reason: 'devframe/internal not resolvable'};
+
+  const basePath = constants.DEVTOOLS_MOUNT_PATH;
+  const origin = ctx.host?.resolveOrigin?.();
+  if (!origin) return {reason: 'host origin unavailable'};
+
+  const probed = await internal.probeDevframeOrigin(origin, basePath);
+  if (!probed) {
+    return {reason: `no devframe answered at ${origin}${basePath}`};
+  }
+
+  // Relative (`"__mcp"`) as served, absolute as stored — see above. A host
+  // that already reports an absolute path is passed through unchanged.
+  const reported = probed.meta.mcp?.path;
+  const mcpPath =
+    reported === undefined
+      ? null
+      : reported.startsWith('/')
+        ? reported
+        : `${basePath}${reported}`;
+
+  const {unregister} = internal.registerDevframeInstance({
+    pid: process.pid,
+    // The probe reports the origin that actually answered — a `localhost`
+    // bind may only be dialable as `127.0.0.1` or `[::1]` — so its port is
+    // the one truly listening, which `config.server.port` is not when the
+    // configured port was taken.
+    port: Number(new URL(probed.origin).port) || 0,
+    origin: probed.origin,
+    basePath,
+    id: LIT_DEVFRAME_ID,
+    name,
+    rootDir: process.cwd(),
+    // Registering with `mcp: null` is honest rather than useless: the
+    // connector surfaces the instance with its own "MCP disabled" hint,
+    // which beats the instance being invisible.
+    mcp: mcpPath === null ? null : {path: mcpPath},
+    startedAt: Date.now(),
+  });
+  return {unregister};
+}
+
+/**
+ * Register once the dev server is actually accepting connections. The
+ * DevTools `setup()` hook runs during server construction, well before
+ * `listen()` resolves, so probing from there always fails to connect — the
+ * record has to wait for the port it is about to advertise to be real.
+ */
+function registerInstanceWhenListening(
+  ctx: DevToolsHubContext,
+  name: string
+): void {
+  const httpServer = ctx.viteServer?.httpServer;
+  if (!httpServer) {
+    // Middleware mode: no server of our own to advertise.
+    warnDiscoveryUnavailable('no HTTP server (middleware mode?)');
+    return;
+  }
+
+  const run = (): void => {
+    registerInstance(ctx, name)
+      .then((result) => {
+        if ('unregister' in result) {
+          httpServer.once('close', result.unregister);
+        } else {
+          warnDiscoveryUnavailable(result.reason);
+        }
+      })
+      .catch((error: unknown) => {
+        warnDiscoveryUnavailable(String(error));
+      });
+  };
+
+  if (httpServer.listening) run();
+  else httpServer.once('listening', run);
+}
+
+/**
  * The Vite plugin that mounts the Lit devframe on the DevTools hub. A no-op
  * when DevTools is not active: without it nothing calls `devtools.setup()`,
  * so the definition is never installed and the panel simply isn't there.
@@ -222,6 +375,11 @@ export function createLitDevframePlugin(
             handler: () => source.toggleOverlay(),
           });
         }
+
+        // Discovery is a convenience on top of a panel that already works,
+        // so this never blocks `setup()` and never throws: a failure costs
+        // the user the stdio MCP shortcut, and the direct URL still works.
+        registerInstanceWhenListening(ctx, definition.name);
       },
     },
   };

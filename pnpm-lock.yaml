@@ -137,6 +137,9 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-core@0.3.2
         version: '@voidzero-dev/vite-plus-core@0.3.2(@types/node@26.6.1)(@vitejs/devtools@0.7.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)'
     devDependencies:
+      '@devframes/agentic':
+        specifier: 1.0.0
+        version: 1.0.0(crossws@0.4.12(srvx@1.0.5))(devframe@1.0.0)
       '@devframes/service-open':
         specifier: 1.0.0
         version: 1.0.0(devframe@1.0.0)
@@ -158,6 +161,9 @@ importers:
       '@vitejs/devtools-kit':
         specifier: 0.7.5
         version: 0.7.5(@devframes/agentic@1.0.0)(@voidzero-dev/vite-plus-core@0.3.2(@types/node@26.6.1)(@vitejs/devtools@0.7.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(cac@7.0.0)(crossws@0.4.12(srvx@1.0.5))(srvx@1.0.5)
+      cac:
+        specifier: 7.0.0
+        version: 7.0.0
       lightningcss:
         specifier: ^1.33.0
         version: 1.33.0
