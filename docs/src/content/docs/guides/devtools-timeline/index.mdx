@@ -123,6 +123,32 @@ connection. The practical consequence: in a browser that has never opened the
 panel for this project, the page starts with the resolved config and picks the
 overrides up once you open the panel.
 
+## Export a session
+
+**Export snapshot** in the Timeline tab freezes the current session — the
+recorded events, the component tree, the details of everything you opened, and
+any HMR incompatibilities — into a self-contained directory. The dev server
+writes it; the panel just asks.
+
+The result is a static site: open `index.html` from any file server and the
+panel renders the recording with no dev server, no checkout of the app, and no
+reproduction steps. Zip it onto a bug report and the person reading it sees
+what actually happened instead of a description of it.
+
+The frozen panel is read-only by construction. Recording, picking and tree
+refresh are hidden, because there is no page behind it to command.
+
+Two limits worth knowing when you record something to report:
+
+- Only components you actually opened have their details baked. Details are
+  read from live DOM, so there is nothing to freeze for a component nobody
+  inspected — click through the ones that matter before exporting.
+- The timeline keeps its most recent events, not all of them. A long session
+  exports its tail.
+
+`lit-devtools build` does **not** produce one of these: a fresh CLI process has
+no session to freeze. Export from the running server that recorded it.
+
 ## Ask a coding agent
 
 The panel is a [devframe](https://devfra.me), so the same data it renders is

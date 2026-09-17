@@ -86,12 +86,20 @@ const main = async () => {
     });
 
   cli
-    .command('build', 'Build a static snapshot of the panel (not implemented)')
+    .command('build', 'Explain how to export a static snapshot of a session')
     .action(() => {
+      // Deliberately not implemented here. A snapshot worth attaching to an
+      // issue is a *recorded session*, and the session lives in the running
+      // dev server's memory -- a fresh CLI process has no page, no timeline
+      // and no component tree, so anything it could build would be an empty
+      // shell. The export therefore runs inside the dev server that holds
+      // the data; see plans/roadmap/08-static-snapshot.md.
       console.error(
-        `[lit-devtools] "build" is not yet implemented.\n` +
-          `A static snapshot needs the timeline event buffer to be ` +
-          `serialisable; it is tracked as #08 in plans/roadmap/README.md.`
+        `[lit-devtools] A static snapshot is exported from a running ` +
+          `session, not from this CLI.\n` +
+          `Record what you want to report in the DevTools Lit panel, then ` +
+          `press "Export snapshot" in the Timeline tab. The dev server ` +
+          `writes a self-contained panel directory you can zip onto an issue.`
       );
       process.exit(1);
     });

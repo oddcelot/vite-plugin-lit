@@ -77,6 +77,26 @@ export const RPC_TOGGLE_LAYER = 'toggle-layer';
 /** Bare name of the `set-settings-override` action. */
 export const RPC_SET_SETTINGS_OVERRIDE = 'set-settings-override';
 
+/** Freeze the current session into a static panel directory. */
+export const RPC_EXPORT_SNAPSHOT = 'export-snapshot';
+
+/** Arguments for {@link RPC_EXPORT_SNAPSHOT}. */
+export interface ExportSnapshotArgs {
+  /**
+   * Where to write. Relative paths resolve against the dev server's cwd.
+   * Defaults to `lit-devtools-snapshot`.
+   */
+  outDir?: string;
+}
+
+/** What {@link RPC_EXPORT_SNAPSHOT} reports back, for the panel to display. */
+export interface ExportSnapshotResult {
+  outDir: string;
+  events: number;
+  components: number;
+  details: number;
+}
+
 /** Bare name of the `inspector-message` client (node → panel) event. */
 export const RPC_INSPECTOR_MESSAGE = 'inspector-message';
 
@@ -191,6 +211,9 @@ declare module 'devframe' {
     'lit:set-recording': (args: SetRecordingArgs) => Promise<void>;
     'lit:toggle-layer': (args: ToggleLayerArgs) => Promise<void>;
     'lit:set-settings-override': (override: SettingsOverride) => Promise<void>;
+    'lit:export-snapshot': (
+      args: ExportSnapshotArgs
+    ) => Promise<ExportSnapshotResult>;
     'lit:hmr-incompatibilities': () => Promise<HmrIncompatibilityEvent[]>;
   }
 

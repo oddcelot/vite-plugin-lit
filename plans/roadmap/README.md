@@ -19,7 +19,7 @@ forward-looking feature design, not audit findings. They supersede the
 | 4    | 04   | Type the public timeline API                   | MED       | S      | —          | DONE   |
 | 5    | 06   | Persist panel settings per project             | MED       | S      | —          | DONE   |
 | 6    | 07   | In-page channel for the hover outline          | MED       | S      | —          | DONE   |
-| 7    | 08   | Static snapshot for bug reports                | MED       | M      | 02         | TODO   |
+| 7    | 08   | Static snapshot for bug reports                | MED       | M      | 02, 07     | DONE   |
 | 8    | 05   | Open-in-editor via `@devframes/service-open`   | LOW       | S      | —          | DONE   |
 | 9    | 09   | Deep linking into the panel                    | LOW       | S      | —          | TODO   |
 | 10   | 10   | Nuxt and Next adapters                         | LOW       | M      | 03         | TODO   |
@@ -30,7 +30,7 @@ written (see below). Read the table top to bottom for the ordering.
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) |
 REJECTED (one-line rationale).
 
-Plans 01–07 have their own files. 08–10 are recorded below with enough detail
+Plans 01–08 have their own files. 09–10 are recorded below with enough detail
 to pick up later; writing them out now would mean inventing design detail ahead
 of the need.
 
@@ -66,8 +66,10 @@ interesting the work is or how much new surface it adds.
   (devframe's `global` settings scope), not per-project — see the plan's
   status block for why `project` turned out to be the wrong scope _and_ the
   wrong storage dir from what its own research assumed.
-- **07 and 08 mostly matter once the tool is used outside a live dev server**,
-  which is why they sit below the items that improve it inside one.
+- **07 and 08 mostly mattered once the tool was used outside a live dev
+  server**, which is why they sat below the items that improve it inside one.
+  Both have shipped; 08 leans on 07 exactly as predicted, since a frozen panel
+  whose hover outline needed a server would be a screenshot with buttons.
 - **05 was demoted while its plan was being written.** The original reasoning
   here — "drops a dependency and hardens a filesystem path" — was wrong. The
   source overlay runs in the inspected page with no devframe client, over a
@@ -103,19 +105,11 @@ nothing to move.
 
 ### 08 — Static snapshot for bug reports
 
-`createBuild()` from `devframe/adapters/build` renders the panel with
-`snapshot: true` query results baked in and no node runtime required. Today only
-`get-meta` carries `snapshot: true`.
-
-The valuable version of this is not "a static copy of the panel" — it is **a
-recorded session someone can attach to an issue**. A maintainer receives a
-timeline of what actually happened plus the component tree at the time, and
-opens it in a browser with no repo checkout and no reproduction. That is a
-meaningfully better bug report than a description.
-
-Blocked on 02 in practice: baking a timeline means the node side must retain
-events beyond the stream's replay window, which is exactly the buffer plan 02
-introduces. Also needs 07 for the Components tab to stay interactive offline.
+Shipped; see `plans/roadmap/08-static-snapshot.md`. The sketch's framing held
+up exactly: the valuable artefact is a recorded session, not a static copy of
+the panel, and that is what decided where the export runs. A fresh CLI process
+has no session to freeze, so the dev server exports its own state and
+`lit-devtools build` now says so instead of claiming to be unimplemented.
 
 ### 09 — Deep linking into the panel
 

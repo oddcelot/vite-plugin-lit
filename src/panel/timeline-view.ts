@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {LitElement, html, css} from 'lit';
+import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 import {tokens} from '../lib/tokens.js';
 import type {
@@ -15,7 +15,7 @@ import type {
 import type {LayerState} from './timeline-layers.js';
 import './timeline-layers.js';
 import './timeline-event-list.js';
-import {litRpc, getMeta, describeError} from './client.js';
+import {litRpc, getMeta, describeError, isSnapshot} from './client.js';
 import type {LitClient} from './client.js';
 import {LAYER_FLAGS, SESSION_STATE_KEY} from '../lib/devframe/protocol.js';
 import type {SessionState} from '../lib/devframe/protocol.js';
@@ -75,6 +75,13 @@ export class TimelineView extends LitElement {
         background: var(--lit-devtools-surface-hover);
         border-color: var(--lit-devtools-border-strong);
       }
+      .export-note {
+        color: var(--lit-devtools-text-muted);
+        font-size: var(--lit-devtools-text-2xs);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       .record.active {
         border-color: var(--lit-devtools-error);
         background: var(--lit-devtools-error-soft);
@@ -93,6 +100,9 @@ export class TimelineView extends LitElement {
   ];
 
   @state() private _recording = false;
+  @state() private _exporting = false;
+  /** Result or failure of the last export; `null` until one is attempted. */
+  @state() private _exportNote: string | null = null;
   @state() private _events: TimelineEvent[] = [];
   @state() private _layers: LayerState[] = [];
   @state() private _error: string | null = null;
@@ -147,6 +157,16 @@ export class TimelineView extends LitElement {
       this._sessionOff = session.on('updated', (state) =>
         this._applySession(state)
       );
+
+      // A frozen session has no live stream to subscribe to -- the events
+      // were baked into `recent-events` at export time, and they are the
+      // whole point of the snapshot. Read them once and stop.
+      if (isSnapshot()) {
+        const recorded = await rpc.rpc.call('recent-events', {});
+        if (!this._active) return;
+        this._events = recorded.events.slice(-MAX_EVENTS);
+        return;
+      }
 
       const reader = rpc.rpc.streaming.subscribe<TimelineEvent[]>(
         meta.stream.channel,
@@ -220,6 +240,29 @@ export class TimelineView extends LitElement {
     this._events = [];
   }
 
+  /**
+   * Freeze this session into a static panel directory the developer can zip
+   * onto an issue. The dev server does the work -- it already holds the
+   * timeline, the tree and the details -- so this is one call and a status
+   * line, not a download.
+   */
+  private _exportSnapshot() {
+    if (this._exporting) return;
+    this._exporting = true;
+    this._exportNote = 'Exporting…';
+    this._rpc?.rpc
+      .call('export-snapshot', {})
+      .then((result) => {
+        this._exportNote = `Wrote ${result.events} events and ${result.components} components to ${result.outDir}`;
+      })
+      .catch((err: unknown) => {
+        this._exportNote = `Export failed: ${describeError(err)}`;
+      })
+      .finally(() => {
+        this._exporting = false;
+      });
+  }
+
   private _onLayerToggle(e: CustomEvent<{id: string}>) {
     // Custom layers have no flag in `LAYER_FLAGS` and are always on; there is
     // nothing to toggle server-side.
@@ -239,14 +282,31 @@ export class TimelineView extends LitElement {
     }
     return html`
       <div class="toolbar">
+        ${
+          this._exportNote === null
+            ? nothing
+            : html`<span class="export-note">${this._exportNote}</span>`
+        }
         <span class="spacer"></span>
-        <button @click=${this._clear}>Clear</button>
         <button
-          class="record ${this._recording ? 'active' : ''}"
-          @click=${this._toggleRecord}
+          ?disabled=${this._exporting || isSnapshot()}
+          title="Write this session to a static panel directory you can attach to a bug report"
+          @click=${this._exportSnapshot}
         >
-          ${this._recording ? '⏹ Stop' : '▶ Record'}
+          Export snapshot
         </button>
+        <button @click=${this._clear}>Clear</button>
+        ${
+          // A frozen session has nothing to record and no server to tell.
+          isSnapshot()
+            ? nothing
+            : html`<button
+                class="record ${this._recording ? 'active' : ''}"
+                @click=${this._toggleRecord}
+              >
+                ${this._recording ? '⏹ Stop' : '▶ Record'}
+              </button>`
+        }
       </div>
       <timeline-layers
         .layers=${this._layers}

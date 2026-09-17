@@ -18,7 +18,7 @@ import {
   MAX_HMR_INCOMPATIBILITIES,
   type HmrIncompatibilityEvent,
 } from '../types/hmr-incompatibility.js';
-import {describeError, litRpc, type LitClient} from './client.js';
+import {describeError, isSnapshot, litRpc, type LitClient} from './client.js';
 import {openInEditor} from './open-in-editor.js';
 import {inPageChannel, inPageConnected} from './in-page.js';
 
@@ -374,7 +374,10 @@ export class ComponentsView extends LitElement {
       });
       this._roots = await rpc.rpc.call('list-components');
       this._hmrIncompatibilities = await rpc.rpc.call('hmr-incompatibilities');
-      void rpc.rpc.call('inspect', {type: 'tree'});
+      // The baked tree above is all a frozen session has; asking the page for
+      // a fresh one would reject (`inspect` is an action, so it is not in the
+      // dump) and surface as an unhandled rejection in the console.
+      if (!isSnapshot()) void rpc.rpc.call('inspect', {type: 'tree'});
     } catch (err) {
       this._error = describeError(err);
     }
@@ -383,6 +386,9 @@ export class ComponentsView extends LitElement {
   /** Send an {@link InspectorCommand}; a no-op until the client connects. */
   private _call(cmd: InspectorCommand): void {
     if (this._rpc === null) return;
+    // Nothing to command in a frozen session: there is no page, and the
+    // action is not in the dump.
+    if (isSnapshot()) return;
     this._rpc.rpc.call('inspect', cmd).catch((err: unknown) => {
       console.warn('[lit-devtools] inspector call failed', err);
     });
