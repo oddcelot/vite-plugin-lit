@@ -1,0 +1,95 @@
+---
+title: Updates
+description: Which Lit components re-rendered, how often, how long for, and which reactive properties changed to cause it.
+sidebar:
+  order: 8
+  label: Updates
+---
+
+import {Aside} from '@astrojs/starlight/components';
+
+The Timeline tells you what happened and in what order. The **Updates** tab
+answers the two questions that usually sent you to a devtools panel in the
+first place:
+
+- which component is re-rendering too much, and
+- why did this particular component update?
+
+Both are derived from the recording the Timeline already makes. Nothing extra
+is captured, and no extra layer has to be enabled beyond **Lit Lifecycle**.
+
+## Recording one
+
+1. Open the **Timeline** tab and press **Record**.
+2. Interact with the page — or just wait, if something is updating on its own.
+3. Switch to **Updates**.
+
+Recording is shared state, so it does not matter which tab you start it from.
+Stopping keeps the recording; starting again clears it, because the page
+re-zeroes its timeline clock each time.
+
+## The component table
+
+The upper pane is one row per component **tag**, slowest first:
+
+| Column    | Meaning                                                       |
+| --------- | ------------------------------------------------------------- |
+| Component | The tag, with `×n` when more than one instance of it updated. |
+| Reasons   | The reactive properties that changed, most frequent first.    |
+| Updates   | How many update ticks were recorded.                          |
+| Total     | Summed time in `performUpdate` across those ticks.            |
+| Max       | The slowest single update.                                    |
+
+Rows are grouped by tag rather than by instance on purpose: a list of 200 rows
+that each updated twice is one component's problem, not two hundred.
+
+Time comes from `performUpdate` alone. `willUpdate`, `update` and `updated` all
+run _inside_ it, so adding the phases together would count the same
+milliseconds several times over. A tick whose end was not recorded — still
+running, or older than the retained window — counts toward **Updates** but adds
+nothing to **Total**.
+
+## The update list
+
+Pick a component and the lower pane lists each of its update ticks:
+
+- **when** it started and **how long** it took,
+- **what changed** — the reactive property keys Lit reported for that tick,
+- **what caused it** — the mouse or keyboard event it followed, if any,
+- the instance id, which links through to the **Components** tab.
+
+The changed-property keys are the actual answer to "why did this re-render".
+They come from Lit's own `changedProperties` map, so they are what the element
+reacted to, not an inference.
+
+<Aside title="An update with no cause">
+  Cause attribution only claims an input event when one happened within 200ms
+  before the update. An update with no cause is a timer, a signal, or a stray
+  `requestUpdate()` — which is itself the useful finding, and better than
+  blaming the last click that happened to be nearby.
+</Aside>
+
+A component that overrides `willUpdate` or `updated` **without** calling
+`super` shadows the base implementation and does not report that phase. The
+tick still appears — `performUpdate` is never overridden — but its changed keys
+can be missing.
+
+## Link to it
+
+The tab is addressable like the others:
+
+```
+#tab=updates&component=7
+```
+
+The element id selects the component row that instance belongs to, so the same
+id works whether you came from the Components tree or from an
+[exported snapshot](/vite-plugin-lit/guides/devtools-timeline/#export-a-session).
+
+## Ask an agent instead
+
+The same derivation is available over MCP as `lit_update-summary`, which
+returns the per-component totals and the recent cycles with their changed keys.
+Prefer it over `lit_recent-events` for anything shaped like "why did this
+re-render" — see
+[Ask a coding agent](/vite-plugin-lit/guides/devtools-timeline/#ask-a-coding-agent).

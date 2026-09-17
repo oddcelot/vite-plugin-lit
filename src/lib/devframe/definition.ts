@@ -48,6 +48,7 @@ import {
   RPC_EXPORT_SNAPSHOT,
   RPC_SET_SETTINGS_OVERRIDE,
   RPC_TOGGLE_LAYER,
+  RPC_UPDATE_SUMMARY,
   SESSION_STATE_KEY,
   TIMELINE_STREAM_ID,
   TIMELINE_STREAM_NAME,
@@ -60,7 +61,15 @@ import {
   type ExportSnapshotResult,
   type SetRecordingArgs,
   type ToggleLayerArgs,
+  type UpdateSummaryArgs,
+  type UpdateSummaryResult,
 } from './protocol.js';
+import {
+  attributeInput,
+  rollup,
+  toSpans,
+  toUpdateCycles,
+} from '../timeline/derive.js';
 import {createNullSource, type TimelineSource} from './source.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
 
@@ -300,8 +309,23 @@ export function createLitDevframe(
         // mutating shared state directly through devframe's generic
         // shared-state RPC. Immer only emits when the state reference
         // changes, so a no-op mutate sends nothing.
+        //
+        // Clearing on the rising edge belongs here rather than in
+        // `set-recording` for the same reason: the runtime re-zeroes its
+        // timeline clock when recording turns on (`runtime/timeline/clock.ts`),
+        // so events kept from the previous recording sit in the buffer on a
+        // larger time origin than everything captured after them. A `sinceMs`
+        // window reads them as the future, and pairing a start with its end
+        // across the seam yields a negative duration. Same rationale as
+        // `runtimeReady()` above, one level finer: a new clock, not a new page.
+        let wasRecording = session.value().layers.recordingState;
         session.on('updated', (state) => {
-          source.setRecording(state.layers.recordingState);
+          const {recordingState} = state.layers;
+          if (recordingState && !wasRecording) {
+            recentEvents.length = 0;
+          }
+          wasRecording = recordingState;
+          source.setRecording(recordingState);
           source.setLayers(state.layers);
         });
       }
@@ -423,6 +447,55 @@ export function createLitDevframe(
               events,
               bufferSize: recentEvents.length,
               truncated: events.length < filtered.length,
+            };
+          },
+        })
+      );
+
+      my.rpc.register(
+        defineRpcFunction({
+          name: RPC_UPDATE_SUMMARY,
+          type: 'query',
+          jsonSerializable: true,
+          // Baked into a static snapshot: takes no required arguments, and by
+          // export time its answer is exactly what the session recorded.
+          snapshot: true,
+          agent: {
+            description:
+              'Explain component updates: which components re-rendered, how often, how long they took, and which reactive properties changed to cause each update. Prefer this over lit:recent-events for "why did this re-render" and "what is re-rendering too much" — it answers from the same recording without the caller having to pair start/end events itself. Filter to one component with tagName. Check the `recording` field — if false, no events are being captured; call lit:set-recording first.',
+          },
+          // `args` is genuinely absent when an agent calls the tool with no
+          // filters — the most common call — so it must default.
+          handler: async (
+            args: UpdateSummaryArgs = {}
+          ): Promise<UpdateSummaryResult> => {
+            const recording = session.value().layers.recordingState;
+            let events: readonly TimelineEvent[] = recentEvents;
+            // Same window semantics as `recent-events`: measured against the
+            // newest event in the whole buffer, not the newest match.
+            if (args.sinceMs !== undefined && recentEvents.length > 0) {
+              const cutoff =
+                recentEvents[recentEvents.length - 1]!.time - args.sinceMs;
+              events = recentEvents.filter((e) => e.time >= cutoff);
+            }
+            let cycles = attributeInput(
+              toUpdateCycles(toSpans(events)),
+              events
+            );
+            if (args.tagName !== undefined) {
+              cycles = cycles.filter((c) => c.tagName === args.tagName);
+            }
+            // Totals cover the whole window; only the per-cycle list is
+            // capped, so a limit never silently understates a hot component.
+            const components = rollup(cycles);
+            const limit = Math.min(args.limit ?? 50, 200);
+            const limited = cycles.slice(-limit);
+            return {
+              recording,
+              components,
+              cycles: limited,
+              bufferSize: recentEvents.length,
+              truncated: limited.length < cycles.length,
             };
           },
         })

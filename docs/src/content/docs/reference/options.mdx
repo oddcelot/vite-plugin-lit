@@ -125,8 +125,10 @@ Explained in the [source overlay guide](/vite-plugin-lit/guides/source-overlay/)
 **Type:** `boolean` · **Default:** `false` · **Env:** `LIT_PLUGIN_TIMELINE`
 
 Dev-only Timeline panel inside Vite DevTools — a Vue DevTools–style layered
-event stream for Lit lifecycle, render, mouse, and keyboard events, plus a
-Components tab. Requires `@vitejs/devtools` and its `DevTools()` plugin to be
+event stream for Lit lifecycle, render, mouse, and keyboard events, plus an
+Updates tab that derives per-component update counts, durations and reasons
+from it, and a Components tab.
+Requires `@vitejs/devtools` and its `DevTools()` plugin to be
 active in the same Vite config. `true` enables all built-in layers with
 defaults; it stays off by default while experimental.
 

@@ -28,6 +28,7 @@ import type {
   InspectorTreeNode,
 } from '../../types/inspector.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
+import type {ComponentRollup, UpdateCycle} from '../timeline/derive.js';
 
 /** The devframe's scope id. RPC names become `lit:*`, MCP wire names `lit_*`. */
 export const LIT_DEVFRAME_ID = 'lit';
@@ -64,6 +65,9 @@ export const RPC_COMPONENT_DETAILS = 'component-details';
 
 /** Bare name of the `recent-events` query. */
 export const RPC_RECENT_EVENTS = 'recent-events';
+
+/** Bare name of the `update-summary` query. */
+export const RPC_UPDATE_SUMMARY = 'update-summary';
 
 /** Bare name of the `inspect` action. */
 export const RPC_INSPECT = 'inspect';
@@ -170,6 +174,31 @@ export interface RecentEventsResult {
   truncated: boolean;
 }
 
+/** Argument of the `update-summary` query. */
+export interface UpdateSummaryArgs {
+  /** Restrict to one component, by tag name. */
+  tagName?: string;
+  /** Same window semantics as {@link RecentEventsArgs.sinceMs}. */
+  sinceMs?: number;
+  /** Cycles returned (the component totals always cover the whole window).
+   *  Default 50, hard ceiling 200. */
+  limit?: number;
+}
+
+/** Result of the `update-summary` query. */
+export interface UpdateSummaryResult {
+  /** Whether the timeline is currently recording. */
+  recording: boolean;
+  /** Per-component totals over the window, slowest first. */
+  components: ComponentRollup[];
+  /** The most recent update cycles in the window, oldest first. */
+  cycles: UpdateCycle[];
+  /** Total events currently held in the ring buffer, before derivation. */
+  bufferSize: number;
+  /** True if more cycles were derived than were returned. */
+  truncated: boolean;
+}
+
 /** Argument of the `set-recording` action. */
 export interface SetRecordingArgs {
   recording: boolean;
@@ -207,6 +236,9 @@ declare module 'devframe' {
     'lit:recent-events': (
       args?: RecentEventsArgs
     ) => Promise<RecentEventsResult>;
+    'lit:update-summary': (
+      args?: UpdateSummaryArgs
+    ) => Promise<UpdateSummaryResult>;
     'lit:inspect': (command: InspectorCommand) => Promise<void>;
     'lit:set-recording': (args: SetRecordingArgs) => Promise<void>;
     'lit:toggle-layer': (args: ToggleLayerArgs) => Promise<void>;

@@ -22,7 +22,8 @@ forward-looking feature design, not audit findings. They supersede the
 | 7    | 08   | Static snapshot for bug reports                | MED       | M      | 02, 07     | DONE   |
 | 8    | 05   | Open-in-editor via `@devframes/service-open`   | LOW       | S      | —          | DONE   |
 | 9    | 09   | Deep linking into the panel                    | LOW       | S      | 08         | DONE   |
-| 10   | 10   | Nuxt and Next adapters                         | LOW       | M      | 03         | TODO   |
+| 10   | 11   | Turn the timeline into an update explainer     | HIGH      | M–L    | —          | DONE   |
+| 11   | 10   | Nuxt and Next adapters                         | LOW       | M      | 03         | TODO   |
 
 Plan numbers are stable file IDs, not ranks — 05 was demoted after its plan was
 written (see below). Read the table top to bottom for the ordering.
@@ -89,6 +90,14 @@ interesting the work is or how much new surface it adds.
   the experience — and this plugin's users are on Vite by definition. 09 has
   shipped; 10 is the only item left, and still gated on wanting the inspector
   without the HMR patching that is this package's reason to exist.
+- **11 was added after 01–09 shipped, and ranks first among what is open.**
+  Ranks 1–9 are history — the shipped items keep the order they were worked
+  in rather than being renumbered around a later arrival. On its own merits 11
+  is a rank-2 item: like 02 it is mostly a matter of using data the capture
+  layer already produces (`groupId` pairing and the changed-property keys),
+  and it is the only open item that changes what the panel is for rather than
+  where it runs. It also carries a documented-but-absent behaviour, which is
+  the same defect 04 fixed.
 
 Effort/impact outlier worth noting: **04 had the best ratio on the board** (an
 ambient declaration versus a documented API that failed to compile), and it has
