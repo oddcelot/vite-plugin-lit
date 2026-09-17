@@ -8,13 +8,12 @@ import {LitElement, html, css, nothing, type TemplateResult} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 import {tokens} from '../lib/tokens.js';
 import {
-  INSPECT_PATH,
-  INSPECT_SSE_EVENT,
   type InspectorCommand,
   type InspectorDetails,
   type InspectorMessage,
   type InspectorTreeNode,
 } from '../types/inspector.js';
+import {describeError, litRpc, type LitClient} from './client.js';
 
 /** localStorage key remembering the opt-in live-tree toggle. */
 const LIVE_LS_KEY = 'lit-devtools-components-live';
@@ -25,10 +24,11 @@ const LIVE_LS_KEY = 'lit-devtools-components-live';
  * shell (\`lit-devtools-panel\`).
  *
  * It can't touch the page DOM directly (separate iframe), so it drives the
- * page's inspector runtime over the transport: it POSTs {@link InspectorCommand}s
- * to {@link INSPECT_PATH} and receives {@link InspectorMessage}s on the shared
- * SSE stream's `inspect` event. An overlay inspect-pick arrives as a `pick`
- * message; the view selects that node and asks its host to switch to this tab.
+ * page's inspector runtime over devframe RPC: it calls the `inspect` action
+ * with {@link InspectorCommand}s and receives {@link InspectorMessage}s
+ * through the registered `inspector-message` client function. An overlay
+ * inspect-pick arrives as a `pick` message; the view selects that node and
+ * asks its host to switch to this tab.
  */
 @customElement('components-view')
 export class ComponentsView extends LitElement {
@@ -223,65 +223,65 @@ export class ComponentsView extends LitElement {
   @state() private _picking = false;
   /** Opt-in live tree (MutationObserver in the page); persisted, default off. */
   @state() private _live = false;
+  /** Set when the devframe connection fails; rendered in place of the tree. */
+  @state() private _error: string | null = null;
 
-  private _es: EventSource | null = null;
+  private _rpc: LitClient | null = null;
 
   override connectedCallback() {
     super.connectedCallback();
     this._live = localStorage.getItem(LIVE_LS_KEY) === 'true';
-    this._es = new EventSource('/__lit-devtools-events');
-    this._es.addEventListener(INSPECT_SSE_EVENT, this._onMessage);
-    // Request only once the stream is open — a command sent before we're
-    // subscribed would have its reply broadcast before we could receive it.
-    this._es.addEventListener('open', this._onOpen);
+    void this._connect();
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
-    this._es?.removeEventListener(INSPECT_SSE_EVENT, this._onMessage);
-    this._es?.removeEventListener('open', this._onOpen);
-    this._es?.close();
-    this._es = null;
-    this._post({type: 'watch', id: null});
-    if (this._live) this._post({type: 'observe', enabled: false});
+    this._call({type: 'watch', id: null});
+    if (this._live) this._call({type: 'observe', enabled: false});
   }
-
-  /** Refresh the tree (and re-arm watch / live mode) once the SSE connects. */
-  private _onOpen = (): void => {
-    this._post({type: 'tree'});
-    if (this._selectedId !== null) {
-      this._post({type: 'watch', id: this._selectedId});
-    }
-    if (this._live) this._post({type: 'observe', enabled: true});
-  };
 
   // ---------------------------------------------------------------------------
   // Transport
   // ---------------------------------------------------------------------------
 
-  private _post(cmd: InspectorCommand): void {
-    fetch(INSPECT_PATH, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(cmd),
-    }).catch((err) => {
-      console.warn('[lit-devtools] inspector POST failed', err);
+  /**
+   * Connects to the shared devframe client and registers the node → panel
+   * `inspector-message` push. Primes the tree from the node side's cache
+   * (so a panel opened after the page loaded isn't blank), then requests a
+   * fresh tree — mirroring the old SSE `open` handler, which kicked off the
+   * first `tree` request only once the stream was subscribed.
+   */
+  private async _connect(): Promise<void> {
+    try {
+      const rpc = await litRpc();
+      this._rpc = rpc;
+      rpc.rpc.register({
+        name: 'inspector-message',
+        type: 'event',
+        handler: this._onMessage,
+      });
+      this._roots = await rpc.rpc.call('list-components');
+      void rpc.rpc.call('inspect', {type: 'tree'});
+    } catch (err) {
+      this._error = describeError(err);
+    }
+  }
+
+  /** Send an {@link InspectorCommand}; a no-op until the client connects. */
+  private _call(cmd: InspectorCommand): void {
+    if (this._rpc === null) return;
+    this._rpc.rpc.call('inspect', cmd).catch((err: unknown) => {
+      console.warn('[lit-devtools] inspector call failed', err);
     });
   }
 
-  private _onMessage = (e: Event): void => {
-    let msg: InspectorMessage;
-    try {
-      msg = JSON.parse((e as MessageEvent<string>).data) as InspectorMessage;
-    } catch {
-      return;
-    }
+  private _onMessage = (msg: InspectorMessage): void => {
     switch (msg.type) {
       case 'ready':
         // Runtime (re)connected — refresh the tree and re-arm any selection.
-        this._post({type: 'tree'});
+        this._call({type: 'tree'});
         if (this._selectedId !== null) {
-          this._post({type: 'watch', id: this._selectedId});
+          this._call({type: 'watch', id: this._selectedId});
         }
         break;
       case 'tree':
@@ -331,15 +331,15 @@ export class ComponentsView extends LitElement {
   private _select(id: number): void {
     if (this._selectedId === id) return;
     if (this._selectedId !== null) {
-      this._post({type: 'watch', id: null});
+      this._call({type: 'watch', id: null});
     }
     this._selectedId = id;
     this._details = null;
     this._gone = false;
     this._revealAncestors(id);
-    this._post({type: 'tree'}); // refresh in case the picked node is new
-    this._post({type: 'details', id});
-    this._post({type: 'watch', id});
+    this._call({type: 'tree'}); // refresh in case the picked node is new
+    this._call({type: 'details', id});
+    this._call({type: 'watch', id});
   }
 
   /** Expand every ancestor of `id` so the selected node is visible. */
@@ -363,15 +363,15 @@ export class ComponentsView extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _refresh(): void {
-    this._post({type: 'tree'});
+    this._call({type: 'tree'});
     if (this._selectedId !== null) {
-      this._post({type: 'details', id: this._selectedId});
+      this._call({type: 'details', id: this._selectedId});
     }
   }
 
   private _togglePick(): void {
     this._picking = !this._picking;
-    this._post({type: 'pick'});
+    this._call({type: 'pick'});
   }
 
   private _toggleLive(): void {
@@ -381,13 +381,13 @@ export class ComponentsView extends LitElement {
     } catch {
       // ignore (private/storage unavailable)
     }
-    this._post({type: 'observe', enabled: this._live});
+    this._call({type: 'observe', enabled: this._live});
     // Leaving live mode, pull one fresh tree so it doesn't go stale silently.
-    if (!this._live) this._post({type: 'tree'});
+    if (!this._live) this._call({type: 'tree'});
   }
 
   private _highlight(id: number | null): void {
-    this._post({type: 'highlight', id});
+    this._call({type: 'highlight', id});
   }
 
   private _openSource(): void {
@@ -567,11 +567,13 @@ export class ComponentsView extends LitElement {
       <div class="body">
         <div class="tree" @mouseleave=${() => this._highlight(null)}>
           ${
-            this._roots.length === 0
-              ? html`<div class="empty">
-                  No Lit components found on the page.
-                </div>`
-              : this._roots.map((n) => this._renderNode(n, 0))
+            this._error !== null
+              ? html`<div class="empty">${this._error}</div>`
+              : this._roots.length === 0
+                ? html`<div class="empty">
+                    No Lit components found on the page.
+                  </div>`
+                : this._roots.map((n) => this._renderNode(n, 0))
           }
         </div>
         <div class="details">${this._renderDetails()}</div>

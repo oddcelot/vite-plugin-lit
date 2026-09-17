@@ -9,8 +9,8 @@
   "module": "index.js",
   "files": [
     "/lib/",
+    "/dist/client/",
     "/types/",
-    "/panel/",
     "/index.{d.ts,d.ts.map,js,js.map}",
     "/client.d.ts"
   ],
@@ -35,7 +35,7 @@
     "url": "https://github.com/oddcelot/vite-plugin-lit/issues"
   },
   "scripts": {
-    "build": "tsc --pretty && node scripts/copy-panel-html.mjs && node scripts/format-build-output.mjs",
+    "build": "tsc --pretty && pnpm run build:panel && node scripts/format-build-output.mjs",
     "build:lit-canary": "node scripts/build-lit-canary.mjs",
     "dev": "pnpm run build && vp dev playground",
     "test": "pnpm run test:unit && pnpm run test:e2e",
@@ -48,7 +48,8 @@
     "format": "vp fmt \"**/*.{cjs,html,js,json,md,mdx,ts,yaml}\"",
     "format:check": "vp fmt \"**/*.{cjs,html,js,json,md,mdx,ts,yaml}\" --check",
     "prepublishOnly": "pnpm exec vp check && pnpm run test:unit && pnpm run build",
-    "prepare": "vp config"
+    "prepare": "vp config",
+    "build:panel": "vp build src/panel"
   },
   "dependencies": {
     "devframe": "1.0.0",

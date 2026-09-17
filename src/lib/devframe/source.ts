@@ -19,6 +19,7 @@ import type {
   InspectorMessage,
 } from '../../types/inspector.js';
 import type {
+  SettingsOverride,
   TimelineEvent,
   TimelineLayer,
   TimelineLayersState,
@@ -39,6 +40,8 @@ export interface TimelineSource {
   toggleOverlay(): void;
   setRecording(r: boolean): void;
   setLayers(l: TimelineLayersState): void;
+  /** Apply a live feature-settings override to the running page. */
+  setSettingsOverride(override: SettingsOverride): void;
 }
 
 /**
@@ -55,5 +58,6 @@ export function createNullSource(): TimelineSource {
     toggleOverlay() {},
     setRecording() {},
     setLayers() {},
+    setSettingsOverride() {},
   };
 }

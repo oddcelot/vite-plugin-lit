@@ -18,9 +18,7 @@ import {
   type FeatureSettings,
   type SettingsOverride,
 } from '../types/timeline.js';
-
-/** GET resolved settings / POST a {@link SettingsOverride} (server rebroadcasts). */
-const SETTINGS_PATH = '/__lit-devtools-settings';
+import {getMeta, litRpc} from './client.js';
 
 /**
  * Settings view. Shows the plugin's resolved feature settings and lets the
@@ -194,8 +192,8 @@ export class DevtoolsSettings extends LitElement {
 
   private async _fetch() {
     try {
-      const res = await fetch(SETTINGS_PATH);
-      this._settings = (await res.json()) as FeatureSettings | null;
+      const meta = await getMeta();
+      this._settings = meta.features;
     } catch {
       this._settings = null;
     } finally {
@@ -211,13 +209,7 @@ export class DevtoolsSettings extends LitElement {
     } catch {
       // ignore
     }
-    fetch(SETTINGS_PATH, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(override),
-    }).catch(() => {
-      // dev tool — ignore network errors
-    });
+    this._pushOverride(override);
   }
 
   private _set<K extends keyof SettingsOverride>(
@@ -239,18 +231,23 @@ export class DevtoolsSettings extends LitElement {
     if (s !== null) {
       // Send the env values explicitly so the live runtime reverts now (an
       // empty override would leave the current live values in place).
-      fetch(SETTINGS_PATH, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          hmrReconnect: s.hmr.reconnect,
-          hmrOnIncompatible: s.hmr.onIncompatible,
-          hmrIndicatorVisible: s.hmr.indicatorEnabled,
-          hmrIndicatorCount: s.hmr.indicatorCount,
-          sourceOverlayEditor: s.sourceOverlay.editor,
-        } satisfies SettingsOverride),
-      }).catch(() => {});
+      this._pushOverride({
+        hmrReconnect: s.hmr.reconnect,
+        hmrOnIncompatible: s.hmr.onIncompatible,
+        hmrIndicatorVisible: s.hmr.indicatorEnabled,
+        hmrIndicatorCount: s.hmr.indicatorCount,
+        sourceOverlayEditor: s.sourceOverlay.editor,
+      } satisfies SettingsOverride);
     }
+  }
+
+  /** Send a {@link SettingsOverride} to the app runtime over RPC. */
+  private _pushOverride(override: SettingsOverride): void {
+    litRpc()
+      .then((rpc) => rpc.rpc.call('set-settings-override', override))
+      .catch(() => {
+        // dev tool — ignore connection/call errors
+      });
   }
 
   private _pill(on: boolean) {

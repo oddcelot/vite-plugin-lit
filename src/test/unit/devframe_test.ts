@@ -7,11 +7,15 @@
 import {afterEach, describe, expect, test} from 'vite-plus/test';
 import {initDevframe} from 'devframe/initiate';
 import type {DevframeInstance} from 'devframe/initiate';
+import {TIMELINE_LAYERS} from '../../types/timeline.js';
 import {createLitDevframe} from '../../lib/devframe/definition.js';
 import type {SessionState} from '../../lib/devframe/protocol.js';
 import type {TimelineSink, TimelineSource} from '../../lib/devframe/source.js';
 import type {InspectorCommand} from '../../types/inspector.js';
-import type {TimelineLayersState} from '../../types/timeline.js';
+import type {
+  SettingsOverride,
+  TimelineLayersState,
+} from '../../types/timeline.js';
 
 /**
  * Boots the Lit devframe definition through devframe's own `initDevframe()`
@@ -28,6 +32,7 @@ class FakeSource implements TimelineSource {
   readonly recording: boolean[] = [];
   readonly layers: TimelineLayersState[] = [];
   readonly inspector: InspectorCommand[] = [];
+  readonly overrides: SettingsOverride[] = [];
   overlayToggles = 0;
 
   attach(sink: TimelineSink): () => void {
@@ -47,6 +52,9 @@ class FakeSource implements TimelineSource {
   }
   setLayers(l: TimelineLayersState): void {
     this.layers.push(l);
+  }
+  setSettingsOverride(override: SettingsOverride): void {
+    this.overrides.push(override);
   }
 }
 
@@ -98,8 +106,10 @@ describe('lit devframe definition', () => {
     const meta = await ctx.rpc.invokeLocal('lit:get-meta');
     expect(meta.version).toBe('9.9.9');
     expect(meta.layers).toEqual([
+      ...TIMELINE_LAYERS,
       {id: 'custom', label: 'Custom', color: 0xffffff},
     ]);
+    expect(meta.stream).toEqual({channel: 'lit:timeline', id: 'live'});
     expect(meta.features).toBeNull();
   });
 
@@ -115,7 +125,7 @@ describe('lit devframe definition', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     const session = await ctx.rpc.sharedState.get<SessionState>('lit:session');
-    expect(session.value().recording).toBe(true);
+    expect(session.value().layers.recordingState).toBe(true);
     expect(session.value().layers.mouseEventEnabled).toBe(false);
 
     expect(source.recording.at(-1)).toBe(true);

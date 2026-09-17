@@ -80,6 +80,29 @@ _Inspect Lit Element_). This reuses the source-overlay picker, so it requires
 unlike `Ctrl+Shift+S` (which opens the element in your editor), a pick selects
 the element in the Components tree.
 
+## Ask a coding agent
+
+The panel is a [devframe](https://devfra.me), so the same data it renders is
+exposed to coding agents over MCP. Vite DevTools mounts the server at
+`/__mcp` on the dev server, and three read-only tools appear there:
+
+| Tool                    | Answers                                                               |
+| ----------------------- | --------------------------------------------------------------------- |
+| `lit_get-meta`          | Plugin version, available timeline layers, resolved settings.         |
+| `lit_list-components`   | The live element tree, with each component's source file and line.    |
+| `lit_component-details` | Reactive properties, attributes, and update flags for one element id. |
+
+Nothing that changes the page is exposed: recording, layer toggles, and the
+element picker stay panel-only. Point your agent at the dev server's `/__mcp`
+endpoint and it can answer "what's on this page and what state is it in?"
+against the running app instead of guessing from source.
+
+<Aside type="caution" title="Dev servers are not public">
+  The MCP endpoint has the same trust model as the rest of DevTools: it binds to
+  localhost and expects a local developer. Do not expose a dev server with
+  DevTools enabled to a network you do not control.
+</Aside>
+
 ## Related
 
 <CardGrid>

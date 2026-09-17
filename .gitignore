@@ -3,6 +3,7 @@
 /lib/
 /types/
 /panel/
+/dist/
 *.tsbuildinfo
 
 # Tooling caches

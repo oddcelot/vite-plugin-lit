@@ -16,6 +16,7 @@
 import {DEFAULT_LAYERS_STATE} from '../../types/timeline.js';
 import type {
   FeatureSettings,
+  SettingsOverride,
   TimelineLayer,
   TimelineLayersState,
 } from '../../types/timeline.js';
@@ -35,6 +36,14 @@ export const SESSION_STATE_KEY = 'session';
 /** Streaming channel name the timeline event batches are pushed on. */
 export const TIMELINE_STREAM_NAME = 'timeline';
 
+/**
+ * Id of the one long-lived timeline stream. Fixed rather than discovered:
+ * there is exactly one page feed per dev session, so the panel can subscribe
+ * without a round trip to look the id up. The node side re-`start()`s this id
+ * if the transport dropped the stream after the last subscriber left.
+ */
+export const TIMELINE_STREAM_ID = 'live';
+
 /** Bare (unscoped) name of the `get-meta` query. */
 export const RPC_GET_META = 'get-meta';
 
@@ -53,6 +62,9 @@ export const RPC_SET_RECORDING = 'set-recording';
 /** Bare name of the `toggle-layer` action. */
 export const RPC_TOGGLE_LAYER = 'toggle-layer';
 
+/** Bare name of the `set-settings-override` action. */
+export const RPC_SET_SETTINGS_OVERRIDE = 'set-settings-override';
+
 /** Bare name of the `inspector-message` client (node → panel) event. */
 export const RPC_INSPECTOR_MESSAGE = 'inspector-message';
 
@@ -61,15 +73,18 @@ export const RPC_INSPECTOR_MESSAGE = 'inspector-message';
  * runtime, MCP). Survives reconnect; mutated either by the `set-recording` /
  * `toggle-layer` actions below or directly by a panel through the generic
  * shared-state RPC devframe provides.
+ *
+ * `layers.recordingState` is the single authority for "is recording" — the
+ * runtime's own layer state carries it, so a separate flag here would be a
+ * second copy to keep in sync.
  */
 export interface SessionState {
-  recording: boolean;
   layers: TimelineLayersState;
+  /** Layers announced at runtime by app code through `addTimelineLayer()`. */
   customLayers: TimelineLayer[];
 }
 
 export const DEFAULT_SESSION_STATE: SessionState = {
-  recording: false,
   layers: DEFAULT_LAYERS_STATE,
   customLayers: [],
 };
@@ -77,8 +92,11 @@ export const DEFAULT_SESSION_STATE: SessionState = {
 /** Result of the `get-meta` query. */
 export interface LitGetMetaResult {
   version: string;
+  /** Built-in layers followed by any runtime-announced custom ones. */
   layers: TimelineLayer[];
   features: FeatureSettings | null;
+  /** Channel and id to pass to `rpc.streaming.subscribe()`. */
+  stream: {channel: string; id: string};
 }
 
 /** Argument of the `component-details` query. */
@@ -97,6 +115,18 @@ export interface ToggleLayerArgs {
   enabled: boolean;
 }
 
+/**
+ * Maps a {@link TimelineLayer.id} to the {@link TimelineLayersState} flag
+ * that gates it. Custom layers have no flag and are always on.
+ */
+export const LAYER_FLAGS: Readonly<Record<string, keyof TimelineLayersState>> =
+  {
+    'lit-lifecycle': 'litLifecycleEnabled',
+    'lit-render': 'litRenderEnabled',
+    mouse: 'mouseEventEnabled',
+    keyboard: 'keyboardEventEnabled',
+  };
+
 // Hand-typed rather than derived through `RpcDefinitionsToFunctionsWithNamespace`
 // (also exported by `devframe/rpc`): the definitions themselves live in
 // definition.ts next to their handlers, and hand-typing here avoids a
@@ -111,6 +141,7 @@ declare module 'devframe' {
     'lit:inspect': (command: InspectorCommand) => Promise<void>;
     'lit:set-recording': (args: SetRecordingArgs) => Promise<void>;
     'lit:toggle-layer': (args: ToggleLayerArgs) => Promise<void>;
+    'lit:set-settings-override': (override: SettingsOverride) => Promise<void>;
   }
 
   interface DevframeRpcClientFunctions {

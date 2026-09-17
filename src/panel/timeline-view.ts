@@ -7,13 +7,18 @@
 import {LitElement, html, css} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 import {tokens} from '../lib/tokens.js';
-import type {TimelineEvent, TimelineLayer} from '../types/timeline.js';
-import {TIMELINE_LAYERS} from '../types/timeline.js';
+import type {
+  TimelineEvent,
+  TimelineLayer,
+  TimelineLayersState,
+} from '../types/timeline.js';
 import type {LayerState} from './timeline-layers.js';
 import './timeline-layers.js';
 import './timeline-event-list.js';
-
-const LS_KEY = 'lit-devtools-timeline-layers';
+import {litRpc, getMeta, describeError} from './client.js';
+import type {LitClient} from './client.js';
+import {LAYER_FLAGS, SESSION_STATE_KEY} from '../lib/devframe/protocol.js';
+import type {SessionState} from '../lib/devframe/protocol.js';
 
 /**
  * Cap on retained timeline events. The stream is unbounded (the mouse/keyboard
@@ -25,9 +30,11 @@ const MAX_EVENTS = 5000;
 
 /**
  * The Timeline view: records and lists Lit lifecycle / render / input events.
- * One tab of the DevTools panel shell (\`lit-devtools-panel\`); owns its own event
- * stream (SSE), recording state and layer toggles so it keeps recording while
- * other tabs are in front.
+ * One tab of the DevTools panel shell (`lit-devtools-panel`); owns its own
+ * devframe RPC subscription (a replayed streaming channel), recording state
+ * and layer toggles so it keeps recording while other tabs are in front. The
+ * recording flag and layer toggles live in devframe shared state, so this
+ * view stays in sync with other panels and the page runtime.
  */
 @customElement('timeline-view')
 export class TimelineView extends LitElement {
@@ -77,111 +84,123 @@ export class TimelineView extends LitElement {
         flex: 1;
         overflow: hidden;
       }
+      .error {
+        padding: var(--lit-devtools-space-5);
+        color: var(--lit-devtools-text-secondary);
+        font-size: var(--lit-devtools-text-xs);
+      }
     `,
   ];
 
   @state() private _recording = false;
   @state() private _events: TimelineEvent[] = [];
-  @state() private _layers: LayerState[] = TIMELINE_LAYERS.map((l) => ({
-    ...l,
-    enabled: true,
-  }));
+  @state() private _layers: LayerState[] = [];
+  @state() private _error: string | null = null;
 
-  private _es: EventSource | null = null;
+  /** Built-in + runtime-announced layers as of the last `get-meta` call. */
+  private _baseLayers: TimelineLayer[] = [];
+  private _rpc: LitClient | null = null;
+  private _reader: {cancel: () => void} | null = null;
+  private _sessionOff: (() => void) | null = null;
+  /** False once `disconnectedCallback` runs, so a slow connect (or a stream
+   *  error racing a cancel) never touches state after teardown. */
+  private _active = false;
 
   override connectedCallback() {
     super.connectedCallback();
-    this._loadStorage();
-    this._es = new EventSource('/__lit-devtools-events');
-    this._es.onmessage = (e: MessageEvent<string>) => {
-      if (!this._recording) return;
-      try {
-        const batch = JSON.parse(e.data) as TimelineEvent[];
-        if (Array.isArray(batch)) {
-          const next = [...this._events, ...batch];
-          this._events =
-            next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
-        }
-      } catch {
-        // ignore malformed data
-      }
-    };
-    // Custom layers pushed from app code via addTimelineLayer().
-    this._es.addEventListener('layer', (e: Event) => {
-      try {
-        const layer = JSON.parse(
-          (e as MessageEvent<string>).data
-        ) as TimelineLayer;
-        if (layer?.id && !this._layers.some((l) => l.id === layer.id)) {
-          this._layers = [...this._layers, {...layer, enabled: true}];
-        }
-      } catch {
-        // ignore
-      }
-    });
+    this._active = true;
+    void this._connect();
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
-    this._es?.close();
-    this._es = null;
+    this._active = false;
+    this._reader?.cancel();
+    this._reader = null;
+    this._sessionOff?.();
+    this._sessionOff = null;
   }
 
   // ---------------------------------------------------------------------------
-  // State persistence
+  // Connection
   // ---------------------------------------------------------------------------
 
-  private _loadStorage(): void {
+  /**
+   * Connects to the devframe RPC client, loads the layer list and shared
+   * session state, and then drains the replayed timeline stream until the
+   * view disconnects or the stream ends. Every step checks `_active` so a
+   * teardown mid-connect (or a cancel racing the stream's end) never mutates
+   * state after the component is gone, and the whole flow is one try/catch
+   * so a rejected connect or stream never surfaces as an unhandled rejection.
+   */
+  private async _connect(): Promise<void> {
     try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw !== null) {
-        const saved = JSON.parse(raw) as Record<string, boolean>;
-        this._layers = this._layers.map((l) => ({
-          ...l,
-          enabled: saved[l.id] ?? l.enabled,
-        }));
-      }
-    } catch {
-      // ignore (private/storage unavailable)
-    }
-  }
+      const [rpc, meta] = await Promise.all([litRpc(), getMeta()]);
+      if (!this._active) return;
+      this._rpc = rpc;
+      this._baseLayers = meta.layers;
 
-  private _saveStorage(): void {
-    try {
-      localStorage.setItem(
-        LS_KEY,
-        JSON.stringify(
-          Object.fromEntries(this._layers.map((l) => [l.id, l.enabled]))
-        )
+      const session =
+        await rpc.rpc.sharedState<SessionState>(SESSION_STATE_KEY);
+      if (!this._active) return;
+      this._applySession(session.value());
+      this._sessionOff = session.on('updated', (state) =>
+        this._applySession(state)
       );
-    } catch {
-      // ignore
+
+      const reader = rpc.rpc.streaming.subscribe<TimelineEvent[]>(
+        meta.stream.channel,
+        meta.stream.id,
+        {highWaterMark: 4096}
+      );
+      if (!this._active) {
+        reader.cancel();
+        return;
+      }
+      this._reader = reader;
+
+      // No recording check here: every capture layer in the page runtime is
+      // already gated on the recording flag, so anything that reaches the
+      // stream was recorded on purpose. Gating again client-side would throw
+      // away the replayed buffer that makes a late-opened panel useful.
+      for await (const batch of reader) {
+        const next = [...this._events, ...batch];
+        this._events =
+          next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
+      }
+    } catch (err) {
+      if (this._active) {
+        this._error = describeError(err);
+      }
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Server sync
-  // ---------------------------------------------------------------------------
-
-  private _layersToState(): Record<string, boolean> {
-    const enabled = (id: string): boolean =>
-      this._layers.find((l) => l.id === id)?.enabled ?? true;
-    return {
-      litLifecycleEnabled: enabled('lit-lifecycle'),
-      litRenderEnabled: enabled('lit-render'),
-      mouseEventEnabled: enabled('mouse'),
-      keyboardEventEnabled: enabled('keyboard'),
-    };
+  /** Applies a `SessionState` snapshot (initial or from `session.on('updated', …)`)
+   *  to the recording flag and merged layer list. */
+  private _applySession(state: {
+    layers: TimelineLayersState;
+    customLayers: readonly TimelineLayer[];
+  }): void {
+    this._recording = state.layers.recordingState;
+    this._layers = this._mergeLayers(state.layers, state.customLayers);
   }
 
-  /** POST layer/recording state to the server control endpoint. */
-  private _postControl(body: Record<string, unknown>): void {
-    fetch('/__lit-devtools-control', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body),
-    }).catch((err) => {
-      console.warn('[lit-devtools] control POST failed', err);
+  /** Merges the base (built-in + already-known custom) layers with any custom
+   *  layers announced since, and resolves each one's enabled flag. Custom
+   *  layers have no entry in `LAYER_FLAGS` and are always enabled. */
+  private _mergeLayers(
+    flags: TimelineLayersState,
+    customLayers: readonly TimelineLayer[]
+  ): LayerState[] {
+    const merged = [...this._baseLayers];
+    for (const layer of customLayers) {
+      if (!merged.some((l) => l.id === layer.id)) {
+        merged.push(layer);
+      }
+    }
+    return merged.map((l) => {
+      const flag = LAYER_FLAGS[l.id];
+      return {...l, enabled: flag ? flags[flag] : true};
     });
   }
 
@@ -190,17 +209,11 @@ export class TimelineView extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _toggleRecord() {
-    this._recording = !this._recording;
-    // On start, push the current layer enablement together with the recording
-    // flag: the runtime defaults mouse/keyboard capture off, and otherwise only
-    // hears about layers when one is toggled — so those layers wouldn't record
-    // on the first session until the user toggled one. Send the full state so
-    // the runtime matches what the panel shows from the first event.
-    this._postControl(
-      this._recording
-        ? {recording: true, ...this._layersToState()}
-        : {recording: false}
-    );
+    this._rpc?.rpc
+      .call('set-recording', {recording: !this._recording})
+      .catch((err) => {
+        console.warn('[lit-devtools] set-recording failed', err);
+      });
   }
 
   private _clear() {
@@ -208,14 +221,22 @@ export class TimelineView extends LitElement {
   }
 
   private _onLayerToggle(e: CustomEvent<{id: string}>) {
-    this._layers = this._layers.map((l) =>
-      l.id === e.detail.id ? {...l, enabled: !l.enabled} : l
-    );
-    this._postControl(this._layersToState());
-    this._saveStorage();
+    // Custom layers have no flag in `LAYER_FLAGS` and are always on; there is
+    // nothing to toggle server-side.
+    if (!LAYER_FLAGS[e.detail.id]) return;
+    const layer = this._layers.find((l) => l.id === e.detail.id);
+    if (!layer) return;
+    this._rpc?.rpc
+      .call('toggle-layer', {layerId: e.detail.id, enabled: !layer.enabled})
+      .catch((err) => {
+        console.warn('[lit-devtools] toggle-layer failed', err);
+      });
   }
 
   override render() {
+    if (this._error !== null) {
+      return html`<div class="error">${this._error}</div>`;
+    }
     return html`
       <div class="toolbar">
         <span class="spacer"></span>

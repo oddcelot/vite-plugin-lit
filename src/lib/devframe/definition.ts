@@ -14,7 +14,6 @@
  * @see plans/devframe-foundation.md
  */
 
-import {fileURLToPath} from 'node:url';
 import {defineDevframe, defineRpcFunction} from 'devframe';
 import type {DevframeDefinition, DevframeNodeContext} from 'devframe';
 import type {
@@ -22,10 +21,17 @@ import type {
   InspectorDetails,
   InspectorTreeNode,
 } from '../../types/inspector.js';
-import type {FeatureSettings} from '../../types/timeline.js';
-import type {TimelineEvent} from '../../types/timeline.js';
+import {TIMELINE_LAYERS} from '../../types/timeline.js';
+import {LIT_LOGO_ICON} from './icon.js';
+import {PANEL_DIST_DIR} from './paths.js';
+import type {
+  FeatureSettings,
+  SettingsOverride,
+  TimelineEvent,
+} from '../../types/timeline.js';
 import {
   DEFAULT_SESSION_STATE,
+  LAYER_FLAGS,
   LIT_DEVFRAME_ID,
   RPC_COMPONENT_DETAILS,
   RPC_GET_META,
@@ -33,8 +39,10 @@ import {
   RPC_INSPECTOR_MESSAGE,
   RPC_LIST_COMPONENTS,
   RPC_SET_RECORDING,
+  RPC_SET_SETTINGS_OVERRIDE,
   RPC_TOGGLE_LAYER,
   SESSION_STATE_KEY,
+  TIMELINE_STREAM_ID,
   TIMELINE_STREAM_NAME,
   type ComponentDetailsArgs,
   type LitGetMetaResult,
@@ -51,6 +59,11 @@ export interface CreateLitDevframeOptions {
   version: string;
   /** Resolved feature settings, surfaced by `get-meta`. */
   features?: () => FeatureSettings | null;
+  /**
+   * Directory holding the built panel SPA. Defaults to the package's own
+   * `dist/client`; the dev-time panel build points it elsewhere.
+   */
+  clientAssets?: string;
 }
 
 /**
@@ -71,12 +84,9 @@ export function createLitDevframe(
     packageName: '@oddsquad/vite-plugin-lit',
     homepage: 'https://oddcelot.github.io/vite-plugin-lit/',
     importMetaUrl: import.meta.url,
-    icon: 'ph:fire-duotone',
+    icon: LIT_LOGO_ICON,
     dock: {category: 'framework'},
-    // TODO(phase 2): src/panel still serves its own hand-rolled HTML/SSE
-    // shell. Once it migrates to `connectDevframe()` and builds with Vite,
-    // point this at that build's `dist/client` output instead.
-    clientAssets: fileURLToPath(new URL('../../panel', import.meta.url)),
+    clientAssets: options.clientAssets ?? PANEL_DIST_DIR,
 
     async setup(ctx: DevframeNodeContext) {
       const my = ctx.scope(LIT_DEVFRAME_ID);
@@ -98,15 +108,26 @@ export function createLitDevframe(
       // static build or MCP run has no page attached (its `source` is a
       // `createNullSource()`), and `ctx.mode` is 'build' there.
       if (ctx.mode === 'dev') {
-        const stream = my.rpc.streaming.create<TimelineEvent[]>(
+        const channel = my.rpc.streaming.create<TimelineEvent[]>(
           TIMELINE_STREAM_NAME,
           {replayWindow: 512}
         );
-        const timelineStream = stream.start();
+        // Started eagerly, not on the first event: `streaming:subscribe` is
+        // fire-and-forget on the wire, and a subscribe naming a stream id
+        // that does not exist yet is dropped with a DF0030 diagnostic rather
+        // than queued. The panel subscribes as soon as it connects, which is
+        // normally long before the first event, so the stream has to be
+        // there waiting. `??` covers a re-start if the transport aborted it
+        // after the last subscriber left.
+        channel.start({id: TIMELINE_STREAM_ID});
+        const ensureStream = () =>
+          channel.get(TIMELINE_STREAM_ID) ??
+          channel.start({id: TIMELINE_STREAM_ID});
 
         source.attach({
           pushEvents(events) {
-            timelineStream.write(events);
+            if (events.length === 0) return;
+            ensureStream().write(events);
           },
           addLayer(layer) {
             session.mutate((state) => {
@@ -122,10 +143,16 @@ export function createLitDevframe(
               cachedRoots = message.roots;
             } else if (message.type === 'details') {
               cachedDetails.set(message.details.id, message.details);
+            } else if (message.type === 'gone') {
+              cachedDetails.delete(message.id);
             }
-            void my.rpc.broadcast({
-              method: RPC_INSPECTOR_MESSAGE,
+            void ctx.rpc.broadcast({
+              method: `${LIT_DEVFRAME_ID}:${RPC_INSPECTOR_MESSAGE}`,
               args: [message],
+              // A page can be open with no panel docked; the runtime keeps
+              // answering either way, so a broadcast with no listener is
+              // normal rather than a missing-function error.
+              optional: true,
             });
           },
         });
@@ -136,7 +163,7 @@ export function createLitDevframe(
         // shared-state RPC. Immer only emits when the state reference
         // changes, so a no-op mutate sends nothing.
         session.on('updated', (state) => {
-          source.setRecording(state.recording);
+          source.setRecording(state.layers.recordingState);
           source.setLayers(state.layers);
         });
       }
@@ -153,10 +180,14 @@ export function createLitDevframe(
           },
           handler: async (): Promise<LitGetMetaResult> => ({
             version,
-            // `.value()` returns a deep-readonly snapshot; copy the array so
-            // callers get a plain, mutable `TimelineLayer[]`.
-            layers: [...session.value().customLayers],
+            // `.value()` returns a deep-readonly snapshot; copy so callers
+            // get a plain, mutable `TimelineLayer[]`.
+            layers: [...TIMELINE_LAYERS, ...session.value().customLayers],
             features: features ? features() : null,
+            stream: {
+              channel: `${LIT_DEVFRAME_ID}:${TIMELINE_STREAM_NAME}`,
+              id: TIMELINE_STREAM_ID,
+            },
           }),
         })
       );
@@ -196,9 +227,8 @@ export function createLitDevframe(
           type: 'action',
           jsonSerializable: true,
           handler: async (command: InspectorCommand): Promise<void> => {
-            // "Pick" starts the overlay's inspect picker, a server-side
-            // toggle, not a runtime query — see INSPECT_PATH's handling in
-            // timeline-plugin.ts for the transport this mirrors.
+            // "Pick" starts the overlay's inspect picker, which the host
+            // toggles in the page rather than answering from the runtime.
             if (command.type === 'pick') {
               source.toggleOverlay();
               return;
@@ -215,7 +245,7 @@ export function createLitDevframe(
           jsonSerializable: true,
           handler: async (args: SetRecordingArgs): Promise<void> => {
             session.mutate((state) => {
-              state.recording = args.recording;
+              state.layers.recordingState = args.recording;
             });
           },
         })
@@ -227,24 +257,24 @@ export function createLitDevframe(
           type: 'action',
           jsonSerializable: true,
           handler: async (args: ToggleLayerArgs): Promise<void> => {
+            const flag = LAYER_FLAGS[args.layerId];
+            // Custom layers have no capture flag to toggle — app code owns
+            // whether it emits at all.
+            if (!flag) return;
             session.mutate((state) => {
-              switch (args.layerId) {
-                case 'lit-lifecycle':
-                  state.layers.litLifecycleEnabled = args.enabled;
-                  break;
-                case 'lit-render':
-                  state.layers.litRenderEnabled = args.enabled;
-                  break;
-                case 'mouse':
-                  state.layers.mouseEventEnabled = args.enabled;
-                  break;
-                case 'keyboard':
-                  state.layers.keyboardEventEnabled = args.enabled;
-                  break;
-                default:
-                  break;
-              }
+              state.layers[flag] = args.enabled;
             });
+          },
+        })
+      );
+
+      my.rpc.register(
+        defineRpcFunction({
+          name: RPC_SET_SETTINGS_OVERRIDE,
+          type: 'action',
+          jsonSerializable: true,
+          handler: async (override: SettingsOverride): Promise<void> => {
+            source.setSettingsOverride(override);
           },
         })
       );

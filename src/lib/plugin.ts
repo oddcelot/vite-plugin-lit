@@ -15,7 +15,8 @@ import {INSTALL_ID, VIRTUAL_PREFIX, transformLitModule} from './transform.js';
 import type {SourceOverlayOptions} from './types.js';
 import type {FeatureSettings} from '../types/timeline.js';
 import {WRAP_TABLE} from './wrap-table.js';
-import {litTimelinePlugin} from './timeline-plugin.js';
+import {createLitDevframePlugin} from './devframe/vite.js';
+import {PACKAGE_VERSION} from './devframe/paths.js';
 
 /**
  * On-page HMR feedback: a small pulsing indicator in the corner of the host
@@ -900,11 +901,15 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
     hmr,
   ];
   if (resolved.timeline) {
-    // Pass a getter, not a snapshot: `resolved` is re-resolved against the
-    // loaded env in the `config` hook, which runs after this plugin array is
-    // built. The settings endpoint reads it per-request, by which point env is
-    // applied.
-    plugins.push(litTimelinePlugin(() => toFeatureSettings(resolved)));
+    // `features` is a getter, not a snapshot: `resolved` is re-resolved
+    // against the loaded env in `optionsPlugin`'s `config` hook, which runs
+    // after this array is built.
+    plugins.push(
+      createLitDevframePlugin({
+        version: PACKAGE_VERSION,
+        features: () => toFeatureSettings(resolved),
+      })
+    );
   }
   return plugins;
 };
