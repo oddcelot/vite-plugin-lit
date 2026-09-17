@@ -5,7 +5,7 @@ sidebar:
   order: 7
 ---
 
-import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import {CardGrid, LinkCard} from '@astrojs/starlight/components';
 
 You want this when your app has its own events worth lining up against Lit's —
 a router navigation, a websocket message, a store commit — and you would rather
@@ -37,12 +37,13 @@ is disabled, so imports are safe to leave in component code.
 `data` is whatever you want the event's detail pane to show; it is serialized,
 so keep it to plain values.
 
-<Aside type="caution" title="No ambient types yet">
-  `virtual:lit-plugin/timeline` has no ambient declaration, so TypeScript
-  reports `TS2307: Cannot find module`. The [import queries
-  reference](/vite-plugin-lit/reference/import-queries/#virtuallit-plugintimeline)
-  has the `declare module` workaround to use until it ships.
-</Aside>
+A layer registered before the panel (or an agent) connects is still there once
+it does — the dev server keeps registered layers in its session state rather
+than relaying them to whoever happens to be listening at the time.
+
+TypeScript picks the module up from `@oddsquad/vite-plugin-lit/client`; see
+[import queries](/vite-plugin-lit/reference/import-queries/#virtuallit-plugintimeline)
+for how to reference it.
 
 ## Related
 

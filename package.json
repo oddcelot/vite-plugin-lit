@@ -39,7 +39,7 @@
     "build:lit-canary": "node scripts/build-lit-canary.mjs",
     "dev": "pnpm run build && vp dev playground",
     "test": "pnpm run test:unit && pnpm run test:e2e",
-    "test:unit": "vp test run --project unit",
+    "test:unit": "node scripts/check-client-types.mjs && vp test run --project unit",
     "test:e2e": "pnpm run build && vp test run --project e2e",
     "bench": "node bench/run.mjs",
     "bench:serve": "node bench/run.mjs --serve",
