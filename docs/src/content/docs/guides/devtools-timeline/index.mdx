@@ -110,6 +110,29 @@ _Inspect Lit Element_). This reuses the source-overlay picker, so it requires
 unlike `Ctrl+Shift+S` (which opens the element in your editor), a pick selects
 the element in the Components tree.
 
+### Flash on update
+
+**Flash** (the ⚡ button in the Components toolbar, mirrored as _flash updates_
+in the Settings tab) draws a short fading outline over every Lit element that
+finishes an update, so re-render churn is visible on the page itself instead of
+only in the [Updates tab](/vite-plugin-lit/guides/devtools-timeline/updates/).
+It is off by default and does not depend on recording — leave it on while you
+click around and the components doing more work than you expected announce
+themselves.
+
+The outlines are drawn into one `pointer-events: none` layer, so the page stays
+fully interactive underneath, and every element that updated in a frame is
+measured together — a tick that updates a hundred components costs one layout,
+not a hundred.
+
+The optional _flash updates ramp_ (Settings tab, enabled only while Flash is on)
+colours each outline by how often that element updated in the last second:
+green for one, then yellow at two, orange at four, red at eight. Same signal as
+the count, without reading a number.
+
+Both preferences live in the settings override, so the page picks them up at
+boot and they survive a reload.
+
 ## Settings
 
 The **Settings** tab shows the plugin's resolved configuration — `options` on
