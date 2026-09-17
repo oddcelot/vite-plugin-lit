@@ -84,13 +84,15 @@ the element in the Components tree.
 
 The panel is a [devframe](https://devfra.me), so the same data it renders is
 exposed to coding agents over MCP. Vite DevTools mounts the server at
-`/__mcp` on the dev server, and three read-only tools appear there:
+`/__mcp` on the dev server, and five read-only tools appear there:
 
-| Tool                    | Answers                                                               |
-| ----------------------- | --------------------------------------------------------------------- |
-| `lit_get-meta`          | Plugin version, available timeline layers, resolved settings.         |
-| `lit_list-components`   | The live element tree, with each component's source file and line.    |
-| `lit_component-details` | Reactive properties, attributes, and update flags for one element id. |
+| Tool                        | Answers                                                               |
+| --------------------------- | --------------------------------------------------------------------- |
+| `lit_get-meta`              | Plugin version, available timeline layers, resolved settings.         |
+| `lit_list-components`       | The live element tree, with each component's source file and line.    |
+| `lit_component-details`     | Reactive properties, attributes, and update flags for one element id. |
+| `lit_recent-events`         | Recent lifecycle/render/input events, filterable by element or layer. |
+| `lit_hmr-incompatibilities` | Components the plugin could not hot-patch in place, and why.          |
 
 Nothing that changes the page is exposed: recording, layer toggles, and the
 element picker stay panel-only. Point your agent at the dev server's `/__mcp`

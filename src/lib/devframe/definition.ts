@@ -35,6 +35,7 @@ import {
   DEFAULT_SESSION_STATE,
   LAYER_FLAGS,
   LIT_DEVFRAME_ID,
+  RECENT_EVENTS_BUFFER_SIZE,
   RPC_COMPONENT_DETAILS,
   RPC_GET_META,
   RPC_HMR_INCOMPATIBILITIES,
@@ -42,6 +43,7 @@ import {
   RPC_INSPECT,
   RPC_INSPECTOR_MESSAGE,
   RPC_LIST_COMPONENTS,
+  RPC_RECENT_EVENTS,
   RPC_SET_RECORDING,
   RPC_SET_SETTINGS_OVERRIDE,
   RPC_TOGGLE_LAYER,
@@ -50,6 +52,8 @@ import {
   TIMELINE_STREAM_NAME,
   type ComponentDetailsArgs,
   type LitGetMetaResult,
+  type RecentEventsArgs,
+  type RecentEventsResult,
   type SessionState,
   type SetRecordingArgs,
   type ToggleLayerArgs,
@@ -108,6 +112,11 @@ export function createLitDevframe(
       let cachedRoots: InspectorTreeNode[] = [];
       const cachedDetails = new Map<number, InspectorDetails>();
 
+      // Bounded history for the `recent-events` agent query. A plain array,
+      // not devframe's internal per-stream replay buffer, which devframe
+      // marks `@internal` (see plans/roadmap/02-agent-timeline-access.md).
+      const recentEvents: TimelineEvent[] = [];
+
       // Recent HMR-incompatibility notices, capped the same way
       // `runtime/timeline/transport.ts` caps its pending queue — a long
       // session with many failing edits must not grow this forever.
@@ -163,6 +172,13 @@ export function createLitDevframe(
           pushEvents(events) {
             if (events.length === 0) return;
             ensureStream().write(events);
+            recentEvents.push(...events);
+            if (recentEvents.length > RECENT_EVENTS_BUFFER_SIZE) {
+              recentEvents.splice(
+                0,
+                recentEvents.length - RECENT_EVENTS_BUFFER_SIZE
+              );
+            }
           },
           addLayer(layer) {
             session.mutate((state) => {
@@ -293,6 +309,49 @@ export function createLitDevframe(
             args: ComponentDetailsArgs
           ): Promise<InspectorDetails | null> =>
             cachedDetails.get(args.id) ?? null,
+        })
+      );
+
+      my.rpc.register(
+        defineRpcFunction({
+          name: RPC_RECENT_EVENTS,
+          type: 'query',
+          jsonSerializable: true,
+          agent: {
+            description:
+              'Get recent timeline events (lifecycle, render, mouse, keyboard) to diagnose why a component re-rendered or updated. Call list-components first to find an element’s id, then filter by elementId to see just its events. Check the `recording` field in the response — if false, no events are being captured; ask the developer to enable Recording in the Timeline tab before retrying.',
+          },
+          handler: async (
+            args: RecentEventsArgs
+          ): Promise<RecentEventsResult> => {
+            const recording = session.value().layers.recordingState;
+            let filtered = recentEvents;
+            if (args.layerId !== undefined) {
+              filtered = filtered.filter((e) => e.layerId === args.layerId);
+            }
+            if (args.elementId !== undefined) {
+              filtered = filtered.filter(
+                (e) => e.meta?.elementId === args.elementId
+              );
+            }
+            // Measured against the newest event in the whole buffer, not the
+            // newest *matching* one: an element that last rendered 10s ago
+            // must come back empty for `sinceMs: 1000`, not report its own
+            // stale events as if they were recent.
+            if (args.sinceMs !== undefined && recentEvents.length > 0) {
+              const newest = recentEvents[recentEvents.length - 1]!.time;
+              const cutoff = newest - args.sinceMs;
+              filtered = filtered.filter((e) => e.time >= cutoff);
+            }
+            const limit = Math.min(args.limit ?? 50, 200);
+            const events = filtered.slice(-limit);
+            return {
+              recording,
+              events,
+              bufferSize: recentEvents.length,
+              truncated: events.length < filtered.length,
+            };
+          },
         })
       );
 
