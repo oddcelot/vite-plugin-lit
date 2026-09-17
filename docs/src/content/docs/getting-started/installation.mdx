@@ -1,0 +1,79 @@
+---
+title: Installation
+description: Install @oddsquad/vite-plugin-lit, its peer dependencies, and the ambient types for its import queries.
+sidebar:
+  order: 1
+---
+
+import {PackageManagers} from 'starlight-package-managers';
+import {Aside, CardGrid, LinkCard, Steps} from '@astrojs/starlight/components';
+
+You want this when you have a Vite project using Lit and editing a component
+throws away the page's state on every save. Installing the plugin is a
+dependency, one line of config, and — if you use its CSS import queries — one
+tsconfig entry.
+
+## Install the package
+
+<PackageManagers
+  type="add"
+  pkg="@oddsquad/vite-plugin-lit"
+  dev
+  pkgManagers={['npm', 'pnpm', 'yarn', 'bun']}
+/>
+
+## Peer dependencies
+
+| Package        | Range                | Required                                                     |
+| -------------- | -------------------- | ------------------------------------------------------------ |
+| `lit`          | `^3.0.0`             | yes                                                          |
+| `vite`         | `^7.0.0 \|\| ^8.0.0` | yes                                                          |
+| `lightningcss` | `^1.30.0`            | optional — only for Lightning CSS processing of css literals |
+
+Node `>=20` is the runtime requirement for the published output.
+
+<Aside type="caution" title="Rolldown full-bundle dev mode is unsupported">
+  The plugin targets the standard Vite dev server pipeline. See
+  [Limitations](/vite-plugin-lit/reference/limitations/).
+</Aside>
+
+## Ambient types for the import queries
+
+The CSS import queries (`?css-sheet`, `?hmr-url`) ship ambient declarations in
+`@oddsquad/vite-plugin-lit/client`. Without them TypeScript cannot type
+`import sheet from './x.css?css-sheet'`.
+
+<Steps>
+
+1. Add the types to your `tsconfig.json`:
+
+   ```json
+   {
+     "compilerOptions": {
+       "types": ["vite/client", "@oddsquad/vite-plugin-lit/client"]
+     }
+   }
+   ```
+
+2. Or reference them from a single `.d.ts` in your project instead:
+
+   ```ts
+   /// <reference types="@oddsquad/vite-plugin-lit/client" />
+   ```
+
+</Steps>
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Quick start"
+    description="Wire the plugin into vite.config.ts and make your first edit."
+    href="/vite-plugin-lit/getting-started/quick-start/"
+  />
+  <LinkCard
+    title="Import queries"
+    description="What ?css-sheet, ?hmr-url, ?inline and ?raw resolve to."
+    href="/vite-plugin-lit/reference/import-queries/"
+  />
+</CardGrid>

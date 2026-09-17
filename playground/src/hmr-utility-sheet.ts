@@ -33,7 +33,9 @@ import sheetUrl from './hmr-utility-sheet.css?url';
  * Mitigate with a `<link rel="preload" as="style">`, or use the inline shared
  * sheet (`hmr-shared-sheet`) when first-paint stability matters more than an
  * external asset. `?css-sheet` is the zero-boilerplate form of this (see
- * `hmr-vsheet-a`) — ../../docs/css-delivery.md (benchmarked in bench/).
+ * `hmr-vsheet-a`) —
+ * https://oddcelot.github.io/vite-plugin-lit/guides/stylesheets/
+ * (benchmarked in bench/).
  */
 const {sheet, onHotUpdate} = urlSheet(sheetUrl);
 

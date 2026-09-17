@@ -21,7 +21,8 @@ import {customElement} from 'lit/decorators.js';
  * live with the component; pipeline-processed. ❌ Not a sharing mechanism —
  * each component type that repeats the same rules gets its own sheet. For
  * cross-component utility CSS, adopt a shared sheet (`hmr-shared-sheet` /
- * `?css-sheet`) alongside this — ../../docs/css-delivery.md.
+ * `?css-sheet`) alongside this —
+ * https://oddcelot.github.io/vite-plugin-lit/guides/stylesheets/.
  */
 @customElement('hmr-styled')
 export class HmrStyled extends LitElement {

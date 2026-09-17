@@ -27,7 +27,9 @@ import cssUrl from './hmr-css-url.css?url';
  * wiring the `<link>` yourself). ✅ Real cacheable `.css` asset; full control
  * of the href. ❌ One `<link>` + `CSSStyleSheet` per instance; CSS edits
  * re-render the component. For a shared utility sheet prefer `?css-sheet` —
- * see ../../docs/css-delivery.md (benchmarked in bench/).
+ * see
+ * https://oddcelot.github.io/vite-plugin-lit/guides/stylesheets/
+ * (benchmarked in bench/).
  */
 
 // Module scope: one fresh href per module execution, not per render.

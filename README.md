@@ -1,6 +1,9 @@
 # @oddsquad/vite-plugin-lit
 
-A Vite plugin for Lit projects with HMR, CSS helpers, and Lightning CSS support.
+A Vite plugin for Lit projects with true HMR, CSS delivery helpers for shadow
+roots, and a DevTools timeline.
+
+**[Documentation →](https://oddcelot.github.io/vite-plugin-lit/)**
 
 Based on `@lit-labs/vite-plugin-lit` (formerly `@lit-labs/vite-hmr`) from the
 [lit monorepo](https://github.com/lit/lit), which is kept checked out as a
@@ -10,25 +13,20 @@ against lit `main`.
 ## Why
 
 lit-html decides "is this the same template?" by **object identity** of the
-`TemplateStringsArray`, not by content. Vite HMR re-executes an edited
-module, so every `` html`...` `` produces a fresh strings array and lit
-rebuilds the component's **entire** subtree for a one-character edit: focus,
-scroll, and input state are lost, child `@state` resets, and cached DOM
-references are orphaned.
+`TemplateStringsArray`, not by content. Vite HMR re-executes an edited module,
+so a one-character edit rebuilds the component's entire subtree and takes
+focus, scroll, input state, and child `@state` with it.
 
 This plugin fixes that with two cooperating mechanisms:
 
 1. **Template-strings interning** — the `html`/`svg`/`mathml`/`css` tags are
-   wrapped in dev so strings arrays are canonicalized by content. Unchanged
-   templates keep their identity across re-execution, so only the **edited**
-   template rebuilds its part of the DOM. Sibling templates, child
-   components, focus, selection, and constructed stylesheets all survive.
-2. **In-place class patching** — a `customElements.define` interceptor
-   catches the duplicate define from the re-executed module and patches the
-   originally-registered class in place: prototype and static descriptors
-   are copied over, reactive property values are snapshotted and restored
-   through the new accessors, styles are re-adopted, and live instances
-   re-render once.
+   wrapped in dev so strings arrays are canonicalized by content, and only the
+   edited template rebuilds its part of the DOM.
+2. **In-place class patching** — the duplicate `customElements.define` from the
+   re-executed module patches the originally-registered class in place, then
+   restores reactive property values through the new accessors.
+
+[How it works →](https://oddcelot.github.io/vite-plugin-lit/getting-started/how-it-works/)
 
 ## Usage
 
@@ -46,429 +44,55 @@ The HMR feature only applies to the dev server (`apply: 'serve'`); production
 builds are untouched. The CSS queries (`?hmr-url`, `?css-sheet`) and Lightning
 CSS literal processing apply in both dev and build.
 
-## Options
-
-`litPlugin()` takes a single options object. `hmr` groups the HMR feature and
-its on-page indicator; `sourceOverlay` is the click-to-open-in-IDE inspector.
-
-| Option                | Type                                          | Default    | Description                                                                                                                                                            |
-| --------------------- | --------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `hmr`                 | `boolean \| HmrOptions`                       | `true`     | HMR for Lit components and its feedback. `false` disables patching **and** the indicator.                                                                              |
-| `hmr.enabled`         | `boolean`                                     | `true`     | Enable in-place HMR for Lit component classes.                                                                                                                         |
-| `hmr.reconnect`       | `boolean`                                     | `false`    | Cycle `disconnectedCallback()`/`connectedCallback()` on live instances after a hot patch. Interning makes this mostly unnecessary.                                     |
-| `hmr.onIncompatible`  | `'reload' \| 'warn'`                          | `'reload'` | What to do when a component can't be hot-patched in place: reload the page, or only warn in the console.                                                               |
-| `hmr.indicator`       | `boolean \| {enabled?, count?}`               | `true`     | On-page pulsing indicator that animates on each HMR update. Forced off when HMR is disabled.                                                                           |
-| `hmr.indicator.count` | `boolean`                                     | `false`    | Show a cumulative update count in the indicator.                                                                                                                       |
-| `sourceOverlay`       | `boolean \| SourceOverlayOptions`             | `false`    | Dev-only click-to-open-in-IDE inspector. Toggle with Ctrl+Shift+S (configurable via `key`).                                                                            |
-| `timeline`            | `boolean`                                     | `false`    | Dev-only Timeline panel inside Vite DevTools. Records Lit lifecycle, render, mouse, and keyboard events in real time.                                                  |
-| `cssSheetBuild`       | `'auto' \| 'url' \| 'inline' \| 'inline-raw'` | `'auto'`   | What a [`?css-sheet`](#build-output-csssheetbuild) import compiles to under `vite build`. `'auto'` inlines in a `build.lib` build, fetches an emitted asset otherwise. |
-
-### Environment variables
-
-Every option also resolves from environment variables (and `.env` files) with
-the `LIT_PLUGIN` prefix, read at config time. Options passed to `litPlugin()`
-take precedence over env vars, which take precedence over the defaults.
-
-| Env var                                 | Maps to                    |
-| --------------------------------------- | -------------------------- |
-| `LIT_PLUGIN_HMR`                        | `hmr.enabled`              |
-| `LIT_PLUGIN_HMR_RECONNECT`              | `hmr.reconnect`            |
-| `LIT_PLUGIN_HMR_ON_INCOMPATIBLE`        | `hmr.onIncompatible`       |
-| `LIT_PLUGIN_HMR_INDICATOR`              | `hmr.indicator.enabled`    |
-| `LIT_PLUGIN_HMR_INDICATOR_COUNT`        | `hmr.indicator.count`      |
-| `LIT_PLUGIN_SOURCE_OVERLAY`             | `sourceOverlay` (enable)   |
-| `LIT_PLUGIN_SOURCE_OVERLAY_KEY`         | `sourceOverlay.key`        |
-| `LIT_PLUGIN_SOURCE_OVERLAY_EDITOR`      | `sourceOverlay.editor`     |
-| `LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS` | `sourceOverlay.throttleMs` |
-| `LIT_PLUGIN_TIMELINE`                   | `timeline` (enable)        |
-| `LIT_PLUGIN_CSS_SHEET_BUILD`            | `cssSheetBuild`            |
-
-## Timeline
-
-The Timeline panel is a **Vue DevTools–style** event recorder for Lit components,
-served as a panel inside [Vite DevTools](https://devtools.vite.dev) (`@vitejs/devtools`).
-
-Enable it in `vite.config.ts`:
-
-```ts
-import {litPlugin} from '@oddsquad/vite-plugin-lit';
-import {DevTools} from '@vitejs/devtools';
-
-export default defineConfig({
-  plugins: [
-    litPlugin({timeline: true}),
-    DevTools(), // required: provides the DevTools panel host
-  ],
-});
-```
-
-Or with the env var (`.env.local`):
-
-```
-LIT_PLUGIN_TIMELINE=true
-```
-
-### Layers
-
-| Layer         | What it captures                                                                                                                                                         |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Lit Lifecycle | `connectedCallback`, `performUpdate`, `willUpdate`, `update`, `updated`, `firstUpdated`, `disconnectedCallback` — with per-phase duration bars and changed-property keys |
-| Lit Render    | `begin/end render` from Lit's built-in `lit-debug` events                                                                                                                |
-| Mouse         | `mousedown`, `mouseup`, `click`, `dblclick`                                                                                                                              |
-| Keyboard      | `keydown`, `keyup`                                                                                                                                                       |
-
-Click any event row to see the element tag name, stable instance id, source
-file (opens in your editor via the existing source-overlay middleware), and raw
-event data. The element row also has an **inspect** link that opens the
-[Components](#components) tab on that element (they share the same instance id).
-
-Layer toggles are remembered between sessions (localStorage).
-
-### Components
-
-The **Components** tab shows a live, hierarchical tree of the Lit elements on
-the page (descending through shadow roots) and a details pane for the selected
-one: its reactive properties and internal `@state`, current attributes, update
-flags (`updated` / `update pending` / `shadow root`), and a source link that
-opens the component in your editor. The details refresh in place as the selected
-element updates.
-
-The tree refreshes on demand (the **Refresh** button) and whenever you pick an
-element. For continuous updates, toggle **Live** — an opt-in `MutationObserver`
-in the page (off by default, remembered per browser) that re-pushes the tree as
-the component hierarchy changes, including inside shadow roots.
-
-To pick an element by pointing at it on the page, use the **Pick** button in the
-tab, or the `Ctrl+Shift+E` shortcut (also in the DevTools command palette as
-_Inspect Lit Element_). This reuses the source-overlay picker, so it requires
-`sourceOverlay` to be enabled — but unlike `Ctrl+Shift+S` (which opens the
-element in your editor), a pick selects the element in the Components tree.
-
-### Custom layers (Phase 5 API)
-
-App code and other plugins can emit events on custom layers:
-
-```ts
-import {addTimelineEvent, addTimelineLayer} from 'virtual:lit-plugin/timeline';
-
-// Register once (idempotent)
-addTimelineLayer({id: 'my-layer', label: 'My Events', color: 0xff6b35});
-
-// Emit from anywhere in the app
-addTimelineEvent({
-  layerId: 'my-layer',
-  time: performance.now(),
-  title: 'something happened',
-  data: {detail: 42},
-});
-```
-
-The virtual module resolves to a no-op stub in production and when `timeline`
-is disabled, so imports are safe to leave in component code.
-
-## Stylesheets
-
-CSS in shadow roots can be delivered a few ways, with different HMR
-behaviors. The plugin ships helpers under `@oddsquad/vite-plugin-lit/css.js`.
-For choosing between them at scale — e.g. a large utility sheet (Tailwind,
-UnoCSS) shared across many components — see
-[`docs/css-delivery.md`](./docs/css-delivery.md), with a reproducible
-benchmark in [`bench/`](./bench/README.md).
-
-### Shared adopted stylesheet from a `.css` asset
-
-`urlSheet()` builds a single constructed `CSSStyleSheet` from a `?url`-imported
-CSS file, shareable across any number of components via `adoptedStyleSheets`.
-An edit re-fetches and `replaceSync()`s the sheet in place — every adopter
-updates **without re-rendering a component and without a full-page reload**.
-The CSS stays a standalone, pipeline-processed `.css` file in the build output
-(it isn't inlined into the JS bundle); the only cost is a brief flash of
-unstyled content on initial load while the first fetch resolves.
-
-```ts
-// utility-sheet.ts
-import {urlSheet} from '@oddsquad/vite-plugin-lit/css.js';
-import sheetUrl from './utility-sheet.css?url';
-
-const {sheet, onHotUpdate} = urlSheet(sheetUrl);
-export default sheet;
-
-// The accept must live here with the same literal specifier as the import —
-// Vite resolves accepted HMR deps by static analysis, so it can't be hidden
-// inside the helper.
-import.meta.hot?.accept('./utility-sheet.css?url', onHotUpdate);
-```
-
-```ts
-// any component
-import sheet from './utility-sheet.js';
-
-@customElement('my-el')
-export class MyEl extends LitElement {
-  static override styles = [sheet];
-}
-```
-
-### Shared adopted stylesheet with no boilerplate (`?css-sheet`)
-
-The `import.meta.hot.accept` line above is irreducible in a **runtime** helper —
-Vite resolves accepted HMR deps by static analysis, so the literal specifier
-has to appear in the importing module. The plugin sidesteps that by generating
-the wiring for you: `import sheet from './x.css?css-sheet'` returns the same
-hot-swapping, shareable `CSSStyleSheet` as `urlSheet()`, but the `urlSheet()`
-call and the `accept` registration live in a plugin-generated virtual module,
-so your code is a bare import.
-
-```ts
-// any component — no helper import, no import.meta.hot
-import sheet from './utility-sheet.css?css-sheet';
-
-@customElement('my-el')
-export class MyEl extends LitElement {
-  static override styles = [sheet];
-}
-```
-
-Every module that imports the same `./x.css?css-sheet` shares one
-`CSSStyleSheet` instance, so an edit updates all adopters in place. Add the
-ambient type via `/// <reference types="@oddsquad/vite-plugin-lit/client" />`
-(or the `types` tsconfig field) so the import resolves to `CSSStyleSheet`.
-
-This targets utility-first CSS frameworks (Tailwind, UnoCSS): the framework
-generates one complete `.css` file of utility classes, and every component
-adopts it through a single shared sheet. In an **app** `vite build` that file
-stays a **standalone, content-hashed `.css` asset** — pipeline-processed
-(Lightning CSS/PostCSS) and fetched once at runtime, never inlined into a JS
-chunk — so the bundle keeps one cacheable stylesheet shared across the app. The
-`accept` wiring is dev-only and is stripped from the build. (When the framework
-regenerates the file in dev, the hot-swap relies on its Vite plugin emitting
-an HMR update for the imported `.css` module — verify against your specific
-Tailwind/UnoCSS integration.) Same FOUC caveat as `urlSheet()` (a runtime
-fetch backs it); the tradeoff is control — reach for `urlSheet()` directly when
-you need a custom fetch/transform, or when the importing code must run without
-this plugin.
-
-#### Build output (`cssSheetBuild`)
-
-A **library** build is the exception: consumers bundle your JS only, so the
-`.css` asset never reaches their build and the runtime fetch 404s into a
-silently empty sheet. Under `build.lib` the plugin therefore embeds the css
-text in the JS chunk instead, and no `.css` asset is emitted.
-
-| Where                      | `?css-sheet` compiles to                                      |
-| -------------------------- | ------------------------------------------------------------- |
-| dev server                 | fetch over the dev-served file, with the HMR swap wired up    |
-| `vite build` (app)         | fetch over the emitted content-hashed `.css` asset            |
-| `vite build` + `build.lib` | `new CSSStyleSheet()` + `replaceSync()` over inlined css text |
-
-`cssSheetBuild` overrides the build-time choice (dev is always the fetch-backed
-HMR form):
-
-| Value          | Build output                                                        |
-| -------------- | ------------------------------------------------------------------- |
-| `'auto'`       | default — `'inline'` when `build.lib` is set, `'url'` otherwise     |
-| `'url'`        | always fetch-backed over an emitted `.css` asset                    |
-| `'inline'`     | css text in the JS chunk, processed by the css pipeline (`?inline`) |
-| `'inline-raw'` | css text in the JS chunk verbatim, skipping the pipeline (`?raw`)   |
-
-`'inline'` matches the `'url'` form (that asset is pipeline-processed too), so
-it's the consistent default. `'inline-raw'` is the escape hatch for css the
-configured transformer rejects — e.g. Lightning CSS errors on the spec-invalid
-but widely shipped `@property` + `initial-value: var(…)`:
-
-```css
-@property --chip-bg {
-  syntax: '<color>';
-  inherits: false;
-  initial-value: var(
-    --brand
-  ); /* Lightning CSS: Unexpected token Function("var") */
-}
-```
-
-```ts
-litPlugin({cssSheetBuild: 'inline-raw'});
-```
-
-Both inline flavors keep the properties the fetch-backed form has: one sheet
-object per css file, shared by every importer, and no FOUC (there's no fetch to
-wait on). They construct the sheet at module top level, so importing the built
-module requires constructable-stylesheet support (browsers ≥ Safari 16.4; jsdom
-and Node SSR throw at import). The `'url'` form has the same requirement via
-`urlSheet()`, just lazier.
-
-### External stylesheet via `<link>`
-
-For a `<link rel="stylesheet">` (or `@import url()`) inside a shadow root, the
-`?hmr-url` import query yields a real stylesheet URL (dev-served file; hashed
-`.css` asset on build). On edit the component re-renders with a freshly
-cache-busted href so the browser refetches — simpler than `urlSheet`, but it
-**does** re-render. `devCacheBust()` is the underlying helper if you import
-`?url` yourself.
-
-### Inlined
-
-`?inline` (processed) or `?raw` (verbatim) hand back the CSS as a string to
-feed `unsafeCSS` or `replaceSync`. No standalone `.css` asset — the text ships
-inside the JS chunk — but no runtime fetch and no FOUC.
-
-## Signals
-
-`@lit-labs/signals` is supported: its `html`/`svg` tags are interned just
-like the core ones, the `SignalWatcher` mixin's regenerated class chain is
-re-parented during a patch, and both per-instance signals and signals
-imported from other modules keep their value and reactivity across an
-update.
-
-One caveat applies to all module-level state, not just signals: a
-module-level `signal()` declared **inside an edited component module** is
-re-created (with its initial value) when that module re-executes. Keep
-shared signals in their own non-component module and import them — that
-module never re-executes, so the signal object survives.
-
-## Context
-
-`@lit/context` is supported, including the experimental-decorator
-`@provide`/`@consume` forms: those keep per-class-evaluation state (a
-WeakMap of instance → controller populated via `addInitializer`), so during
-a patch the runtime re-runs the class initializers for live instances to
-enroll them in the new closures, then restores the provided value through
-the new accessors — subscribed consumers keep both their value and a live
-subscription. Controllers created by previous evaluations stay attached but
-inert; that's bounded by edit count and cleared by any reload.
-
-Define the context key in its own module (and prefer string keys —
-`createContext('my-context')` is identity-by-value, a `Symbol()` key is
-not), the same way you'd isolate any shared module-level state.
-
-## Tasks
-
-`@lit/task` works without special handling: the Task controller and its
-completed value are instance state, which patches preserve. A hot patch
-re-renders without re-fetching (the update re-evaluates `args()`, which are
-shallow-equal, so the task stays `COMPLETE`), and args-driven re-runs keep
-working afterwards. One caveat: the task _function_ is captured by the
-controller at construction, so editing its body only affects future
-instances — reload to swap fetch logic on live ones.
-
-## Virtualizer
-
-`@lit-labs/virtualizer` behaves well under patches: the
-`<lit-virtualizer>` element holds its layout and scroll state, so as long
-as it lives in its own template literal, header edits and even row-template
-edits (the `renderItem` arrow is an interpolation _value_ — its body isn't
-part of the outer literal's strings) preserve the element, the scroll
-offset, and the visible window. Re-created `items` arrays with equal
-content reflow without moving the scroller.
-
-## Limitations
-
-- **Standard `accessor` decorators**: reactive properties declared with
-  standard (TC39) decorators close over per-class-evaluation private slots
-  and cannot be patched in place. This is detected deterministically and
-  falls back to a full reload (or a warning, per `onIncompatible`) — never a
-  broken state. Experimental decorators (`@customElement`, `@property`,
-  `@state` with `experimentalDecorators: true`) and `static properties` are
-  fully supported.
-- **Native `#private` fields**: methods copied from the new class that touch
-  `#private` state will brand-check-throw on existing instances (this also
-  triggers the reload fallback). Use TS `private` instead.
-- **Mixed exports**: a module exporting a component _and_ other values
-  self-accepts, so importers keep the previously-imported non-class bindings
-  until they themselves re-execute. Class exports stay valid — the canonical
-  class object is patched in place.
-- **`observedAttributes` changes**: the platform snapshots them at define
-  time; a console message recommends a reload when they change.
-- **Interning map growth**: stale versions of edited templates accumulate in
-  the (page-global) intern map over a dev session. This is bounded by the
-  number of edits and cleared by any full reload.
-- The Rolldown full-bundle dev mode is unsupported; the plugin targets the
-  standard Vite dev server pipeline.
+## Features
+
+- **[HMR that keeps state](https://oddcelot.github.io/vite-plugin-lit/guides/hmr/)**
+  — what survives an edit, and what falls back to a reload.
+- **[Stylesheets at scale](https://oddcelot.github.io/vite-plugin-lit/guides/stylesheets/)**
+  — one shared `CSSStyleSheet` for thousands of shadow roots, hot-swapped
+  without re-rendering, from a bare `?css-sheet` import.
+- **[DevTools timeline](https://oddcelot.github.io/vite-plugin-lit/guides/devtools-timeline/)**
+  — a layered event recorder and live component inspector inside Vite DevTools.
+- **[Source overlay](https://oddcelot.github.io/vite-plugin-lit/guides/source-overlay/)**
+  — click any element in the page to open its source in your editor.
+- **[Ecosystem support](https://oddcelot.github.io/vite-plugin-lit/guides/ecosystem/)**
+  — signals, context, tasks, and the virtualizer across a patch.
+
+Reference:
+[options](https://oddcelot.github.io/vite-plugin-lit/reference/options/) ·
+[environment variables](https://oddcelot.github.io/vite-plugin-lit/reference/environment-variables/) ·
+[import queries](https://oddcelot.github.io/vite-plugin-lit/reference/import-queries/) ·
+[runtime API](https://oddcelot.github.io/vite-plugin-lit/reference/runtime-api/) ·
+[limitations](https://oddcelot.github.io/vite-plugin-lit/reference/limitations/) ·
+[benchmarks](https://oddcelot.github.io/vite-plugin-lit/reference/benchmarks/)
 
 ## Playground
 
-A manually inspectable fixture app (also the source for the e2e fixtures).
-Run it locally from the repo root:
+A manually inspectable fixture app (also the source for the e2e fixtures), and
+self-contained enough to open on
+[StackBlitz](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground)
+straight from the repo URL. Run it locally from the repo root:
 
 ```sh
 pnpm dev   # builds the plugin, then serves http://localhost:5179
 ```
 
-Edit the templates, styles, and labels in `playground/src/*.ts` and watch
-counts, focus, and DOM identity survive. The page HUD counts HMR updates;
-every component shows a `renders: n` badge.
-
-### What the HMR indicator counts
-
-The injected indicator (`hmr.indicator`, with `hmr.indicator.count` for the
-running total) counts only updates that actually **re-render a component**. A
-pure shared-stylesheet hot-swap restyles adopted sheets in place without
-re-rendering, so it pulses in the calmer info color and leaves the count
-untouched; a per-element `.css` or any component-module edit both re-renders and
-counts (green pulse). A non-accepted edit (e.g. `main.ts`) falls back to a full
-reload, which remounts everything and resets the count.
-
-| Playground edit         | Delivery                  | Re-renders? | Counts? | Pulse           |
-| ----------------------- | ------------------------- | ----------- | ------- | --------------- |
-| `hmr-vsheet.css`        | `?css-sheet` shared sheet | no          | no      | info (cyan)     |
-| `hmr-shared.css`        | `?raw` → shared sheet     | no          | no      | info (cyan)     |
-| `hmr-utility-sheet.css` | `?url` → shared sheet     | no          | no      | info (cyan)     |
-| `hmr-linked-css.css`    | `?hmr-url` `<link>`       | yes         | yes     | success (green) |
-| `hmr-import-css.css`    | `?hmr-url` `@import`      | yes         | yes     | success (green) |
-| `hmr-css-url.css`       | `?url` + `devCacheBust()` | yes         | yes     | success (green) |
-| `hmr-raw-css.css`       | `?raw` static styles      | yes         | yes     | success (green) |
-| any `*.ts` component    | component module          | yes         | yes     | success (green) |
-| `main.ts`               | not self-accepting        | full reload | resets  | —               |
-
-The playground runs on Vite 8 and always uses the local plugin build via
-the pnpm workspace link.
-
-## Tests
-
-```sh
-pnpm test            # unit + e2e
-pnpm run test:unit   # node-only unit tests
-pnpm run test:e2e    # spawns vite dev servers + system Chrome
-```
-
-The e2e suite drives the real dev server with playwright-core and the system
-Chrome (`channel: 'chrome'`). Environment variables:
-
-- `HMR_E2E_HEADED=1` — watch the browser while tests run.
-- `HMR_E2E_EXECUTABLE=/path/to/chrome` — use a specific browser binary
-  (e.g. after `npx playwright install chromium` if no system Chrome is
-  available).
-
-By default the tests run against the published npm versions of `lit`,
-`@lit/context`, `@lit/task`, `@lit-labs/signals`, and
-`@lit-labs/virtualizer`.
-
-### Canary runs against lit `main`
-
-The [lit monorepo](./lit) is checked out as a submodule — read-only
-reference to the real lit source (not the compiled npm output), and an
-opt-in way to test this plugin against in-development lit changes:
-
-```sh
-git submodule update --init   # once
-pnpm build:lit-canary         # installs + builds lit inside ./lit
-LIT_CANARY=1 pnpm test        # resolves lit imports from ./lit
-```
-
-With `LIT_CANARY=1`, every bare `lit` / `@lit/*` / `@lit-labs/*` import in
-the test fixtures (and the unit tests) is aliased into the built submodule
-output, so the whole suite runs against lit `main`.
-
 ## Development
 
-Requires Node 26 and pnpm 12 (`corepack enable` picks up the pinned
-version).
+Requires Node 26 and pnpm 12 (`corepack enable` picks up the pinned version).
 
 ```sh
-pnpm install         # workspace: root package + playground
+pnpm install         # workspace: root package + playground + docs
 pnpm build           # tsc + panel assets -> ./lib, ./panel, ./index.js
-pnpm format:check    # oxfmt, via vp fmt
+pnpm exec vp check   # format, lint, type check
+pnpm test            # unit + e2e
+pnpm docs:dev        # the documentation site
 ```
 
-The repo is a single pnpm workspace: the plugin package at the root, and
-`playground/` linked against it via `workspace:*`.
+More in
+[Development](https://oddcelot.github.io/vite-plugin-lit/contributing/development/)
+and [Testing](https://oddcelot.github.io/vite-plugin-lit/contributing/testing/).
+
+## License
+
+BSD-3-Clause. See [LICENSE](./LICENSE).

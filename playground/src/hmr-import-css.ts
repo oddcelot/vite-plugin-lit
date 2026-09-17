@@ -26,7 +26,9 @@ import cssHref from './hmr-import-css.css?hmr-url';
  * + `CSSStyleSheet` per instance, the `@import` adds a request *chain* (the
  * `<style>` must parse before the import is even discovered → slowest first
  * paint), and CSS edits re-render the component. Avoid for shared CSS; use a
- * shared adopted sheet — see ../../docs/css-delivery.md (benchmarked in bench/).
+ * shared adopted sheet — see
+ * https://oddcelot.github.io/vite-plugin-lit/guides/stylesheets/
+ * (benchmarked in bench/).
  */
 
 @customElement('hmr-import-css')

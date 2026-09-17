@@ -1,0 +1,125 @@
+---
+title: '?css-sheet'
+description: One shared, hot-swapping CSSStyleSheet from a bare import, and the four build output modes behind it.
+sidebar:
+  order: 3
+---
+
+import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+You want this when many components need the same stylesheet and you would
+rather not hand-write HMR wiring in every module that owns one. `?css-sheet`
+is the zero-boilerplate form of
+[`urlSheet()`](/vite-plugin-lit/guides/stylesheets/url-sheet/): a bare import
+that yields a shared `CSSStyleSheet` which hot-swaps in place.
+
+## Use it
+
+```ts
+// any component — no helper import, no import.meta.hot
+import sheet from './utility-sheet.css?css-sheet';
+
+@customElement('my-el')
+export class MyEl extends LitElement {
+  static override styles = [sheet];
+}
+```
+
+Every module that imports the same `./x.css?css-sheet` shares one
+`CSSStyleSheet` instance, so an edit updates all adopters in place. Add the
+ambient type via `/// <reference types="@oddsquad/vite-plugin-lit/client" />`
+(or the `types` tsconfig field) so the import resolves to `CSSStyleSheet`.
+
+## Why the query exists
+
+The `import.meta.hot.accept` line that `urlSheet()` needs is irreducible in a
+**runtime** helper — Vite resolves accepted HMR deps by static analysis, so the
+literal specifier has to appear in the importing module. The plugin sidesteps
+that by generating the wiring for you: the `urlSheet()` call and the `accept`
+registration live in a plugin-generated virtual module, so your code is a bare
+import.
+
+## What you get, and what it costs
+
+This targets utility-first CSS frameworks (Tailwind, UnoCSS): the framework
+generates one complete `.css` file of utility classes, and every component
+adopts it through a single shared sheet. In an **app** `vite build` that file
+stays a **standalone, content-hashed `.css` asset** — pipeline-processed
+(Lightning CSS/PostCSS) and fetched once at runtime, never inlined into a JS
+chunk — so the bundle keeps one cacheable stylesheet shared across the app. The
+`accept` wiring is dev-only and is stripped from the build.
+
+<Aside type="caution" title="Framework regeneration in dev">
+  When the framework regenerates the file in dev, the hot-swap relies on its
+  Vite plugin emitting an HMR update for the imported `.css` module — verify
+  against your specific Tailwind/UnoCSS integration.
+</Aside>
+
+Same flash-of-unstyled-content caveat as `urlSheet()` (a runtime fetch backs
+it); the tradeoff is control — reach for `urlSheet()` directly when you need a
+custom fetch or transform, or when the importing code must run without this
+plugin.
+
+## Build output (`cssSheetBuild`)
+
+A **library** build is the exception: consumers bundle your JS only, so the
+`.css` asset never reaches their build and the runtime fetch 404s into a
+silently empty sheet. Under `build.lib` the plugin therefore embeds the css
+text in the JS chunk instead, and no `.css` asset is emitted.
+
+| Where                      | `?css-sheet` compiles to                                      |
+| -------------------------- | ------------------------------------------------------------- |
+| dev server                 | fetch over the dev-served file, with the HMR swap wired up    |
+| `vite build` (app)         | fetch over the emitted content-hashed `.css` asset            |
+| `vite build` + `build.lib` | `new CSSStyleSheet()` + `replaceSync()` over inlined css text |
+
+`cssSheetBuild` overrides the build-time choice (dev is always the fetch-backed
+HMR form):
+
+| Value          | Build output                                                        |
+| -------------- | ------------------------------------------------------------------- |
+| `'auto'`       | default — `'inline'` when `build.lib` is set, `'url'` otherwise     |
+| `'url'`        | always fetch-backed over an emitted `.css` asset                    |
+| `'inline'`     | css text in the JS chunk, processed by the css pipeline (`?inline`) |
+| `'inline-raw'` | css text in the JS chunk verbatim, skipping the pipeline (`?raw`)   |
+
+`'inline'` matches the `'url'` form (that asset is pipeline-processed too), so
+it's the consistent default. `'inline-raw'` is the escape hatch for css the
+configured transformer rejects — e.g. Lightning CSS errors on the spec-invalid
+but widely shipped `@property` + `initial-value: var(…)`:
+
+```css
+@property --chip-bg {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: var(
+    --brand
+  ); /* Lightning CSS: Unexpected token Function("var") */
+}
+```
+
+```ts
+litPlugin({cssSheetBuild: 'inline-raw'});
+```
+
+Both inline flavors keep the properties the fetch-backed form has: one sheet
+object per css file, shared by every importer, and no FOUC (there's no fetch to
+wait on). They construct the sheet at module top level, so importing the built
+module requires constructable-stylesheet support (browsers ≥ Safari 16.4; jsdom
+and Node SSR throw at import). The `'url'` form has the same requirement via
+`urlSheet()`, just lazier.
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Choosing a delivery strategy"
+    description="What a shared sheet buys you, with numbers."
+    href="/vite-plugin-lit/guides/stylesheets/"
+  />
+  <LinkCard
+    title="cssSheetBuild"
+    description="The option reference, with its env var."
+    href="/vite-plugin-lit/reference/options/#csssheetbuild"
+  />
+</CardGrid>

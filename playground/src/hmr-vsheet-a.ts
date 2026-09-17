@@ -18,7 +18,8 @@ import sheet from './hmr-vsheet.css?css-sheet';
  * (recommended for a shared utility layer: one sheet, cacheable `.css` asset,
  * in-place HMR; brief FOUC/CLS on first load), but with zero boilerplate. ❌
  * Only works through this plugin — `urlSheet()` is the portable form. See
- * ../../docs/css-delivery.md (benchmarked in bench/).
+ * https://oddcelot.github.io/vite-plugin-lit/guides/stylesheets/
+ * (benchmarked in bench/).
  */
 
 @customElement('hmr-vsheet-a')

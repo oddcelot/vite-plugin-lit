@@ -1,0 +1,67 @@
+---
+title: Limitations
+description: The component shapes that cannot be hot-patched in place, what happens instead, and the accepted costs of the approach.
+sidebar:
+  order: 5
+---
+
+import {CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+Each case below is detected deterministically — the plugin never guesses and
+never leaves a component half-patched. What it does instead is governed by
+[`hmr.onIncompatible`](/vite-plugin-lit/reference/options/#hmronincompatible):
+reload the page (default) or warn in the console.
+
+## Cannot be patched in place
+
+- **Standard `accessor` decorators**: reactive properties declared with
+  standard (TC39) decorators close over per-class-evaluation private slots
+  and cannot be patched in place. This is detected deterministically and
+  falls back to a full reload (or a warning, per `onIncompatible`) — never a
+  broken state. Experimental decorators (`@customElement`, `@property`,
+  `@state` with `experimentalDecorators: true`) and `static properties` are
+  fully supported.
+- **Native `#private` fields**: methods copied from the new class that touch
+  `#private` state will brand-check-throw on existing instances (this also
+  triggers the reload fallback). Use TS `private` instead.
+- **`observedAttributes` changes**: the platform snapshots them at define
+  time; a console message recommends a reload when they change.
+
+## Patched, with a caveat
+
+- **Mixed exports**: a module exporting a component _and_ other values
+  self-accepts, so importers keep the previously-imported non-class bindings
+  until they themselves re-execute. Class exports stay valid — the canonical
+  class object is patched in place.
+- **Module-level state in an edited module**: re-created when the module
+  re-executes. Keep shared signals, context keys, and caches in their own
+  module; see [Ecosystem libraries](/vite-plugin-lit/guides/ecosystem/).
+
+## Accepted costs
+
+- **Interning map growth**: stale versions of edited templates accumulate in
+  the (page-global) intern map over a dev session. This is bounded by the
+  number of edits and cleared by any full reload.
+- The Rolldown full-bundle dev mode is unsupported; the plugin targets the
+  standard Vite dev server pipeline.
+
+## Which one fired?
+
+The console message names the reason before the reload happens. If you are
+chasing a reload you did not expect, set `hmr: {onIncompatible: 'warn'}`
+temporarily — the page stops reloading out from under the message.
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="HMR"
+    description="What a patch does preserve, and the options around it."
+    href="/vite-plugin-lit/guides/hmr/"
+  />
+  <LinkCard
+    title="How it works"
+    description="Why these specific shapes are the hard ones."
+    href="/vite-plugin-lit/getting-started/how-it-works/"
+  />
+</CardGrid>

@@ -1,0 +1,25 @@
+{
+  "name": "@oddsquad/vite-plugin-lit-docs",
+  "description": "Documentation site for @oddsquad/vite-plugin-lit",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.7.4",
+    "@astrojs/starlight": "^0.42.1",
+    "astro": "^7.3.3",
+    "sharp": "^0.35.4",
+    "starlight-links-validator": "^0.26.0",
+    "starlight-llms-txt": "^0.12.0",
+    "starlight-package-managers": "^0.13.0"
+  },
+  "devDependencies": {
+    "@oddsquad/vite-plugin-lit": "workspace:*",
+    "vite": "catalog:"
+  }
+}

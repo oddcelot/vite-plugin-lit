@@ -43,8 +43,10 @@
     "test:e2e": "pnpm run build && vp test run --project e2e",
     "bench": "node bench/run.mjs",
     "bench:serve": "node bench/run.mjs --serve",
-    "format": "vp fmt \"**/*.{cjs,html,js,json,md,ts,yaml}\"",
-    "format:check": "vp fmt \"**/*.{cjs,html,js,json,md,ts,yaml}\" --check",
+    "docs:dev": "pnpm --filter ./docs dev",
+    "docs:build": "pnpm --filter ./docs build",
+    "format": "vp fmt \"**/*.{cjs,html,js,json,md,mdx,ts,yaml}\"",
+    "format:check": "vp fmt \"**/*.{cjs,html,js,json,md,mdx,ts,yaml}\" --check",
     "prepublishOnly": "pnpm exec vp check && pnpm run test:unit && pnpm run build",
     "prepare": "vp config"
   },

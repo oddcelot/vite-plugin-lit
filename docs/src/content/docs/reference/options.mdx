@@ -1,0 +1,168 @@
+---
+title: Options
+description: Every option litPlugin() accepts, with its type, default, environment variable, and the guide that explains it.
+sidebar:
+  order: 1
+---
+
+import {CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+`litPlugin()` takes a single options object. `hmr` groups the HMR feature and
+its on-page indicator; `sourceOverlay` is the click-to-open-in-IDE inspector.
+
+| Option                | Type                                          | Default    | Description                                                                                                                             |
+| --------------------- | --------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `hmr`                 | `boolean \| HmrOptions`                       | `true`     | HMR for Lit components and its feedback. `false` disables patching **and** the indicator.                                               |
+| `hmr.enabled`         | `boolean`                                     | `true`     | Enable in-place HMR for Lit component classes.                                                                                          |
+| `hmr.reconnect`       | `boolean`                                     | `false`    | Cycle `disconnectedCallback()`/`connectedCallback()` on live instances after a hot patch. Interning makes this mostly unnecessary.      |
+| `hmr.onIncompatible`  | `'reload' \| 'warn'`                          | `'reload'` | What to do when a component can't be hot-patched in place: reload the page, or only warn in the console.                                |
+| `hmr.indicator`       | `boolean \| {enabled?, count?}`               | `true`     | On-page pulsing indicator that animates on each HMR update. Forced off when HMR is disabled.                                            |
+| `hmr.indicator.count` | `boolean`                                     | `false`    | Show a cumulative update count in the indicator.                                                                                        |
+| `sourceOverlay`       | `boolean \| SourceOverlayOptions`             | `false`    | Dev-only click-to-open-in-IDE inspector. Toggle with Ctrl+Shift+S (configurable via `key`).                                             |
+| `timeline`            | `boolean`                                     | `false`    | Dev-only Timeline panel inside Vite DevTools. Records Lit lifecycle, render, mouse, and keyboard events in real time.                   |
+| `cssSheetBuild`       | `'auto' \| 'url' \| 'inline' \| 'inline-raw'` | `'auto'`   | What a `?css-sheet` import compiles to under `vite build`. `'auto'` inlines in a `build.lib` build, fetches an emitted asset otherwise. |
+
+Every option also resolves from an environment variable; explicit options win
+over env vars, which win over the defaults. See
+[Environment variables](/vite-plugin-lit/reference/environment-variables/).
+
+## hmr
+
+**Type:** `boolean | HmrOptions` · **Default:** `true` · **Env:**
+`LIT_PLUGIN_HMR` (maps to `hmr.enabled`)
+
+HMR for Lit components and its on-page feedback. `true`/`false` toggles the
+whole feature — patching and indicator — and an object configures it.
+
+```ts
+litPlugin({hmr: false}); // no transform, no runtime injection, no indicator
+```
+
+When `false` the plugin skips all HMR transforms and runtime injection; the CSS
+queries and Lightning CSS literal processing still apply.
+
+### hmr.enabled
+
+**Type:** `boolean` · **Default:** `true` · **Env:** `LIT_PLUGIN_HMR`
+
+The same switch as `hmr: false`, spelled out so you can disable patching while
+still configuring the rest of the group.
+
+### hmr.reconnect
+
+**Type:** `boolean` · **Default:** `false` · **Env:**
+`LIT_PLUGIN_HMR_RECONNECT`
+
+Cycle `disconnectedCallback()` / `connectedCallback()` on live instances after
+a hot patch. Interning makes this mostly unnecessary, so it is opt-in: cycling
+tears down and re-creates controllers, listeners, and animations, which is
+observable in a way a plain patch is not. Turn it on when a component does
+setup work in `connectedCallback()` that you want re-run on every edit.
+
+Explained in the [HMR guide](/vite-plugin-lit/guides/hmr/#cycling-lifecycle-callbacks).
+
+### hmr.onIncompatible
+
+**Type:** `'reload' | 'warn'` · **Default:** `'reload'` · **Env:**
+`LIT_PLUGIN_HMR_ON_INCOMPATIBLE`
+
+What to do when a component can't be hot-patched in place — standard `accessor`
+decorators, native `#private` fields, or changed `observedAttributes`. The
+default reloads the page, which loses state but never shows you a half-patched
+component. `'warn'` logs to the console and leaves the page alone.
+
+The detection is deterministic, not heuristic; see
+[Limitations](/vite-plugin-lit/reference/limitations/) for each case.
+
+### hmr.indicator
+
+**Type:** `boolean | {enabled?: boolean; count?: boolean}` · **Default:**
+`true` · **Env:** `LIT_PLUGIN_HMR_INDICATOR` (maps to `hmr.indicator.enabled`)
+
+The on-page update indicator: a small dot that briefly animates on each HMR
+update, for at-a-glance feedback without watching the console. Forced off when
+HMR itself is disabled, regardless of this setting.
+
+### hmr.indicator.count
+
+**Type:** `boolean` · **Default:** `false` · **Env:**
+`LIT_PLUGIN_HMR_INDICATOR_COUNT`
+
+Show a cumulative update count next to the dot (and raise its idle opacity from
+fully transparent to 0.5 so the number stays readable). Only updates that
+re-render a component advance the count — see
+[what the indicator counts](/vite-plugin-lit/getting-started/quick-start/#what-the-indicator-counts).
+
+## sourceOverlay
+
+**Type:** `boolean | SourceOverlayOptions` · **Default:** `false` · **Env:**
+`LIT_PLUGIN_SOURCE_OVERLAY`
+
+Dev-only click-to-open-in-IDE inspector for Lit custom elements. Toggle it in
+the page with Ctrl+Shift+S.
+
+| Sub-option      | Type                          | Default    | Env                                     |
+| --------------- | ----------------------------- | ---------- | --------------------------------------- |
+| `key`           | `string`                      | `'s'`      | `LIT_PLUGIN_SOURCE_OVERLAY_KEY`         |
+| `editor`        | `string \| {name, url}`       | `'vscode'` | `LIT_PLUGIN_SOURCE_OVERLAY_EDITOR`      |
+| `workspaceRoot` | `string`                      | —          | —                                       |
+| `throttleMs`    | `number`                      | `50`       | `LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS` |
+| `exclude`       | `(el: Element) => boolean`    | —          | —                                       |
+| `onSelect`      | `(info: ElementInfo) => void` | —          | —                                       |
+
+`key` is the letter combined with Ctrl+Shift. `editor` takes a built-in key
+(`vscode`, `cursor`, `zed`, `idea`, `windsurf`; an unknown name falls back to
+VS Code) or a custom `{name, url}` pair. `workspaceRoot` prefixes absolute file
+paths. `exclude` skips elements during inspection, and `onSelect` fires with
+the picked element's `{tagName, componentName?, source: {filePath, lineNumber}}`.
+
+The callback options have no env var — they are functions.
+
+Explained in the [source overlay guide](/vite-plugin-lit/guides/source-overlay/).
+
+## timeline
+
+**Type:** `boolean` · **Default:** `false` · **Env:** `LIT_PLUGIN_TIMELINE`
+
+Dev-only Timeline panel inside Vite DevTools — a Vue DevTools–style layered
+event stream for Lit lifecycle, render, mouse, and keyboard events, plus a
+Components tab. Requires `@vitejs/devtools` and its `DevTools()` plugin to be
+active in the same Vite config. `true` enables all built-in layers with
+defaults; it stays off by default while experimental.
+
+Explained in the [DevTools timeline guide](/vite-plugin-lit/guides/devtools-timeline/).
+
+## cssSheetBuild
+
+**Type:** `'auto' | 'url' | 'inline' | 'inline-raw'` · **Default:** `'auto'` ·
+**Env:** `LIT_PLUGIN_CSS_SHEET_BUILD`
+
+What a `?css-sheet` import compiles to under `vite build`. Dev is always the
+fetch-backed HMR form regardless of this setting.
+
+- `'auto'` — `'inline'` when `build.lib` is set, `'url'` otherwise.
+- `'url'` — fetch-backed sheet over the emitted `.css` asset.
+- `'inline'` — css text embedded in the JS chunk, processed by the css pipeline
+  (`?inline`).
+- `'inline-raw'` — css text embedded verbatim, skipping the css pipeline
+  (`?raw`).
+
+A value outside that set is ignored with a console warning and falls back to
+the default, so a typo cannot silently change your build output.
+
+Explained in [`?css-sheet`](/vite-plugin-lit/guides/stylesheets/css-sheet/#build-output-csssheetbuild).
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Environment variables"
+    description="The same surface, resolved from the environment."
+    href="/vite-plugin-lit/reference/environment-variables/"
+  />
+  <LinkCard
+    title="Limitations"
+    description="What onIncompatible is reacting to."
+    href="/vite-plugin-lit/reference/limitations/"
+  />
+</CardGrid>

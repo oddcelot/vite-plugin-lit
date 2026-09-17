@@ -1,0 +1,14 @@
+/* One accent hue (a warm amber, deliberately not Lit's blue — this is a
+   third-party plugin, not part of Lit). Everything else stays default
+   Starlight. */
+:root {
+  --sl-color-accent-low: #3a2a04;
+  --sl-color-accent: #a97a05;
+  --sl-color-accent-high: #f0cc80;
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: #f6e4b7;
+  --sl-color-accent: #8a6300;
+  --sl-color-accent-high: #3a2a04;
+}
