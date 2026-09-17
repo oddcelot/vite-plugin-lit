@@ -18,7 +18,7 @@
  * against `/__lit-devtools-events` and POSTed to bespoke endpoints.
  */
 
-import {connectDevframe} from 'devframe/client';
+import {connectDevframe, getDevframeConnection} from 'devframe/client';
 import type {DevframeScopedClientContext} from 'devframe/client';
 import type {SettingsForNamespace} from 'devframe';
 import {LIT_DEVFRAME_ID} from '../lib/devframe/protocol.js';
@@ -53,6 +53,22 @@ export const litRpc = (): Promise<LitClient> =>
     await client.ensureTrusted();
     return client.scope(LIT_DEVFRAME_ID);
   })());
+
+/**
+ * Whether this panel is a frozen snapshot rather than a live session.
+ *
+ * A static deploy answers queries out of a baked RPC dump and has no server
+ * behind it, so anything that would *command* the page — refreshing the tree,
+ * picking an element, toggling recording — has nothing to reach and is not
+ * in the dump at all. Views check this to hide those affordances instead of
+ * offering buttons that can only fail.
+ *
+ * Reads the already-resolved connection, so it is safe to call synchronously
+ * during render once {@link litRpc} has settled; before that it reports
+ * `false`, which is the right default for the live case.
+ */
+export const isSnapshot = (): boolean =>
+  getDevframeConnection()?.connectionMeta.backend === 'static';
 
 /** One-shot metadata: version, layer list, resolved settings, stream address. */
 export const getMeta = async (): Promise<LitGetMetaResult> => {

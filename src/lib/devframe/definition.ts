@@ -45,6 +45,7 @@ import {
   RPC_LIST_COMPONENTS,
   RPC_RECENT_EVENTS,
   RPC_SET_RECORDING,
+  RPC_EXPORT_SNAPSHOT,
   RPC_SET_SETTINGS_OVERRIDE,
   RPC_TOGGLE_LAYER,
   SESSION_STATE_KEY,
@@ -55,10 +56,13 @@ import {
   type RecentEventsArgs,
   type RecentEventsResult,
   type SessionState,
+  type ExportSnapshotArgs,
+  type ExportSnapshotResult,
   type SetRecordingArgs,
   type ToggleLayerArgs,
 } from './protocol.js';
 import {createNullSource, type TimelineSource} from './source.js';
+import type {SessionSnapshot} from '../../types/snapshot.js';
 
 export interface CreateLitDevframeOptions {
   /** Page-runtime bridge. Use {@link createNullSource} when no page is attached. */
@@ -72,6 +76,13 @@ export interface CreateLitDevframeOptions {
    * `dist/client`; the dev-time panel build points it elsewhere.
    */
   clientAssets?: string;
+  /**
+   * Boot from a recorded session instead of a live one. Set only by the
+   * static-snapshot build (see `lib/snapshot.ts`): the caches below start
+   * populated, so the frozen panel has a timeline and a component tree to
+   * render with no page and no dev server behind it.
+   */
+  replay?: SessionSnapshot;
 }
 
 /**
@@ -82,7 +93,7 @@ export interface CreateLitDevframeOptions {
 export function createLitDevframe(
   options: CreateLitDevframeOptions
 ): DevframeDefinition {
-  const {source, version, features} = options;
+  const {source, version, features, replay} = options;
 
   return defineDevframe({
     id: LIT_DEVFRAME_ID,
@@ -95,6 +106,20 @@ export function createLitDevframe(
     icon: LIT_LOGO_ICON,
     dock: {category: 'framework'},
     clientAssets: options.clientAssets ?? PANEL_DIST_DIR,
+
+    // `component-details` takes an id, so `snapshot: true` (which bakes the
+    // no-argument call) cannot express it. Bake one record per component the
+    // session actually opened -- the only ids that have details to freeze.
+    rpc: replay
+      ? {
+          snapshot: [
+            {
+              method: `${LIT_DEVFRAME_ID}:${RPC_COMPONENT_DETAILS}`,
+              inputs: replay.details.map((d) => [{id: d.id}]),
+            },
+          ],
+        }
+      : undefined,
 
     async setup(ctx: DevframeNodeContext) {
       const my = ctx.scope(LIT_DEVFRAME_ID);
@@ -111,25 +136,37 @@ export function createLitDevframe(
       const session = await my.rpc.sharedState<SessionState>(
         SESSION_STATE_KEY,
         {
-          initialValue: DEFAULT_SESSION_STATE,
+          initialValue: replay
+            ? {
+                ...DEFAULT_SESSION_STATE,
+                // Recorded events carry layer ids; without the custom layers
+                // that produced them the frozen panel would show a filter it
+                // cannot name.
+                customLayers: replay.customLayers,
+              }
+            : DEFAULT_SESSION_STATE,
         }
       );
 
       // Latest inspector snapshot, cached so a panel that (re)connects after
       // the runtime already answered can read it without round-tripping to
-      // the page again.
-      let cachedRoots: InspectorTreeNode[] = [];
-      const cachedDetails = new Map<number, InspectorDetails>();
+      // the page again. Pre-filled when replaying: there is no page to ask.
+      let cachedRoots: InspectorTreeNode[] = replay ? [...replay.roots] : [];
+      const cachedDetails = new Map<number, InspectorDetails>(
+        replay?.details.map((d) => [d.id, d])
+      );
 
       // Bounded history for the `recent-events` agent query. A plain array,
       // not devframe's internal per-stream replay buffer, which devframe
       // marks `@internal` (see plans/roadmap/02-agent-timeline-access.md).
-      const recentEvents: TimelineEvent[] = [];
+      const recentEvents: TimelineEvent[] = replay ? [...replay.events] : [];
 
       // Recent HMR-incompatibility notices, capped the same way
       // `runtime/timeline/transport.ts` caps its pending queue — a long
       // session with many failing edits must not grow this forever.
-      const hmrIncompatibilities: HmrIncompatibilityEvent[] = [];
+      const hmrIncompatibilities: HmrIncompatibilityEvent[] = replay
+        ? [...replay.hmrIncompatibilities]
+        : [];
 
       // Terminal echo for an audience that only sees dev-server stdout (an
       // agent, or a CI log) and not the browser console or the panel.
@@ -298,6 +335,9 @@ export function createLitDevframe(
           name: RPC_LIST_COMPONENTS,
           type: 'query',
           jsonSerializable: true,
+          // Baked into a static snapshot: takes no required arguments, and
+          // by export time its answer is exactly what the session recorded.
+          snapshot: true,
           agent: {
             description:
               'List the live Lit component tree of the inspected page. Call this before asking about a specific element to find its id.',
@@ -311,6 +351,9 @@ export function createLitDevframe(
           name: RPC_HMR_INCOMPATIBILITIES,
           type: 'query',
           jsonSerializable: true,
+          // Baked into a static snapshot: takes no required arguments, and
+          // by export time its answer is exactly what the session recorded.
+          snapshot: true,
           agent: {
             description:
               "List recent components the Lit plugin could not hot-patch in place, and why. Call this after an unexplained full-page reload during development, or when a component's state resets unexpectedly on edit.",
@@ -341,6 +384,9 @@ export function createLitDevframe(
           name: RPC_RECENT_EVENTS,
           type: 'query',
           jsonSerializable: true,
+          // Baked into a static snapshot: takes no required arguments, and
+          // by export time its answer is exactly what the session recorded.
+          snapshot: true,
           agent: {
             description:
               'Get recent timeline events (lifecycle, render, mouse, keyboard) to diagnose why a component re-rendered or updated. Call list-components first to find an element’s id, then filter by elementId to see just its events. Check the `recording` field in the response — if false, no events are being captured; ask the developer to enable Recording in the Timeline tab before retrying.',
@@ -445,6 +491,41 @@ export function createLitDevframe(
           jsonSerializable: true,
           handler: async (override: SettingsOverride): Promise<void> => {
             source.setSettingsOverride(override);
+          },
+        })
+      );
+
+      my.rpc.register(
+        defineRpcFunction({
+          name: RPC_EXPORT_SNAPSHOT,
+          type: 'action',
+          jsonSerializable: true,
+          // Not agent-exposed. It writes a directory to the developer's disk,
+          // which is not something a coding agent should be able to do behind
+          // their back -- same reasoning as the other mutating actions.
+          handler: async (
+            args: ExportSnapshotArgs
+          ): Promise<ExportSnapshotResult> => {
+            // Imported here, not at module scope: this file has to keep
+            // loading in contexts with no filesystem, and the build adapter
+            // it pulls in reaches straight for `node:fs`.
+            const {buildSnapshot} = await import('../snapshot.js');
+            return buildSnapshot(
+              {
+                capturedAt: new Date().toISOString(),
+                version,
+                customLayers: [...session.value().customLayers],
+                roots: cachedRoots,
+                details: [...cachedDetails.values()],
+                events: [...recentEvents],
+                hmrIncompatibilities: [...hmrIncompatibilities],
+              },
+              {
+                outDir: args.outDir ?? 'lit-devtools-snapshot',
+                features: features ? features() : null,
+                clientAssets: options.clientAssets,
+              }
+            );
           },
         })
       );

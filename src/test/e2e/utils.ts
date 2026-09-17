@@ -5,7 +5,7 @@
  */
 
 import {randomUUID} from 'node:crypto';
-import {cp, readFile, rm, writeFile} from 'node:fs/promises';
+import {cp, mkdir, readdir, readFile, rm, writeFile} from 'node:fs/promises';
 import * as path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createServer, type ViteDevServer} from 'vite';
@@ -254,3 +254,14 @@ export const mountElement = async (page: Page, tag: string): Promise<void> => {
     tag
   );
 };
+
+/**
+ * Filesystem helpers, re-exported for e2e tests that inspect what the plugin
+ * wrote to disk.
+ *
+ * Not indirection for its own sake: `src/test/**` sits outside the root
+ * `tsconfig.json`, so the pre-commit hook's per-file type check compiles a
+ * staged test without `@types/node` and rejects a plain `node:fs/promises`
+ * import. This module already needs one, so tests borrow it from here.
+ */
+export const fsp = {mkdir, readdir, readFile, rm, writeFile};
