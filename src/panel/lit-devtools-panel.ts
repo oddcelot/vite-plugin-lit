@@ -31,7 +31,12 @@ import type {DeepLinkTab} from './deep-link.js';
 import './devtools-settings.js';
 import '../lib/segmented-tabs.js';
 import type {TabItem} from '../lib/segmented-tabs.js';
-import {CUBE_ICON, CLOCK_ICON, FLAME_ICON, GEAR_ICON} from '../lib/icons.js';
+import {
+  CUBE_ICON,
+  CLOCK_ICON,
+  GEAR_ICON,
+  NOTIFICATION_ICON,
+} from '../lib/icons.js';
 
 /**
  * Tabs hosted by the panel. The Timeline is the first; this list is the
@@ -39,7 +44,7 @@ import {CUBE_ICON, CLOCK_ICON, FLAME_ICON, GEAR_ICON} from '../lib/icons.js';
  */
 const TABS: readonly TabItem[] = [
   {id: 'components', label: 'Components', icon: CUBE_ICON},
-  {id: 'updates', label: 'Updates', icon: FLAME_ICON},
+  {id: 'updates', label: 'Updates', icon: NOTIFICATION_ICON},
   {id: 'timeline', label: 'Timeline', icon: CLOCK_ICON},
   {id: 'settings', label: 'Settings', icon: GEAR_ICON},
 ];
