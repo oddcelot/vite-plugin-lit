@@ -17,7 +17,7 @@ forward-looking feature design, not audit findings. They supersede the
 | 2    | 02   | Give coding agents the timeline                | HIGH      | S      | —          | DONE   |
 | 3    | 03   | CLI + stdio MCP against the running dev server | HIGH      | M      | 02         | DONE   |
 | 4    | 04   | Type the public timeline API                   | MED       | S      | —          | DONE   |
-| 5    | 06   | Persist panel settings per project             | MED       | S      | —          | TODO   |
+| 5    | 06   | Persist panel settings per project             | MED       | S      | —          | DONE   |
 | 6    | 07   | In-page channel for pick and highlight         | MED       | M      | —          | TODO   |
 | 7    | 08   | Static snapshot for bug reports                | MED       | M      | 02         | TODO   |
 | 8    | 05   | Open-in-editor via `@devframes/service-open`   | LOW       | S      | —          | DONE   |
@@ -61,8 +61,11 @@ interesting the work is or how much new surface it adds.
   work without hand-written config. Ranked below 02 because it is delivery
   plumbing for a capability that has to exist first.
 - **04 and 06 are small, well-understood, and remove daily friction.** 04 was a
-  documented feature that did not typecheck; it has shipped. 06 stops settings
-  from being per-browser. Each is an afternoon.
+  documented feature that did not typecheck; it has shipped. 06 stopped
+  settings from being per-browser; it has shipped too, as per-developer
+  (devframe's `global` settings scope), not per-project — see the plan's
+  status block for why `project` turned out to be the wrong scope _and_ the
+  wrong storage dir from what its own research assumed.
 - **07 and 08 mostly matter once the tool is used outside a live dev server**,
   which is why they sit below the items that improve it inside one.
 - **05 was demoted while its plan was being written.** The original reasoning
@@ -85,7 +88,7 @@ interesting the work is or how much new surface it adds.
 
 Effort/impact outlier worth noting: **04 had the best ratio on the board** (an
 ambient declaration versus a documented API that failed to compile), and it has
-shipped. 06 is the quick win left.
+shipped, and 06 has followed it.
 
 ## Not yet planned
 

@@ -14,6 +14,50 @@
 
 ## Status
 
+> **Done** (2026-09-17). Two of this plan's premises were wrong, and both were
+> caught by its own STOP conditions:
+>
+> 1. **`DevframeSettings.project` maps to the `'project'` storage scope, not
+>    `'workspace'`.** `context-BqpgC5tq.mjs:1226-1229` is
+>    `STORAGE_SCOPE = {global: 'global', project: 'project'}`; the doc comment
+>    three lines below it, which this plan quoted, contradicts the code. So
+>    `project` is `<workspaceRoot>/node_modules/.<app>/devframe` — private per
+>    checkout and wiped by a clean install — not the committable `.devframe/`.
+>    Re-derived per the STOP condition's instruction: the "would be committed
+>    and leak into teammates' diffs" argument against `project` is void, but
+>    the recommendation survives on better grounds — `global` is the scope that
+>    matches "my editor / my color scheme / how I like HMR to behave", follows
+>    a developer across projects, and is not destroyed by `rm -rf node_modules`.
+>    Everything still lands in `settings.global`; only the reasoning changed.
+>
+> 2. **Client-side settings alone never persist.** Both sides build the store
+>    lazily, but only the node side backs it with a JSON file. Nothing in this
+>    package touched `settings` on the node side, so the panel's writes created
+>    a plain in-memory shared state: they round-tripped perfectly and vanished
+>    on restart. Fixed with a single `await my.settings.global.all()` in
+>    `definition.ts`'s `setup()`, before any client can connect. This is why
+>    Step 1's "it needs no change to `definition.ts` at all" is not true.
+>
+> A third finding, not a STOP condition but fatal to Step 1/2 as written: the
+> client store is a shared-state mirror that is **empty until its first sync**,
+> so `await settings.global.get(key)` immediately after connecting returns
+> `undefined` even when the server has a value on disk. The panel subscribes
+> via `onChange` (plus one `all()` to cover a sync that beat the subscription)
+> rather than reading once.
+>
+> Deviation from Step 2: the override is persisted from the **panel**, not from
+> `definition.ts`'s `set-settings-override` handler. `_reset()` deliberately
+> pushes the resolved env values rather than an empty override, so a node-side
+> handler could not tell a reset from a normal write and would re-persist the
+> env values as an override. Panel-side keeps set and clear symmetric, and
+> keeps a panel preference out of the framework-neutral definition.
+>
+> Verified against a live Vite DevTools hub, not just the unit tests: a write
+> reaches `~/.vite/devtools/settings/lit.json`, survives a full dev-server
+> restart, and is delivered to a brand-new client through `onChange`.
+> `SETTINGS_OVERRIDE_LS_KEY`, `COLOR_SCHEME_LS_KEY`, and
+> `src/lib/runtime/overrides.ts` are untouched, as required.
+
 - **Priority**: P3 (roadmap DX-impact: MED)
 - **Effort**: S–M. S for the appearance/editor settings move; M if layer
   toggles are also migrated (this plan recommends **not** migrating those —
