@@ -21,6 +21,11 @@ import {
 import {describeError, isSnapshot, litRpc, type LitClient} from './client.js';
 import {openInEditor} from './open-in-editor.js';
 import {inPageChannel, inPageConnected} from './in-page.js';
+import {
+  onOverrideChange,
+  patchOverride,
+  readOverride,
+} from './settings-override.js';
 
 /** localStorage key remembering the opt-in live-tree toggle. */
 const LIVE_LS_KEY = 'lit-devtools-components-live';
@@ -84,7 +89,8 @@ export class ComponentsView extends LitElement {
         border-color: var(--lit-devtools-border-strong);
       }
       button.pick.active,
-      button.live.active {
+      button.live.active,
+      button.flash.active {
         border-color: var(--lit-devtools-accent);
         background: var(--lit-devtools-accent-soft);
         color: var(--lit-devtools-accent);
@@ -304,6 +310,8 @@ export class ComponentsView extends LitElement {
   @state() private _picking = false;
   /** Opt-in live tree (MutationObserver in the page); persisted, default off. */
   @state() private _live = false;
+  /** Mirror of the `flashUpdates` override; the Settings tab shows it too. */
+  @state() private _flash = false;
   /** Set when the devframe connection fails; rendered in place of the tree. */
   @state() private _error: string | null = null;
   /** Cached HMR-incompatibility events, most recent last; primed from the
@@ -313,15 +321,22 @@ export class ComponentsView extends LitElement {
   @state() private _hmrExpanded = true;
 
   private _rpc: LitClient | null = null;
+  private _unsubscribeOverride: (() => void) | null = null;
 
   override connectedCallback() {
     super.connectedCallback();
     this._live = localStorage.getItem(LIVE_LS_KEY) === 'true';
+    this._flash = readOverride().flashUpdates ?? false;
+    this._unsubscribeOverride = onOverrideChange((o) => {
+      this._flash = o.flashUpdates ?? false;
+    });
     void this._connect();
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+    this._unsubscribeOverride?.();
+    this._unsubscribeOverride = null;
     this._call({type: 'watch', id: null});
     if (this._live) this._call({type: 'observe', enabled: false});
   }
@@ -525,6 +540,15 @@ export class ComponentsView extends LitElement {
     this._call({type: 'observe', enabled: this._live});
     // Leaving live mode, pull one fresh tree so it doesn't go stale silently.
     if (!this._live) this._call({type: 'tree'});
+  }
+
+  /**
+   * Flash-on-update is a settings override, not an inspector command: the
+   * page runtime reads it at boot (so it survives reloads) and gets live
+   * pushes, and the Settings tab mirrors the same switch.
+   */
+  private _toggleFlash(): void {
+    patchOverride({flashUpdates: !this._flash});
   }
 
   /**
@@ -765,6 +789,13 @@ export class ComponentsView extends LitElement {
           @click=${this._toggleLive}
         >
           ${this._live ? '● Live' : '○ Live'}
+        </button>
+        <button
+          class="flash ${this._flash ? 'active' : ''}"
+          title="Flash elements on the page when they update"
+          @click=${this._toggleFlash}
+        >
+          ⚡ Flash
         </button>
         <button @click=${this._refresh} ?disabled=${this._live}>Refresh</button>
       </div>

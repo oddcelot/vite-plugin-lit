@@ -17,9 +17,11 @@
 
 import {emit, setHotClient} from './transport.js';
 import {resetClock} from './clock.js';
-import {installLifecycleLayer} from './lifecycle.js';
+import {installLifecycleLayer, setUpdateHook} from './lifecycle.js';
 import {installRenderLayer, setRenderDebugEnabled} from './render.js';
 import {installMouseLayer, installKeyboardLayer} from './input.js';
+import {flashUpdate, setFlashEnabled, setFlashRamp} from './flash.js';
+import {subscribeOverride} from '../overrides.js';
 import type {TimelineLayersState} from '../../../types/timeline.js';
 
 // ---------------------------------------------------------------------------
@@ -56,6 +58,11 @@ installRenderLayer(emit, recording, renderEnabled);
 installMouseLayer(emit, recording, mouseEnabled);
 installKeyboardLayer(emit, recording, keyboardEnabled);
 
+// Flash-on-update rides the lifecycle wrappers but not the recording gate:
+// it's a page-side visual the panel toggles as a preference, so it follows the
+// settings override (read at boot, pushed live) rather than the layer state.
+setUpdateHook(flashUpdate);
+
 // ---------------------------------------------------------------------------
 // HMR channel wiring (Phase 0/1 transport)
 // ---------------------------------------------------------------------------
@@ -67,6 +74,11 @@ type ViteHot = {
   on: (event: string, handler: (data: unknown) => void) => void;
 };
 const hot = (import.meta as {hot?: ViteHot}).hot;
+
+subscribeOverride(hot, (o) => {
+  setFlashEnabled(o.flashUpdates ?? false);
+  setFlashRamp(o.flashUpdatesRamp ?? false);
+});
 
 if (hot !== undefined) {
   setHotClient(hot);

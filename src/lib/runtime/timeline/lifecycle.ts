@@ -28,6 +28,34 @@ type EmitFn = (event: TimelineEvent) => void;
 type RecordingFn = () => boolean;
 type LayerEnabledFn = () => boolean;
 
+/**
+ * Called once per completed `performUpdate`, with the element and whether that
+ * was its first update. Independent of the recording gate: the flash overlay
+ * wants every update while it is on, whether or not the timeline is recording.
+ */
+export type UpdateHook = (el: Element, first: boolean) => void;
+
+let updateHook: UpdateHook | null = null;
+
+/** Install (or clear, with `null`) the per-update hook. One consumer. */
+export const setUpdateHook = (hook: UpdateHook | null): void => {
+  updateHook = hook;
+};
+
+/** Runs the update hook, never letting a consumer's throw reach the app. */
+const notifyUpdated = (el: object, first: boolean): void => {
+  if (updateHook === null) return;
+  try {
+    updateHook(el as Element, first);
+  } catch {
+    // dev tool — an overlay bug must not break the app's update cycle
+  }
+};
+
+/** `ReactiveElement.hasUpdated`, read before the update flips it. */
+const isFirstUpdate = (el: object): boolean =>
+  (el as {hasUpdated?: boolean}).hasUpdated !== true;
+
 /** Phases to instrument with start/end pairs. */
 const UPDATE_PHASES = [
   'performUpdate',
@@ -77,9 +105,15 @@ const wrap = (
     this: object,
     ...args: unknown[]
   ) {
+    const isUpdate = name === 'performUpdate';
     if (!recording() || !enabled()) {
-      return orig?.apply(this, args);
+      if (!isUpdate || updateHook === null) return orig?.apply(this, args);
+      const first = isFirstUpdate(this);
+      const result = orig?.apply(this, args);
+      notifyUpdated(this, first);
+      return result;
     }
+    const first = isUpdate && isFirstUpdate(this);
 
     // Bump the per-instance tick at the *start* of each performUpdate, before
     // computing the groupId, so this whole update cycle — performUpdate and the
@@ -136,6 +170,9 @@ const wrap = (
         });
       }
     }
+    // After the bracket, not in it: a throwing update never completed, so it
+    // doesn't count as one.
+    if (isUpdate) notifyUpdated(this, first);
     return result;
   };
   wrapper[BRAND] = true;

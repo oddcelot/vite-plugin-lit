@@ -92,6 +92,17 @@ export interface SettingsOverride {
   hmrIndicatorCount?: boolean;
   /** Built-in editor key for the source overlay's open-in-editor target. */
   sourceOverlayEditor?: string;
+  /**
+   * Flash a short outline over every Lit element that completes an update.
+   * Pure preference (no config-time baseline), so `undefined` reads as off.
+   */
+  flashUpdates?: boolean;
+  /**
+   * Colour the flash by how often the element updated in the last second,
+   * calm to hot, instead of one flat colour. Only meaningful with
+   * {@link SettingsOverride.flashUpdates}.
+   */
+  flashUpdatesRamp?: boolean;
 }
 
 /**
