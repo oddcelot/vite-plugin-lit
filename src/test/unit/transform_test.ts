@@ -281,3 +281,54 @@ describe('litPlugin css literals plugin', () => {
     expect(callTransform(plugin, otherTag, '/app/src/el.ts')).toBeNull();
   });
 });
+
+describe('litPlugin timeline virtual module', () => {
+  const TIMELINE_ID = 'virtual:lit-plugin/timeline';
+  const RESOLVED_ID = '\0virtual:lit-plugin/timeline';
+
+  const makePlugin = async (timeline: boolean, command: 'serve' | 'build') => {
+    const plugin = litPlugin({timeline}).find(
+      (p) => p.name === 'lit-timeline-virtual'
+    )!;
+    await (
+      plugin.configResolved as unknown as (config: unknown) => Promise<void>
+    )({command});
+    return plugin;
+  };
+  const callResolveId = (plugin: unknown, id: string) =>
+    ((plugin as {resolveId: unknown}).resolveId as (id: string) => unknown)(id);
+  const callLoad = (plugin: unknown, id: string) =>
+    ((plugin as {load: unknown}).load as (id: string) => {code: string} | null)(
+      id
+    );
+
+  test('claims the specifier under build as well as serve', async () => {
+    for (const command of ['serve', 'build'] as const) {
+      const plugin = await makePlugin(true, command);
+      expect(callResolveId(plugin, TIMELINE_ID)).toBe(RESOLVED_ID);
+      expect(callResolveId(plugin, './el.js')).toBeNull();
+      expect(callLoad(plugin, './el.js')).toBeNull();
+    }
+  });
+
+  test('serves the runtime API in dev when the timeline is on', async () => {
+    const plugin = await makePlugin(true, 'serve');
+    expect(callLoad(plugin, RESOLVED_ID)!.code).toContain(
+      'timeline/public-api'
+    );
+  });
+
+  test('stubs the module in dev when the timeline is off', async () => {
+    const plugin = await makePlugin(false, 'serve');
+    const code = callLoad(plugin, RESOLVED_ID)!.code;
+    expect(code).toContain('addTimelineEvent = () => {}');
+    expect(code).not.toContain('public-api');
+  });
+
+  test('stubs the module under build even with the timeline on', async () => {
+    const plugin = await makePlugin(true, 'build');
+    const code = callLoad(plugin, RESOLVED_ID)!.code;
+    expect(code).toContain('addTimelineLayer = () => {}');
+    expect(code).not.toContain('public-api');
+  });
+});

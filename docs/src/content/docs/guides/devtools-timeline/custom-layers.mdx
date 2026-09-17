@@ -30,8 +30,10 @@ addTimelineEvent({
 });
 ```
 
-The virtual module resolves to a no-op stub in production and when `timeline`
-is disabled, so imports are safe to leave in component code.
+The virtual module resolves to a no-op stub in any `vite build` — including a
+build with `timeline` enabled, since the events only ever travel over the dev
+server's HMR channel — and in dev when `timeline` is disabled. Imports are safe
+to leave in component code.
 
 `color` is a number, not a CSS string — `0xff6b35` rather than `'#ff6b35'`.
 `data` is whatever you want the event's detail pane to show; it is serialized,

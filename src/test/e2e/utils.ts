@@ -265,3 +265,14 @@ export const mountElement = async (page: Page, tag: string): Promise<void> => {
  * import. This module already needs one, so tests borrow it from here.
  */
 export const fsp = {mkdir, readdir, readFile, rm, writeFile};
+
+/** `path.join`, borrowed for the same reason as `fsp`. */
+export const joinPath = path.join;
+
+/**
+ * A unique throwaway root under `.e2e-tmp/`. Inside the package, not the OS
+ * tmpdir: fixtures resolve bare imports by walking up to the repo-root
+ * `node_modules`.
+ */
+export const tmpRoot = (prefix: string): string =>
+  path.join(PACKAGE_ROOT, '.e2e-tmp', `${prefix}-${randomUUID().slice(0, 8)}`);
