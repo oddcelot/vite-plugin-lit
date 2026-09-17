@@ -80,6 +80,12 @@ outside the workspace root — the panel falls back to the plugin's own
 editor is picked by `launch-editor`, so you land on the same file and line.
 :::
 
+Hovering a row outlines that element in the page. When the panel is docked
+inside the app's own window it draws the outline by talking to the page
+directly, with no round trip through the dev server; opened as its own tab
+there is no page to talk to, so it falls back to the server route. Either way
+the outline is the same.
+
 The tree refreshes on demand (the **Refresh** button) and whenever you pick an
 element. For continuous updates, toggle **Live** — an opt-in `MutationObserver`
 in the page (off by default, remembered per browser) that re-pushes the tree as

@@ -20,6 +20,7 @@ import {
 } from '../types/hmr-incompatibility.js';
 import {describeError, litRpc, type LitClient} from './client.js';
 import {openInEditor} from './open-in-editor.js';
+import {inPageChannel, inPageConnected} from './in-page.js';
 
 /** localStorage key remembering the opt-in live-tree toggle. */
 const LIVE_LS_KEY = 'lit-devtools-components-live';
@@ -510,7 +511,21 @@ export class ComponentsView extends LitElement {
     if (!this._live) this._call({type: 'tree'});
   }
 
+  /**
+   * Outline an element in the page. Fires on every `mouseenter` in the tree,
+   * which is why it prefers the direct page channel: the RPC route is
+   * panel -> node -> HMR -> page, a full round trip through the dev server
+   * for something the page could have drawn itself.
+   *
+   * The channel is not always there — a panel opened as its own tab has no
+   * page script in its ancestry — so the RPC route stays as the fallback and
+   * is still the only path when the page predates this version.
+   */
   private _highlight(id: number | null): void {
+    if (inPageConnected()) {
+      inPageChannel().emit('highlight', id);
+      return;
+    }
     this._call({type: 'highlight', id});
   }
 
