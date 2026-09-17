@@ -1,0 +1,53 @@
+# Draft generator for CHANGELOG.md.
+#
+# The committed changelog is hand-written prose — no generator produces the
+# "why this matters" paragraphs, and those are the point. This config only
+# answers the tedious half: what landed since the last tag, and under which
+# heading. Generate a draft (`pnpm run changelog`), then edit it into the file.
+#
+# Subjects here are plain sentences, not `feat:`/`fix:` prefixes, so the
+# grouping signal is a trailer in the commit body instead:
+#
+#     Changelog: Added        (or Changed | Fixed | Removed)
+#     Changelog: skip         (plan-status bumps, tooling churn, merges)
+#
+# See the commit conventions in CLAUDE.md.
+
+[changelog]
+header = ""
+body = """
+## {{ version | default(value="Unreleased") | trim_start_matches(pat="v") }} — {% if timestamp %}{{ timestamp | date(format="%Y-%m-%d") }}{% else %}{{ now() | date(format="%Y-%m-%d") }}{% endif %}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+{%- for commit in commits %}
+
+- **{{ commit.message | split(pat="
+") | first }}**
+{%- for line in commit.message | split(pat="
+") | slice(start=1) %}
+{%- if not line is starting_with("Changelog:") and not line is starting_with("Co-Authored-By:") %}
+{{ "  " ~ line | trim_end }}
+{%- endif %}
+{%- endfor %}
+{%- endfor %}
+{% endfor %}"""
+trim = true
+
+[git]
+# Subjects are prose; nothing to parse as a conventional type.
+conventional_commits = false
+filter_unconventional = false
+# Only commits that opted in with a trailer reach the draft. An untagged
+# commit is a commit whose author decided it wasn't changelog-worthy.
+filter_commits = true
+tag_pattern = "v[0-9]*"
+# Features land as `--no-ff` merges; the merge itself carries no prose.
+commit_parsers = [
+  # `body` matchers need conventional parsing to populate them; with prose
+  # subjects the whole message (trailers included) lands in `message`.
+  { message = "(?ms)^Changelog: ?skip", skip = true },
+  { message = "(?ms)^Changelog: ?Added", group = "Added" },
+  { message = "(?ms)^Changelog: ?Changed", group = "Changed" },
+  { message = "(?ms)^Changelog: ?Fixed", group = "Fixed" },
+  { message = "(?ms)^Changelog: ?Removed", group = "Removed" },
+]
