@@ -69,9 +69,9 @@ API is imported from a virtual module:
 import {addTimelineEvent, addTimelineLayer} from 'virtual:lit-plugin/timeline';
 ```
 
-This module currently has **no** ambient declaration, so TypeScript reports
-`TS2307: Cannot find module 'virtual:lit-plugin/timeline'`. Until one ships,
-declare it yourself in a `.d.ts` in your project:
+Its types ship in the same `@oddsquad/vite-plugin-lit/client` declarations as
+the two CSS queries above, so the `types` entry (or triple-slash reference)
+you already added covers this module too:
 
 ```ts
 declare module 'virtual:lit-plugin/timeline' {
@@ -84,13 +84,18 @@ declare module 'virtual:lit-plugin/timeline' {
 
   export interface TimelineEvent<TData = unknown> {
     layerId: string;
-    /** `performance.now()` timestamp. */
+    /** Milliseconds since the current recording started. */
     time: number;
     data: TData;
     title?: string;
     subtitle?: string;
     groupId?: number | string;
     logType?: 'default' | 'warning' | 'error';
+    meta?: {
+      elementId?: number;
+      tagName?: string;
+      source?: {file: string; line: number};
+    };
   }
 
   export function addTimelineEvent(event: TimelineEvent): void;
@@ -98,9 +103,8 @@ declare module 'virtual:lit-plugin/timeline' {
 }
 ```
 
-The runtime shape is stable — this is a typing gap, not a behavioural one. It
-is tracked as a known gap in the repository's
-[advisor plans](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/README.md).
+`meta` is filled in by the plugin's own capture layers; custom events have no
+reason to set it.
 
 ## Related
 

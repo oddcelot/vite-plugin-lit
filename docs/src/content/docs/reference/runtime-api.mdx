@@ -93,7 +93,7 @@ interface TimelineLayer {
 
 interface TimelineEvent<TData = unknown> {
   layerId: string;
-  /** `performance.now()` timestamp in the browser. */
+  /** Milliseconds since the current recording started. */
   time: number;
   data: TData;
   title?: string;
@@ -110,10 +110,11 @@ ignored. `addTimelineEvent` emits onto a custom layer or one of the built-in
 ids (`'lit-lifecycle'`, `'lit-render'`, `'mouse'`, `'keyboard'`).
 
 The virtual module resolves to a no-op stub in production and when `timeline`
-is disabled, so imports are safe to leave in component code. It has no ambient
-declaration yet — see
-[import queries](/vite-plugin-lit/reference/import-queries/#virtuallit-plugintimeline)
-for the `declare module` workaround.
+is disabled, so imports are safe to leave in component code. Its ambient types
+ship in `@oddsquad/vite-plugin-lit/client`, the same declarations that cover
+the CSS queries — see
+[import queries](/vite-plugin-lit/reference/import-queries/#ambient-types) for
+how to reference it.
 
 ## Related
 
