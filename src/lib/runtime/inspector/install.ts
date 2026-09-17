@@ -13,8 +13,14 @@
  * outlines elements the panel hovers in its tree.
  */
 
+import {createPageScriptChannel} from 'devframe/in-page-channel';
 import {elementById} from '../timeline/identity.js';
 import {buildTree, collectDetails} from './collect.js';
+import {clearHighlight, highlightById} from './highlight.js';
+import {
+  LIT_IN_PAGE_CHANNEL,
+  type LitInPageProtocol,
+} from '../../../types/in-page.js';
 import {
   INSPECT_CMD_CHANNEL,
   INSPECT_DATA_CHANNEL,
@@ -28,6 +34,23 @@ type ViteHot = {
 };
 
 const hot = (import.meta as {hot?: ViteHot}).hot;
+
+// The direct panel channel, outside the `hot` gate on purpose: it is the one
+// part of the inspector that does not need a dev server, which is what lets
+// the hover outline keep working in a static snapshot of the panel. Answering
+// handshakes costs nothing until a panel actually sends one.
+if (typeof window !== 'undefined') {
+  const channel = createPageScriptChannel<LitInPageProtocol>({
+    name: LIT_IN_PAGE_CHANNEL,
+    functions: {},
+    events: {
+      highlight: {handler: (id) => highlightById(id)},
+    },
+  });
+  // A panel that goes away mid-hover never gets to send its `highlight(null)`,
+  // and an outline left painted over the app is worse than a missing one.
+  channel.events.on('panel:disconnected', () => clearHighlight());
+}
 
 if (hot !== undefined && typeof window !== 'undefined') {
   const send = (msg: InspectorMessage): void => {
@@ -94,43 +117,6 @@ if (hot !== undefined && typeof window !== 'undefined') {
     };
     // Push an immediate snapshot so the panel doesn't wait for the next update.
     send({type: 'details', details: collectDetails(el)});
-  };
-
-  // -------------------------------------------------------------------------
-  // Highlight box: a lightweight fixed-position outline drawn over an element
-  // the panel hovers in its tree. Independent of the source overlay so it works
-  // whether or not that feature is enabled.
-  // -------------------------------------------------------------------------
-
-  let highlightBox: HTMLElement | null = null;
-
-  const showHighlight = (el: Element): void => {
-    if (highlightBox === null) {
-      highlightBox = document.createElement('div');
-      highlightBox.setAttribute('data-lit-devtools-highlight', '');
-      Object.assign(highlightBox.style, {
-        position: 'fixed',
-        zIndex: '2147483646',
-        pointerEvents: 'none',
-        background: 'rgba(77, 99, 255, 0.25)',
-        outline: '1px solid #4d63ff',
-        borderRadius: '2px',
-        transition: 'all 80ms ease-out',
-      } satisfies Partial<CSSStyleDeclaration>);
-      document.body.append(highlightBox);
-    }
-    const r = el.getBoundingClientRect();
-    Object.assign(highlightBox.style, {
-      display: 'block',
-      left: `${r.left}px`,
-      top: `${r.top}px`,
-      width: `${r.width}px`,
-      height: `${r.height}px`,
-    });
-  };
-
-  const clearHighlight = (): void => {
-    if (highlightBox !== null) highlightBox.style.display = 'none';
   };
 
   // -------------------------------------------------------------------------
@@ -241,16 +227,11 @@ if (hot !== undefined && typeof window !== 'undefined') {
         if (cmd.id === null) unwatch();
         else watch(cmd.id);
         break;
-      case 'highlight': {
-        if (cmd.id === null) {
-          clearHighlight();
-          break;
-        }
-        const el = elementById(cmd.id);
-        if (el !== undefined) showHighlight(el);
-        else clearHighlight();
+      case 'highlight':
+        // Fallback path. A panel that handshaked over the in-page channel
+        // emits there instead and never reaches this.
+        highlightById(cmd.id);
         break;
-      }
       case 'observe':
         setObserving(cmd.enabled);
         break;

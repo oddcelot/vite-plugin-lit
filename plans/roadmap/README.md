@@ -18,7 +18,7 @@ forward-looking feature design, not audit findings. They supersede the
 | 3    | 03   | CLI + stdio MCP against the running dev server | HIGH      | M      | 02         | DONE   |
 | 4    | 04   | Type the public timeline API                   | MED       | S      | —          | DONE   |
 | 5    | 06   | Persist panel settings per project             | MED       | S      | —          | DONE   |
-| 6    | 07   | In-page channel for pick and highlight         | MED       | M      | —          | TODO   |
+| 6    | 07   | In-page channel for the hover outline          | MED       | S      | —          | DONE   |
 | 7    | 08   | Static snapshot for bug reports                | MED       | M      | 02         | TODO   |
 | 8    | 05   | Open-in-editor via `@devframes/service-open`   | LOW       | S      | —          | DONE   |
 | 9    | 09   | Deep linking into the panel                    | LOW       | S      | —          | TODO   |
@@ -30,7 +30,7 @@ written (see below). Read the table top to bottom for the ordering.
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) |
 REJECTED (one-line rationale).
 
-Plans 01–06 have their own files. 07–10 are recorded below with enough detail
+Plans 01–07 have their own files. 08–10 are recorded below with enough detail
 to pick up later; writing them out now would mean inventing design detail ahead
 of the need.
 
@@ -92,25 +92,14 @@ shipped, and 06 has followed it.
 
 ## Not yet planned
 
-### 07 — In-page channel for pick and highlight
+### 07 — In-page channel for the hover outline
 
-Element picking and hover-highlight currently round-trip panel → node → page
-over RPC and the HMR channel. Devframe's [in-page
-channel](https://devfra.me/guide/in-page-channel) connects a page script to a
-dock iframe directly over `MessageChannel`, with no server in the path:
-`createPageScriptChannel` on the page side, `connectPanelChannel` in the panel.
-
-Two gains. Latency: highlight-on-hover is a per-mouse-move interaction and
-currently pays a full round trip through node. Reach: an in-page loop keeps
-working in a static build, where there is no node side at all — which is what
-makes plan 08 useful rather than a read-only curiosity.
-
-Scope: move only the loops that never need node (highlight, pick, measure).
-Tree and details stay on RPC, because the node side caches them for late-joining
-panels and for MCP. The protocol is a shared `InPageChannelProtocol` interface;
-payloads cross by structured clone, so the existing `InspectorCommand` /
-`InspectorMessage` types should transfer unchanged — verify before committing to
-that.
+Shipped; see `plans/roadmap/07-in-page-channel.md`. Narrower than this sketch
+was: the hover outline moved to devframe's in-page channel, the picker did not.
+The panel's Pick button also brings the Lit dock to the front, and a dock is a
+hub concept the page cannot reach — splitting that one interaction across two
+transports would have bought nothing. `measure` was never built, so there was
+nothing to move.
 
 ### 08 — Static snapshot for bug reports
 
