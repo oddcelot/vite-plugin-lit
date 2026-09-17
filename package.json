@@ -51,26 +51,33 @@
     "prepare": "vp config"
   },
   "dependencies": {
+    "devframe": "1.0.0",
     "es-module-lexer": "^3.0.2",
     "launch-editor": "^2.14.1",
     "magic-string": "^1.4.1"
   },
   "peerDependencies": {
+    "@vitejs/devtools-kit": "^0.7.5",
     "lightningcss": "^1.30.0",
     "lit": "^3.0.0",
     "vite": "^7.0.0 || ^8.0.0"
   },
   "peerDependenciesMeta": {
+    "@vitejs/devtools-kit": {
+      "optional": true
+    },
     "lightningcss": {
       "optional": true
     }
   },
   "devDependencies": {
+    "@devframes/service-open": "1.0.0",
     "@lit-labs/signals": "^0.3.0",
     "@lit-labs/virtualizer": "^2.1.1",
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
     "@types/node": "^26.6.1",
+    "@vitejs/devtools-kit": "0.7.5",
     "lightningcss": "^1.33.0",
     "lit": "^3.3.3",
     "playwright-core": "^1.63.0",
