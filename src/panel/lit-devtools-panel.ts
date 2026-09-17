@@ -24,11 +24,14 @@ injectTokens({colorScheme: true});
 applyColorScheme(readColorSchemePreference());
 import './components-view.js';
 import type {ComponentsView} from './components-view.js';
+import './updates-view.js';
+import type {UpdatesView} from './updates-view.js';
 import {onDeepLink, writeHashLink} from './deep-link.js';
+import type {DeepLinkTab} from './deep-link.js';
 import './devtools-settings.js';
 import '../lib/segmented-tabs.js';
 import type {TabItem} from '../lib/segmented-tabs.js';
-import {CUBE_ICON, CLOCK_ICON, GEAR_ICON} from '../lib/icons.js';
+import {CUBE_ICON, CLOCK_ICON, FLAME_ICON, GEAR_ICON} from '../lib/icons.js';
 
 /**
  * Tabs hosted by the panel. The Timeline is the first; this list is the
@@ -36,6 +39,7 @@ import {CUBE_ICON, CLOCK_ICON, GEAR_ICON} from '../lib/icons.js';
  */
 const TABS: readonly TabItem[] = [
   {id: 'components', label: 'Components', icon: CUBE_ICON},
+  {id: 'updates', label: 'Updates', icon: FLAME_ICON},
   {id: 'timeline', label: 'Timeline', icon: CLOCK_ICON},
   {id: 'settings', label: 'Settings', icon: GEAR_ICON},
 ];
@@ -121,6 +125,7 @@ export class LitDevtoolsPanel extends LitElement {
   @state() private _hmrCount = 0;
 
   @query('components-view') private _componentsView?: ComponentsView;
+  @query('updates-view') private _updatesView?: UpdatesView;
 
   /**
    * Tab items for the strip, badging "Components" with the current
@@ -150,11 +155,26 @@ export class LitDevtoolsPanel extends LitElement {
     // params (another devframe, a command, or this plugin's own overlay pick).
     onDeepLink((link) => {
       if (link.tab !== undefined) this._tab = link.tab;
-      if (link.componentId !== undefined) {
-        this._tab = 'components';
-        this._componentsView?.selectById(link.componentId);
+      if (link.componentId === undefined) {
+        this._syncHash();
+        return;
       }
-      this._syncHash();
+      // An element id means the same thing in both views, so honour the tab
+      // the link asked for and only default to Components when it named none
+      // — otherwise `#tab=updates&component=3` would land on the wrong tab and
+      // look like the parameter was ignored.
+      if (link.tab !== 'updates') this._tab = 'components';
+      const componentId = link.componentId;
+      // The Updates view is mounted lazily, so a link naming it has no view to
+      // hand the id to until the tab switch has actually rendered.
+      void this.updateComplete.then(() => {
+        if (this._tab === 'updates') {
+          this._updatesView?.selectById(componentId);
+        } else {
+          this._componentsView?.selectById(componentId);
+        }
+        this._syncHash();
+      });
     });
   }
 
@@ -166,12 +186,17 @@ export class LitDevtoolsPanel extends LitElement {
    */
   private _syncHash(): void {
     if (window.top !== window.self) return;
+    // Whichever view owns a selection on the tab in front; both express it as
+    // a stable element id, so one parameter round-trips for either.
+    const selectedId =
+      this._tab === 'updates'
+        ? this._updatesView?.selectedId
+        : this._componentsView?.selectedId;
     writeHashLink({
-      tab: this._tab as 'timeline' | 'components' | 'settings',
-      ...(this._componentsView?.selectedId === null ||
-      this._componentsView?.selectedId === undefined
+      tab: this._tab as DeepLinkTab,
+      ...(selectedId === null || selectedId === undefined
         ? {}
-        : {componentId: this._componentsView.selectedId}),
+        : {componentId: selectedId}),
     });
   }
 
@@ -227,6 +252,16 @@ export class LitDevtoolsPanel extends LitElement {
           @selection-change=${this._syncHash}
           @hmr-count-change=${this._onHmrCountChange}
         ></components-view>
+        <!-- Mounted lazily: the recording it derives from lives in the
+             timeline store and keeps filling whether or not this view exists,
+             so there is nothing here to keep alive in the background. -->
+        ${
+          this._tab === 'updates'
+            ? html`<updates-view
+                @selection-change=${this._syncHash}
+              ></updates-view>`
+            : nothing
+        }
         ${
           this._tab === 'settings'
             ? html`<devtools-settings></devtools-settings>`

@@ -10,10 +10,47 @@ import {ref, createRef} from 'lit/directives/ref.js';
 import {repeat} from 'lit/directives/repeat.js';
 import {tokens} from '../lib/tokens.js';
 import type {TimelineEvent} from '../types/timeline.js';
+import {toSpans} from '../lib/timeline/derive.js';
+import type {TimelineSpan} from '../lib/timeline/derive.js';
 import type {LayerState} from './timeline-layers.js';
 import {openInEditor} from './open-in-editor.js';
 
-/** Scrollable list of recorded timeline events with an inline detail pane. */
+/**
+ * Adapts one raw event to the row shape for the Raw toggle. Deliberately
+ * drops `groupId`: pairing is what the collapsed mode is for, and without it
+ * the duration cell reads "point event" rather than "still open".
+ */
+const rawRow = (event: TimelineEvent, index: number): TimelineSpan => ({
+  layerId: event.layerId,
+  key: `raw:${index}`,
+  name: event.title ?? event.layerId,
+  start: event.time,
+  subtitle: event.subtitle,
+  logType: event.logType,
+  meta: event.meta,
+  events: [event],
+});
+
+/** Lit updates are routinely sub-millisecond, so one decimal is not enough. */
+const formatMs = (ms: number): string =>
+  ms < 1 ? `${ms.toFixed(2)}ms` : `${ms.toFixed(1)}ms`;
+
+const renderDuration = (row: TimelineSpan): string => {
+  if (row.duration !== undefined) return formatMs(row.duration);
+  // A span with a pairing id but no end is still running, or its end fell out
+  // of the buffer. A point event never had one to wait for.
+  return row.groupId === undefined ? '' : '…';
+};
+
+/**
+ * Scrollable list of recorded timeline events with an inline detail pane.
+ *
+ * Rows are {@link TimelineSpan}s by default, not raw events: the capture
+ * layers emit a start and an end per phase, so one update tick of one
+ * component is five to ten raw rows whose durations the reader would
+ * otherwise subtract by hand. The **Raw** toggle restores the per-event view
+ * for ordering questions and for custom layers the pairing rules do not model.
+ */
 @customElement('timeline-event-list')
 export class TimelineEventList extends LitElement {
   static override styles = [
@@ -59,6 +96,20 @@ export class TimelineEventList extends LitElement {
       }
       .filterbar input.regex.invalid {
         border-color: var(--lit-devtools-error);
+      }
+      .filterbar button {
+        background: var(--lit-devtools-surface-elevated);
+        color: var(--lit-devtools-text-muted);
+        border: 1px solid var(--lit-devtools-border-strong);
+        border-radius: var(--lit-devtools-radius-sm);
+        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-3);
+        font-size: var(--lit-devtools-text-2xs);
+        font-family: var(--lit-devtools-font-mono);
+        cursor: pointer;
+      }
+      .filterbar button.on {
+        color: var(--lit-devtools-text);
+        border-color: var(--lit-devtools-accent);
       }
       .filterbar .count {
         margin-left: auto;
@@ -127,6 +178,23 @@ export class TimelineEventList extends LitElement {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .changed {
+        color: var(--lit-devtools-accent);
+        flex-shrink: 0;
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .dur {
+        color: var(--lit-devtools-text-secondary);
+        flex-shrink: 0;
+        width: 62px;
+        text-align: right;
+      }
+      .dur.open {
+        color: var(--lit-devtools-text-muted);
+      }
       .detail {
         border-top: 1px solid var(--lit-devtools-border);
         background: var(--lit-devtools-surface-low);
@@ -175,18 +243,39 @@ export class TimelineEventList extends LitElement {
 
   @property({type: Array}) events: TimelineEvent[] = [];
   @property({type: Array}) layers: LayerState[] = [];
-  @state() private _selected: TimelineEvent | null = null;
+  /** Key of the selected row. Keys survive re-derivation; the row objects
+   *  themselves are rebuilt whenever the event buffer changes. */
+  @state() private _selectedKey: string | null = null;
   /** Element id to filter the list to, or null for all elements. */
   @state() private _elementFilter: number | null = null;
   /** Case-insensitive regex (source text) matched against tag/title/subtitle. */
   @state() private _regex = '';
+  /** One row per raw event instead of one per collapsed span. */
+  @state() private _raw = false;
 
   private readonly _scrollRef = createRef<HTMLDivElement>();
   /** Distinct elements seen in `events`, recomputed only when `events` changes
    *  (not on every render driven by selection/filter/regex state). */
   private _elementsCache: Array<{id: number; tag: string}> = [];
+  /** Rows for the current mode, recomputed on the same terms as
+   *  `_elementsCache` — deriving in `render()` would re-pair the whole buffer
+   *  on every keystroke in the regex box. */
+  private _rowsCache: TimelineSpan[] = [];
 
   override willUpdate(changed: Map<string, unknown>) {
+    if (changed.has('events') || changed.has('_raw')) {
+      this._rowsCache = this._raw
+        ? this.events.map(rawRow)
+        : toSpans(this.events);
+      // The selected row can vanish under either change: collapsing merges two
+      // rows into one, and an old event falls out of the buffer cap.
+      if (
+        this._selectedKey !== null &&
+        !this._rowsCache.some((row) => row.key === this._selectedKey)
+      ) {
+        this._selectedKey = null;
+      }
+    }
     if (changed.has('events')) {
       this._elementsCache = this._computeElements();
       // Drop a stale element filter when its element is no longer in the events
@@ -213,12 +302,12 @@ export class TimelineEventList extends LitElement {
     return '#' + l.color.toString(16).padStart(6, '0');
   }
 
-  private _isVisible(ev: TimelineEvent): boolean {
-    const l = this.layers.find((l) => l.id === ev.layerId);
+  private _isVisible(row: TimelineSpan): boolean {
+    const l = this.layers.find((l) => l.id === row.layerId);
     if (l && !l.enabled) return false;
     if (
       this._elementFilter !== null &&
-      ev.meta?.elementId !== this._elementFilter
+      row.meta?.elementId !== this._elementFilter
     ) {
       return false;
     }
@@ -257,9 +346,12 @@ export class TimelineEventList extends LitElement {
     this._regex = (e.target as HTMLInputElement).value;
   }
 
-  /** Text searched by the regex filter — element tag, title and subtitle. */
-  private _haystack(ev: TimelineEvent): string {
-    return `${ev.meta?.tagName ?? ''} ${ev.title ?? ''} ${ev.subtitle ?? ''}`;
+  /** Text searched by the regex filter — element tag, name, subtitle and the
+   *  changed property keys (the reason is worth searching for by name). */
+  private _haystack(row: TimelineSpan): string {
+    return `${row.meta?.tagName ?? ''} ${row.name} ${row.subtitle ?? ''} ${(
+      row.changed ?? []
+    ).join(' ')}`;
   }
 
   override render() {
@@ -275,10 +367,14 @@ export class TimelineEventList extends LitElement {
         regexInvalid = true;
       }
     }
-    const visible = this.events.filter(
-      (ev) =>
-        this._isVisible(ev) && (re === null || re.test(this._haystack(ev)))
+    const visible = this._rowsCache.filter(
+      (row) =>
+        this._isVisible(row) && (re === null || re.test(this._haystack(row)))
     );
+    const selected =
+      this._selectedKey === null
+        ? undefined
+        : this._rowsCache.find((row) => row.key === this._selectedKey);
     return html`
       ${
         this.events.length > 0
@@ -318,8 +414,17 @@ export class TimelineEventList extends LitElement {
                   .value=${this._regex}
                   @input=${this._onRegexInput}
                 />
+                <button
+                  class=${this._raw ? 'on' : ''}
+                  title="Show one row per recorded event instead of collapsing start/end pairs"
+                  @click=${() => {
+                    this._raw = !this._raw;
+                  }}
+                >
+                  Raw
+                </button>
                 <span class="count"
-                  >${visible.length} / ${this.events.length}</span
+                  >${visible.length} / ${this._rowsCache.length}</span
                 >
               </div>
             `
@@ -338,44 +443,76 @@ export class TimelineEventList extends LitElement {
               `
             : repeat(
                 visible,
-                (ev) => ev,
-                (ev) => html`
+                (row) => row.key,
+                (row) => html`
                   <div
-                    class="row ${this._selected === ev ? 'selected' : ''}"
+                    class="row ${
+                      this._selectedKey === row.key ? 'selected' : ''
+                    }"
                     @click=${() => {
-                      this._selected = ev;
+                      this._selectedKey = row.key;
                     }}
                   >
-                    <span class="time">${ev.time.toFixed(1)}ms</span>
+                    <span class="time">${row.start.toFixed(1)}ms</span>
                     <span
                       class="dot"
-                      style=${'background:' + this._colorOf(ev.layerId)}
+                      style=${'background:' + this._colorOf(row.layerId)}
                     ></span>
-                    <span class="title">${ev.title ?? ev.layerId}</span>
-                    <span class="subtitle">${ev.subtitle ?? nothing}</span>
+                    <span class="title">${row.name}</span>
+                    ${
+                      row.changed?.length
+                        ? html`<span class="changed"
+                            >${row.changed.join(', ')}</span
+                          >`
+                        : nothing
+                    }
+                    <span class="subtitle">${row.subtitle ?? nothing}</span>
+                    <span
+                      class="dur ${row.duration === undefined ? 'open' : ''}"
+                      >${renderDuration(row)}</span
+                    >
                   </div>
                 `
               )
         }
       </div>
-      ${this._selected ? this._renderDetail(this._selected) : nothing}
+      ${selected ? this._renderDetail(selected) : nothing}
     `;
   }
 
-  private _renderDetail(ev: TimelineEvent) {
-    const {meta} = ev;
+  private _renderDetail(row: TimelineSpan) {
+    const {meta} = row;
     const src = meta?.source;
+    // Raw rows carry exactly one event; a collapsed span carries its start and
+    // (once it closes) its end, whose payloads are the same minus `changed`.
+    const data = row.events[0]?.data;
     return html`
       <div class="detail">
         <table>
           <tr>
             <td class="key">layer</td>
-            <td class="val">${ev.layerId}</td>
+            <td class="val">${row.layerId}</td>
           </tr>
           <tr>
             <td class="key">time</td>
-            <td class="val">${ev.time.toFixed(3)} ms</td>
+            <td class="val">${row.start.toFixed(3)} ms</td>
           </tr>
+          ${
+            row.duration !== undefined
+              ? html`<tr>
+                  <td class="key">duration</td>
+                  <td class="val">${row.duration.toFixed(3)} ms</td>
+                </tr>`
+              : nothing
+          }
+          ${
+            row.changed?.length
+              ? html`<tr>
+                  <td class="key">changed</td>
+                  <td class="val">${row.changed.join(', ')}</td>
+                </tr>`
+              : nothing
+          }
           ${
             meta?.tagName
               ? html`<tr>
@@ -418,10 +555,10 @@ export class TimelineEventList extends LitElement {
               : nothing
           }
           ${
-            ev.data != null
+            data != null
               ? html`<tr>
                   <td class="key">data</td>
-                  <td class="val">${JSON.stringify(ev.data)}</td>
+                  <td class="val">${JSON.stringify(data)}</td>
                 </tr>`
               : nothing
           }

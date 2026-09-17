@@ -16,25 +16,22 @@ import type {LayerState} from './timeline-layers.js';
 import './timeline-layers.js';
 import './timeline-event-list.js';
 import {litRpc, getMeta, describeError, isSnapshot} from './client.js';
+import {
+  clearTimelineEvents,
+  getTimelineError,
+  getTimelineEvents,
+  subscribeTimeline,
+} from './timeline-store.js';
 import type {LitClient} from './client.js';
 import {LAYER_FLAGS, SESSION_STATE_KEY} from '../lib/devframe/protocol.js';
 import type {SessionState} from '../lib/devframe/protocol.js';
 
 /**
- * Cap on retained timeline events. The stream is unbounded (the mouse/keyboard
- * layers can emit at pointer-move rate), so without a cap the buffer — and the
- * list that re-renders from it — grows for the whole session. Keep the most
- * recent events; older ones scroll off.
- */
-const MAX_EVENTS = 5000;
-
-/**
  * The Timeline view: records and lists Lit lifecycle / render / input events.
- * One tab of the DevTools panel shell (`lit-devtools-panel`); owns its own
- * devframe RPC subscription (a replayed streaming channel), recording state
- * and layer toggles so it keeps recording while other tabs are in front. The
- * recording flag and layer toggles live in devframe shared state, so this
- * view stays in sync with other panels and the page runtime.
+ * One tab of the DevTools panel shell (`lit-devtools-panel`). The recorded
+ * events come from `timeline-store.ts`, which the Updates view reads too; this
+ * view owns the recording state and layer toggles, which live in devframe
+ * shared state so it stays in sync with other panels and the page runtime.
  */
 @customElement('timeline-view')
 export class TimelineView extends LitElement {
@@ -110,8 +107,8 @@ export class TimelineView extends LitElement {
   /** Built-in + runtime-announced layers as of the last `get-meta` call. */
   private _baseLayers: TimelineLayer[] = [];
   private _rpc: LitClient | null = null;
-  private _reader: {cancel: () => void} | null = null;
   private _sessionOff: (() => void) | null = null;
+  private _storeOff: (() => void) | null = null;
   /** False once `disconnectedCallback` runs, so a slow connect (or a stream
    *  error racing a cancel) never touches state after teardown. */
   private _active = false;
@@ -119,16 +116,25 @@ export class TimelineView extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     this._active = true;
+    this._storeOff = subscribeTimeline(() => this._readStore());
+    this._readStore();
     void this._connect();
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
     this._active = false;
-    this._reader?.cancel();
-    this._reader = null;
     this._sessionOff?.();
     this._sessionOff = null;
+    this._storeOff?.();
+    this._storeOff = null;
+  }
+
+  private _readStore(): void {
+    if (!this._active) return;
+    this._events = getTimelineEvents();
+    const storeError = getTimelineError();
+    if (storeError !== null) this._error = storeError;
   }
 
   // ---------------------------------------------------------------------------
@@ -136,12 +142,11 @@ export class TimelineView extends LitElement {
   // ---------------------------------------------------------------------------
 
   /**
-   * Connects to the devframe RPC client, loads the layer list and shared
-   * session state, and then drains the replayed timeline stream until the
-   * view disconnects or the stream ends. Every step checks `_active` so a
-   * teardown mid-connect (or a cancel racing the stream's end) never mutates
-   * state after the component is gone, and the whole flow is one try/catch
-   * so a rejected connect or stream never surfaces as an unhandled rejection.
+   * Connects to the devframe RPC client and loads the layer list and shared
+   * session state. The recorded events arrive separately, through
+   * `timeline-store.ts`. Every step checks `_active` so a teardown mid-connect
+   * never mutates state after the component is gone, and the whole flow is one
+   * try/catch so a rejected connect never surfaces as an unhandled rejection.
    */
   private async _connect(): Promise<void> {
     try {
@@ -157,37 +162,6 @@ export class TimelineView extends LitElement {
       this._sessionOff = session.on('updated', (state) =>
         this._applySession(state)
       );
-
-      // A frozen session has no live stream to subscribe to -- the events
-      // were baked into `recent-events` at export time, and they are the
-      // whole point of the snapshot. Read them once and stop.
-      if (isSnapshot()) {
-        const recorded = await rpc.rpc.call('recent-events', {});
-        if (!this._active) return;
-        this._events = recorded.events.slice(-MAX_EVENTS);
-        return;
-      }
-
-      const reader = rpc.rpc.streaming.subscribe<TimelineEvent[]>(
-        meta.stream.channel,
-        meta.stream.id,
-        {highWaterMark: 4096}
-      );
-      if (!this._active) {
-        reader.cancel();
-        return;
-      }
-      this._reader = reader;
-
-      // No recording check here: every capture layer in the page runtime is
-      // already gated on the recording flag, so anything that reaches the
-      // stream was recorded on purpose. Gating again client-side would throw
-      // away the replayed buffer that makes a late-opened panel useful.
-      for await (const batch of reader) {
-        const next = [...this._events, ...batch];
-        this._events =
-          next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
-      }
     } catch (err) {
       if (this._active) {
         this._error = describeError(err);
@@ -201,7 +175,17 @@ export class TimelineView extends LitElement {
     layers: TimelineLayersState;
     customLayers: readonly TimelineLayer[];
   }): void {
-    this._recording = state.layers.recordingState;
+    const {recordingState} = state.layers;
+    // The page re-zeroes its timeline clock on the rising edge of recording
+    // (`runtime/timeline/clock.ts`), so the previous recording's events carry
+    // times above everything captured after them. Keeping them would render a
+    // list that runs backwards mid-scroll -- and, once spans are paired by
+    // time, negative durations across the seam. The dev server drops its own
+    // buffer on the same edge (`devframe/definition.ts`).
+    if (recordingState && !this._recording) {
+      clearTimelineEvents();
+    }
+    this._recording = recordingState;
     this._layers = this._mergeLayers(state.layers, state.customLayers);
   }
 
@@ -237,7 +221,7 @@ export class TimelineView extends LitElement {
   }
 
   private _clear() {
-    this._events = [];
+    clearTimelineEvents();
   }
 
   /**

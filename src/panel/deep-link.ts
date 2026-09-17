@@ -31,11 +31,30 @@ const DOCKS_ACTIVE_STATE = 'devframe:docks:active';
 /** Our dock id, as the hub knows it. */
 const LIT_DOCK_ID = 'lit';
 
+/**
+ * Tabs a link can name. A value rather than a bare union because the same list
+ * is validated in two places and cast in a third; adding a view should not
+ * mean remembering all of them.
+ */
+export const DEEP_LINK_TABS = [
+  'components',
+  'updates',
+  'timeline',
+  'settings',
+] as const;
+
+export type DeepLinkTab = (typeof DEEP_LINK_TABS)[number];
+
+const isTab = (value: unknown): value is DeepLinkTab =>
+  typeof value === 'string' &&
+  (DEEP_LINK_TABS as readonly string[]).includes(value);
+
 /** A resolved link into the panel. Every field is optional and additive. */
 export interface DeepLink {
   /** Which tab to show. */
-  tab?: 'timeline' | 'components' | 'settings';
-  /** Component to select in the Components tree, by stable element id. */
+  tab?: DeepLinkTab;
+  /** Element to select, by stable id: a node in the Components tree, or the
+   *  component row it belongs to in Updates. */
   componentId?: number;
 }
 
@@ -43,7 +62,7 @@ export interface DeepLink {
 const fromParams = (params: URLSearchParams): DeepLink => {
   const link: DeepLink = {};
   const tab = params.get('tab');
-  if (tab === 'timeline' || tab === 'components' || tab === 'settings') {
+  if (isTab(tab)) {
     link.tab = tab;
   }
   const id = Number(params.get('component'));
@@ -113,7 +132,7 @@ export const onDeepLink = (apply: (link: DeepLink) => void): void => {
         if (params === undefined) return;
         const link: DeepLink = {};
         const tab = params['tab'];
-        if (tab === 'timeline' || tab === 'components' || tab === 'settings') {
+        if (isTab(tab)) {
           link.tab = tab;
         }
         const id = params['componentId'];

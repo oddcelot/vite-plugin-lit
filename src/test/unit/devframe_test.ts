@@ -98,6 +98,7 @@ describe('lit devframe definition', () => {
       'lit:list-components',
       'lit:component-details',
       'lit:recent-events',
+      'lit:update-summary',
       'lit:inspect',
       'lit:set-recording',
       'lit:toggle-layer',
@@ -117,6 +118,8 @@ describe('lit devframe definition', () => {
       .filter((t) => t.rpcName?.startsWith('lit:'))
       .map((t) => t.rpcName);
     expect(exposed).toContain('lit:set-recording');
+    // A query, so read-safe by inference — it must not join the mutating set.
+    expect(exposed).toContain('lit:update-summary');
     expect(exposed).not.toContain('lit:inspect');
     expect(exposed).not.toContain('lit:toggle-layer');
 
@@ -331,6 +334,100 @@ describe('lit devframe definition', () => {
     const after = await ctx.rpc.invokeLocal('lit:recent-events');
     expect(after.bufferSize).toBe(0);
     expect(after.events).toEqual([]);
+  });
+
+  test('drops buffered events when a new recording starts', async () => {
+    const {ctx, source} = await boot();
+    await ctx.rpc.invokeLocal('lit:set-recording', {recording: true});
+    // Shared-state `updated` is emitted asynchronously, and the rising-edge
+    // clear rides on it.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    source.sink!.pushEvents([{layerId: 'mouse', time: 4000, data: {}}]);
+
+    // Stopping keeps the recording readable — that is the point of stopping.
+    await ctx.rpc.invokeLocal('lit:set-recording', {recording: false});
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect((await ctx.rpc.invokeLocal('lit:recent-events')).bufferSize).toBe(1);
+
+    // Starting again re-zeroes the page's timeline clock, so the previous
+    // recording's times would sit *above* everything captured afterwards:
+    // `sinceMs` reads them as the future and a start/end pair spanning the
+    // seam has a negative duration.
+    await ctx.rpc.invokeLocal('lit:set-recording', {recording: true});
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const after = await ctx.rpc.invokeLocal('lit:recent-events');
+    expect(after.bufferSize).toBe(0);
+    expect(after.events).toEqual([]);
+  });
+
+  test('update-summary derives cycles and totals from the buffer', async () => {
+    const {ctx, source} = await boot();
+    const meta = {
+      elementId: 1,
+      tagName: 'hmr-counter',
+      source: {file: '/src/counter.ts', line: 4},
+    };
+    source.sink!.pushEvents([
+      {layerId: 'mouse', time: 0, title: 'click', subtitle: '(4, 8)', data: {}},
+      {
+        layerId: 'lit-lifecycle',
+        time: 1,
+        groupId: '1:1',
+        title: 'performUpdate:start',
+        data: {phase: 'performUpdate'},
+        meta,
+      },
+      {
+        layerId: 'lit-lifecycle',
+        time: 1.5,
+        groupId: '1:1',
+        title: 'willUpdate:start',
+        data: {phase: 'willUpdate', changed: ['count']},
+        meta,
+      },
+      {
+        layerId: 'lit-lifecycle',
+        time: 2,
+        groupId: '1:1',
+        title: 'willUpdate:end',
+        data: {phase: 'willUpdate'},
+        meta,
+      },
+      {
+        layerId: 'lit-lifecycle',
+        time: 4,
+        groupId: '1:1',
+        title: 'performUpdate:end',
+        data: {phase: 'performUpdate'},
+        meta,
+      },
+    ]);
+
+    const summary = await ctx.rpc.invokeLocal('lit:update-summary');
+    expect(summary.components).toEqual([
+      {
+        tagName: 'hmr-counter',
+        elementIds: [1],
+        updates: 1,
+        totalMs: 3,
+        maxMs: 3,
+        reasons: [{key: 'count', count: 1}],
+        source: {file: '/src/counter.ts', line: 4},
+      },
+    ]);
+    expect(summary.cycles.length).toBe(1);
+    expect(summary.cycles[0]!.changed).toEqual(['count']);
+    // The input layers earn their keep here: the click is what caused it.
+    expect(summary.cycles[0]!.cause?.type).toBe('click');
+    expect(summary.bufferSize).toBe(5);
+    expect(summary.truncated).toBe(false);
+
+    const other = await ctx.rpc.invokeLocal('lit:update-summary', {
+      tagName: 'hmr-clock',
+    });
+    expect(other.components).toEqual([]);
+    expect(other.cycles).toEqual([]);
   });
 
   test('recent-events works with no arguments at all', async () => {

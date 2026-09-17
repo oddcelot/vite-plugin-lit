@@ -52,11 +52,23 @@ LIT_PLUGIN_TIMELINE=true
 | Mouse         | `mousedown`, `mouseup`, `click`, `dblclick`                                                                                                                              |
 | Keyboard      | `keydown`, `keyup`                                                                                                                                                       |
 
-Click any event row to see the element tag name, stable instance id, source
-file (click it to open in your editor), and raw event data. The element row also has an **inspect** link that opens the
+Rows are **collapsed spans**, not raw events: the capture layers emit a start
+and an end per phase, so each row is one phase with its duration, and a
+lifecycle row also lists the reactive properties that changed. Press **Raw** in
+the filter bar to see one row per recorded event instead — useful for ordering
+questions and for [custom layers](/vite-plugin-lit/guides/devtools-timeline/custom-layers/),
+which have no pairs to collapse.
+
+Click any row to see the element tag name, stable instance id, duration,
+changed properties, source file (click it to open in your editor), and raw
+event data. The element row also has an **inspect** link that opens the
 [Components](#components) tab on that element (they share the same instance id).
 
 Layer toggles are remembered between sessions (localStorage).
+
+For the "which component is re-rendering too much, and why" question, the
+[Updates tab](/vite-plugin-lit/guides/devtools-timeline/updates/) answers it
+directly from the same recording.
 
 ## Components
 
@@ -133,8 +145,9 @@ copying the address bar gives a link that reopens the same view:
 #tab=components&component=7
 ```
 
-`tab` is `timeline`, `components` or `settings`; `component` is the element id
-shown in the Components tree. The hash, not the query string — the query is
+`tab` is `components`, `updates`, `timeline` or `settings`; `component` is the
+element id shown in the Components tree — on the Updates tab it selects the
+component row that instance belongs to. The hash, not the query string — the query is
 where the DevTools handshake token lives, and that must not travel in a link
 you paste into an issue.
 
@@ -182,18 +195,24 @@ no session to freeze. Export from the running server that recorded it.
 
 The panel is a [devframe](https://devfra.me), so the same data it renders is
 exposed to coding agents over MCP. Vite DevTools mounts the server at
-`/__devtools/__mcp` on the dev server, and six tools appear there:
+`/__devtools/__mcp` on the dev server, and seven tools appear there:
 
 | Tool                        | Answers                                                               |
 | --------------------------- | --------------------------------------------------------------------- |
 | `lit_get-meta`              | Plugin version, available timeline layers, resolved settings.         |
 | `lit_list-components`       | The live element tree, with each component's source file and line.    |
 | `lit_component-details`     | Reactive properties, attributes, and update flags for one element id. |
+| `lit_update-summary`        | Which components updated, how often, how long for, and what changed.  |
 | `lit_recent-events`         | Recent lifecycle/render/input events, filterable by element or layer. |
 | `lit_hmr-incompatibilities` | Components the plugin could not hot-patch in place, and why.          |
 | `lit_set-recording`         | Starts or stops timeline recording. The only tool that changes state. |
 
-Five of the six only read. The exception is `lit_set-recording`, which exists
+`lit_update-summary` is the one to reach for on "why did this re-render": it
+returns the same derived cycles and per-component totals the
+[Updates tab](/vite-plugin-lit/guides/devtools-timeline/updates/) shows, so an
+agent does not have to pair thousands of start/end events itself.
+
+Six of the seven only read. The exception is `lit_set-recording`, which exists
 because `lit_recent-events` is a dead end while recording is off — an agent
 that can read the timeline but not start it can only hand the question back to
 you. Recording is a shared toggle, so an agent turning it on also changes what
