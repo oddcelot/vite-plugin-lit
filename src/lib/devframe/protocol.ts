@@ -201,7 +201,16 @@ declare module 'devframe' {
 
   interface DevframeSettingsRegistry {
     lit: {
+      /** Panel chrome preference. Mirrors `COLOR_SCHEME_LS_KEY`. */
       appearance?: 'auto' | 'dark' | 'light';
+      /**
+       * The Settings tab's live overrides, stored as one blob the way the
+       * panel already treats them. Mirrors `SETTINGS_OVERRIDE_LS_KEY`, which
+       * stays: the page runtime reads it synchronously at module-init time,
+       * long before any client exists, and every settings-store read is
+       * async by design.
+       */
+      override?: SettingsOverride;
     };
   }
 }

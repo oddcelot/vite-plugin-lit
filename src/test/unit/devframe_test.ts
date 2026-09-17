@@ -73,6 +73,11 @@ const boot = async () => {
     distDir: false,
     ws: false,
     sse: false,
+    // The settings store is file-backed, and the standalone host layout puts
+    // `global` under the developer's home directory. Redirect every scope
+    // into the repo's own ignored scratch dir so a test run never writes
+    // there -- relative, so it resolves against the runner's cwd.
+    getStorageDir: () => './node_modules/.tmp-lit-devframe-test',
   });
   const ctx = await instance.context;
   await instance.ready;
@@ -129,6 +134,61 @@ describe('lit devframe definition', () => {
     // is a deliberate choice and not a silently reintroduced startup warning.
     const {ctx} = await boot();
     expect(ctx.services.has('@devframes/service-open')).toBe(false);
+  });
+
+  test('settings round-trip through the global store', async () => {
+    // Pins `DevframeSettingsRegistry.lit` (protocol.ts) against a real
+    // settings store rather than against the typings alone: the panel writes
+    // both of these keys, and a rename here would otherwise only surface as
+    // preferences silently not persisting.
+    const {ctx} = await boot();
+    const settings = ctx.scope('lit').settings.global;
+    // Unique per run, so a settings file left over from an earlier run
+    // cannot make this pass.
+    const editor = `zed-${Date.now()}`;
+
+    expect(await settings.get('override')).toBeUndefined();
+
+    await settings.set('appearance', 'dark');
+    await settings.set('override', {sourceOverlayEditor: editor});
+    expect(await settings.get('appearance')).toBe('dark');
+    expect(await settings.get('override')).toEqual({
+      sourceOverlayEditor: editor,
+    });
+
+    // `_reset()` in the panel deletes rather than storing an empty override;
+    // a `delete` that left the key behind would resurrect a cleared
+    // override on the next panel connection.
+    await settings.delete('override');
+    expect(await settings.get('override')).toBeUndefined();
+    await settings.delete('appearance');
+  });
+
+  test('settings survive a host restart', async () => {
+    // The point of the whole feature: a preference set through the panel has
+    // to outlive the dev server, which is what `localStorage` alone never
+    // did. Two separate hosts over the same storage dir is the closest a
+    // unit test gets to a restart.
+    //
+    // The sleep is load-bearing, not flake padding: `createStorage` debounces
+    // its writes by 100ms and nothing flushes on close, so a value written
+    // and immediately abandoned never reaches disk.
+    const editor = `zed-${Date.now()}`;
+    const first = await boot();
+    await first.ctx.scope('lit').settings.global.set('override', {
+      sourceOverlayEditor: editor,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    await instance!.close();
+    instance = undefined;
+
+    const second = await boot();
+    const settings = second.ctx.scope('lit').settings.global;
+    expect(await settings.get('override')).toEqual({
+      sourceOverlayEditor: editor,
+    });
+    await settings.delete('override');
+    await new Promise((resolve) => setTimeout(resolve, 250));
   });
 
   test('get-meta reports the version and custom layers', async () => {

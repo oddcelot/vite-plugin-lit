@@ -18,7 +18,10 @@ import {
   type FeatureSettings,
   type SettingsOverride,
 } from '../types/timeline.js';
-import {getMeta, litRpc} from './client.js';
+import {getMeta, litRpc, type LitClient} from './client.js';
+
+/** The settings this panel persists, as `DevframeSettingsRegistry.lit`. */
+type LitSettings = Awaited<ReturnType<LitClient['settings']['global']['all']>>;
 
 /**
  * Settings view. Shows the plugin's resolved feature settings and lets the
@@ -170,9 +173,84 @@ export class DevtoolsSettings extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
+    // Synchronous first, from `localStorage`, so the tab paints the right
+    // values (and the panel the right scheme) with no flash. `_hydrate()`
+    // then reconciles against the durable store, which is what makes these
+    // preferences survive a different browser or cleared site data.
     this._override = this._readOverride();
     this._colorScheme = readColorSchemePreference();
     void this._fetch();
+    void this._hydrate();
+  }
+
+  /**
+   * Adopt the persisted preferences from devframe's per-user settings store,
+   * letting them win over this browser's `localStorage` copy.
+   *
+   * `global`, not `project`: in `devframe@1.0.0` the `project` store lives in
+   * `<workspaceRoot>/node_modules/.<app>/devframe` (private per checkout, and
+   * wiped by a clean install), while `global` is per-user, which is what "my
+   * editor", "my color scheme", "how I like HMR to behave" actually are.
+   * Project-wide defaults already have a home: the committed `litPlugin({...})`
+   * config.
+   *
+   * Subscribes rather than reading once. The client-side store is a mirror of
+   * a shared state, and it is empty until the first sync arrives -- a `get()`
+   * issued right after connecting reads `undefined` even when the server has
+   * a value on disk. `onChange` gets the first sync as an update; the `all()`
+   * below covers a sync that landed before the subscription did.
+   *
+   * Never throws: without a hub the panel just keeps its `localStorage`
+   * values.
+   */
+  private async _hydrate(): Promise<void> {
+    try {
+      const {settings} = await litRpc();
+      await settings.global.onChange((all) => this._adopt(all));
+      this._adopt(await settings.global.all());
+    } catch {
+      // dev tool — a missing or unreachable settings store is not an error
+    }
+  }
+
+  /**
+   * Apply a settings snapshot. Both branches no-op when the value already
+   * matches, which is what stops `_adopt` -> `_push` -> store write ->
+   * `onChange` -> `_adopt` from looping.
+   */
+  private _adopt(all: Readonly<LitSettings>): void {
+    const {appearance, override} = all;
+    if (appearance !== undefined && appearance !== this._colorScheme) {
+      this._colorScheme = appearance;
+      setColorSchemePreference(appearance);
+    }
+    if (
+      override !== undefined &&
+      JSON.stringify(override) !== JSON.stringify(this._override)
+    ) {
+      this._override = override;
+      this._writeOverride(override);
+      // Push to the page so an already-loaded app picks this up live. Not
+      // `_push()`: the value came *from* the store, and writing it back
+      // would be a pointless round trip.
+      this._pushOverride(override);
+    }
+  }
+
+  /** Write one preference through to the durable store, best-effort. */
+  private _persist<K extends keyof LitSettings>(
+    key: K,
+    value: LitSettings[K] | undefined
+  ): void {
+    litRpc()
+      .then((rpc) =>
+        value === undefined
+          ? rpc.settings.global.delete(key)
+          : rpc.settings.global.set(key, value)
+      )
+      .catch(() => {
+        // dev tool — ignore connection/call errors
+      });
   }
 
   private _readOverride(): SettingsOverride {
@@ -187,7 +265,10 @@ export class DevtoolsSettings extends LitElement {
 
   private _setColorScheme(scheme: ColorSchemePreference): void {
     this._colorScheme = scheme;
+    // `localStorage` first and synchronously: it applies the class right
+    // away, and is what the panel reads before its first paint next time.
     setColorSchemePreference(scheme);
+    this._persist('appearance', scheme);
   }
 
   private async _fetch() {
@@ -204,12 +285,23 @@ export class DevtoolsSettings extends LitElement {
   /** Persist the merged override and push it to the app runtime. */
   private _push(override: SettingsOverride) {
     this._override = override;
+    this._writeOverride(override);
+    this._persist('override', override);
+    this._pushOverride(override);
+  }
+
+  /**
+   * The page runtime's copy. Kept even though the settings store is now the
+   * durable one: `runtime/overrides.ts` reads it synchronously as the app's
+   * modules initialise, before any DevTools connection exists, and every
+   * settings-store read is async by design.
+   */
+  private _writeOverride(override: SettingsOverride): void {
     try {
       localStorage.setItem(SETTINGS_OVERRIDE_LS_KEY, JSON.stringify(override));
     } catch {
       // ignore
     }
-    this._pushOverride(override);
   }
 
   private _set<K extends keyof SettingsOverride>(
@@ -227,6 +319,10 @@ export class DevtoolsSettings extends LitElement {
     } catch {
       // ignore
     }
+    // Clear the durable copy too, or the next connection would hydrate the
+    // override straight back — and `_pushOverride` below sends the resolved
+    // env values, which must not be re-persisted as an override.
+    this._persist('override', undefined);
     this._override = {};
     if (s !== null) {
       // Send the env values explicitly so the live runtime reverts now (an
