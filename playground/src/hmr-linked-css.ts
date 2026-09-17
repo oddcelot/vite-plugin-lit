@@ -25,7 +25,9 @@ import cssHref from './hmr-linked-css.css?hmr-url';
  * `<link>`; no JS to wire. ❌ One `<link>` + `CSSStyleSheet` object per
  * instance, and every CSS edit re-renders the whole component. For a sheet
  * shared across many components, prefer a shared adopted sheet (`?css-sheet`)
- * — see ../../docs/css-delivery.md (benchmarked in bench/).
+ * — see
+ * https://oddcelot.github.io/vite-plugin-lit/guides/stylesheets/
+ * (benchmarked in bench/).
  */
 
 @customElement('hmr-linked-css')

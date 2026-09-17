@@ -1,9 +1,9 @@
 # CSS-delivery benchmark
 
 Measures the cost of delivering one utility stylesheet to many shadow-DOM
-components four ways, to back the recommendations in
-[`docs/css-delivery.md`](../docs/css-delivery.md) with real numbers and
-DevTools traces.
+components four ways, to back the recommendations in the [stylesheets
+guide](https://oddcelot.github.io/vite-plugin-lit/guides/stylesheets/) with
+real numbers and DevTools traces.
 
 ## What it compares
 

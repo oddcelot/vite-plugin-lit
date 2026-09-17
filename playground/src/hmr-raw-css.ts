@@ -31,7 +31,8 @@ import rawCss from './hmr-raw-css.css?raw';
  * the same CSS gets its own sheet and its own copy of the bytes in its chunk;
  * `?raw` skips the CSS pipeline. Right for a component's own styles — for a
  * sheet shared across many types, import one shared sheet (see
- * `hmr-shared-sheet` / `?css-sheet`) — ../../docs/css-delivery.md.
+ * `hmr-shared-sheet` / `?css-sheet`) —
+ * https://oddcelot.github.io/vite-plugin-lit/guides/stylesheets/.
  */
 
 @customElement('hmr-raw-css')
