@@ -25,3 +25,37 @@ release. Add a tool name to select part of the graph. For example, run
 - [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
 
 <!--VITE PLUS END-->
+
+## Commits and the changelog
+
+Subjects are plain sentences in the imperative — `Flash updated elements on the
+page`, not `feat: flash updates`. The body explains why the change exists; that
+prose is what the changelog is built from, so write it for a reader who wasn't
+here.
+
+A commit that should show up in `CHANGELOG.md` carries a trailer, next to
+`Co-Authored-By`:
+
+```
+Changelog: Added        # or Changed | Fixed | Removed
+Changelog: skip         # plan-status bumps, tooling churn, refactors
+```
+
+Untrailed commits are left out of the draft entirely, so the trailer is how you
+opt in.
+
+Work lands on a branch named for its kind (`feature/`, `fix/`, `docs/`,
+`roadmap/NN-slug`, `advisor/NNN-slug`) and merges with `--no-ff`. Release
+commits bump `package.json`, write the `CHANGELOG.md` section, and get a
+`v<version>` tag.
+
+At release time, draft the section from the commits since the last tag:
+
+```sh
+pnpm run changelog                    # heading reads "Unreleased"
+pnpm run changelog --tag v0.4.0       # heading reads "0.4.0" (no `--`)
+```
+
+That prints to stdout and writes nothing. It groups by the trailers and hands
+back each commit's body; edit it into prose and paste it into `CHANGELOG.md` —
+the file is hand-written on purpose, and `cliff.toml` explains why.
