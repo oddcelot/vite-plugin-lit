@@ -32,6 +32,13 @@ export interface TimelineSink {
   addLayer(layer: TimelineLayer): void;
   inspectorMessage(msg: InspectorMessage): void;
   hmrIncompatible(event: HmrIncompatibilityEvent): void;
+  /**
+   * A page runtime just connected (first load, reload, or HMR reconnect). It
+   * starts from the compiled-in defaults, so whatever recording/layer state
+   * this session already holds has to be replayed to it — otherwise a page
+   * loaded while recording is on silently captures nothing.
+   */
+  runtimeReady(): void;
 }
 
 /** Where the definition sends/receives page-runtime traffic. */
