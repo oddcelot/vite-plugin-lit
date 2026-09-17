@@ -18,17 +18,24 @@ below so nothing is lost.
 
 ## Execution order & status
 
-| Plan | Title                                                       | Priority | Effort | Depends on | Status |
-| ---- | ----------------------------------------------------------- | -------- | ------ | ---------- | ------ |
-| 001  | Reject cross-site requests to the dev-server endpoints      | P1       | S      | —          | DONE   |
-| 002  | Add a CI verification baseline                              | P1       | S      | —          | DONE   |
-| 003  | Stop source-meta injection referencing out-of-scope classes | P1       | S      | —          | DONE   |
-| 004  | Keep the DevTools element watch working across a hot patch  | P2       | S      | —          | DONE   |
-| 005  | Finish the package rename — dead specifiers and docs        | P2       | S      | —          | DONE   |
-| 006  | Characterization unit tests for the HMR patcher             | P2       | M      | —          | DONE   |
+| Plan | Title                                                          | Priority | Effort | Depends on | Status |
+| ---- | -------------------------------------------------------------- | -------- | ------ | ---------- | ------ |
+| 001  | Reject cross-site requests to the dev-server endpoints         | P1       | S      | —          | DONE   |
+| 002  | Add a CI verification baseline                                 | P1       | S      | —          | DONE   |
+| 003  | Stop source-meta injection referencing out-of-scope classes    | P1       | S      | —          | DONE   |
+| 004  | Keep the DevTools element watch working across a hot patch     | P2       | S      | —          | DONE   |
+| 005  | Finish the package rename — dead specifiers and docs           | P2       | S      | —          | DONE   |
+| 006  | Characterization unit tests for the HMR patcher                | P2       | M      | —          | DONE   |
+| 007  | Make `virtual:lit-plugin/timeline` resolve during `vite build` | P1       | S      | —          | TODO   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale)
+
+**007 was added later**, on 2026-09-17 at commit `2889243`, and is not part of
+the original `improve` audit. It surfaced while writing
+`plans/roadmap/04-typed-timeline-api.md` and was then reproduced empirically: a
+documented import breaks `vite build`. It is filed here rather than in
+`plans/roadmap/` because it is a defect, not a feature.
 
 ## Dependency notes
 

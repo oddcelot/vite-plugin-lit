@@ -64,7 +64,7 @@ Phase 1 takes option 1 (lowest risk, keeps runtime and e2e fixtures intact).
 The definition exposes a `TimelineSource` port so option 2 or a static-build
 replay can plug in later. Panel ↔ page loops that never need node (highlight,
 pick) can move to the **in-page channel** (`createPageScriptChannel` /
-`connectPanelChannel`) in phase 3 so they also work in static builds.
+`connectPanelChannel`) in roadmap item 07 so they also work in static builds.
 
 ## Architecture (as built)
 
@@ -73,7 +73,7 @@ pick) can move to the **in-page channel** (`createPageScriptChannel` /
 │ runtime/timeline/install.ts              │   │ Lit SPA, built with Vite, base './' │
 │ runtime/inspector/install.ts             │   │ connectDevframe().scope('lit')      │
 │   import.meta.hot  (today)               │   │   sharedState('session')            │
-│   getDevToolsRpcClient() (phase 3)       │   │   streaming.subscribe('timeline')   │
+│   getDevToolsRpcClient() (roadmap 07)    │   │   streaming.subscribe('timeline')   │
 └───────────────┬──────────────────────────┘   │   call('inspect-tree' …)            │
                 │ HMR channel                  └────────────────┬────────────────────┘
 ┌───────────────▼──────────────────────────────────────────────▼────────────────────┐
@@ -118,11 +118,14 @@ bin.mjs           (phase 4) createCac(definition)
    `dist/client` talking `connectDevframe()`. The three timeline e2e tests now
    drive the `TimelineSource` port instead of the removed endpoints.
    `/__lit-open-in-editor` and `src/lib/http.ts` survive untouched; swapping
-   them for `@devframes/service-open` and dropping `launch-editor` is phase 3.
-3. **In-page channel** for pick/highlight so the Components tab works in static
-   builds; page runtime dials the hub directly (transport option 2).
-4. **Ship anywhere.** `bin.mjs` with `createCac`; `snapshot: true` on
-   `get-meta` / `list-components`; document `lit-devtools mcp` for agents.
+   them for `@devframes/service-open` and dropping `launch-editor` is roadmap
+   item 05.
+3. **Everything after the migration** now lives in
+   [`plans/roadmap/`](./roadmap/README.md), ranked by DX impact rather than by
+   the phase order sketched here. The original phase 3 (in-page channel) and
+   phase 4 (CLI, static build, MCP) are roadmap items 07, 08, and 03 there,
+   and the ranking puts two things ahead of both: surfacing
+   HMR-incompatibility reasons, and giving agents the timeline.
 
 ## What phase 2 changed from the original design
 
