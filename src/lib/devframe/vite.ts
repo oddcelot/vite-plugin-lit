@@ -64,7 +64,9 @@ interface DevToolsHubContext {
     devframe: DevframeDefinition,
     options?: {base?: string; dock?: Record<string, unknown>}
   ) => Promise<void>;
-  docks?: {activate?: (dockId: string) => void};
+  docks?: {
+    activate?: (dockId: string, params?: Record<string, unknown>) => void;
+  };
   commands?: {register?: (command: Record<string, unknown>) => unknown};
   /**
    * The hub's host runtime. Structurally the slice of devframe's
@@ -129,7 +131,11 @@ export class HotTimelineSource implements TimelineSource {
       // wants the Components tab. Bring the dock forward from the node side
       // rather than having the panel reach into the parent frame.
       if (data.type === 'pick') {
-        this.#hub?.docks?.activate?.(LIT_DEVFRAME_ID);
+        // Carry the target with the activation, not just the dock id: the
+        // params ride the hub's `devframe:docks:active` state, so a panel
+        // that mounts *because of* this pick still lands on the right
+        // element instead of racing the separate `pick` message.
+        this.#hub?.docks?.activate?.(LIT_DEVFRAME_ID, {componentId: data.id});
       }
       this.#sink?.inspectorMessage(data);
     });

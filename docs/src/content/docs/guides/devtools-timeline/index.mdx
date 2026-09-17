@@ -123,6 +123,35 @@ connection. The practical consequence: in a browser that has never opened the
 panel for this project, the page starts with the resolved config and picks the
 overrides up once you open the panel.
 
+## Link to a view
+
+The panel is addressable. Opened on its own (or from an exported snapshot), it
+reads its position from the URL hash and keeps it up to date as you click, so
+copying the address bar gives a link that reopens the same view:
+
+```
+#tab=components&component=7
+```
+
+`tab` is `timeline`, `components` or `settings`; `component` is the element id
+shown in the Components tree. The hash, not the query string — the query is
+where the DevTools handshake token lives, and that must not travel in a link
+you paste into an issue.
+
+Inside Vite DevTools the panel is an iframe whose address nobody reads, so
+links arrive over RPC instead. Anything with a DevTools client can ask the hub
+to bring this panel forward on a specific element:
+
+```ts
+await rpc.call('hub:docks:activate', {
+  dockId: 'lit',
+  params: {tab: 'components', componentId: 7},
+});
+```
+
+This is also how picking an element in the page lands you on it: the plugin
+activates its own dock with the picked id attached.
+
 ## Export a session
 
 **Export snapshot** in the Timeline tab freezes the current session — the

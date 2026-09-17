@@ -21,7 +21,7 @@ forward-looking feature design, not audit findings. They supersede the
 | 6    | 07   | In-page channel for the hover outline          | MED       | S      | —          | DONE   |
 | 7    | 08   | Static snapshot for bug reports                | MED       | M      | 02, 07     | DONE   |
 | 8    | 05   | Open-in-editor via `@devframes/service-open`   | LOW       | S      | —          | DONE   |
-| 9    | 09   | Deep linking into the panel                    | LOW       | S      | —          | TODO   |
+| 9    | 09   | Deep linking into the panel                    | LOW       | S      | 08         | DONE   |
 | 10   | 10   | Nuxt and Next adapters                         | LOW       | M      | 03         | TODO   |
 
 Plan numbers are stable file IDs, not ranks — 05 was demoted after its plan was
@@ -30,7 +30,7 @@ written (see below). Read the table top to bottom for the ordering.
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (one-line reason) |
 REJECTED (one-line rationale).
 
-Plans 01–08 have their own files. 09–10 are recorded below with enough detail
+Plans 01–09 have their own files. 10 is recorded below with enough detail
 to pick up later; writing them out now would mean inventing design detail ahead
 of the need.
 
@@ -85,8 +85,10 @@ interesting the work is or how much new surface it adds.
   barrier, so a second install only earns a DF0066 warning on every dev-server
   start and its options are discarded. The panel therefore consumes the
   service and installs nothing.
-- **09 is a convenience, and 10 expands the audience** rather than deepening
-  the experience — and this plugin's users are on Vite by definition.
+- **09 was a convenience, and 10 expands the audience** rather than deepening
+  the experience — and this plugin's users are on Vite by definition. 09 has
+  shipped; 10 is the only item left, and still gated on wanting the inspector
+  without the HMR patching that is this package's reason to exist.
 
 Effort/impact outlier worth noting: **04 had the best ratio on the board** (an
 ambient declaration versus a documented API that failed to compile), and it has
@@ -113,14 +115,12 @@ has no session to freeze, so the dev server exports its own state and
 
 ### 09 — Deep linking into the panel
 
-Devframe supports [deep links](https://devfra.me/guide/deep-linking) into a
-specific view within a devframe. Useful targets: a component by id, a timeline
-event by group id. Pairs naturally with 01 — a diagnostic could link straight
-to the component that failed to patch — and with the editor integration, where
-the reverse direction (editor → panel) becomes possible.
-
-Small, but it only pays off once there is something worth linking to, so it
-belongs after 01 and 02.
+Shipped; see `plans/roadmap/09-deep-linking.md`. The sketch's sequencing note
+("only pays off once there is something worth linking to") turned out to point
+at 08 rather than at 01/02: the link that earns its keep is one into an
+exported snapshot, which someone can actually send. Linking to a timeline event
+was left out — events have no identity that survives a reload — and is worth
+revisiting now that a snapshot freezes them.
 
 ### 10 — Nuxt and Next adapters
 

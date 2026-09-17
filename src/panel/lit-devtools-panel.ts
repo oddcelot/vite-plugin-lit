@@ -24,6 +24,7 @@ injectTokens({colorScheme: true});
 applyColorScheme(readColorSchemePreference());
 import './components-view.js';
 import type {ComponentsView} from './components-view.js';
+import {onDeepLink, writeHashLink} from './deep-link.js';
 import './devtools-settings.js';
 import '../lib/segmented-tabs.js';
 import type {TabItem} from '../lib/segmented-tabs.js';
@@ -134,6 +135,44 @@ export class LitDevtoolsPanel extends LitElement {
 
   private _onTabChange(e: CustomEvent<{value: string}>) {
     this._tab = e.detail.value;
+    this._syncHash();
+  }
+
+  /**
+   * Deep links are wired after the first render, not in `connectedCallback`:
+   * the `@query` for the Components view resolves against rendered DOM, and a
+   * link naming a component would silently drop its selection if applied
+   * before there is a view to hand it to.
+   */
+  override firstUpdated() {
+    // Two sources, one shape: the URL hash the panel opened with (standalone,
+    // or a snapshot someone was sent) and the hub activating our dock with
+    // params (another devframe, a command, or this plugin's own overlay pick).
+    onDeepLink((link) => {
+      if (link.tab !== undefined) this._tab = link.tab;
+      if (link.componentId !== undefined) {
+        this._tab = 'components';
+        this._componentsView?.selectById(link.componentId);
+      }
+      this._syncHash();
+    });
+  }
+
+  /**
+   * Keep the address bar pointing at what is on screen, so copying it is a
+   * link. Only meaningful when the panel owns its URL — docked in the hub it
+   * is an iframe nobody reads the address of, and writing there would be
+   * noise.
+   */
+  private _syncHash(): void {
+    if (window.top !== window.self) return;
+    writeHashLink({
+      tab: this._tab as 'timeline' | 'components' | 'settings',
+      ...(this._componentsView?.selectedId === null ||
+      this._componentsView?.selectedId === undefined
+        ? {}
+        : {componentId: this._componentsView.selectedId}),
+    });
   }
 
   /**
@@ -150,6 +189,7 @@ export class LitDevtoolsPanel extends LitElement {
     this._tab = 'components';
     // The view is always mounted, so it can select without waiting for render.
     this._componentsView?.selectById(e.detail.id);
+    this._syncHash();
   }
 
   /**
@@ -164,6 +204,7 @@ export class LitDevtoolsPanel extends LitElement {
    */
   private _onInspectorActivate() {
     this._tab = 'components';
+    this._syncHash();
   }
 
   override render() {
@@ -183,6 +224,7 @@ export class LitDevtoolsPanel extends LitElement {
         <components-view
           ?hidden=${this._tab !== 'components'}
           @inspector-activate=${this._onInspectorActivate}
+          @selection-change=${this._syncHash}
           @hmr-count-change=${this._onHmrCountChange}
         ></components-view>
         ${
