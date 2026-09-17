@@ -13,10 +13,10 @@ forward-looking feature design, not audit findings. They supersede the
 
 | Rank | Plan | Title                                          | DX impact | Effort | Depends on | Status |
 | ---- | ---- | ---------------------------------------------- | --------- | ------ | ---------- | ------ |
-| 1    | 01   | Surface HMR-incompatibility reasons            | HIGH      | M      | —          | TODO   |
-| 2    | 02   | Give coding agents the timeline                | HIGH      | S      | —          | TODO   |
-| 3    | 03   | CLI + stdio MCP against the running dev server | HIGH      | M      | 02         | TODO   |
-| 4    | 04   | Type the public timeline API                   | MED       | S      | —          | TODO   |
+| 1    | 01   | Surface HMR-incompatibility reasons            | HIGH      | M      | —          | DONE   |
+| 2    | 02   | Give coding agents the timeline                | HIGH      | S      | —          | DONE   |
+| 3    | 03   | CLI + stdio MCP against the running dev server | HIGH      | M      | 02         | DONE   |
+| 4    | 04   | Type the public timeline API                   | MED       | S      | —          | DONE   |
 | 5    | 06   | Persist panel settings per project             | MED       | S      | —          | TODO   |
 | 6    | 07   | In-page channel for pick and highlight         | MED       | M      | —          | TODO   |
 | 7    | 08   | Static snapshot for bug reports                | MED       | M      | 02         | TODO   |
@@ -60,9 +60,9 @@ interesting the work is or how much new surface it adds.
   is documentation only and ships immediately; the rest is making discovery
   work without hand-written config. Ranked below 02 because it is delivery
   plumbing for a capability that has to exist first.
-- **04 and 06 are small, well-understood, and remove daily friction.** 04 is a
-  documented feature that does not typecheck. 06 stops settings from being
-  per-browser. Each is an afternoon.
+- **04 and 06 are small, well-understood, and remove daily friction.** 04 was a
+  documented feature that did not typecheck; it has shipped. 06 stops settings
+  from being per-browser. Each is an afternoon.
 - **07 and 08 mostly matter once the tool is used outside a live dev server**,
   which is why they sit below the items that improve it inside one.
 - **05 was demoted while its plan was being written.** The original reasoning
@@ -77,9 +77,9 @@ interesting the work is or how much new surface it adds.
 - **09 is a convenience, and 10 expands the audience** rather than deepening
   the experience — and this plugin's users are on Vite by definition.
 
-Effort/impact outlier worth noting: **04 has the best ratio on the board** (an
-ambient declaration versus a documented API that fails to compile). If you want
-one quick win before starting 01, take 04.
+Effort/impact outlier worth noting: **04 had the best ratio on the board** (an
+ambient declaration versus a documented API that failed to compile), and it has
+shipped. 06 is the quick win left.
 
 ## Not yet planned
 
