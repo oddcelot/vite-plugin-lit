@@ -206,6 +206,21 @@ export function createLitDevframe(
               optional: true,
             });
           },
+          runtimeReady() {
+            // A new page means a new timeline clock: the runtime re-zeroes on
+            // the rising edge below, so events kept from the previous document
+            // would sit in the same buffer on a different time origin and make
+            // `recent-events`' `sinceMs` window meaningless. They also describe
+            // a page that no longer exists.
+            recentEvents.length = 0;
+
+            // Replay current state to a runtime that just booted from its
+            // defaults. Unconditional: `setRecording(false)` on a fresh page
+            // is a no-op.
+            const {layers} = session.value();
+            source.setLayers(layers);
+            source.setRecording(layers.recordingState);
+          },
           hmrIncompatible(event) {
             hmrIncompatibilities.push(event);
             if (hmrIncompatibilities.length > MAX_HMR_INCOMPATIBILITIES) {

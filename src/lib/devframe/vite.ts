@@ -131,6 +131,14 @@ export class HotTimelineSource implements TimelineSource {
     hot.on(HMR_INCOMPATIBLE_CHANNEL, (event: HmrIncompatibilityEvent) => {
       this.#sink?.hmrIncompatible(event);
     });
+
+    // The runtime announces itself on every connect. It boots from the
+    // compiled-in defaults (recording off), so the session's current state
+    // has to be pushed back down or a page that loads while recording is on
+    // captures nothing while every surface still reports `recording: true`.
+    hot.on('lit:timeline:runtime-ready', () => {
+      this.#sink?.runtimeReady();
+    });
   }
 
   /** Toggle the page's inspect overlay. Also used by the palette command. */

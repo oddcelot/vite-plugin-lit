@@ -229,6 +229,38 @@ describe('lit devframe definition', () => {
     expect(result.truncated).toBe(true);
   });
 
+  test('replays recording state to a runtime that just connected', async () => {
+    const {ctx, source} = await boot();
+    await ctx.rpc.invokeLocal('lit:set-recording', {recording: true});
+    // Ignore the pushes caused by the toggle itself; we care about what a
+    // page gets when it connects afterwards.
+    source.recording.length = 0;
+    source.layers.length = 0;
+
+    // A page loads or reloads while recording is already on. Without this
+    // replay it boots with `recordingState: false` and captures nothing,
+    // while every surface still reports `recording: true`.
+    source.sink!.runtimeReady();
+
+    expect(source.recording).toEqual([true]);
+    expect(source.layers[0]?.recordingState).toBe(true);
+  });
+
+  test('drops buffered events from the previous page on reconnect', async () => {
+    const {ctx, source} = await boot();
+    source.sink!.pushEvents([{layerId: 'mouse', time: 4000, data: {}}]);
+    expect((await ctx.rpc.invokeLocal('lit:recent-events')).bufferSize).toBe(1);
+
+    // The runtime re-zeroes its clock per page, so keeping the old page's
+    // events would put two time origins in one buffer and make `sinceMs`
+    // meaningless.
+    source.sink!.runtimeReady();
+
+    const after = await ctx.rpc.invokeLocal('lit:recent-events');
+    expect(after.bufferSize).toBe(0);
+    expect(after.events).toEqual([]);
+  });
+
   test('recent-events works with no arguments at all', async () => {
     // An agent calling the tool with no filters sends no argument object at
     // all, not an empty one — `invokeLocal(name, {})` would not catch this.
