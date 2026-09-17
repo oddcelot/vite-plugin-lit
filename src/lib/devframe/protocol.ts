@@ -17,6 +17,7 @@ import {DEFAULT_LAYERS_STATE} from '../../types/timeline.js';
 import type {
   FeatureSettings,
   SettingsOverride,
+  TimelineEvent,
   TimelineLayer,
   TimelineLayersState,
 } from '../../types/timeline.js';
@@ -45,6 +46,13 @@ export const TIMELINE_STREAM_NAME = 'timeline';
  */
 export const TIMELINE_STREAM_ID = 'live';
 
+/**
+ * Cap on the node-side recent-events ring buffer, matching the timeline
+ * stream's own `replayWindow` so an agent and a (re)connecting panel see
+ * comparable history.
+ */
+export const RECENT_EVENTS_BUFFER_SIZE = 512;
+
 /** Bare (unscoped) name of the `get-meta` query. */
 export const RPC_GET_META = 'get-meta';
 
@@ -53,6 +61,9 @@ export const RPC_LIST_COMPONENTS = 'list-components';
 
 /** Bare name of the `component-details` query. */
 export const RPC_COMPONENT_DETAILS = 'component-details';
+
+/** Bare name of the `recent-events` query. */
+export const RPC_RECENT_EVENTS = 'recent-events';
 
 /** Bare name of the `inspect` action. */
 export const RPC_INSPECT = 'inspect';
@@ -111,6 +122,34 @@ export interface ComponentDetailsArgs {
   id: number;
 }
 
+/** Argument of the `recent-events` query. */
+export interface RecentEventsArgs {
+  layerId?: string;
+  elementId?: number;
+  /**
+   * Only events from the last `sinceMs` milliseconds, measured against
+   * the newest event currently in the buffer — not wall-clock time.
+   * `TimelineEvent.time` is "ms since recording started" in the page
+   * (see `runtime/timeline/clock.ts`), which has no fixed relationship
+   * to this process's clock.
+   */
+  sinceMs?: number;
+  /** Default 50, hard ceiling 200 regardless of what's requested. */
+  limit?: number;
+}
+
+/** Result of the `recent-events` query. */
+export interface RecentEventsResult {
+  /** Whether the timeline is currently recording. */
+  recording: boolean;
+  /** Most recent events matching the filters, oldest first. */
+  events: TimelineEvent[];
+  /** Total events currently held in the ring buffer, before filtering. */
+  bufferSize: number;
+  /** True if filtering matched more events than were returned. */
+  truncated: boolean;
+}
+
 /** Argument of the `set-recording` action. */
 export interface SetRecordingArgs {
   recording: boolean;
@@ -145,6 +184,9 @@ declare module 'devframe' {
     'lit:component-details': (
       args: ComponentDetailsArgs
     ) => Promise<InspectorDetails | null>;
+    'lit:recent-events': (
+      args?: RecentEventsArgs
+    ) => Promise<RecentEventsResult>;
     'lit:inspect': (command: InspectorCommand) => Promise<void>;
     'lit:set-recording': (args: SetRecordingArgs) => Promise<void>;
     'lit:toggle-layer': (args: ToggleLayerArgs) => Promise<void>;

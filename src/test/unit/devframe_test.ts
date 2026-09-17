@@ -9,6 +9,7 @@ import {initDevframe} from 'devframe/initiate';
 import type {DevframeInstance} from 'devframe/initiate';
 import {TIMELINE_LAYERS} from '../../types/timeline.js';
 import {createLitDevframe} from '../../lib/devframe/definition.js';
+import {RECENT_EVENTS_BUFFER_SIZE} from '../../lib/devframe/protocol.js';
 import type {SessionState} from '../../lib/devframe/protocol.js';
 import type {TimelineSink, TimelineSource} from '../../lib/devframe/source.js';
 import type {InspectorCommand} from '../../types/inspector.js';
@@ -91,12 +92,31 @@ describe('lit devframe definition', () => {
       'lit:get-meta',
       'lit:list-components',
       'lit:component-details',
+      'lit:recent-events',
       'lit:inspect',
       'lit:set-recording',
       'lit:toggle-layer',
     ]) {
       expect(names).toContain(name);
     }
+  });
+
+  test('exposes exactly one mutating tool to agents', async () => {
+    // `set-recording` is the deliberate exception to the read-only agent
+    // surface (see plans/devframe-foundation.md). Asserting the whole set,
+    // not just its presence, so quietly agent-exposing the picker or a layer
+    // toggle fails here instead of shipping.
+    const {ctx} = await boot();
+    const tools = ctx.agent.list().tools;
+    const exposed = tools
+      .filter((t) => t.rpcName?.startsWith('lit:'))
+      .map((t) => t.rpcName);
+    expect(exposed).toContain('lit:set-recording');
+    expect(exposed).not.toContain('lit:inspect');
+    expect(exposed).not.toContain('lit:toggle-layer');
+
+    const recordingTool = tools.find((t) => t.rpcName === 'lit:set-recording');
+    expect(recordingTool?.description).toContain('shared toggle');
   });
 
   test('get-meta reports the version and custom layers', async () => {
@@ -161,5 +181,84 @@ describe('lit devframe definition', () => {
     expect(
       await ctx.rpc.invokeLocal('lit:component-details', {id: 2})
     ).toBeNull();
+  });
+
+  test('recent-events filters by layer, element, and reports recording state', async () => {
+    const {ctx, source} = await boot();
+    let result = await ctx.rpc.invokeLocal('lit:recent-events', {});
+    expect(result.recording).toBe(false);
+    expect(result.events).toEqual([]);
+
+    await ctx.rpc.invokeLocal('lit:set-recording', {recording: true});
+    source.sink!.pushEvents([
+      {layerId: 'lit-lifecycle', time: 0, data: {}, meta: {elementId: 1}},
+      {layerId: 'mouse', time: 10, data: {}},
+      {layerId: 'lit-lifecycle', time: 20, data: {}, meta: {elementId: 2}},
+    ]);
+
+    result = await ctx.rpc.invokeLocal('lit:recent-events', {});
+    expect(result.recording).toBe(true);
+    expect(result.events.length).toBe(3);
+    expect(result.bufferSize).toBe(3);
+
+    result = await ctx.rpc.invokeLocal('lit:recent-events', {
+      layerId: 'lit-lifecycle',
+    });
+    expect(result.events.length).toBe(2);
+
+    result = await ctx.rpc.invokeLocal('lit:recent-events', {elementId: 1});
+    expect(result.events).toEqual([
+      {layerId: 'lit-lifecycle', time: 0, data: {}, meta: {elementId: 1}},
+    ]);
+  });
+
+  test('recent-events caps the ring buffer and marks truncation', async () => {
+    const {ctx, source} = await boot();
+    const events = Array.from({length: 520}, (_, i) => ({
+      layerId: 'mouse',
+      time: i,
+      data: {},
+    }));
+    source.sink!.pushEvents(events);
+
+    const result = await ctx.rpc.invokeLocal('lit:recent-events', {
+      limit: 200,
+    });
+    expect(result.bufferSize).toBe(RECENT_EVENTS_BUFFER_SIZE);
+    expect(result.events.length).toBe(200);
+    expect(result.truncated).toBe(true);
+  });
+
+  test('recent-events works with no arguments at all', async () => {
+    // An agent calling the tool with no filters sends no argument object at
+    // all, not an empty one — `invokeLocal(name, {})` would not catch this.
+    const {ctx} = await boot();
+    const result = await ctx.rpc.invokeLocal('lit:recent-events');
+    expect(result.recording).toBe(false);
+    expect(result.events).toEqual([]);
+  });
+
+  test('recent-events measures sinceMs against the whole buffer', async () => {
+    const {ctx, source} = await boot();
+    // Element 1 last rendered long ago; mouse events kept flowing since.
+    source.sink!.pushEvents([
+      {layerId: 'lit-lifecycle', time: 0, data: {}, meta: {elementId: 1}},
+      {layerId: 'mouse', time: 9000, data: {}},
+      {layerId: 'mouse', time: 10000, data: {}},
+    ]);
+
+    // A window measured off the newest *matching* event would wrongly report
+    // element 1's stale render as recent; measured off the buffer it is out.
+    const stale = await ctx.rpc.invokeLocal('lit:recent-events', {
+      elementId: 1,
+      sinceMs: 1000,
+    });
+    expect(stale.events).toEqual([]);
+
+    const wide = await ctx.rpc.invokeLocal('lit:recent-events', {
+      elementId: 1,
+      sinceMs: 20000,
+    });
+    expect(wide.events.length).toBe(1);
   });
 });

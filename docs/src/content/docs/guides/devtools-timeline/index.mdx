@@ -84,17 +84,26 @@ the element in the Components tree.
 
 The panel is a [devframe](https://devfra.me), so the same data it renders is
 exposed to coding agents over MCP. Vite DevTools mounts the server at
-`/__mcp` on the dev server, and three read-only tools appear there:
+`/__devtools/__mcp` on the dev server, and six tools appear there:
 
-| Tool                    | Answers                                                               |
-| ----------------------- | --------------------------------------------------------------------- |
-| `lit_get-meta`          | Plugin version, available timeline layers, resolved settings.         |
-| `lit_list-components`   | The live element tree, with each component's source file and line.    |
-| `lit_component-details` | Reactive properties, attributes, and update flags for one element id. |
+| Tool                        | Answers                                                               |
+| --------------------------- | --------------------------------------------------------------------- |
+| `lit_get-meta`              | Plugin version, available timeline layers, resolved settings.         |
+| `lit_list-components`       | The live element tree, with each component's source file and line.    |
+| `lit_component-details`     | Reactive properties, attributes, and update flags for one element id. |
+| `lit_recent-events`         | Recent lifecycle/render/input events, filterable by element or layer. |
+| `lit_hmr-incompatibilities` | Components the plugin could not hot-patch in place, and why.          |
+| `lit_set-recording`         | Starts or stops timeline recording. The only tool that changes state. |
 
-Nothing that changes the page is exposed: recording, layer toggles, and the
-element picker stay panel-only. Point your agent at the dev server's `/__mcp`
-endpoint and it can answer "what's on this page and what state is it in?"
+Five of the six only read. The exception is `lit_set-recording`, which exists
+because `lit_recent-events` is a dead end while recording is off — an agent
+that can read the timeline but not start it can only hand the question back to
+you. Recording is a shared toggle, so an agent turning it on also changes what
+you see in an open panel. Everything else that changes the page — the layer
+toggles and the element picker — stays panel-only.
+
+Point your agent at the dev server's `/__devtools/__mcp` endpoint and it can
+answer "what's on this page, what state is it in, and why did it re-render?"
 against the running app instead of guessing from source.
 
 <Aside type="caution" title="Dev servers are not public">

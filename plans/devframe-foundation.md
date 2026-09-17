@@ -164,6 +164,10 @@ bin.mjs           (phase 4) createCac(definition)
   strict encoding surfaces accidental `Map`/`Element` leaks as coded errors.
 - **Agent surface is read-only by default.** Only `type: 'query'` functions get
   `agent`. Inspector actions stay UI-only until there's a use case.
+  _Revised 2026-09-17_ (`plans/roadmap/02-agent-timeline-access.md`, Step 8):
+  the use case arrived with `recent-events` — reading the timeline is useless
+  while recording is off — so `set-recording` now carries `agent` too. It is
+  the only exception; the picker and layer toggles remain UI-only.
 - **Vite-specific code lives only in `vite.ts`.** The definition must run
   under `createDevServer()` with no Vite installed.
 
