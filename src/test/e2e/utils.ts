@@ -11,7 +11,7 @@ import {fileURLToPath} from 'node:url';
 import {createServer, type ViteDevServer} from 'vite';
 import {chromium, type Browser, type Page} from 'playwright-core';
 import {litPlugin, type LitPluginOptions} from '../../index.js';
-import {litCssQueries} from '../../lib/plugin.js';
+import {litCssQueries, litTimelineVirtual} from '../../lib/plugin.js';
 import {canarySettings} from '../canary.js';
 
 const PACKAGE_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
@@ -74,12 +74,14 @@ export const startFixture = async (
     // Empty unless LIT_CANARY=1 (see ../canary.ts).
     ...canarySettings(),
     server: {host: '127.0.0.1', port: 0},
-    // Baseline runs keep the CSS import-query plugin (the playground source
-    // can't boot without it) but drop the HMR plugin — the query provides no
-    // HMR boundaries, so the baseline's full-reload claim is unaffected.
+    // Baseline runs keep the CSS import-query plugin and the timeline
+    // virtual-module stub (the playground source can't boot without either:
+    // hmr-custom-layer.ts imports `virtual:lit-plugin/timeline`) but drop the
+    // HMR plugin — neither provides an HMR boundary, so the baseline's
+    // full-reload claim is unaffected.
     plugins:
       options.plugin === false
-        ? [litCssQueries()]
+        ? [litCssQueries(), litTimelineVirtual()]
         : [litPlugin(options.plugin ?? {})],
   });
   await server.listen();
