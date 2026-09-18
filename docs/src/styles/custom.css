@@ -1,14 +1,212 @@
-/* One accent hue (a warm amber, deliberately not Lit's blue — this is a
-   third-party plugin, not part of Lit). Everything else stays default
-   Starlight. */
+/* The Lit Design System palette, mapped onto Starlight's tokens.
+   https://github.com/oddcelot/Lit-Design-System
+
+   The design system is the source of truth for every value here; this file
+   only translates its names into the `--sl-*` names Starlight reads. Dark is
+   the flagship theme there, and it is Starlight's default too, so `:root`
+   carries the DevTools palette and `[data-theme='light']` carries the lit.dev
+   website one — the same split the design system uses.
+
+   Starlight defines its own props inside `@layer starlight.base`. This file is
+   unlayered, so it wins without needing extra specificity. */
+
+/* ---------------------------------------------------------------- Type ---- */
+
 :root {
-  --sl-color-accent-low: #3a2a04;
-  --sl-color-accent: #a97a05;
-  --sl-color-accent-high: #f0cc80;
+  /* `--font-manrope` / `--font-roboto-mono` come from Astro's font pipeline;
+     they are declared in astro.config.mjs and emitted by the `<Font>` tags in
+     the Head override. Starlight appends its own system stack after each. */
+  --sl-font: var(--font-manrope);
+  --sl-font-mono: var(--font-roboto-mono);
 }
 
-:root[data-theme='light'] {
-  --sl-color-accent-low: #f6e4b7;
-  --sl-color-accent: #8a6300;
-  --sl-color-accent-high: #3a2a04;
+/* The design system runs extrabold with tight tracking at display sizes and
+   semibold below that. Starlight has no token for either, so set them here. */
+.sl-markdown-content :is(h1, h2),
+.hero h1,
+.content-panel h1 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.sl-markdown-content :is(h3, h4, h5, h6) {
+  font-weight: 600;
+}
+
+/* ------------------------------------------------- Dark · DevTools theme ---- */
+
+:root {
+  /* The neutral ink scale. Starlight wants eight steps; these are the eight
+     the design system's fourteen collapse to, keeping ink-0 for the page void
+     and ink-2 for the chrome, exactly as the DevTools does. */
+  --sl-color-white: hsl(0 0% 100%); /* ink-13 */
+  --sl-color-gray-1: hsl(0 0% 89%); /* ink-12 */
+  --sl-color-gray-2: hsl(0 0% 78%); /* ink-11 */
+  --sl-color-gray-3: hsl(0 0% 57%); /* ink-9  */
+  --sl-color-gray-4: hsl(0 0% 38%); /* ink-8  */
+  --sl-color-gray-5: hsl(0 0% 21%); /* ink-6  */
+  --sl-color-gray-6: hsl(0 0% 7%); /* ink-2  */
+  --sl-color-black: hsl(0 0% 1%); /* ink-0  */
+
+  /* One accent: the flame blue. `accent-high` is the same hue lifted to 85%
+     lightness, because Starlight uses it for link text on the near-black page
+     and the mid tone does not carry enough contrast there. */
+  --sl-color-accent-low: #2a2c9d; /* lit-indigo         */
+  --sl-color-accent: #4d63ff; /* lit-blue-bright    */
+  --sl-color-accent-high: hsl(232 100% 85%);
+
+  /* The design system gives the accent itself to primary surfaces in both
+     themes, with white on top. Starlight's dark default fills them with the
+     pale `accent-high` and writes dark text on it, so both are reset here. */
+  --sl-color-bg-accent: var(--sl-color-accent);
+  --sl-color-text-invert: #ffffff; /* on-accent */
+  --lit-accent-soft: hsl(232 100% 65% / 0.16);
+
+  /* Body text is the design system's --text, one step above Starlight's. */
+  --sl-color-text: hsl(0 0% 89%); /* ink-12 */
+  --sl-color-bg-inline-code: hsl(0 0% 13%); /* ink-4, surface-container */
+  --sl-color-hairline-light: hsl(0 0% 21%); /* ink-6, border            */
+
+  /* Aside accents, from the semantic status colours. Cyan carries `note`
+     because cyan is the flame's spot highlight; `tip` keeps Starlight's purple,
+     which the design system does not specify. */
+  --sl-color-blue-low: hsl(186 60% 16%);
+  --sl-color-blue: #00e8ff; /* info    */
+  --sl-color-blue-high: hsl(186 90% 82%);
+  --sl-color-green-low: hsl(158 45% 18%);
+  --sl-color-green: hsl(158 74% 53%); /* success */
+  --sl-color-green-high: hsl(158 74% 82%);
+  --sl-color-orange-low: hsl(41 60% 20%);
+  --sl-color-orange: #f4bf4f; /* warning */
+  --sl-color-orange-high: hsl(41 88% 85%);
+  --sl-color-red-low: hsl(0 45% 22%);
+  --sl-color-red: #ff6b6b; /* error   */
+  --sl-color-red-high: hsl(0 100% 87%);
+}
+
+/* ------------------------------------------------ Light · lit.dev theme ---- */
+
+:root[data-theme='light'],
+[data-theme='light'] ::backdrop {
+  --sl-color-white: #000000; /* text-strong  */
+  --sl-color-gray-1: #242424; /* text         */
+  --sl-color-gray-2: #3d3d3d;
+  --sl-color-gray-3: #6e6e6e; /* text-secondary */
+  --sl-color-gray-4: #949494; /* text-muted     */
+  --sl-color-gray-5: #c6c6c6; /* border-strong  */
+  --sl-color-gray-6: #e2e2e2; /* border         */
+  --sl-color-gray-7: #f3f3f3; /* surface-low    */
+  --sl-color-black: #ffffff; /* surface        */
+
+  --sl-color-accent-low: hsl(232 100% 92%);
+  --sl-color-accent: #324fff; /* lit-blue       */
+  --sl-color-accent-high: #2a2c9d; /* accent-pressed */
+  --lit-accent-soft: hsl(232 100% 60% / 0.12);
+
+  --sl-color-text: #242424;
+  /* lit.dev puts the page on a light grey and floats white chrome on top.
+     Starlight does the reverse by default, so both are set explicitly. */
+  --sl-color-bg: #f4f4f4;
+  --sl-color-bg-nav: #ffffff;
+  --sl-color-bg-sidebar: #ffffff;
+  --sl-color-bg-inline-code: #e8e8e8; /* surface-container-high */
+  --sl-color-hairline-light: #e2e2e2; /* border                 */
+
+  --sl-color-blue-high: hsl(212 100% 30%);
+  --sl-color-blue: #005dc7; /* info    */
+  --sl-color-blue-low: hsl(212 90% 90%);
+  --sl-color-green-high: hsl(161 80% 20%);
+  --sl-color-green: #00865b; /* success */
+  --sl-color-green-low: hsl(161 60% 88%);
+  --sl-color-orange-high: hsl(36 100% 28%);
+  --sl-color-orange: #b26a00; /* warning */
+  --sl-color-orange-low: hsl(36 90% 88%);
+  --sl-color-red-high: hsl(0 75% 35%);
+  --sl-color-red: #ba1a1a; /* error   */
+  --sl-color-red-low: hsl(0 75% 92%);
+}
+
+/* ------------------------------------------------------------ Controls ---- */
+
+/* The design system puts controls on an 8px radius (--radius-md) and reserves
+   true pills for badges. Starlight ships its buttons as full pills, and leaves
+   their label at regular weight where the system asks for semibold. */
+
+.sl-link-button {
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.sl-link-button.primary {
+  background: var(--sl-color-accent);
+  border-color: var(--sl-color-accent);
+  color: #ffffff;
+}
+
+/* Active nav is an accent-soft fill behind a 3px accent bar. Starlight instead
+   floods the row with `text-accent` — which in dark is the pale tint, leaving
+   white label text on it at 1.8:1.
+
+   Square corners on purpose: a radius here drags the indicator bar around the
+   curve and pinches it into a crescent. Starlight's own 4px does it too, so
+   this is set to 0 rather than left to inherit. */
+
+#starlight__sidebar a[aria-current='page'] {
+  background-color: var(--lit-accent-soft);
+  box-shadow: inset 3px 0 0 var(--sl-color-accent);
+  border-radius: 0;
+  color: var(--sl-color-text-accent);
+}
+
+/* ----------------------------------------------------------- Selection ---- */
+
+::selection {
+  background: var(--sl-color-accent);
+  color: #ffffff;
+}
+
+/* ---------------------------------------------------------- Hero wash ---- */
+
+/* The design system allows one piece of imagery on a hero: a soft flame glow.
+   Starlight sets `data-has-hero` on splash pages, so this only touches the
+   landing page. Kept faint — the system calls for flat surfaces everywhere
+   else, and no gradients on components. */
+
+[data-has-hero] .page {
+  background:
+    radial-gradient(
+        ellipse 80rem 40rem at 50% -10rem,
+        hsl(232 100% 65% / 0.14),
+        transparent 70%
+      )
+      no-repeat,
+    radial-gradient(
+        ellipse 50rem 25rem at 85% 0,
+        hsl(186 100% 50% / 0.06),
+        transparent 70%
+      )
+      no-repeat;
+}
+
+[data-has-hero] header {
+  border-bottom: 1px solid transparent;
+  background-color: transparent;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+:root[data-theme='light'] [data-has-hero] .page {
+  background:
+    radial-gradient(
+        ellipse 80rem 40rem at 50% -10rem,
+        hsl(232 100% 60% / 0.1),
+        transparent 70%
+      )
+      no-repeat,
+    radial-gradient(
+        ellipse 50rem 25rem at 85% 0,
+        hsl(186 100% 45% / 0.05),
+        transparent 70%
+      )
+      no-repeat;
 }
