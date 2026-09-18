@@ -1,94 +1,127 @@
 ---
-title: Link and inline
-description: ?hmr-url for a <link> inside a shadow root, and ?inline / ?raw for CSS as a string.
+title: Style a single component from a .css file
+description: Keep a component's own rules in a CSS file and choose whether the browser fetches it or the bundle carries it.
 sidebar:
   order: 4
 ---
 
-import {CardGrid, LinkCard} from '@astrojs/starlight/components';
+import {Aside, Code, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import linkedCss from '../../../../../../playground/src/hmr-linked-css.css?raw';
+import linked from '../../../../../../playground/src/hmr-linked-css.ts?raw';
+import rawCssFile from '../../../../../../playground/src/hmr-raw-css.css?raw';
+import raw from '../../../../../../playground/src/hmr-raw-css.ts?raw';
+import sharedCss from '../../../../../../playground/src/hmr-shared.css?raw';
+import sharedSheet from '../../../../../../playground/src/hmr-shared-sheet.ts?raw';
+import sharedA from '../../../../../../playground/src/hmr-shared-css-a.ts?raw';
+import urlCss from '../../../../../../playground/src/hmr-css-url.css?raw';
+import cssUrl from '../../../../../../playground/src/hmr-css-url.ts?raw';
+import {stripHeader} from '../../../../lib/fixture';
 
-You want this for component-local styles — the CSS one component owns, rather
-than a utility layer many components share. Both forms here cost a component
-re-render or a duplicated copy of the bytes, which is exactly the tradeoff the
-[decision guide](/vite-plugin-lit/guides/stylesheets/) says to accept only for
-one-off styles.
+Keep a component's own rules in a `.css` file next to it, and choose whether
+the browser fetches it or the bundle carries it. Both re-render that component
+on edit, which is fine for styles only it uses.
 
-## External stylesheet via `<link>`
+## Link it
 
-For a `<link rel="stylesheet">` (or `@import url()`) inside a shadow root, the
-`?hmr-url` import query yields a real stylesheet URL (dev-served file; hashed
-`.css` asset on build). On edit the component re-renders with a freshly
-cache-busted href so the browser refetches — simpler than `urlSheet`, but it
-**does** re-render.
+The `?hmr-url` query yields a real stylesheet URL: the dev server serves the
+file, and `vite build` emits it as a hashed `.css` asset. Point a
+`<link rel="stylesheet">` inside the shadow root at it.
 
-```ts
-import href from './my-element.css?hmr-url';
+<Code code={stripHeader(linkedCss)} lang="css" title="src/hmr-linked-css.css" />
 
-@customElement('my-el')
-export class MyEl extends LitElement {
-  override render() {
-    return html`<link rel="stylesheet" href=${href} />
-      <div class="card">…</div>`;
-  }
-}
-```
+<Code
+  code={stripHeader(linked)}
+  lang="ts"
+  title="src/hmr-linked-css.ts"
+  mark={[3, 33]}
+/>
 
-`devCacheBust()` is the underlying helper if you import `?url` yourself:
+On edit the component re-renders with a freshly cache-busted href, so the
+browser refetches. The same import works inside `@import url()` in a `<style>`
+element, which the `hmr-import-css.ts` fixture demonstrates.
 
-```ts
-import cssUrl from './my-element.css?url';
-import {devCacheBust} from '@oddsquad/vite-plugin-lit/css.js';
+## Inline it
 
-const href = devCacheBust(cssUrl); // module scope, not inside render()
-```
+`?raw` hands back the file text verbatim; `?inline` hands back the text after
+Vite's CSS pipeline. Either one feeds `unsafeCSS` for `static styles`, so the
+bytes ride in the JS chunk with no runtime fetch and no flash of unstyled
+content.
 
-Call it at module scope. Inside `render()` every render would produce a new
-href and refetch the stylesheet.
+<Code code={stripHeader(rawCssFile)} lang="css" title="src/hmr-raw-css.css" />
 
-## Inlined
+<Code
+  code={stripHeader(raw)}
+  lang="ts"
+  title="src/hmr-raw-css.ts"
+  mark={[3, 34]}
+/>
 
-`?inline` (processed) or `?raw` (verbatim) hand back the CSS as a string to
-feed `unsafeCSS` or `replaceSync`. No standalone `.css` asset — the text ships
-inside the JS chunk — but no runtime fetch and no FOUC.
+`?raw` skips Lightning CSS and PostCSS, so stick to syntax browsers accept
+natively. Swap it for `?inline` when you want the pipeline. An edit re-executes
+the module and the plugin hot-swaps the class's styles on live instances.
 
-```ts
-import cssText from './my-element.css?inline';
+## Build one sheet from inline text and share it
 
-@customElement('my-el')
-export class MyEl extends LitElement {
-  static override styles = [unsafeCSS(cssText)];
-}
-```
+Inlining per component duplicates the bytes once per component type. Build the
+sheet once in its own module instead and the copies collapse to one, without
+the fetch a `?css-sheet` import would make.
 
-Lit caches `static styles` **per component class**, so one component type
-instantiated N times parses its sheet once. What multiplies is the number of
-distinct component types that inline the same text — which is why this is the
-wrong shape for a shared utility sheet and a fine shape for a component's own
-rules.
+<Code code={stripHeader(sharedCss)} lang="css" title="src/hmr-shared.css" />
 
-To share one sheet without the fetch — the "inline shared module" row in the
-comparison table — build the sheet once in its own module:
+<Code
+  code={stripHeader(sharedSheet)}
+  lang="ts"
+  title="src/hmr-shared-sheet.ts"
+  mark={[1, 20, 21, 23, 25, 26, 27, 28, 29, 30, 31]}
+/>
 
-```ts
-// utility-sheet.ts
-import cssText from './utility.css?inline';
+The module accepts its own CSS dependency and calls `replaceSync()` on the
+existing sheet, so adopters restyle without re-executing. Components just
+import the sheet.
 
-const sheet = new CSSStyleSheet();
-sheet.replaceSync(cssText);
-export default sheet;
-```
+<Code
+  code={stripHeader(sharedA)}
+  lang="ts"
+  title="src/hmr-shared-css-a.ts"
+  mark={[3, 19]}
+/>
+
+## When you already have `?url`
+
+`?hmr-url` is `?url` with the cache-busting done for you. If you import `?url`
+yourself, `devCacheBust()` is the helper that does it: in dev it appends a
+timestamp, and in a build it returns the content-hashed URL unchanged.
+
+<Code code={stripHeader(urlCss)} lang="css" title="src/hmr-css-url.css" />
+
+<Code
+  code={stripHeader(cssUrl)}
+  lang="ts"
+  title="src/hmr-css-url.ts"
+  mark={[3, 4, 30]}
+/>
+
+<Aside type="caution" title="Module scope only">
+  Call `devCacheBust()` where the fixture does, at module scope. Inside
+  `render()` every render produces a new href and refetches the stylesheet.
+</Aside>
+
+Lit caches `static styles` per component class, so the cost of these shapes
+depends on how many component types use the same CSS.
+[CSS delivery](/vite-plugin-lit/concepts/css-delivery/) works through the
+numbers.
 
 ## Related
 
 <CardGrid>
   <LinkCard
-    title="Choosing a delivery strategy"
-    description="What each of these costs at 3000 components."
-    href="/vite-plugin-lit/guides/stylesheets/"
+    title="Import queries"
+    description="Every query the plugin adds, with its ambient type."
+    href="/vite-plugin-lit/reference/import-queries/"
   />
   <LinkCard
-    title="Import queries"
-    description="Every query the plugin adds, and its ambient type."
-    href="/vite-plugin-lit/reference/import-queries/"
+    title="Choose how to deliver CSS"
+    description="The table that decides between these shapes and a shared sheet."
+    href="/vite-plugin-lit/guides/stylesheets/"
   />
 </CardGrid>

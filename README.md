@@ -26,7 +26,7 @@ This plugin fixes that with two cooperating mechanisms:
    re-executed module patches the originally-registered class in place, then
    restores reactive property values through the new accessors.
 
-[How it works →](https://oddcelot.github.io/vite-plugin-lit/getting-started/how-it-works/)
+[How it works →](https://oddcelot.github.io/vite-plugin-lit/concepts/how-hmr-works/)
 
 ## Usage
 
@@ -51,7 +51,7 @@ CSS literal processing apply in both dev and build.
 - **[Stylesheets at scale](https://oddcelot.github.io/vite-plugin-lit/guides/stylesheets/)**
   — one shared `CSSStyleSheet` for thousands of shadow roots, hot-swapped
   without re-rendering, from a bare `?css-sheet` import.
-- **[DevTools timeline](https://oddcelot.github.io/vite-plugin-lit/guides/devtools-timeline/)**
+- **[DevTools timeline](https://oddcelot.github.io/vite-plugin-lit/guides/devtools/)**
   — a layered event recorder and live component inspector inside Vite DevTools.
 - **[Source overlay](https://oddcelot.github.io/vite-plugin-lit/guides/source-overlay/)**
   — click any element in the page to open its source in your editor.
@@ -135,6 +135,7 @@ pnpm dev   # builds the plugin, then serves http://localhost:5179
 ## Development
 
 Requires Node 26 and pnpm 12 (`corepack enable` picks up the pinned version).
+The published package itself runs on Node 20 or newer.
 
 ```sh
 pnpm install         # workspace: root package + playground + docs

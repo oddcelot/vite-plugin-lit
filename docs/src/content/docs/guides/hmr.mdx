@@ -1,122 +1,191 @@
 ---
-title: HMR
-description: What survives a hot patch, what forces a reload, and how to tune the reconnect, fallback, and indicator behaviour.
+title: Keep state across edits
+description: What a hot patch preserves, the three settings worth changing, and how to read the on-page indicator.
 sidebar:
   order: 1
 ---
 
-import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import {Aside, Code, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import siblings from '../../../../../playground/src/hmr-siblings.ts?raw';
+import sharedSignal from '../../../../../playground/src/shared-signal.ts?raw';
+import signals from '../../../../../playground/src/hmr-signals.ts?raw';
+import {stripHeader} from '../../../lib/fixture';
 
-You want this when you are editing Lit components all day and need to know
-exactly how much of the page's state a save preserves. It also covers the two
-knobs worth changing — what happens on an incompatible patch, and whether
-lifecycle callbacks are cycled afterwards.
-
-HMR is on by default; `litPlugin()` with no arguments is the configuration
-described here.
+Keep focus, input text, scroll position and child state while you edit a
+component. This page covers the defaults and the three settings worth
+changing; how the patching works is in Concepts.
 
 ## What survives an edit
 
-A hot patch keeps the canonical class object and every live instance of it.
-Concretely, across an edit to a component module:
+A hot patch is an edit applied to the running page without a reload. The
+plugin updates the canonical class in place: the class the browser registered
+first. Every live instance keeps running.
 
-- **DOM identity and state** — focus, text selection, scroll offsets, and the
-  values of uncontrolled inputs stay as they were. Only the part of the
-  template you actually changed is rebuilt.
-- **Reactive properties and `@state`** — snapshotted before the patch and
-  restored through the new accessors afterwards.
-- **Child components** — untouched unless their own module changed. A parent
-  edit does not reset a child's `@state`.
-- **Adopted stylesheets** — constructed sheets stay the same objects, so a
-  shared sheet is not re-parsed and not re-adopted.
-- **Controllers holding instance state** — `@lit/task` results, context
-  subscriptions, and similar controller state survive; see
-  [Ecosystem](/vite-plugin-lit/guides/ecosystem/) for the per-library detail.
+Across an edit to a component module, these survive:
 
-What does **not** survive is module-level state inside the edited module: a
-`const` declared at module scope is re-created when the module re-executes.
-Keep anything that must outlive an edit — signals, context keys, caches — in a
-module of its own that the component imports.
+- **DOM identity and state.** Focus, text selection, scroll offsets and
+  uncontrolled input values stay where they were. Only the part of the
+  template you changed is rebuilt.
+- **Reactive properties and `@state`.** Snapshotted before the patch, then
+  restored through the new accessors.
+- **Child components.** Untouched unless their own module changed. A parent
+  edit never resets a child's `@state`.
+- **Adopted stylesheets.** Constructed sheets stay the same objects, so
+  nothing is re-parsed and nothing is re-adopted.
+- **Controllers holding instance state.** Task results and context
+  subscriptions survive. The
+  [ecosystem guide](/vite-plugin-lit/guides/ecosystem/) has the per-library
+  detail.
 
-## When a patch is impossible
+The playground fixture below is the shape to test against. Edit the header
+literal on the marked line: the list keeps its DOM identity and the input
+keeps focus, value and selection.
 
-Some shapes cannot be patched in place, and the plugin detects each of them
-deterministically rather than guessing. The full list, with the reason for
-each, is in [Limitations](/vite-plugin-lit/reference/limitations/).
+<Code
+  code={stripHeader(siblings)}
+  lang="ts"
+  title="src/hmr-siblings.ts"
+  mark={[25]}
+/>
 
-What happens next is the `hmr.onIncompatible` option:
+## Keep shared state out of the edited module
 
-```ts
-litPlugin({hmr: {onIncompatible: 'reload'}}); // default
-litPlugin({hmr: {onIncompatible: 'warn'}});
+One thing does not survive: module-level state inside the module you edited.
+A `const` at module scope is re-created when that module re-executes.
+
+Put anything that must outlive an edit in a module of its own. Signals,
+context keys and caches all qualify. That module holds no component, so a
+component edit never re-executes it.
+
+<Code
+  code={stripHeader(sharedSignal)}
+  lang="ts"
+  title="src/shared-signal.ts"
+  mark={[11]}
+/>
+
+The component imports the object rather than creating it, so the value and
+its subscribers ride through every patch.
+
+<Code
+  code={stripHeader(signals)}
+  lang="ts"
+  title="src/hmr-signals.ts"
+  mark={[4]}
+/>
+
+## Choose what happens on an incompatible edit (`onIncompatible`)
+
+Some component shapes cannot be updated in place. That is an incompatible
+patch, and the plugin detects each case deterministically rather than
+guessing. [Limitations](/vite-plugin-lit/reference/limitations/) lists every
+one with its reason.
+
+`onIncompatible` decides what happens next. The default, `'reload'`, reloads
+the page: you lose the page's state, but you never look at a half-patched
+component.
+
+```diff lang="ts" title="vite.config.ts"
+  import {defineConfig} from 'vite';
+  import {litPlugin} from '@oddsquad/vite-plugin-lit';
+
+  export default defineConfig({
+-   plugins: [litPlugin()],
++   plugins: [litPlugin({hmr: {onIncompatible: 'warn'}})],
+  });
 ```
 
-- `'reload'` (default) — full page reload. You lose the page's state, but you
-  never look at a half-patched component.
-- `'warn'` — log to the console and leave the page alone. Useful while you are
-  deliberately working on a component you know cannot be patched, and you would
-  rather keep the page's state and reload by hand.
+`'warn'` logs to the console and leaves the page alone. Reach for it while
+you work on a component you already know cannot be patched, and reload by
+hand when you are ready.
 
-## Cycling lifecycle callbacks
+## Re-run connectedCallback after a patch (`reconnect`)
 
-```ts
-litPlugin({hmr: {reconnect: true}});
-```
+`reconnect` cycles `disconnectedCallback()` and `connectedCallback()` on live
+instances after every patch. It is off by default.
 
-`hmr.reconnect` cycles `disconnectedCallback()` / `connectedCallback()` on
-live instances after a patch. It is off by default: interning makes it mostly
-unnecessary, and cycling is observable — controllers tear down and set up
-again, event listeners are re-registered, animations restart.
+Off is right for most work. Template interning means reusing the same template
+object for identical template text, so Lit sees an unchanged template as
+unchanged. That keeps a patch small. Cycling is observable by contrast:
+controllers tear down and set up again, event listeners re-register, and
+animations restart.
 
 Turn it on when a component does real work in `connectedCallback()` that you
-want re-run on every edit; leave it off otherwise.
+want re-run on every edit.
 
-## The on-page indicator
+```diff lang="ts" title="vite.config.ts"
+  import {defineConfig} from 'vite';
+  import {litPlugin} from '@oddsquad/vite-plugin-lit';
 
-A small indicator sits in the corner of the page and pulses on each update, so
-you can tell a successful patch from a silent no-op without watching the
-console.
-
-```ts
-litPlugin({hmr: {indicator: {count: true}}});
+  export default defineConfig({
+-   plugins: [litPlugin()],
++   plugins: [litPlugin({hmr: {reconnect: true}})],
+  });
 ```
 
-- `hmr.indicator: false` turns it off. It is also forced off when HMR itself is
-  disabled.
-- `hmr.indicator.count` adds a cumulative update count next to the dot (and
-  raises its idle opacity so the number stays readable).
+## Read the indicator
 
-A **green** pulse means a component re-rendered. A calmer **cyan** pulse means
-something updated without re-rendering a component — in practice a shared
-stylesheet that was swapped in place. Only green pulses advance the count; a
-full reload resets it. The
-[quick start](/vite-plugin-lit/getting-started/quick-start/#what-the-indicator-counts)
-has the per-edit table.
+A small indicator sits in the corner of the page and pulses on each update.
+It separates a successful patch from a silent no-op without the console.
 
-## Reconnecting after the server restarts
+A green pulse means a component re-rendered.
 
-Vite's client reconnects on its own when the dev server comes back. The
-plugin's runtime rides on that connection, so after a restart the next edit is
-patched as usual. What does not carry over is the intern map and the patched
-classes: they live in the page, so a manual reload — or the reload that an
-incompatible patch triggers — starts them fresh.
+{/* shot: hmr-indicator-green */}
+
+A calmer cyan pulse means something updated without re-rendering a component.
+In practice that is a shared stylesheet, one `CSSStyleSheet` object adopted by
+many shadow roots, swapped in place.
+
+{/* shot: hmr-indicator-cyan */}
+
+Only green pulses advance the count, and a full reload resets it. Each row
+below is an edit you can make in the playground.
+
+| Playground edit         | Delivery                  | Re-renders? | Counts? | Pulse           |
+| ----------------------- | ------------------------- | ----------- | ------- | --------------- |
+| `hmr-vsheet.css`        | `?css-sheet` shared sheet | no          | no      | info (cyan)     |
+| `hmr-shared.css`        | `?raw` → shared sheet     | no          | no      | info (cyan)     |
+| `hmr-utility-sheet.css` | `?url` → shared sheet     | no          | no      | info (cyan)     |
+| `hmr-linked-css.css`    | `?hmr-url` `<link>`       | yes         | yes     | success (green) |
+| `hmr-import-css.css`    | `?hmr-url` `@import`      | yes         | yes     | success (green) |
+| `hmr-css-url.css`       | `?url` + `devCacheBust()` | yes         | yes     | success (green) |
+| `hmr-raw-css.css`       | `?raw` static styles      | yes         | yes     | success (green) |
+| any `*.ts` component    | component module          | yes         | yes     | success (green) |
+| `main.ts`               | not self-accepting        | full reload | resets  | —               |
+
+The last row is a module that never tells Vite it can apply its own updates.
+The edit walks up to a full reload instead of stopping there.
+
+Set `hmr.indicator` to `false` to remove the indicator; it is forced off when
+HMR itself is off. `hmr.indicator.count` adds the running total next to the
+dot and raises its idle opacity so the number stays readable.
+
+```diff lang="ts" title="vite.config.ts"
+  import {defineConfig} from 'vite';
+  import {litPlugin} from '@oddsquad/vite-plugin-lit';
+
+  export default defineConfig({
+-   plugins: [litPlugin()],
++   plugins: [litPlugin({hmr: {indicator: {count: true}}})],
+  });
+```
 
 <Aside type="tip">
-  If you are unsure whether an edit was patched or reloaded, watch the indicator
-  count. A reload resets it to zero.
+  Unsure whether an edit was patched or reloaded? Watch the count. A reload
+  resets it to zero.
 </Aside>
 
 ## Related
 
 <CardGrid>
   <LinkCard
-    title="Options"
-    description="hmr.enabled, hmr.reconnect, hmr.onIncompatible, hmr.indicator."
-    href="/vite-plugin-lit/reference/options/"
+    title="How HMR works"
+    description="The two mechanisms behind an in-place patch."
+    href="/vite-plugin-lit/concepts/how-hmr-works/"
   />
   <LinkCard
-    title="Limitations"
-    description="Every case that falls back to a reload, and why."
-    href="/vite-plugin-lit/reference/limitations/"
+    title="Use signals, context, tasks and the virtualizer"
+    description="The same rules applied to the Lit ecosystem libraries."
+    href="/vite-plugin-lit/guides/ecosystem/"
   />
 </CardGrid>

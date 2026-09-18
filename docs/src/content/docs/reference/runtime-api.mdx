@@ -1,6 +1,6 @@
 ---
 title: Runtime API
-description: The browser helpers exported from @oddsquad/vite-plugin-lit/css.js and the virtual:lit-plugin/timeline module.
+description: 'The browser helpers exported from @oddsquad/vite-plugin-lit/css.js, and the virtual:lit-plugin/timeline module.'
 sidebar:
   order: 4
 ---
@@ -8,81 +8,94 @@ sidebar:
 import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
 
 Two runtime entry points ship with the package: the CSS helpers under
-`@oddsquad/vite-plugin-lit/css.js`, and the timeline API behind the
-`virtual:lit-plugin/timeline` module. Both are dependency-free and safe to
-import from component code.
+`@oddsquad/vite-plugin-lit/css.js`, and the timeline API behind
+`virtual:lit-plugin/timeline`. Both are dependency-free and safe to import from
+component code.
 
-## `@oddsquad/vite-plugin-lit/css.js`
-
-### urlSheet(url)
+## urlSheet()
 
 ```ts
 function urlSheet(url: string): UrlSheet;
+```
 
+Builds one constructed `CSSStyleSheet` from a `?url`-imported CSS asset. Adopt
+it from any number of shadow roots through `adoptedStyleSheets`, and an edit to
+the source CSS re-fetches and `replaceSync()`s that one object. Every root that
+adopted it restyles, with no component re-render and no page reload.
+
+```ts title="src/styles/utility-sheet.ts"
+import {urlSheet} from '@oddsquad/vite-plugin-lit/css.js';
+import sheetUrl from './utils.css?url';
+
+const {sheet, onHotUpdate} = urlSheet(sheetUrl);
+
+import.meta.hot?.accept('./utils.css?url', onHotUpdate);
+
+export default sheet;
+```
+
+Register `onHotUpdate` in the module that imports the CSS, with the same literal
+specifier. Vite resolves accepted dependencies by static analysis, so the string
+has to appear in your source. Overlapping fetches from rapid edits resolve in
+issue order, so a slow earlier request cannot clobber a newer one.
+
+<Aside type="caution" title="Fetch failures are silent">
+  A wrong path or a 404 leaves the sheet empty and logs nothing. If a shared
+  sheet appears to do nothing, check the network panel for the CSS request
+  before you suspect the HMR wiring.
+</Aside>
+
+### UrlSheet
+
+```ts
 interface UrlSheet {
   sheet: CSSStyleSheet;
   onHotUpdate: (mod: Record<string, unknown> | undefined) => void;
 }
 ```
 
-Builds a single constructed `CSSStyleSheet` from a `?url`-imported CSS asset,
-shareable across shadow roots via `adoptedStyleSheets`, that hot-swaps in place
-on edits — no component re-render, no full-page reload.
+`sheet` is empty until the first fetch resolves, so the page shows a brief flash
+of unstyled content on initial load. That is the cost of keeping the CSS a real
+asset instead of inlining it into the JS bundle. `onHotUpdate` is typed to match
+Vite's accept callback, so it drops straight into `import.meta.hot?.accept()`.
 
-- **`sheet`** is empty until the first fetch resolves, so expect a brief flash
-  of unstyled content on initial load. That is the cost of keeping the CSS a
-  real asset instead of inlining it into the JS bundle.
-- **`onHotUpdate`** is typed to match Vite's accept callback, so it drops
-  straight into `import.meta.hot?.accept()`. It must be registered in the module
-  that imports the CSS, with the same literal specifier.
-
-```ts
-import {urlSheet} from '@oddsquad/vite-plugin-lit/css.js';
-import sheetUrl from './utils.css?url';
-
-const {sheet, onHotUpdate} = urlSheet(sheetUrl);
-export default sheet; // `static styles = [sheet]` in components
-
-import.meta.hot?.accept('./utils.css?url', onHotUpdate);
-```
-
-Overlapping fetches from rapid edits are resolved in issue order: only the most
-recently issued request is applied, so a slow earlier fetch cannot clobber a
-newer one.
-
-<Aside type="caution" title="Fetch failures are silent">
-  A failed fetch — a wrong path, a 404 — leaves the sheet empty without a
-  console message. If a shared sheet appears to do nothing, check the network
-  panel for the CSS request before suspecting the HMR wiring.
-</Aside>
-
-### devCacheBust(url)
+## devCacheBust()
 
 ```ts
 function devCacheBust(url: string): string;
 ```
 
-Appends a cache-busting query to a `?url`-imported CSS file URL in dev, so that
-each HMR re-execution yields a fresh href and the browser refetches the changed
-stylesheet. In production builds the URL is already a content-hashed asset, so
-the input is returned unchanged.
+Appends a cache-busting query to a `?url`-imported CSS file URL in dev. Each HMR
+re-execution then yields a fresh href, and the browser refetches the changed
+stylesheet. Production builds already serve a content-hashed asset, so the input
+comes back unchanged.
 
-Call it at **module scope**, not inside `render()` — in a render it would
-refetch the stylesheet on every render.
-
-```ts
-import cssUrl from './my-element.css?url';
+```ts title="src/my-element.ts"
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
 import {devCacheBust} from '@oddsquad/vite-plugin-lit/css.js';
+import cssUrl from './my-element.css?url';
 
-const href = devCacheBust(cssUrl); // module scope
-html`<link rel="stylesheet" href="${href}" />`;
+const href = devCacheBust(cssUrl);
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  override render() {
+    return html`<link rel="stylesheet" href=${href} />
+      <p>Styled by a linked sheet.</p>`;
+  }
+}
 ```
 
-## `virtual:lit-plugin/timeline`
+<Aside type="note" title="Call it at module scope">
+  Read the busted href once, outside `render()`. Inside a render, every render
+  would produce a new href and refetch the stylesheet.
+</Aside>
+
+## addTimelineLayer()
 
 ```ts
 function addTimelineLayer(layer: TimelineLayer): void;
-function addTimelineEvent(event: TimelineEvent): void;
 
 interface TimelineLayer {
   id: string;
@@ -90,6 +103,16 @@ interface TimelineLayer {
   /** 0xRRGGBB */
   color: number;
 }
+```
+
+Registers a layer, one category of recorded timeline events with its own colour
+and toggle. The panel appends it to the toggle strip after the built-in layers.
+Duplicate ids are ignored, so calling it on every module evaluation is safe.
+
+## addTimelineEvent()
+
+```ts
+function addTimelineEvent(event: TimelineEvent): void;
 
 interface TimelineEvent<TData = unknown> {
   layerId: string;
@@ -101,34 +124,57 @@ interface TimelineEvent<TData = unknown> {
   /** Pairs a start event with its matching end event. */
   groupId?: number | string;
   logType?: 'default' | 'warning' | 'error';
+  meta?: {
+    elementId?: number;
+    tagName?: string;
+    source?: {file: string; line: number};
+  };
 }
 ```
 
-`addTimelineLayer` registers a custom layer with the panel; the panel appends
-it to the toggle strip after the built-in layers, and duplicate ids are
-ignored. `addTimelineEvent` emits onto a custom layer or one of the built-in
-ids (`'lit-lifecycle'`, `'lit-render'`, `'mouse'`, `'keyboard'`).
+Emits one event onto a custom layer or onto a built-in id: `'lit-lifecycle'`,
+`'lit-render'`, `'mouse'`, or `'keyboard'`.
 
-The virtual module resolves to a no-op stub in any `vite build` — including a
-build with `timeline` enabled, since the events only ever travel over the dev
-server's HMR channel — and in dev when `timeline` is disabled. Imports are safe
-to leave in component code. Its ambient types
-ship in `@oddsquad/vite-plugin-lit/client`, the same declarations that cover
-the CSS queries — see
-[import queries](/vite-plugin-lit/reference/import-queries/#ambient-types) for
-how to reference it.
+```ts title="src/fetch-layer.ts"
+import {addTimelineEvent, addTimelineLayer} from 'virtual:lit-plugin/timeline';
+
+addTimelineLayer({id: 'fetch', label: 'Fetch', color: 0x22d3ee});
+
+export const recordFetch = (url: string, ms: number): void => {
+  addTimelineEvent({
+    layerId: 'fetch',
+    time: performance.now(),
+    data: {url, ms},
+    title: url,
+    subtitle: `${ms.toFixed(1)} ms`,
+  });
+};
+```
+
+`color` is a number, not a CSS string. `data` is serialized before it reaches
+the panel, so keep it to plain values. `meta` is filled in by the plugin's own
+capture layers and custom events have no reason to set it. Built-in layers
+timestamp with a recording-relative clock; a custom event carries whatever clock
+you pass it.
+
+The virtual module resolves to a no-op stub in any `vite build`, including a
+build with `timeline` enabled, because the events only ever travel over the dev
+server's HMR channel. It is also a stub in dev when `timeline` is off. Imports
+are safe to leave in component code. The ambient types ship in
+`@oddsquad/vite-plugin-lit/client`, the same declarations that cover the CSS
+queries.
 
 ## Related
 
 <CardGrid>
   <LinkCard
-    title="urlSheet() guide"
+    title="Share a sheet with urlSheet()"
     description="The wiring in context, with the accept-line caveat."
     href="/vite-plugin-lit/guides/stylesheets/url-sheet/"
   />
   <LinkCard
     title="Custom layers"
     description="Putting your own events on the timeline."
-    href="/vite-plugin-lit/guides/devtools-timeline/custom-layers/"
+    href="/vite-plugin-lit/guides/devtools/custom-layers/"
   />
 </CardGrid>

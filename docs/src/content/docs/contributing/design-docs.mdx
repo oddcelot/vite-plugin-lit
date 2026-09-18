@@ -1,38 +1,66 @@
 ---
 title: Design docs
-description: Index of the feature design docs and audit plans kept in the repository.
+description: Index of the feature design docs and audit plans kept in the repository, with a line on what each one covers.
 sidebar:
   order: 3
 ---
 
 import {CardGrid, LinkCard} from '@astrojs/starlight/components';
 
-The repository keeps two sets of working documents. They are not copied here —
-these are links to the source of truth on GitHub, which is where they are
-edited and where their status is updated.
+Find the working document behind a feature, a refactor, or an audit finding.
+Nothing is copied here: these link to the source of truth on GitHub, where the
+documents are edited and their status is kept current.
 
 ## Feature design docs (`plans/`)
 
-Hand-written design docs for features, written before the implementation.
+Hand-written design docs, written before the implementation.
 
-- [`?css-sheet` — inline mode for library builds](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/css-sheet-inline-build.md)
-- [DevTools redesign — align with the Lit design system](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/devtools-redesign.md)
-- [Lit DevTools Timeline (Vue DevTools–style)](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/devtools-timeline.md)
+- [`?css-sheet` inline mode for library builds](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/css-sheet-inline-build.md)
+  — the fetch-backed sheet 404s for consumers of a `build.lib` bundle, so the
+  build inlines the CSS text instead.
+- [Lit DevTools on Devframe](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/devframe-foundation.md)
+  — moving the panel onto the framework Vite DevTools already runs, and deleting
+  the transport this package hand-rolled.
+- [DevTools redesign](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/devtools-redesign.md)
+  — swapping hardcoded colours and fonts in the panel for Lit design-system
+  tokens.
+- [Lit DevTools Timeline](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/devtools-timeline.md)
+  — the original design for the layered event recorder, and the architecture as
+  it shipped.
 - [Documentation site with Astro + Starlight](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/docs-site.md)
+  — this site: the stack, and why the material left the README.
+- [Release tooling](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/release-tooling.md)
+  — why releases stay hand-driven, and what `pnpm run changelog` drafts.
+- [Devframe roadmap](https://github.com/oddcelot/vite-plugin-lit/blob/main/plans/roadmap/README.md)
+  — eleven follow-on plans the devframe migration unlocked, ranked by how much
+  each changes day-to-day work, with a status per plan.
 
 ## Audit plans (`advisor-plans/`)
 
-The output of a read-only codebase audit: one self-contained plan per finding
-worth acting on, plus an index recording every finding that did **not** become
-a plan, so nothing is re-audited.
+The output of a read-only codebase audit. One self-contained plan per finding
+worth acting on, plus an index recording every finding that did not become a
+plan, so nothing is audited twice.
 
 - [Index, with execution order and status](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/README.md)
-- [001 — Reject cross-site requests to the dev-server endpoints](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/001-harden-dev-endpoint-origin-check.md)
-- [002 — Add a CI verification baseline](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/002-ci-verification-baseline.md)
-- [003 — Stop source-meta injection referencing out-of-scope classes](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/003-source-meta-scope-escape.md)
-- [004 — Keep the DevTools element watch working across a hot patch](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/004-watch-stale-lifecycle.md)
+  — every finding, including the ones deliberately left alone, and what was out
+  of scope.
+- [001 — Harden the dev-endpoint origin check](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/001-harden-dev-endpoint-origin-check.md)
+  — reject cross-site requests to the plugin's dev-server endpoints.
+- [002 — CI verification baseline](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/002-ci-verification-baseline.md)
+  — run the checks a published package needs before a release, not after.
+- [003 — Source-meta scope escape](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/003-source-meta-scope-escape.md)
+  — the overlay's metadata assignment is appended at module end, where the class
+  it names may not be in scope.
+- [004 — Watch across a hot patch](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/004-watch-stale-lifecycle.md)
+  — the Components tab watches an element by capturing a function the patch then
+  replaces.
 - [005 — Finish the package rename](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/005-finish-package-rename.md)
-- [006 — Characterization unit tests for the HMR patcher](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/006-patch-characterization-tests.md)
+  — code and docs that still name the old `@lit-labs` scope.
+- [006 — Characterization tests for the patcher](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/006-patch-characterization-tests.md)
+  — pin down what `patch.ts` does today, before anyone changes it.
+- [007 — Resolve the timeline module in a build](https://github.com/oddcelot/vite-plugin-lit/blob/main/advisor-plans/007-virtual-timeline-build-resolution.md)
+  — `virtual:lit-plugin/timeline` is documented as build-safe, so `vite build`
+  has to resolve it.
 
 ## Related
 
@@ -43,8 +71,8 @@ a plan, so nothing is re-audited.
     href="/vite-plugin-lit/contributing/development/"
   />
   <LinkCard
-    title="How it works"
+    title="How HMR works"
     description="The shipped behaviour the design docs led to."
-    href="/vite-plugin-lit/getting-started/how-it-works/"
+    href="/vite-plugin-lit/concepts/how-hmr-works/"
   />
 </CardGrid>

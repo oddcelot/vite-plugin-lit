@@ -1,85 +1,138 @@
 ---
-title: Lit ecosystem libraries
-description: How signals, context, tasks, and the virtualizer behave across a hot patch, and the caveats for each.
+title: Use signals, context, tasks and the virtualizer
+description: How the four Lit ecosystem libraries behave across a hot patch, with the working shape and caveat for each.
 sidebar:
   order: 9
   label: Ecosystem libraries
 ---
 
-import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import {Code, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import signals from '../../../../../playground/src/hmr-signals.ts?raw';
+import sharedSignal from '../../../../../playground/src/shared-signal.ts?raw';
+import context from '../../../../../playground/src/hmr-context.ts?raw';
+import contextDef from '../../../../../playground/src/context-def.ts?raw';
+import task from '../../../../../playground/src/hmr-task.ts?raw';
+import fakeApi from '../../../../../playground/src/fake-api.ts?raw';
+import virtualizer from '../../../../../playground/src/hmr-virtualizer.ts?raw';
+import {stripHeader} from '../../../lib/fixture';
 
-You want this when your components are not plain `LitElement`s — they use
-signals, context, tasks, or the virtualizer — and you need to know which of
-their state survives an edit. Each section ends with the one caveat that
-actually bites.
+Components built with `@lit-labs/signals`, `@lit/context`, `@lit/task` or
+`@lit-labs/virtualizer` keep their state across an edit when shared objects
+live in their own module. Each section shows the working shape and its one
+caveat.
+
+## The rule
+
+State that lives on the instance survives a hot patch, an edit applied to the
+running page without a reload. State that lives in the edited module's scope
+does not, because the module re-executes.
+
+So every shared object gets its own module: the signal, the context key, the
+API client. A component edit never re-executes those modules, and the caveats
+below mostly disappear.
 
 ## Signals
 
-`@lit-labs/signals` is supported: its `html`/`svg` tags are interned just
-like the core ones, the `SignalWatcher` mixin's regenerated class chain is
-re-parented during a patch, and both per-instance signals and signals
-imported from other modules keep their value and reactivity across an
-update.
+The signals `html` and `svg` tags are interned like the core ones, and the
+`SignalWatcher` mixin's regenerated class chain is re-parented during a patch.
+Per-instance signals and signals imported from other modules both keep their
+value and their reactivity.
 
-One caveat applies to all module-level state, not just signals: a
-module-level `signal()` declared **inside an edited component module** is
-re-created (with its initial value) when that module re-executes. Keep
-shared signals in their own non-component module and import them — that
-module never re-executes, so the signal object survives.
+<Code
+  code={stripHeader(sharedSignal)}
+  lang="ts"
+  title="src/shared-signal.ts"
+  mark={[11]}
+/>
+
+<Code
+  code={stripHeader(signals)}
+  lang="ts"
+  title="src/hmr-signals.ts"
+  mark={[4, 22]}
+/>
+
+The caveat is module scope, not signals. A module-level `signal()` declared
+inside an edited component module is re-created with its initial value.
 
 ## Context
 
-`@lit/context` is supported, including the experimental-decorator
-`@provide`/`@consume` forms: those keep per-class-evaluation state (a
-WeakMap of instance → controller populated via `addInitializer`), so during
-a patch the runtime re-runs the class initializers for live instances to
-enroll them in the new closures, then restores the provided value through
-the new accessors — subscribed consumers keep both their value and a live
-subscription. Controllers created by previous evaluations stay attached but
-inert; that's bounded by edit count and cleared by any reload.
+`@lit/context` works, including the experimental-decorator `@provide` and
+`@consume` forms. During a patch the runtime re-enrolls live instances with
+the new class. It then restores the provided value through the new accessors,
+so subscribed consumers keep their value and a live subscription.
 
-Define the context key in its own module (and prefer string keys —
-`createContext('my-context')` is identity-by-value, a `Symbol()` key is
-not), the same way you'd isolate any shared module-level state.
+<Code
+  code={stripHeader(contextDef)}
+  lang="ts"
+  title="src/context-def.ts"
+  mark={[12]}
+/>
+
+<Code
+  code={stripHeader(context)}
+  lang="ts"
+  title="src/hmr-context.ts"
+  mark={[4, 23, 24, 25]}
+/>
+
+The caveat is the key. Prefer a string key: `createContext('my-context')` is
+identity-by-value, so a re-executed call still matches existing providers. A
+`Symbol()` key is not, and would orphan them.
 
 ## Tasks
 
-`@lit/task` works without special handling: the Task controller and its
-completed value are instance state, which patches preserve. A hot patch
-re-renders without re-fetching (the update re-evaluates `args()`, which are
-shallow-equal, so the task stays `COMPLETE`), and args-driven re-runs keep
-working afterwards. One caveat: the task _function_ is captured by the
-controller at construction, so editing its body only affects future
-instances — reload to swap fetch logic on live ones.
+`@lit/task` needs no special handling. The Task controller and its completed
+value are instance state, so a patch preserves both. The patch re-evaluates
+`args()`, which are shallow-equal, so the task stays `COMPLETE` and does not
+re-fetch. Args-driven re-runs keep working afterwards.
+
+<Code
+  code={stripHeader(fakeApi)}
+  lang="ts"
+  title="src/fake-api.ts"
+  mark={[37, 47]}
+/>
+
+<Code
+  code={stripHeader(task)}
+  lang="ts"
+  title="src/hmr-task.ts"
+  mark={[38, 39, 40, 41]}
+/>
+
+The caveat is the task function. The controller captures it at construction,
+so editing its body only affects future instances. Reload the page to swap
+fetch logic on live ones.
 
 ## Virtualizer
 
-`@lit-labs/virtualizer` behaves well under patches: the
-`<lit-virtualizer>` element holds its layout and scroll state, so as long
-as it lives in its own template literal, header edits and even row-template
-edits (the `renderItem` arrow is an interpolation _value_ — its body isn't
-part of the outer literal's strings) preserve the element, the scroll
-offset, and the visible window. Re-created `items` arrays with equal
-content reflow without moving the scroller.
+`<lit-virtualizer>` holds its layout and scroll state on the element. Keep it
+in its own template literal and a header edit never rebuilds it, so the scroll
+offset and the visible window both survive.
 
-<Aside type="tip" title="The pattern behind all four">
-  Everything above reduces to the same rule: state that lives on the *instance*
-  survives; state that lives in the *edited module's scope* does not. Move
-  shared state — signals, context keys, caches — into their own module and the
-  caveats disappear.
-</Aside>
+<Code
+  code={stripHeader(virtualizer)}
+  lang="ts"
+  title="src/hmr-virtualizer.ts"
+  mark={[47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57]}
+/>
+
+Row-template edits survive too. The `renderItem` arrow is an interpolation
+value, so its body is not part of the outer literal's strings. Re-created
+`items` arrays with equal content reflow without moving the scroller.
 
 ## Related
 
 <CardGrid>
   <LinkCard
-    title="HMR"
-    description="What a patch preserves in general, and what forces a reload."
-    href="/vite-plugin-lit/guides/hmr/"
+    title="How HMR works"
+    description="Why instance state survives and module scope does not."
+    href="/vite-plugin-lit/concepts/how-hmr-works/"
   />
   <LinkCard
-    title="Limitations"
-    description="The shapes that cannot be patched in place at all."
-    href="/vite-plugin-lit/reference/limitations/"
+    title="Keep state across edits"
+    description="The defaults, the three settings, and the on-page indicator."
+    href="/vite-plugin-lit/guides/hmr/"
   />
 </CardGrid>

@@ -1,71 +1,96 @@
 ---
-title: '?css-sheet'
-description: One shared, hot-swapping CSSStyleSheet from a bare import, and the four build output modes behind it.
+title: Share one stylesheet with ?css-sheet
+description: Import a CSS file with the css-sheet query and every component that imports it adopts the same hot-swapping sheet.
 sidebar:
   order: 3
 ---
 
-import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import {Aside, Code, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import vsheetCss from '../../../../../../playground/src/hmr-vsheet.css?raw';
+import vsheetA from '../../../../../../playground/src/hmr-vsheet-a.ts?raw';
+import vsheetB from '../../../../../../playground/src/hmr-vsheet-b.ts?raw';
+import {stripHeader} from '../../../../lib/fixture';
 
-You want this when many components need the same stylesheet and you would
-rather not hand-write HMR wiring in every module that owns one. `?css-sheet`
-is the zero-boilerplate form of
-[`urlSheet()`](/vite-plugin-lit/guides/stylesheets/url-sheet/): a bare import
-that yields a shared `CSSStyleSheet` which hot-swaps in place.
+Import a `.css` file with `?css-sheet` and every component that imports it
+shares one `CSSStyleSheet`. Edit the file and every adopter restyles in place,
+with no re-render.
 
-## Use it
+## Import it
 
-```ts
-// any component — no helper import, no import.meta.hot
-import sheet from './utility-sheet.css?css-sheet';
+Start with an ordinary stylesheet. Nothing in it is special.
 
-@customElement('my-el')
-export class MyEl extends LitElement {
-  static override styles = [sheet];
+<Code code={stripHeader(vsheetCss)} lang="css" title="src/hmr-vsheet.css" />
+
+Import it with `?css-sheet` and hand the result straight to `static styles`.
+There is no helper to import and no `import.meta.hot` to write.
+
+<Code
+  code={stripHeader(vsheetA)}
+  lang="ts"
+  title="src/hmr-vsheet-a.ts"
+  mark={[3, 21]}
+/>
+
+A second component importing the same specifier gets the same object, not a
+copy. That is the whole point: one parse, one sheet, adopted by both shadow
+roots.
+
+<Code
+  code={stripHeader(vsheetB)}
+  lang="ts"
+  title="src/hmr-vsheet-b.ts"
+  mark={[3]}
+/>
+
+The plugin generates the wiring the sheet needs in a virtual module, which is
+why your code stays a bare import.
+[CSS delivery](/vite-plugin-lit/concepts/css-delivery/) explains why that
+indirection exists.
+
+## Add the type
+
+TypeScript needs to know the import resolves to a `CSSStyleSheet`. Add the
+package's ambient types to `tsconfig.json`.
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noEmit": true,
+    "types": ["vite/client", "@oddsquad/vite-plugin-lit/client"]
+  },
+  "include": ["src", "vite.config.ts"]
 }
 ```
 
-Every module that imports the same `./x.css?css-sheet` shares one
-`CSSStyleSheet` instance, so an edit updates all adopters in place. Add the
-ambient type via `/// <reference types="@oddsquad/vite-plugin-lit/client" />`
-(or the `types` tsconfig field) so the import resolves to `CSSStyleSheet`.
+A single-file alternative is
+`/// <reference types="@oddsquad/vite-plugin-lit/client" />` at the top of a
+module.
 
-## Why the query exists
+## Edit it and watch
 
-The `import.meta.hot.accept` line that `urlSheet()` needs is irreducible in a
-**runtime** helper — Vite resolves accepted HMR deps by static analysis, so the
-literal specifier has to appear in the importing module. The plugin sidesteps
-that by generating the wiring for you: the `urlSheet()` call and the `accept`
-registration live in a plugin-generated virtual module, so your code is a bare
-import.
+Change a colour in `hmr-vsheet.css` and save. Both chips restyle, neither
+component re-renders, and the on-page indicator gives the calmer cyan pulse
+reserved for updates that do not re-render anything.
 
-## What you get, and what it costs
+{/* shot: css-sheet-cyan-pulse */}
 
-This targets utility-first CSS frameworks (Tailwind, UnoCSS): the framework
-generates one complete `.css` file of utility classes, and every component
-adopts it through a single shared sheet. In an **app** `vite build` that file
-stays a **standalone, content-hashed `.css` asset** — pipeline-processed
-(Lightning CSS/PostCSS) and fetched once at runtime, never inlined into a JS
-chunk — so the bundle keeps one cacheable stylesheet shared across the app. The
-`accept` wiring is dev-only and is stripped from the build.
+The `renders:` badge on each component is the proof. It does not move.
 
-<Aside type="caution" title="Framework regeneration in dev">
-  When the framework regenerates the file in dev, the hot-swap relies on its
-  Vite plugin emitting an HMR update for the imported `.css` module — verify
-  against your specific Tailwind/UnoCSS integration.
+<Aside type="caution" title="Generated stylesheets">
+  When Tailwind or UnoCSS regenerates the file, the swap depends on that
+  framework's Vite plugin emitting an HMR update for the `.css` module. Verify
+  it against your integration.
 </Aside>
 
-Same flash-of-unstyled-content caveat as `urlSheet()` (a runtime fetch backs
-it); the tradeoff is control — reach for `urlSheet()` directly when you need a
-custom fetch or transform, or when the importing code must run without this
-plugin.
+## Choose the build output
 
-## Build output (`cssSheetBuild`)
-
-A **library** build is the exception: consumers bundle your JS only, so the
-`.css` asset never reaches their build and the runtime fetch 404s into a
-silently empty sheet. Under `build.lib` the plugin therefore embeds the css
-text in the JS chunk instead, and no `.css` asset is emitted.
+Dev is always the fetch-backed HMR form. The build picks between a fetch and
+inlined text based on what you are building.
 
 | Where                      | `?css-sheet` compiles to                                      |
 | -------------------------- | ------------------------------------------------------------- |
@@ -73,8 +98,7 @@ text in the JS chunk instead, and no `.css` asset is emitted.
 | `vite build` (app)         | fetch over the emitted content-hashed `.css` asset            |
 | `vite build` + `build.lib` | `new CSSStyleSheet()` + `replaceSync()` over inlined css text |
 
-`cssSheetBuild` overrides the build-time choice (dev is always the fetch-backed
-HMR form):
+`cssSheetBuild` overrides that choice.
 
 | Value          | Build output                                                        |
 | -------------- | ------------------------------------------------------------------- |
@@ -83,43 +107,53 @@ HMR form):
 | `'inline'`     | css text in the JS chunk, processed by the css pipeline (`?inline`) |
 | `'inline-raw'` | css text in the JS chunk verbatim, skipping the pipeline (`?raw`)   |
 
-`'inline'` matches the `'url'` form (that asset is pipeline-processed too), so
-it's the consistent default. `'inline-raw'` is the escape hatch for css the
-configured transformer rejects — e.g. Lightning CSS errors on the spec-invalid
-but widely shipped `@property` + `initial-value: var(…)`:
+`'inline'` runs the same css pipeline the `'url'` asset goes through, so the
+two agree. Reach for `'inline-raw'` when the configured transformer rejects
+css that browsers accept. Lightning CSS, for one, errors on `@property` with
+an `initial-value: var(…)`.
 
-```css
+```css title="src/theme.css"
 @property --chip-bg {
   syntax: '<color>';
   inherits: false;
-  initial-value: var(
-    --brand
-  ); /* Lightning CSS: Unexpected token Function("var") */
+  initial-value: var(--brand);
 }
 ```
 
-```ts
-litPlugin({cssSheetBuild: 'inline-raw'});
+```ts title="vite.config.ts"
+import {defineConfig} from 'vite';
+import {litPlugin} from '@oddsquad/vite-plugin-lit';
+
+export default defineConfig({
+  plugins: [litPlugin({cssSheetBuild: 'inline-raw'})],
+});
 ```
 
-Both inline flavors keep the properties the fetch-backed form has: one sheet
-object per css file, shared by every importer, and no FOUC (there's no fetch to
-wait on). They construct the sheet at module top level, so importing the built
-module requires constructable-stylesheet support (browsers ≥ Safari 16.4; jsdom
-and Node SSR throw at import). The `'url'` form has the same requirement via
-`urlSheet()`, just lazier.
+## Use it in a library build
+
+A library build is the one case where the default flips. Consumers bundle your
+JS only, so the `.css` asset never reaches their build and the runtime fetch
+would 404 into a silently empty sheet. Under `build.lib` the plugin therefore
+embeds the css text in the JS chunk and emits no `.css` asset.
+
+Both inline flavours keep what the fetch-backed form gives you: one sheet
+object per css file, shared by every importer, and no flash of unstyled
+content, because there is no fetch to wait on. They construct the sheet at
+module top level, so importing the built module needs constructable-stylesheet
+support. [Compatibility](/vite-plugin-lit/reference/compatibility/) has the
+browser and runtime floor.
 
 ## Related
 
 <CardGrid>
   <LinkCard
-    title="Choosing a delivery strategy"
-    description="What a shared sheet buys you, with numbers."
-    href="/vite-plugin-lit/guides/stylesheets/"
+    title="Options"
+    description="cssSheetBuild, its values, and its environment variable."
+    href="/vite-plugin-lit/reference/options/"
   />
   <LinkCard
-    title="cssSheetBuild"
-    description="The option reference, with its env var."
-    href="/vite-plugin-lit/reference/options/#csssheetbuild"
+    title="Wire a shared sheet by hand with urlSheet()"
+    description="The same sheet when you need control over the fetch."
+    href="/vite-plugin-lit/guides/stylesheets/url-sheet/"
   />
 </CardGrid>

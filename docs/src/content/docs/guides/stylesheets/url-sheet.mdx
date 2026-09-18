@@ -1,76 +1,89 @@
 ---
-title: urlSheet()
-description: Build the shared, hot-swapping CSSStyleSheet by hand when you need control over the fetch or must run without the plugin.
+title: Wire a shared sheet by hand with urlSheet()
+description: Build the shared hot-swapping stylesheet yourself when you need a custom fetch or portable code.
 sidebar:
   order: 4
 ---
 
-import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import {Aside, Code, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import utilityCss from '../../../../../../playground/src/hmr-utility-sheet.css?raw';
+import utilitySheet from '../../../../../../playground/src/hmr-utility-sheet.ts?raw';
+import utilityBtn from '../../../../../../playground/src/hmr-utility-btn.ts?raw';
+import {stripHeader} from '../../../../lib/fixture';
 
-You want this when you need the same shared, hot-swapping sheet that
-[`?css-sheet`](/vite-plugin-lit/guides/stylesheets/css-sheet/) gives you, but
-with the wiring in your own module — because you want a custom fetch or
-transform, or because the importing code has to work in a project that does not
-run this plugin.
+Build the shared, hot-swapping sheet yourself when you need a custom fetch or
+code that runs without this plugin. If you do not, use
+[`?css-sheet`](/vite-plugin-lit/guides/stylesheets/css-sheet/).
 
-## Use it
+## Create the sheet module
 
-`urlSheet()` builds a single constructed `CSSStyleSheet` from a `?url`-imported
-CSS file, shareable across any number of components via `adoptedStyleSheets`.
-An edit re-fetches and `replaceSync()`s the sheet in place — every adopter
-updates **without re-rendering a component and without a full-page reload**.
-The CSS stays a standalone, pipeline-processed `.css` file in the build output
-(it isn't inlined into the JS bundle); the only cost is a brief flash of
-unstyled content on initial load while the first fetch resolves.
+Start with the stylesheet many components will adopt. Imported with `?url`, it
+stays a standalone, pipeline-processed `.css` file in the build output.
 
-```ts
-// utility-sheet.ts
-import {urlSheet} from '@oddsquad/vite-plugin-lit/css.js';
-import sheetUrl from './utility-sheet.css?url';
+<Code
+  code={stripHeader(utilityCss)}
+  lang="css"
+  title="src/hmr-utility-sheet.css"
+/>
 
-const {sheet, onHotUpdate} = urlSheet(sheetUrl);
-export default sheet;
+`urlSheet()` turns that URL into one constructed `CSSStyleSheet` and the
+callback that swaps it. It fetches the file into the sheet, then `replaceSync()`s
+the new text on every edit, so adopters restyle without a re-render and without
+a reload.
 
-// The accept must live here with the same literal specifier as the import —
-// Vite resolves accepted HMR deps by static analysis, so it can't be hidden
-// inside the helper.
-import.meta.hot?.accept('./utility-sheet.css?url', onHotUpdate);
-```
+<Code
+  code={stripHeader(utilitySheet)}
+  lang="ts"
+  title="src/hmr-utility-sheet.ts"
+  mark={[34, 36, 38, 39, 40]}
+/>
 
-```ts
-// any component
-import sheet from './utility-sheet.js';
+The sheet is empty until the first fetch resolves, so expect FOUC: a brief
+flash of unstyled content while the stylesheet is still loading. A
+`<link rel="preload" as="style">` in the document head removes most of it.
 
-@customElement('my-el')
-export class MyEl extends LitElement {
-  static override styles = [sheet];
-}
-```
+## Adopt it in components
 
-<Aside type="caution" title="The accept line is not optional">
-  It must sit in the module that imports the CSS, with the same literal
-  specifier. Moving it into a helper — or building the specifier from a variable
-  — silently disables the hot swap, because Vite never sees the dependency.
+Import the module and put the sheet in `static styles`. Every importer gets
+the same object, so an edit to the CSS reaches all of them at once.
+
+<Code
+  code={stripHeader(utilityBtn)}
+  lang="ts"
+  title="src/hmr-utility-btn.ts"
+  mark={[3, 15]}
+/>
+
+The sheet is constructed at module top level, which needs
+constructable-stylesheet support; see
+[Compatibility](/vite-plugin-lit/reference/compatibility/) for the floor.
+
+## Keep the accept line where Vite can see it
+
+The `import.meta.hot.accept` call has to sit in the module that imports the
+CSS, spelled with the same literal specifier. Vite resolves accepted HMR
+dependencies by static analysis, so the string must appear in your source.
+
+<Aside type="caution" title="It cannot move">
+  Hiding the accept inside a helper, or building the specifier from a variable,
+  silently disables the hot swap. Vite never sees the dependency, so the edit
+  falls back to whatever Vite does next and the sheet goes stale.
 </Aside>
 
-## Where the sheet lives
-
-One `CSSStyleSheet` object per CSS file, created once at module scope and
-shared by every component that imports the module. Constructing it at module
-top level means importing that module requires constructable-stylesheet support
-(browsers ≥ Safari 16.4; jsdom and Node SSR throw at import).
+This constraint is the entire reason `?css-sheet` exists. It generates the
+same two lines in a virtual module so your code stays a bare import.
 
 ## Related
 
 <CardGrid>
   <LinkCard
-    title="?css-sheet"
-    description="The same thing without the boilerplate."
-    href="/vite-plugin-lit/guides/stylesheets/css-sheet/"
+    title="Runtime API"
+    description="urlSheet() and devCacheBust() signatures and return types."
+    href="/vite-plugin-lit/reference/runtime-api/"
   />
   <LinkCard
-    title="Runtime API"
-    description="urlSheet() and devCacheBust() signatures."
-    href="/vite-plugin-lit/reference/runtime-api/"
+    title="Share one stylesheet with ?css-sheet"
+    description="The same sheet without the boilerplate."
+    href="/vite-plugin-lit/guides/stylesheets/css-sheet/"
   />
 </CardGrid>
