@@ -1,0 +1,127 @@
+---
+title: Style a single component from a .css file
+description: Keep a component's own rules in a CSS file and choose whether the browser fetches it or the bundle carries it.
+sidebar:
+  order: 4
+---
+
+import {Aside, Code, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import linkedCss from '../../../../../../playground/src/hmr-linked-css.css?raw';
+import linked from '../../../../../../playground/src/hmr-linked-css.ts?raw';
+import rawCssFile from '../../../../../../playground/src/hmr-raw-css.css?raw';
+import raw from '../../../../../../playground/src/hmr-raw-css.ts?raw';
+import sharedCss from '../../../../../../playground/src/hmr-shared.css?raw';
+import sharedSheet from '../../../../../../playground/src/hmr-shared-sheet.ts?raw';
+import sharedA from '../../../../../../playground/src/hmr-shared-css-a.ts?raw';
+import urlCss from '../../../../../../playground/src/hmr-css-url.css?raw';
+import cssUrl from '../../../../../../playground/src/hmr-css-url.ts?raw';
+import {stripHeader} from '../../../../lib/fixture';
+
+Keep a component's own rules in a `.css` file next to it, and choose whether
+the browser fetches it or the bundle carries it. Both re-render that component
+on edit, which is fine for styles only it uses.
+
+## Link it
+
+The `?hmr-url` query yields a real stylesheet URL: the dev server serves the
+file, and `vite build` emits it as a hashed `.css` asset. Point a
+`<link rel="stylesheet">` inside the shadow root at it.
+
+<Code code={stripHeader(linkedCss)} lang="css" title="src/hmr-linked-css.css" />
+
+<Code
+  code={stripHeader(linked)}
+  lang="ts"
+  title="src/hmr-linked-css.ts"
+  mark={[3, 33]}
+/>
+
+On edit the component re-renders with a freshly cache-busted href, so the
+browser refetches. The same import works inside `@import url()` in a `<style>`
+element, which the `hmr-import-css.ts` fixture demonstrates.
+
+## Inline it
+
+`?raw` hands back the file text verbatim; `?inline` hands back the text after
+Vite's CSS pipeline. Either one feeds `unsafeCSS` for `static styles`, so the
+bytes ride in the JS chunk with no runtime fetch and no flash of unstyled
+content.
+
+<Code code={stripHeader(rawCssFile)} lang="css" title="src/hmr-raw-css.css" />
+
+<Code
+  code={stripHeader(raw)}
+  lang="ts"
+  title="src/hmr-raw-css.ts"
+  mark={[3, 34]}
+/>
+
+`?raw` skips Lightning CSS and PostCSS, so stick to syntax browsers accept
+natively. Swap it for `?inline` when you want the pipeline. An edit re-executes
+the module and the plugin hot-swaps the class's styles on live instances.
+
+## Build one sheet from inline text and share it
+
+Inlining per component duplicates the bytes once per component type. Build the
+sheet once in its own module instead and the copies collapse to one, without
+the fetch a `?css-sheet` import would make.
+
+<Code code={stripHeader(sharedCss)} lang="css" title="src/hmr-shared.css" />
+
+<Code
+  code={stripHeader(sharedSheet)}
+  lang="ts"
+  title="src/hmr-shared-sheet.ts"
+  mark={[1, 20, 21, 23, 25, 26, 27, 28, 29, 30, 31]}
+/>
+
+The module accepts its own CSS dependency and calls `replaceSync()` on the
+existing sheet, so adopters restyle without re-executing. Components just
+import the sheet.
+
+<Code
+  code={stripHeader(sharedA)}
+  lang="ts"
+  title="src/hmr-shared-css-a.ts"
+  mark={[3, 19]}
+/>
+
+## When you already have `?url`
+
+`?hmr-url` is `?url` with the cache-busting done for you. If you import `?url`
+yourself, `devCacheBust()` is the helper that does it: in dev it appends a
+timestamp, and in a build it returns the content-hashed URL unchanged.
+
+<Code code={stripHeader(urlCss)} lang="css" title="src/hmr-css-url.css" />
+
+<Code
+  code={stripHeader(cssUrl)}
+  lang="ts"
+  title="src/hmr-css-url.ts"
+  mark={[3, 4, 30]}
+/>
+
+<Aside type="caution" title="Module scope only">
+  Call `devCacheBust()` where the fixture does, at module scope. Inside
+  `render()` every render produces a new href and refetches the stylesheet.
+</Aside>
+
+Lit caches `static styles` per component class, so the cost of these shapes
+depends on how many component types use the same CSS.
+[CSS delivery](/vite-plugin-lit/concepts/css-delivery/) works through the
+numbers.
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Import queries"
+    description="Every query the plugin adds, with its ambient type."
+    href="/vite-plugin-lit/reference/import-queries/"
+  />
+  <LinkCard
+    title="Choose how to deliver CSS"
+    description="The table that decides between these shapes and a shared sheet."
+    href="/vite-plugin-lit/guides/stylesheets/"
+  />
+</CardGrid>

@@ -1,4 +1,4 @@
-/* Shared utility sheet consumed via the `?hmr-sheet` plugin query — no
+/* Shared utility sheet consumed via the `?css-sheet` plugin query — no
    urlSheet() call, no import.meta.hot in user code. See hmr-vsheet-a.ts. */
 .chip {
   display: inline-block;

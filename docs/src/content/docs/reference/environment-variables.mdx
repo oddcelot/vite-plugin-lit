@@ -1,15 +1,15 @@
 ---
 title: Environment variables
-description: The LIT_PLUGIN_* variables, what each maps to, how values are parsed, and the precedence rules.
+description: 'The LIT_PLUGIN_* variables: what each one maps to, how values are parsed, and which options have none.'
 sidebar:
   order: 2
 ---
 
 import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
 
-Every option also resolves from environment variables (and `.env` files) with
-the `LIT_PLUGIN` prefix, read at config time. Options passed to `litPlugin()`
-take precedence over env vars, which take precedence over the defaults.
+Every option except the three below also resolves from an environment variable
+with the `LIT_PLUGIN` prefix. Use them to switch dev-only tooling on per machine
+without editing `vite.config.ts`.
 
 | Env var                                 | Maps to                    |
 | --------------------------------------- | -------------------------- |
@@ -27,45 +27,46 @@ take precedence over env vars, which take precedence over the defaults.
 
 ## Precedence
 
-For each individual setting, the first of these that is defined wins:
+Per setting, the value passed to `litPlugin()` wins over the environment
+variable, which wins over the built-in default.
 
-1. the value passed to `litPlugin()`
-2. the environment variable
-3. the built-in default
-
-Precedence is per setting, not per group: `litPlugin({hmr: {reconnect: true}})`
-fixes `reconnect`, and `LIT_PLUGIN_HMR_INDICATOR_COUNT=1` still applies to the
-indicator.
+Precedence applies to each setting on its own, not to the group it sits in. So
+`litPlugin({hmr: {reconnect: true}})` fixes `reconnect`, and
+`LIT_PLUGIN_HMR_INDICATOR_COUNT=1` still reaches the indicator.
 
 ## How values are parsed
 
-- **Booleans** accept `true`, `1`, `false`, `0`. Anything else is treated as
-  unset, so the option falls through to its default.
-- **Numbers** (`LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS`) must parse as a number;
-  an unparsable value is treated as unset.
-- **`LIT_PLUGIN_CSS_SHEET_BUILD`** is checked against the allowed set. A value
-  outside it logs a warning and falls back to the default — a typo cannot
-  silently change your build output.
+- **Booleans** accept `true`, `1`, `false`, and `0`. Any other value counts as
+  unset, and the option falls through to its default.
+- **Numbers** must parse as a number. `LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS`
+  is the only one. An unparsable value counts as unset.
+- **`LIT_PLUGIN_CSS_SHEET_BUILD`** is checked against the four allowed values.
+  Anything else logs a warning and falls back to the default.
 
-<Aside type="caution" title="Two settings without an env var">
-  `sourceOverlay.workspaceRoot`, `sourceOverlay.exclude`, and
-  `sourceOverlay.onSelect` have no environment variable: the latter two are
-  functions, and `workspaceRoot` is a path best kept in the config.
-</Aside>
+## Options with no environment variable
+
+Three options are config-only. `sourceOverlay.exclude` and
+`sourceOverlay.onSelect` are functions, and `sourceOverlay.workspaceRoot` is a
+path that belongs next to the rest of your build config.
 
 ## Example
 
-```ini
-# .env.local — enable the dev-only tooling without touching vite.config.ts
+```ini title=".env.local"
+# Dev-only tooling, switched on without touching vite.config.ts.
 LIT_PLUGIN_TIMELINE=true
 LIT_PLUGIN_SOURCE_OVERLAY=true
 LIT_PLUGIN_SOURCE_OVERLAY_EDITOR=zed
+LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS=16
 LIT_PLUGIN_HMR_INDICATOR_COUNT=1
 ```
 
-Because these are read through Vite's `loadEnv` at config time, they follow
-Vite's usual `.env` file resolution — `.env`, `.env.local`, and the
-mode-specific variants.
+The plugin reads these through Vite's `loadEnv`, so they follow Vite's usual
+`.env` resolution: `.env`, `.env.local`, and the mode-specific variants.
+
+<Aside type="note" title="Restart after an edit">
+  The values are read once, at config time. Restart the dev server after you
+  edit a `.env` file, or the old values stay in effect.
+</Aside>
 
 ## Related
 
@@ -76,7 +77,7 @@ mode-specific variants.
     href="/vite-plugin-lit/reference/options/"
   />
   <LinkCard
-    title="Source overlay"
+    title="Open a component in your editor"
     description="The feature with the most env-configurable sub-options."
     href="/vite-plugin-lit/guides/source-overlay/"
   />

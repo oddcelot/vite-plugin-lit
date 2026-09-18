@@ -1,70 +1,137 @@
 ---
 title: Limitations
-description: The component shapes that cannot be hot-patched in place, what happens instead, and the accepted costs of the approach.
+description: The component shapes that cannot be hot-patched in place, the console line each one prints, and what to do about it.
 sidebar:
-  order: 5
+  order: 6
 ---
 
 import {CardGrid, LinkCard} from '@astrojs/starlight/components';
 
-Each case below is detected deterministically — the plugin never guesses and
-never leaves a component half-patched. What it does instead is governed by
-[`hmr.onIncompatible`](/vite-plugin-lit/reference/options/#hmronincompatible):
-reload the page (default) or warn in the console.
+Seven shapes behave differently under a hot patch, an edit applied to the
+running page without a reload. Each entry gives the console line it prints, the
+reason, and the fix; if you are chasing a reload and do not know which one
+fired, start at
+[Troubleshooting](/vite-plugin-lit/guides/troubleshooting/).
 
-## Cannot be patched in place
+The first three are detected, not guessed, and
+[`hmr.onIncompatible`](/vite-plugin-lit/reference/options/) decides whether the
+page reloads or only warns. The console lines below are the default `'reload'`
+wording.
 
-- **Standard `accessor` decorators**: reactive properties declared with
-  standard (TC39) decorators close over per-class-evaluation private slots
-  and cannot be patched in place. This is detected deterministically and
-  falls back to a full reload (or a warning, per `onIncompatible`) — never a
-  broken state. Experimental decorators (`@customElement`, `@property`,
-  `@state` with `experimentalDecorators: true`) and `static properties` are
-  fully supported.
-- **Native `#private` fields**: methods copied from the new class that touch
-  `#private` state will brand-check-throw on existing instances (this also
-  triggers the reload fallback). Use TS `private` instead.
-- **`observedAttributes` changes**: the platform snapshots them at define
-  time; a console message recommends a reload when they change.
+## Standard `accessor` decorators
 
-## Patched, with a caveat
+**What you see**
 
-- **Mixed exports**: a module exporting a component _and_ other values
-  self-accepts, so importers keep the previously-imported non-class bindings
-  until they themselves re-execute. Class exports stay valid — the canonical
-  class object is patched in place.
-- **Module-level state in an edited module**: re-created when the module
-  re-executes. Keep shared signals, context keys, and caches in their own
-  module; see [Ecosystem libraries](/vite-plugin-lit/guides/ecosystem/).
+```text frame="terminal"
+[lit-plugin] <my-element>: standard accessor decorators — performing full reload.
+```
 
-## Accepted costs
+**Why.** Reactive properties declared with standard TC39 decorators close over
+private slots created fresh on each class evaluation. Accessors copied onto the
+canonical class, the class the browser registered first, would read the wrong
+slot. The plugin checks for this before it touches anything.
 
-- **Interning map growth**: stale versions of edited templates accumulate in
-  the (page-global) intern map over a dev session. This is bounded by the
-  number of edits and cleared by any full reload.
-- The Rolldown full-bundle dev mode is unsupported; the plugin targets the
-  standard Vite dev server pipeline.
+**What to do.** Use experimental decorators with `experimentalDecorators: true`
+and `useDefineForClassFields: false`, or declare `static properties`. Both are
+patched in place. With `onIncompatible: 'warn'` the page stays up and you reload
+by hand.
 
-## Which one fired?
+## Native `#private` fields
 
-The console message names the reason before the reload happens. If you are
-chasing a reload you did not expect, set `hmr: {onIncompatible: 'warn'}`
-temporarily — the page stops reloading out from under the message. The DevTools
-panel's Components tab also lists these incompatibility events directly, so you
-can inspect the reasons without racing to read the console before the reload
-clears it.
+**What you see**, when a copied reactive-property accessor touches `#private`
+state:
+
+```text frame="terminal"
+[lit-plugin] <my-element>: patching failed: Cannot read private member #count from an object whose class did not declare it — performing full reload.
+```
+
+**What you see**, when only a method or `render()` touches it: nothing at patch
+time, then an uncaught `TypeError` from Lit's update the next time that code
+runs.
+
+**Why.** There is no detector for `#private`. Instances built by the old class
+evaluation carry the old private brand, and the methods copied from the new
+class expect the new one. The patch restores property values inside a
+`try`/`catch`, so a throw there is reported as `patching failed` and honours
+`onIncompatible`. A throw from `render()` happens later, in Lit's asynchronous
+update, outside that `try`.
+
+**What to do.** Use TypeScript's `private` modifier instead. It compiles to a
+plain property with no brand check, so copied methods keep working.
+
+## `observedAttributes` changes
+
+**What you see**
+
+```text frame="terminal"
+[lit-plugin] <my-element> changed observedAttributes; the platform registry can't pick this up — reload recommended.
+```
+
+**Why.** The platform snapshots `observedAttributes` when the element is
+defined, and nothing can change that list afterwards. The patch itself succeeds,
+so this case never reloads, whatever `onIncompatible` says. The old attribute
+list stays in effect until you reload.
+
+**What to do.** Reload the page. The message is informational, and the panel's
+Components tab keeps a record of it.
+
+## Mixed exports
+
+**What you see.** The component updates, and other values exported from the same
+module look stale in modules that imported them.
+
+**Why.** A module exporting a component and other values is self-accepting: it
+tells Vite it can apply its own updates, so the edit stops there. Importers keep
+the bindings they already read until they re-execute for their own reasons.
+Class exports stay correct, because the canonical class object is patched in
+place.
+
+**What to do.** Move shared non-class exports into their own module.
+
+## Module-level state
+
+**What you see.** A counter, cache, or signal declared at the top level of an
+edited module resets on every edit.
+
+**Why.** A hot patch re-executes the edited module, which re-runs its top-level
+code. Only the component class survives, not the module's own variables.
+
+**What to do.** Keep shared signals, context keys, and caches in a module you do
+not edit in the same loop. See
+[Ecosystem libraries](/vite-plugin-lit/guides/ecosystem/).
+
+## Interning map growth
+
+**What you see.** Nothing. Memory use creeps up across a long dev session.
+
+**Why.** Template interning reuses the same template object for identical
+template text, so Lit sees an unchanged template as unchanged. The map is page
+global, and stale versions of edited templates stay in it.
+
+**What to do.** Nothing, in most sessions. Growth is bounded by how many edits
+you make, and any full reload clears it.
+
+## Rolldown full-bundle dev mode
+
+**What you see.** The HMR features do not apply.
+
+**Why.** The plugin targets the standard Vite dev server pipeline, where each
+module is served on its own and re-executed individually.
+
+**What to do.** Use the standard dev server. There is no supported
+configuration of the full-bundle mode.
 
 ## Related
 
 <CardGrid>
   <LinkCard
-    title="HMR"
+    title="HMR that keeps state"
     description="What a patch does preserve, and the options around it."
     href="/vite-plugin-lit/guides/hmr/"
   />
   <LinkCard
-    title="How it works"
+    title="How HMR works"
     description="Why these specific shapes are the hard ones."
-    href="/vite-plugin-lit/getting-started/how-it-works/"
+    href="/vite-plugin-lit/concepts/how-hmr-works/"
   />
 </CardGrid>

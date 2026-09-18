@@ -1,0 +1,74 @@
+---
+title: Put your own events on the timeline
+description: 'Emit your own router, store or socket events onto the Lit timeline from app code or another Vite plugin.'
+sidebar:
+  order: 6
+---
+
+import {Code, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import customLayer from '../../../../../../playground/src/hmr-custom-layer.ts?raw';
+import {stripHeader} from '../../../../lib/fixture';
+import ThemedImage from '../../../../components/ThemedImage.astro';
+import devtoolsCustomLayerLight from '../../../../assets/shots/devtools-custom-layer.light.png';
+import devtoolsCustomLayerDark from '../../../../assets/shots/devtools-custom-layer.dark.png';
+
+Line up your router, store or socket events against Lit's on the same time
+axis. Two calls, safe to leave in production code.
+
+## Register a layer
+
+Call `addTimelineLayer` once, at module scope. It is idempotent, so a hot patch
+that re-runs the module is harmless.
+
+<Code
+  code={stripHeader(customLayer)}
+  lang="ts"
+  title="src/hmr-custom-layer.ts"
+  mark={[7, 52]}
+/>
+
+`color` is a number, not a CSS string: `0xff6b35` rather than `'#ff6b35'`.
+
+A layer registered before the panel or an agent connects is still there once it
+does. The dev server keeps registered layers in its session state instead of
+relaying them to whoever happens to be listening.
+
+## Emit events
+
+`addTimelineEvent` takes the layer id, a time, and whatever you want the
+event's detail pane to show. `data` is serialized, so keep it to plain values.
+
+Custom events have no start and end to pair, so they only appear under **Raw**
+in the [timeline](/vite-plugin-lit/guides/devtools/timeline/) filter bar. Their
+pill is always on: app code decides whether it emits at all.
+
+<ThemedImage
+  light={devtoolsCustomLayerLight}
+  dark={devtoolsCustomLayerDark}
+  alt="Timeline rows from a custom Router layer, in the layer colour, next to Lit lifecycle rows."
+/>
+
+Both functions resolve to a no-op stub in any `vite build`, including a build
+with `timeline` enabled, and in dev when `timeline` is off. Leave the imports
+in component code.
+
+## Types
+
+TypeScript picks the virtual module up from
+`@oddsquad/vite-plugin-lit/client`. Add it to `types` in `tsconfig.json`, next
+to `vite/client`.
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Runtime API"
+    description="addTimelineLayer, addTimelineEvent and the event shape in full."
+    href="/vite-plugin-lit/reference/runtime-api/"
+  />
+  <LinkCard
+    title="Record and read the timeline"
+    description="Where your events show up, and how to read a row."
+    href="/vite-plugin-lit/guides/devtools/timeline/"
+  />
+</CardGrid>

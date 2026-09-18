@@ -1,0 +1,120 @@
+---
+title: Inspect live components
+description: 'Browse the element tree, read reactive state, pick an element on the page, and flash the ones that update.'
+sidebar:
+  order: 3
+---
+
+import {CardGrid, Code, LinkCard} from '@astrojs/starlight/components';
+import properties from '../../../../../../playground/src/hmr-properties.ts?raw';
+import {stripHeader} from '../../../../lib/fixture';
+import ThemedImage from '../../../../components/ThemedImage.astro';
+import devtoolsComponentsTreeLight from '../../../../assets/shots/devtools-components-tree.light.png';
+import devtoolsComponentsTreeDark from '../../../../assets/shots/devtools-components-tree.dark.png';
+import devtoolsFlashLight from '../../../../assets/shots/devtools-flash.light.png';
+import devtoolsFlashDark from '../../../../assets/shots/devtools-flash.dark.png';
+
+See every Lit element on the page, its reactive properties and its source
+file, and watch which ones re-render. Everything here works without recording.
+
+## Browse the tree
+
+The **Components** tab shows a live, hierarchical tree of the Lit elements on
+the page, descending through shadow roots. Click a row to select it. Hover a
+row to outline that element in the page.
+
+<ThemedImage
+  light={devtoolsComponentsTreeLight}
+  dark={devtoolsComponentsTreeDark}
+  alt="The Components tab: the element tree on the left, hmr-properties selected, its reactive properties on the right."
+/>
+
+**Refresh** re-reads the tree on demand. The tree also refreshes whenever you
+pick an element.
+
+## Read the details pane
+
+Selecting an element fills the pane on the right: its tag name, a source link
+reading `file:line`, and three flags — `updated`, `update pending` and
+`shadow root`.
+
+Below those come three tables. **Properties** lists the public reactive
+properties, with a badge naming the attribute a property reflects to.
+**State** lists internal `@state`. **Attributes** lists the attributes the
+element currently carries.
+
+The playground fixture below fills all three. The two marked `@property`
+declarations land under Properties, `label` with an attribute badge; the two
+marked `@state` declarations land under State.
+
+<Code
+  code={stripHeader(properties)}
+  lang="ts"
+  title="src/hmr-properties.ts"
+  mark={[19, 22, 25, 28]}
+/>
+
+The pane refreshes in place as the selected element updates. Click the source
+link to open the file in your editor. If the element leaves the page, the pane
+says so instead of showing stale values.
+
+## Pick an element on the page
+
+Press **⌖ Pick** in the toolbar, or **Meta+Shift+E** (**⌘⇧E** on a Mac),
+which is also in the DevTools command palette as _Pick Lit Element_. Move the
+pointer over the page and click the element you want.
+
+This is the same picker the [source
+overlay](/vite-plugin-lit/guides/source-overlay/) uses, so it needs
+`sourceOverlay` switched on. A plain click selects the element here in the
+tree; hold Ctrl or ⌘ while clicking to open it in your editor instead.
+
+## Follow changes live
+
+Toggle **Live** to keep the tree current without pressing Refresh. It starts an
+opt-in `MutationObserver` in the page that re-pushes the tree as the component
+hierarchy changes, including inside shadow roots.
+
+It is off by default and remembered per browser. Refresh is disabled while it
+is on, because there is nothing left to ask for.
+
+## Flash elements that update
+
+**⚡ Flash** draws a short fading outline over every Lit element that finishes
+an update, so re-render churn shows up on the page itself rather than only in
+the [Updates tab](/vite-plugin-lit/guides/devtools/updates/). It is off by
+default and does not depend on recording. Leave it on while you click around
+and the components doing more work than you expected announce themselves.
+
+<ThemedImage
+  light={devtoolsFlashLight}
+  dark={devtoolsFlashDark}
+  alt="The playground with flash on: fading outlines over the components that just updated."
+/>
+
+The outlines are drawn into one `pointer-events: none` layer, so the page stays
+fully interactive underneath. Every element that updated in a frame is measured
+together: a tick that updates a hundred components costs one layout, not a
+hundred.
+
+The optional _flash updates ramp_, in the Settings tab and available only while
+Flash is on, colours each outline by how often that element updated in the last
+second. Green for one, yellow at two, orange at four, red at eight.
+
+Both preferences live in the settings override, so the page picks them up at
+boot and they survive a reload.
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="DevTools architecture"
+    description="How the panel reaches the page and how its source links open files."
+    href="/vite-plugin-lit/concepts/devtools-architecture/"
+  />
+  <LinkCard
+    title="Open a component in your editor from the page"
+    description="The picker this tab reuses, and its options."
+    href="/vite-plugin-lit/guides/source-overlay/"
+  />
+</CardGrid>

@@ -1,39 +1,41 @@
 ---
 title: Development
-description: Clone, install, build, and run the playground — plus the toolchain versions the repository pins.
+description: Clone, install, build, and run the playground, plus the checks and the docs-site commands.
 sidebar:
   order: 1
 ---
 
 import {Aside, CardGrid, LinkCard, Steps} from '@astrojs/starlight/components';
 
-You want this if you are changing the plugin itself. Requires Node 26 and
-pnpm 12 (`corepack enable` picks up the pinned version); the published package
-only needs Node ≥ 20 at runtime.
+Set up a local checkout of the plugin, build it, and run the playground against
+it. This page is for changing the plugin itself; to use it in your own project,
+start at [Install the plugin](/vite-plugin-lit/start/installation/).
+
+The repository needs Node 26 and pnpm 12. `corepack enable` picks up the pinned
+version. The published package itself runs on Node 20 or newer.
 
 <Steps>
 
-1. Clone and install. The repo is a single pnpm workspace: the plugin package
-   at the root, plus `playground/` and `docs/` linked against it via
-   `workspace:*`.
+1. Clone and install. The repo is one pnpm workspace: the plugin package at the
+   root, plus `playground/` and `docs/` linked against it with `workspace:*`.
 
-   ```sh
+   ```sh frame="terminal"
    git clone https://github.com/oddcelot/vite-plugin-lit.git
    cd vite-plugin-lit
    pnpm install
    ```
 
-2. Build the plugin — `tsc` plus the panel assets, into `./lib`, `./panel`, and
-   `./index.js`:
+2. Build the plugin. This runs `tsc` and the panel build, into `./lib`,
+   `./panel`, and `./index.js`:
 
-   ```sh
+   ```sh frame="terminal"
    pnpm build
    ```
 
 3. Run the playground. It builds the plugin first, then serves
    `http://localhost:5179`:
 
-   ```sh
+   ```sh frame="terminal"
    pnpm dev
    ```
 
@@ -43,43 +45,46 @@ only needs Node ≥ 20 at runtime.
 
 A manually inspectable fixture app, and the source for the e2e fixtures. Edit
 the templates, styles, and labels in `playground/src/*.ts` and watch counts,
-focus, and DOM identity survive. The page HUD counts HMR updates; every
+focus, and DOM identity survive. The page HUD counts HMR updates, and every
 component shows a `renders: n` badge. It runs on Vite 8 and always uses the
-local plugin build through the pnpm workspace link.
+local plugin build through the workspace link.
 
-It is also self-contained enough to open on
+It is self-contained enough to open on
 [StackBlitz](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground)
-or bolt.new straight from the repo URL, which is the quickest way to reproduce
-a bug report without a local checkout.
+or bolt.new straight from the repo URL. That is the quickest way to reproduce a
+bug report without a local checkout.
 
 ## Checks
 
-```sh
+```sh frame="terminal"
 pnpm exec vp check   # format + lint + type check (oxfmt, oxlint, tsgolint)
 pnpm format:check    # formatting only
 pnpm run test:unit   # node-only unit tests
 ```
 
-`vp check` is what CI runs, and what `prepublishOnly` runs before a release
-alongside the unit tests and a build.
+`vp check` is what CI runs. `prepublishOnly` runs it too, alongside the unit
+tests and a build.
 
 ## The documentation site
 
-This site lives in `docs/` as its own workspace package (Astro + Starlight):
+This site lives in `docs/` as its own workspace package, built with Astro and
+Starlight:
 
-```sh
-pnpm docs:dev     # serve at http://localhost:4321/vite-plugin-lit/
-pnpm docs:build   # static build, including internal-link validation
+```sh frame="terminal"
+pnpm run docs:dev     # serve at http://localhost:4321/vite-plugin-lit/
+pnpm run docs:build   # sync the changelog, build, check redirects
+pnpm run docs:shots   # regenerate the screenshots
 ```
 
-`pnpm docs:build` is the gate: it fails on a dead internal link or anchor, so
-run it before opening a docs PR.
+`pnpm run docs:build` is the gate. It syncs `CHANGELOG.md` into the reference
+section, fails on a dead internal link or anchor, and asserts every redirect
+target exists. Run it before you open a docs PR.
 
 <Aside type="caution" title="Links carry the base path">
-  The site is deployed under the `/vite-plugin-lit` GitHub Pages path, and Astro
-  does not rewrite hrefs written in Markdown. Internal links in content are
-  therefore written with that prefix — `/vite-plugin-lit/reference/options/`.
-  The links validator checks every one of them against the real page set.
+  The site deploys under the `/vite-plugin-lit` GitHub Pages path, and Astro
+  does not rewrite hrefs written in Markdown. Internal links are therefore
+  written with that prefix: `/vite-plugin-lit/reference/options/`. The links
+  validator checks every one against the real page set.
 </Aside>
 
 ## Related

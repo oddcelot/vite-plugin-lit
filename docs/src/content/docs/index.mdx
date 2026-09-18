@@ -1,12 +1,12 @@
 ---
 title: vite-plugin-lit
-description: True HMR for Lit components, CSS delivery helpers, and a DevTools timeline for Vite.
+description: True HMR for Lit components, CSS delivery helpers, and a DevTools panel for Vite.
 template: splash
 hero:
-  tagline: Edit a Lit component and keep the page. True in-place HMR, CSS delivery helpers for shadow roots, and a DevTools timeline — for Vite.
+  tagline: Edit a Lit component. Keep the page. In-place HMR, one shared stylesheet for every shadow root, and a DevTools panel that explains re-renders.
   actions:
-    - text: Get started
-      link: /vite-plugin-lit/getting-started/installation/
+    - text: Build your first component
+      link: /vite-plugin-lit/start/first-component/
       icon: right-arrow
     - text: View on GitHub
       link: https://github.com/oddcelot/vite-plugin-lit
@@ -14,8 +14,40 @@ hero:
       variant: minimal
 ---
 
-import {Card, CardGrid} from '@astrojs/starlight/components';
+import {CardGrid, LinkCard} from '@astrojs/starlight/components';
 import {PackageManagers} from 'starlight-package-managers';
+import ThemedImage from '../../components/ThemedImage.astro';
+import devtoolsPanelDockedLight from '../../assets/shots/devtools-panel-docked.light.png';
+import devtoolsPanelDockedDark from '../../assets/shots/devtools-panel-docked.dark.png';
+
+<ThemedImage
+  light={devtoolsPanelDockedLight}
+  dark={devtoolsPanelDockedDark}
+  alt="A Lit app with the DevTools panel docked below it and the HMR indicator in the corner."
+/>
+
+<CardGrid>
+  <LinkCard
+    title="HMR that keeps state"
+    description="Edit a component and the page stays put. Focus, scroll, inputs, and child state survive."
+    href="/vite-plugin-lit/guides/hmr/"
+  />
+  <LinkCard
+    title="One stylesheet, every shadow root"
+    description="Share a single CSSStyleSheet across thousands of components. An edit restyles them all without a re-render."
+    href="/vite-plugin-lit/guides/stylesheets/"
+  />
+  <LinkCard
+    title="A DevTools panel that explains re-renders"
+    description="See which components updated, how long they took, and what triggered each one."
+    href="/vite-plugin-lit/guides/devtools/"
+  />
+  <LinkCard
+    title="Ask your coding agent"
+    description="The same component tree and timeline as MCP tools, read straight from the running page."
+    href="/vite-plugin-lit/guides/devtools/agents/"
+  />
+</CardGrid>
 
 <PackageManagers
   type="add"
@@ -23,23 +55,3 @@ import {PackageManagers} from 'starlight-package-managers';
   dev
   pkgManagers={['npm', 'pnpm', 'yarn', 'bun']}
 />
-
-<CardGrid stagger>
-  <Card title="HMR that keeps state" icon="rocket">
-    Templates are interned by content and classes are patched in place, so
-    focus, scroll, inputs, and child state survive an edit. Incompatible shapes
-    are detected, not guessed.
-  </Card>
-  <Card title="Stylesheets at scale" icon="document">
-    One shared `CSSStyleSheet` for thousands of shadow roots, hot-swapped
-    without re-rendering a single component — from a bare `?css-sheet` import.
-  </Card>
-  <Card title="DevTools timeline" icon="setting">
-    A layered event recorder for Lit lifecycle, render, mouse, and keyboard
-    events inside Vite DevTools, plus a live component tree and state inspector.
-  </Card>
-  <Card title="Source overlay" icon="open-book">
-    Point at any element in the running page and open its source file in your
-    editor at the right line.
-  </Card>
-</CardGrid>

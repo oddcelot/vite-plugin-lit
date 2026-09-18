@@ -14,3 +14,5 @@ docs/.astro/
 
 # Dependencies
 node_modules/
+docs/src/content/docs/reference/changelog.md
+/lit-devtools-snapshot/

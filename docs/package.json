@@ -5,8 +5,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
+    "sync": "node scripts/sync-changelog.mjs",
+    "dev": "node scripts/sync-changelog.mjs && astro dev",
+    "build": "node scripts/sync-changelog.mjs && astro build && node scripts/check-redirects.mjs",
     "preview": "astro preview"
   },
   "dependencies": {

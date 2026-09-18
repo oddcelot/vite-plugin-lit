@@ -6,11 +6,13 @@ on:
     paths:
       - 'docs/**'
       - 'README.md'
+      - 'CHANGELOG.md'
       - '.github/workflows/docs.yaml'
   pull_request:
     paths:
       - 'docs/**'
       - 'README.md'
+      - 'CHANGELOG.md'
       - '.github/workflows/docs.yaml'
 
 # One in-flight deploy at a time; queue rather than cancel so main always

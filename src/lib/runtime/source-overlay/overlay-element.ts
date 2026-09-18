@@ -308,7 +308,7 @@ class LitSourceOverlay extends HTMLElement {
   #onKeyDown = (event: KeyboardEvent) => {
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey) {
       const pressed = event.key.toLowerCase();
-      const hotkey = (this.#options.key ?? 'e').toLowerCase();
+      const hotkey = (this.#options.key ?? 's').toLowerCase();
       if (pressed === hotkey) {
         event.preventDefault();
         this.toggle();

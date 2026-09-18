@@ -1,0 +1,117 @@
+---
+title: Connect a coding agent
+description: 'Give a coding agent the component tree and timeline over MCP, through discovery or a fixed URL.'
+sidebar:
+  order: 5
+---
+
+import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+Give a coding agent the same component tree and timeline the panel shows, so it
+reads the running app instead of guessing from source. One MCP entry covers
+every dev server on your machine.
+
+## Add the server
+
+```sh frame="terminal"
+claude mcp add lit-devtools -- npx -y @oddsquad/vite-plugin-lit mcp
+```
+
+The equivalent `claude_desktop_config.json` or `mcp.json` entry:
+
+```json title="mcp.json"
+{
+  "mcpServers": {
+    "lit-devtools": {
+      "command": "npx",
+      "args": ["-y", "@oddsquad/vite-plugin-lit", "mcp"]
+    }
+  }
+}
+```
+
+The command needs two optional peers, `cac` and `@devframes/agentic`. See the
+[CLI reference](/vite-plugin-lit/reference/cli/) for the message it prints when
+one is missing.
+
+## The seven tools
+
+| Tool                        | Answers                                                                    |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `lit_get-meta`              | Plugin version, available timeline layers, resolved settings.              |
+| `lit_list-components`       | The live element tree, with each component's source file and line.         |
+| `lit_component-details`     | Reactive properties, attributes, and update flags for one element id.      |
+| `lit_update-summary`        | Which components updated, how often, how long for, and what changed.       |
+| `lit_recent-events`         | Recent lifecycle, render and input events, filterable by element or layer. |
+| `lit_hmr-incompatibilities` | Components the plugin could not hot-patch in place, and why.               |
+| `lit_set-recording`         | Starts or stops timeline recording. The only tool that changes state.      |
+
+Six of the seven only read. `lit_set-recording` exists because
+`lit_recent-events` is a dead end while recording is off, and an agent that can
+read the timeline but not start it just hands the question back to you.
+Recording is a shared toggle, so an agent turning it on also changes what you
+see in an open panel. The layer toggles and the element picker stay panel-only.
+
+All seven answer only while a dev server with DevTools is running. Nothing is
+stored, so with the server down an agent gets a connection error rather than an
+empty answer.
+
+## Ask a good question
+
+Point the agent at `lit_update-summary` first for anything shaped like "why did
+this re-render". It returns the same derived cycles and per-component totals the
+[Updates tab](/vite-plugin-lit/guides/devtools/updates/) shows, so the agent
+never pairs thousands of start and end events itself.
+
+Two prompts that work:
+
+- "Record ten seconds of the running app while I click the filter bar, then
+  tell me which component updated most and which properties caused it."
+- "The page reloads whenever I edit `src/app-shell.ts`. Check
+  `lit_hmr-incompatibilities` and tell me which shape is to blame."
+
+## Discovery or a fixed URL
+
+`vite-plugin-lit mcp` runs devframe's own connector over stdio. The plugin
+publishes each running dev server to devframe's instance registry, and the
+connector lists them through two gateway tools,
+`devframe_connect_list-instances` and `devframe_connect_call-tool`. One entry
+therefore covers every project you have running. Being a shared connector, it
+also surfaces every other devframe on the machine.
+
+When registry discovery is unavailable the plugin warns once at startup, naming
+the reason:
+
+```text frame="terminal"
+[lit-plugin] devframe instance-registry discovery unavailable (no HTTP server (middleware mode?)); stdio MCP clients cannot auto-discover this dev server. The MCP endpoint itself is unaffected — point clients at <dev-server-origin>/__devtools/__mcp directly.
+```
+
+Vite DevTools mounts the endpoint at `/__devtools/__mcp` on the dev server, so
+bridge that URL instead and skip discovery altogether:
+
+```sh frame="terminal"
+claude mcp add lit-devtools -- npx -y mcp-remote http://localhost:5179/__devtools/__mcp
+```
+
+## Keep it local
+
+<Aside type="caution" title="Dev servers are not public">
+  The MCP endpoint has the same trust model as the rest of DevTools: it binds to
+  localhost and expects a local developer. Do not expose a dev server with
+  DevTools enabled to a network you do not control.
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="CLI"
+    description="Every lit-devtools subcommand, its flags, and its optional peers."
+    href="/vite-plugin-lit/reference/cli/"
+  />
+  <LinkCard
+    title="Record and read the timeline"
+    description="The recording lit_recent-events reads from."
+    href="/vite-plugin-lit/guides/devtools/timeline/"
+  />
+</CardGrid>

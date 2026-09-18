@@ -1,0 +1,97 @@
+---
+title: Compatibility
+description: 'Supported Node, Vite, Lit, TypeScript, browser and editor versions, the optional peers, and what is not supported.'
+sidebar:
+  order: 7
+---
+
+import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+Everything the plugin needs from your toolchain and browsers, on one page.
+Version ranges come from `package.json`; the rest from what the runtime does.
+
+## Toolchain
+
+| Requirement | Range                | Note                                                         |
+| ----------- | -------------------- | ------------------------------------------------------------ |
+| Node        | `>= 20`              | Runtime engine of the published package                      |
+| Vite        | `^7.0.0 \|\| ^8.0.0` | Peer dependency                                              |
+| Lit         | `^3.0.0`             | Peer dependency                                              |
+| TypeScript  | any recent version   | Decorator settings below decide what can be patched in place |
+
+Reactive properties must be declared one of two ways for in-place patching to
+work: experimental decorators, with `experimentalDecorators: true` and
+`useDefineForClassFields: false`, or `static properties`. Standard `accessor`
+decorators are detected and fall back to a reload.
+
+## Optional peers
+
+Each one is imported only on the path that needs it, so the plugin installs and
+runs without any of them.
+
+| Package                | Range    | Unlocks                                                |
+| ---------------------- | -------- | ------------------------------------------------------ |
+| `lightningcss`         | `^1.30`  | Lightning CSS processing of `css` template literals    |
+| `@vitejs/devtools-kit` | `^0.7.5` | Mounting the Lit panel into the Vite DevTools hub      |
+| `cac`                  | `^7`     | The `lit-devtools` command                             |
+| `@devframes/agentic`   | `1.0.0`  | `lit-devtools mcp`, the stdio bridge for coding agents |
+
+The panel also needs `@vitejs/devtools` active in the same Vite config, which is
+what serves the DevTools overlay the panel docks into.
+
+## Browsers
+
+`?css-sheet`, `urlSheet()`, and the inline build modes all produce a constructed
+`CSSStyleSheet`, so they need constructable stylesheet support.
+
+| Browser | Minimum |
+| ------- | ------- |
+| Chrome  | 73      |
+| Firefox | 101     |
+| Safari  | 16.4    |
+
+Importing a sheet module throws in jsdom and in Node SSR, because neither
+provides `CSSStyleSheet`. Keep those imports out of code that runs on the
+server.
+
+## Editors
+
+`sourceOverlay.editor` accepts these built-in keys, and an unknown name falls
+back to VS Code. A `{name, url}` object supplies your own URL builder.
+
+| Key        | Editor   |
+| ---------- | -------- |
+| `vscode`   | VS Code  |
+| `cursor`   | Cursor   |
+| `zed`      | Zed      |
+| `idea`     | IntelliJ |
+| `windsurf` | Windsurf |
+
+## Not supported
+
+The Rolldown full-bundle dev mode. The plugin targets the standard Vite dev
+server pipeline, which serves and re-executes modules one at a time.
+
+<Aside type="note" title="Vite+ registers DevTools for you">
+  Vite+ reads a `devtools:` key in the config and registers the
+  `@vitejs/devtools` plugin itself. Adding `DevTools()` to `plugins` as well is
+  a duplicate registration and fails with `DTK0034`. Use one or the other.
+</Aside>
+
+Contributing to the plugin itself needs Node 26 and pnpm 12; see
+[Development](/vite-plugin-lit/contributing/development/).
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Limitations"
+    description="The component shapes the decorator rules above rule out."
+    href="/vite-plugin-lit/reference/limitations/"
+  />
+  <LinkCard
+    title="Install the plugin"
+    description="Getting the peers and the config in place."
+    href="/vite-plugin-lit/start/installation/"
+  />
+</CardGrid>

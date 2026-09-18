@@ -1,0 +1,118 @@
+---
+title: Stylesheet delivery at scale
+description: 'Why one shared sheet beats one per shadow root, what the engine shares for you, and what each choice costs.'
+sidebar:
+  order: 2
+---
+
+import {CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+Every shadow root that uses a utility class must carry the rules. The only real
+choice is whether thousands of roots share one parsed sheet or own one each;
+this page shows what each choice costs.
+
+## One sheet or N sheets
+
+Styles do not cross a shadow boundary. A Tailwind or UnoCSS layer used by
+hundreds of components must reach every one of their shadow roots, and no option
+avoids that.
+
+What the options differ on is how many `CSSStyleSheet` objects come out the
+other end. A shared stylesheet is one `CSSStyleSheet` object adopted by many
+shadow roots: parsed once, stored once, adopted N times. The alternatives give
+each root a `<link>` or a `<style>` of its own, so the object count tracks the
+component count.
+
+`?css-sheet`, `urlSheet()` and an inline shared module land in the first camp. A `<link>` per instance through `?hmr-url`, or `unsafeCSS()` in each
+component's `static styles`, land in the second.
+
+## What the engine shares for you and what it does not
+
+Per-element delivery is cheaper than it first looks. Blink shares the parsed
+CSS contents between identical sources: same-URL `<link>` elements, and
+byte-identical inline `<style>` elements. You do not pay N full parses for a
+utility sheet inlined N times.
+
+What you do pay is N `CSSStyleSheet` wrapper objects, N extra DOM nodes, and N
+per-root style scopes. `<link>` adds one node per element and the resource-load
+machinery behind it; `<style>` adds two. A shared adopted sheet adds none of
+them.
+
+Style recalculation is not the problem either way. Utility classes are
+single-class selectors, and browsers bucket rules by their rightmost simple
+selector, so the classes a shadow root never uses cost close to nothing to
+match. A big utility sheet adopted everywhere is an object-count question, not a
+recalc one.
+
+## FOUC versus cacheability
+
+Both ways of sharing one sheet behave identically at runtime: one parse, one
+object, and a hot swap that restyles every adopter without re-rendering a
+component. They differ only in where the bytes live.
+
+`?css-sheet` and `urlSheet()` keep the CSS as a standalone, content-hashed
+`.css` asset. It is cacheable on its own, stays out of the JS chunks, and does
+not churn the bundle when a framework regenerates it on every keystroke in dev.
+The cost is FOUC: a brief flash of unstyled content while the stylesheet is
+still loading, because the sheet is filled by a `fetch()` after the first
+components mount.
+
+An inline shared module ships the bytes inside a JS chunk. The sheet is filled
+before anything mounts, so there is no extra request and no flash. The cost is
+that the CSS is no longer independently cacheable, and any change to it
+invalidates that chunk.
+
+A `<link rel="preload" as="style">` in the head removes most of the difference:
+the fetch is already in flight when the first component mounts.
+
+## Why `?css-sheet` exists
+
+Wiring a fetched shared sheet by hand is short but unforgiving. Vite resolves
+accepted HMR dependencies by static analysis, so the specifier in
+`import.meta.hot.accept()` has to be a string literal in the importing module,
+byte-identical to the import it refers to. Compute it, alias it, or move the
+accept call into a helper, and the update never arrives.
+
+`?css-sheet` exists to write that line for you. The plugin resolves the query to
+a generated module that imports the `.css` file `?url`, builds the sheet through
+`urlSheet()`, and emits the matching literal accept call beside it. You write a
+bare import. The swap is self-accepted at that generated boundary, so it never
+propagates to the components that adopted the sheet, and none of them
+re-renders.
+
+Under `vite build` the same module can inline the CSS text instead: a library's
+consumers bundle its JavaScript only, so a fetch-backed sheet would ask for a
+`.css` asset that never reached their build.
+
+## The numbers
+
+One machine, 3000 components, an ~76 kB generated sheet, localhost. Directional,
+not precise.
+
+| Delivery                      | Sheet objects | Mount | UA memory | FOUC   |
+| ----------------------------- | ------------- | ----- | --------- | ------ |
+| shared adopted sheet, fetched | **1**         | 32 ms | 2.6 MB    | ~12 ms |
+| shared adopted sheet, inline  | **1**         | 42 ms | 2.7 MB    | none   |
+| `<style>` per element         | 3000          | 53 ms | 3.3 MB    | none   |
+| `<link>` per element          | 3000          | 88 ms | 3.2 MB    | ~1 ms  |
+
+Per-element delivery mounts 1.5–2.7× slower and holds about 0.6 MB more agent
+memory at that size. The flash in the first row measured as CLS 0.42, a failing
+Core Web Vital, which is why the preload link matters.
+[Benchmarks](/vite-plugin-lit/reference/benchmarks/) has the method and the
+command that reproduces it.
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Benchmarks"
+    description="The full measurements, the harness, and how to rerun them."
+    href="/vite-plugin-lit/reference/benchmarks/"
+  />
+  <LinkCard
+    title="Choose how to deliver CSS"
+    description="The decision table, and the page that implements each row."
+    href="/vite-plugin-lit/guides/stylesheets/"
+  />
+</CardGrid>

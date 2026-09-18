@@ -1,0 +1,135 @@
+---
+title: Installation
+description: Install @oddsquad/vite-plugin-lit, add it to vite.config.ts, register the ambient types, and confirm the dev server is patching.
+sidebar:
+  order: 1
+---
+
+import {PackageManagers} from 'starlight-package-managers';
+import {CardGrid, LinkCard} from '@astrojs/starlight/components';
+import ThemedImage from '../../../components/ThemedImage.astro';
+import indicatorIdleLight from '../../../assets/shots/indicator-idle.light.png';
+import indicatorIdleDark from '../../../assets/shots/indicator-idle.dark.png';
+
+Install the plugin, add one line to `vite.config.ts`, and register the ambient
+types. If you have never used the plugin, follow the tutorial instead; it
+includes these steps.
+
+## Install
+
+<PackageManagers
+  type="add"
+  pkg="@oddsquad/vite-plugin-lit"
+  dev
+  pkgManagers={['npm', 'pnpm', 'yarn', 'bun']}
+/>
+
+Lit and Vite stay your dependencies.
+[Compatibility](/vite-plugin-lit/reference/compatibility/) lists the versions
+each release supports and the one dev mode it does not.
+
+## Add it to Vite
+
+Add `litPlugin()` to the `plugins` array. Nothing else moves.
+
+```ts title="vite.config.ts" {5}
+import {defineConfig} from 'vite';
+import {litPlugin} from '@oddsquad/vite-plugin-lit';
+
+export default defineConfig({
+  plugins: [litPlugin()],
+});
+```
+
+Hot patching, the on-page indicator and the CSS import queries are on from
+here. The DevTools timeline and the source overlay are opt-in; the
+[options reference](/vite-plugin-lit/reference/options/) has the switches.
+
+The patching applies to the dev server only, so a production build is
+untouched. The `?css-sheet` and `?hmr-url` queries resolve in dev and build
+alike.
+
+## Add the types
+
+The import queries ship ambient declarations in
+`@oddsquad/vite-plugin-lit/client`. Without them TypeScript cannot type
+`import sheet from './theme.css?css-sheet'`.
+
+The `types` array replaces TypeScript's default, so list `vite/client` next to
+it rather than instead of it. The rest of this file is the `lit-ts` template's,
+unchanged.
+
+```json title="tsconfig.json" ins={8}
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "module": "esnext",
+    "lib": ["ES2023", "DOM"],
+    "types": ["vite/client", "@oddsquad/vite-plugin-lit/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}
+```
+
+One `.d.ts` anywhere in your `include` does the same job, if you would rather
+not touch `types`:
+
+```ts title="src/lit-plugin.d.ts"
+/// <reference types="@oddsquad/vite-plugin-lit/client" />
+```
+
+## Check it works
+
+Start the dev server and open a page that renders a Lit component.
+
+```sh frame="terminal"
+npm run dev
+```
+
+A small indicator sits in the corner of the page. It is idle until an update
+arrives.
+
+<ThemedImage
+  light={indicatorIdleLight}
+  dark={indicatorIdleDark}
+  alt="The HMR indicator at rest in the corner of the page: a flame icon, a dot and a zero."
+/>
+
+Type into an input inside a component, then edit that component's template and
+save. The markup changes, what you typed stays, and the indicator pulses green.
+That is a hot patch: an edit applied to the running page without a reload.
+
+If the page reloads instead, the edit hit a shape that cannot be patched in
+place. [Limitations](/vite-plugin-lit/reference/limitations/) names each one.
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Options"
+    description="Every option litPlugin() takes, with defaults."
+    href="/vite-plugin-lit/reference/options/"
+  />
+  <LinkCard
+    title="Keep state across edits"
+    description="What a hot patch preserves, and the three settings worth changing."
+    href="/vite-plugin-lit/guides/hmr/"
+  />
+</CardGrid>

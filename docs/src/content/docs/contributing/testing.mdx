@@ -7,48 +7,50 @@ sidebar:
 
 import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
 
-```sh
+Run the two suites, and point them at in-development Lit when you need to.
+Read [Development](/vite-plugin-lit/contributing/development/) first if you have
+not installed the workspace yet.
+
+```sh frame="terminal"
 pnpm test            # unit + e2e
 pnpm run test:unit   # node-only unit tests
 pnpm run test:e2e    # spawns vite dev servers + system Chrome
 ```
 
-`test:unit` is the fast loop — plain Node, no browser. `test:e2e` builds the
-plugin first, then drives the real dev server with playwright-core and the
-system Chrome (`channel: 'chrome'`), one dev server and browser per test file,
-run sequentially to avoid port and file contention.
+`test:unit` is the fast loop: plain Node, no browser. `test:e2e` builds the
+plugin first, then drives a real dev server with playwright-core and the system
+Chrome through `channel: 'chrome'`. It runs one dev server and one browser per
+test file, sequentially, to avoid port and file contention.
 
 ## Environment variables
 
-- `HMR_E2E_HEADED=1` — watch the browser while tests run.
-- `HMR_E2E_EXECUTABLE=/path/to/chrome` — use a specific browser binary
-  (e.g. after `npx playwright install chromium` if no system Chrome is
-  available).
+- `HMR_E2E_HEADED=1` watches the browser while the tests run.
+- `HMR_E2E_EXECUTABLE=/path/to/chrome` uses a specific browser binary. Reach for
+  it after `npx playwright install chromium` when you have no system Chrome.
 
 By default the tests run against the published npm versions of `lit`,
-`@lit/context`, `@lit/task`, `@lit-labs/signals`, and
-`@lit-labs/virtualizer`.
+`@lit/context`, `@lit/task`, `@lit-labs/signals`, and `@lit-labs/virtualizer`.
 
 ## Canary runs against lit `main`
 
-The [lit monorepo](https://github.com/lit/lit) is checked out as a submodule —
-a read-only reference to the real lit source (not the compiled npm output), and
-an opt-in way to test this plugin against in-development lit changes:
+The [lit monorepo](https://github.com/lit/lit) is checked out as a submodule. It
+is a read-only reference to the real lit source, not the compiled npm output,
+and an opt-in way to test this plugin against in-development lit changes.
 
-```sh
+```sh frame="terminal"
 git submodule update --init   # once
 pnpm build:lit-canary         # installs + builds lit inside ./lit
 LIT_CANARY=1 pnpm test        # resolves lit imports from ./lit
 ```
 
-With `LIT_CANARY=1`, every bare `lit` / `@lit/*` / `@lit-labs/*` import in
-the test fixtures (and the unit tests) is aliased into the built submodule
-output, so the whole suite runs against lit `main`.
+With `LIT_CANARY=1`, every bare `lit`, `@lit/*`, and `@lit-labs/*` import in the
+test fixtures and the unit tests is aliased into the built submodule output. The
+whole suite then runs against lit `main`.
 
 <Aside type="tip" title="What the canary is for">
   In-place patching depends on internals of how Lit evaluates classes and
   templates. The canary suite is the early warning when a change on lit `main`
-  breaks that — which is exactly the part of this package most worth protecting.
+  breaks that, which is the part of this package most worth protecting.
 </Aside>
 
 ## Related

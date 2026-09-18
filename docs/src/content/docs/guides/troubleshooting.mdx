@@ -1,0 +1,530 @@
+---
+title: Troubleshooting
+description: 'Symptoms, causes and fixes for reloads, lost state, stylesheets, the DevTools panel, the overlay and the CLI.'
+sidebar:
+  order: 9
+---
+
+import {CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+Find the symptom you are seeing, read the cause, apply the fix. Every entry
+links to the page that explains the behaviour.
+
+## Edits reload the page
+
+### Every save reloads the page
+
+**Symptom.** The page reloads on every edit, whatever file you touch.
+
+**Cause.** You edited a module that is not self-accepting: one that never tells
+Vite it can apply its own updates. `main.ts` and `index.html` are the usual
+ones. The edit walks up to a full reload.
+
+**Fix.** Edit the component module instead. See
+[Keep state across edits](/vite-plugin-lit/guides/hmr/).
+
+### The console says "standard accessor decorators"
+
+**Symptom.**
+
+```text frame="terminal"
+[lit-plugin] <my-element>: standard accessor decorators — performing full reload.
+```
+
+**Cause.** Reactive properties declared with standard TC39 `accessor`
+decorators close over private slots created fresh on each class evaluation.
+
+**Fix.** Use `experimentalDecorators: true` with
+`useDefineForClassFields: false`, or declare `static properties`. Both patch in
+place. See [Limitations](/vite-plugin-lit/reference/limitations/).
+
+### The console says "patching failed"
+
+**Symptom.**
+
+```text frame="terminal"
+[lit-plugin] <my-element>: patching failed: Cannot read private member #count from an object whose class did not declare it — performing full reload.
+```
+
+**Cause.** Copying a reactive-property accessor onto the canonical class made
+it read state the old instances do not carry.
+
+**Fix.** Read the detail after `patching failed:`; it is the real error.
+[Limitations](/vite-plugin-lit/reference/limitations/) lists the shapes that
+produce one.
+
+### The console says observedAttributes changed
+
+**Symptom.**
+
+```text frame="terminal"
+[lit-plugin] <my-element> changed observedAttributes; the platform registry can't pick this up — reload recommended.
+```
+
+**Cause.** The platform snapshots `observedAttributes` when the element is
+defined. The patch itself succeeded, so nothing reloads, whatever
+`onIncompatible` says.
+
+**Fix.** Reload by hand. The old attribute list stays in effect until you do.
+See [Limitations](/vite-plugin-lit/reference/limitations/).
+
+### I cannot read the reason before the page reloads
+
+**Symptom.** A line flashes past and the reload wipes the console.
+
+**Cause.** The default `hmr.onIncompatible` is `'reload'`, which logs and
+reloads in the same breath.
+
+**Fix.** Set `onIncompatible: 'warn'` while you investigate. Note it refuses
+the patch, so the old template stays on the page. The Components tab and
+`lit_hmr-incompatibilities` also keep a record. See
+[Options](/vite-plugin-lit/reference/options/).
+
+### The first edit after editing tsconfig.json reloads
+
+**Symptom.**
+
+```text frame="terminal"
+[vite] changed tsconfig file detected: /app/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+```
+
+**Cause.** Vite clears its transform cache when a tsconfig changes, so the next
+edit cannot be patched.
+
+**Fix.** Nothing. This is expected, and only the first edit pays for it. See
+[How HMR works](/vite-plugin-lit/concepts/how-hmr-works/).
+
+## Patched, but state still resets or breaks
+
+### A signal, cache or context key resets on every edit
+
+**Symptom.** The component keeps its state, but a shared value goes back to its
+initial one.
+
+**Cause.** A hot patch re-executes the edited module, and module-level `const`
+declarations are re-created with it.
+
+**Fix.** Move the signal, cache or context key into a module that holds no
+component. See
+[Keep state across edits](/vite-plugin-lit/guides/hmr/).
+
+### Editing a @lit/task body does nothing
+
+**Symptom.** The task's result is unchanged after you edit its function.
+
+**Cause.** `Task` captures the function at construction time, so the live
+controller still holds the old one.
+
+**Fix.** Reload once to pick the new body up. Results survive edits to the rest
+of the component. See
+[Use signals, context, tasks and the virtualizer](/vite-plugin-lit/guides/ecosystem/).
+
+### Editing the parent re-renders the child, or an input loses focus
+
+**Symptom.** A change to the parent's header rebuilds a child element below it.
+
+**Cause.** Everything in one template literal shares one template object, so
+editing any part of it invalidates the whole.
+
+**Fix.** Put the part you edit often in its own template literal, returned from
+a helper method. See
+[Keep state across edits](/vite-plugin-lit/guides/hmr/).
+
+### Every update throws "Cannot read private member"
+
+**Symptom.** After one edit, every update throws. No `[lit-plugin]` line, no
+reload, and the page looks like it worked.
+
+```text frame="terminal"
+Uncaught TypeError: Cannot read private member #x from an object whose class did not declare it
+```
+
+**Cause.** `render()`, `updated()` or a method reads a native `#private` field.
+No detector catches it, and the throw lands inside Lit's asynchronous update.
+
+**Fix.** Reload to recover, then switch to TypeScript's `private` modifier. See
+[Limitations](/vite-plugin-lit/reference/limitations/).
+
+### A newly added reactive property is undefined
+
+**Symptom.** The template reads `undefined`, and only the terminal shows
+`[vite] (client) [Unhandled rejection] TypeError: Cannot read properties of
+undefined`.
+
+**Cause.** Field initialisers run in the constructor. Instances that already
+exist never run the new one, and nothing diagnoses it.
+
+**Fix.** Reload once after adding a property. See
+[How HMR works](/vite-plugin-lit/concepts/how-hmr-works/).
+
+### The first edit after a dev-server restart reloads
+
+**Symptom.** Restart the server, edit a component, and the page reloads once.
+
+**Cause.** The interning map that lets Lit recognise an unchanged template
+lives in the page, not the server, so a restarted server has no record of it.
+
+**Fix.** Nothing. Later edits patch normally. See
+[How HMR works](/vite-plugin-lit/concepts/how-hmr-works/).
+
+### reconnect: true seems to do nothing
+
+**Symptom.** You turned `reconnect` on and see no difference.
+
+**Cause.** It cycles `disconnectedCallback()` and `connectedCallback()` on live
+instances, nothing more. A component that does no work there has nothing to
+re-run.
+
+**Fix.** Leave it off unless `connectedCallback()` does real setup. See
+[Keep state across edits](/vite-plugin-lit/guides/hmr/).
+
+### The console shows nothing on a successful patch
+
+**Symptom.** The edit lands, and the console stays empty.
+
+**Cause.** Vite logs `[vite] hot updated: …` at debug level, which Chrome hides
+unless the console shows Verbose.
+
+**Fix.** Turn Verbose on, or watch the on-page indicator instead. See
+[Keep state across edits](/vite-plugin-lit/guides/hmr/).
+
+## The indicator
+
+### There is no indicator
+
+**Symptom.** No dot in the corner of the page.
+
+**Cause.** `hmr` is off, `hmr.indicator` is `false`, or an env var switched one
+of them off. The indicator is forced off whenever HMR is.
+
+**Fix.** Check the Settings tab for the resolved values. See
+[Options](/vite-plugin-lit/reference/options/).
+
+### It pulses cyan and the count does not move
+
+**Symptom.** A calm cyan pulse, with the count unchanged.
+
+**Cause.** A shared stylesheet was swapped in place. No component re-rendered,
+so nothing counts.
+
+**Fix.** Nothing. This is the expected signal for CSS delivered as a shared
+sheet. See [Keep state across edits](/vite-plugin-lit/guides/hmr/).
+
+### The count went back to 0
+
+**Symptom.** The running total resets.
+
+**Cause.** The page reloaded. Only green pulses advance the count, and a reload
+zeroes it.
+
+**Fix.** Find the reload in the group above. See
+[Limitations](/vite-plugin-lit/reference/limitations/).
+
+### The count went up but my change is not on the page
+
+**Symptom.** The indicator counts an update you cannot see.
+
+**Cause.** `onIncompatible: 'warn'` refused the patch. The old template stays,
+and the update still counts.
+
+**Fix.** Read the `can't be hot-patched` warning and reload by hand. See
+[Options](/vite-plugin-lit/reference/options/).
+
+## Stylesheets
+
+### TS2307, or the import is typed any
+
+**Symptom.** TypeScript cannot find a module for `./x.css?css-sheet`.
+
+**Cause.** The plugin's ambient types are not in scope.
+
+**Fix.** Add `@oddsquad/vite-plugin-lit/client` to `types` in `tsconfig.json`,
+keeping `vite/client` alongside it. See
+[Import queries](/vite-plugin-lit/reference/import-queries/).
+
+### The shared sheet applies nothing and there is no error
+
+**Symptom.** Adopters render unstyled, and the console is clean.
+
+**Cause.** The sheet is fetch-backed. A 404 resolves into a silently empty
+`CSSStyleSheet`.
+
+**Fix.** Check the Network tab for the stylesheet request. See
+[Share one stylesheet with ?css-sheet](/vite-plugin-lit/guides/stylesheets/css-sheet/).
+
+### A flash of unstyled content on first paint
+
+**Symptom.** Components appear unstyled for a moment, then snap into place.
+
+**Cause.** A shared sheet is fetched, by design, so the first paint can beat it.
+
+**Fix.** Add a `<link rel="preload" as="style">` for it, set
+`cssSheetBuild: 'inline'`, or inline the shared module. See
+[Choose how to deliver CSS](/vite-plugin-lit/guides/stylesheets/).
+
+### Library consumers get no styles
+
+**Symptom.** The package works in your app and ships unstyled to its users.
+
+**Cause.** A fetched URL has nothing to resolve against in someone else's
+build.
+
+**Fix.** `build.lib` already inlines the sheet. Without it, set
+`cssSheetBuild: 'inline'`. See
+[Share one stylesheet with ?css-sheet](/vite-plugin-lit/guides/stylesheets/css-sheet/).
+
+### Lightning CSS errors on @property
+
+**Symptom.** `Unexpected token Function("var")` during dev or build.
+
+**Cause.** The configured CSS transformer rejects syntax browsers accept.
+`@property` declarations are the common trigger.
+
+**Fix.** Set `cssSheetBuild: 'inline-raw'`, or import the file with `?raw`.
+Both skip the CSS pipeline. See
+[Share one stylesheet with ?css-sheet](/vite-plugin-lit/guides/stylesheets/css-sheet/).
+
+### urlSheet() edits do not swap
+
+**Symptom.** Editing the CSS file changes nothing until you reload.
+
+**Cause.** The `import.meta.hot.accept` call is missing, hidden inside a
+helper, or names a specifier built from a variable. Vite resolves the accepted
+specifier statically.
+
+**Fix.** Put the accept call in the module that imports the CSS, spelled with
+the same literal. See
+[Wire a shared sheet by hand with urlSheet()](/vite-plugin-lit/guides/stylesheets/url-sheet/).
+
+### A link keeps stale CSS with ?url
+
+**Symptom.** The `<link>` element never picks up your edit.
+
+**Cause.** `?url` returns a stable URL, so the browser serves it from cache.
+
+**Fix.** Import with `?hmr-url`, or call `devCacheBust()` at module scope. See
+[Style a single component from a .css file](/vite-plugin-lit/guides/stylesheets/component-styles/).
+
+### Tailwind or UnoCSS regenerates but nothing swaps
+
+**Symptom.** The generated file changes on disk, and the page does not.
+
+**Cause.** The swap rides the HMR update for the `.css` module. The integration
+that writes the file has to emit one.
+
+**Fix.** Check that the integration triggers HMR for that module. See
+[Share one stylesheet with ?css-sheet](/vite-plugin-lit/guides/stylesheets/css-sheet/).
+
+### CSSStyleSheet is not defined in jsdom or Node
+
+**Symptom.** A test or an SSR render throws on import.
+
+**Cause.** A sheet module constructs a `CSSStyleSheet` at import time, and
+neither jsdom nor Node provides one.
+
+**Fix.** Do not import sheet modules in those environments. See
+[CSS delivery](/vite-plugin-lit/concepts/css-delivery/).
+
+## The DevTools panel
+
+### The panel does not appear
+
+**Symptom.** Vite DevTools opens with no Lit dock in it.
+
+**Cause.** `timeline` defaults to `false`, `DevTools()` is missing from
+`plugins`, or `@vitejs/devtools` is not installed.
+
+**Fix.** Work through
+[Set up the DevTools panel](/vite-plugin-lit/guides/devtools/).
+
+### Vite errors with DTK0034
+
+**Symptom.** The dev server refuses to start, naming a duplicate registration.
+
+**Cause.** A `devtools:` key in the config already registers the overlay, and
+`DevTools()` in `plugins` registers it a second time.
+
+**Fix.** Keep one of the two. See
+[Set up the DevTools panel](/vite-plugin-lit/guides/devtools/).
+
+### The timeline is empty
+
+**Symptom.** You interact with the page and no rows arrive.
+
+**Cause.** Recording is off, or the layer you expect is toggled off. Layer
+toggles are remembered in `localStorage` across sessions.
+
+**Fix.** Press **▶ Record**, then check the layer pills. See
+[Record and read the timeline](/vite-plugin-lit/guides/devtools/timeline/).
+
+### Updates shows a tick with no changed keys
+
+**Symptom.** The row is there, and the Reasons column is empty.
+
+**Cause.** The component overrides `willUpdate` or `updated` without calling
+`super`, so that phase is never reported.
+
+**Fix.** Call `super` in the override. See
+[Find out why a component re-rendered](/vite-plugin-lit/guides/devtools/updates/).
+
+### Pick or Meta+Shift+E does nothing
+
+**Symptom.** The button highlights and no picker appears on the page.
+
+**Cause.** Picking reuses the source-overlay picker, which is off by default.
+
+**Fix.** Set `sourceOverlay: true`. See
+[Open a component in your editor from the page](/vite-plugin-lit/guides/source-overlay/).
+
+### A source link opens nothing, or the wrong editor
+
+**Symptom.** Clicking a file path does nothing, or lands in another editor.
+
+**Cause.** The shared open service refuses paths outside the workspace root and
+the panel falls back to the plugin's own endpoint. The editor comes from
+`launch-editor` there, not from `sourceOverlay.editor`.
+
+**Fix.** See
+[DevTools architecture](/vite-plugin-lit/concepts/devtools-architecture/).
+
+### Settings I changed are missing in another browser
+
+**Symptom.** Your overrides are gone in a second browser on the same machine.
+
+**Cause.** The page reads a `localStorage` cache at boot, before any connection
+to DevTools exists.
+
+**Fix.** Open the panel once in that browser; it refills the cache from the
+durable copy. See
+[DevTools architecture](/vite-plugin-lit/concepts/devtools-architecture/).
+
+### The exported snapshot lacks details or early events
+
+**Symptom.** The frozen panel shows a tree with empty detail panes, or starts
+mid-session.
+
+**Cause.** Only components you opened have details baked in, and the timeline
+keeps its most recent events.
+
+**Fix.** Click the components that matter before exporting. `lit-devtools
+build` cannot export for you. See
+[Record and read the timeline](/vite-plugin-lit/guides/devtools/timeline/).
+
+## The source overlay
+
+### Ctrl+Shift+S (or ⌘⇧S) does nothing
+
+**Symptom.** No outline appears when you press the shortcut.
+
+**Cause.** `sourceOverlay` is off by default, `sourceOverlay.key` was changed,
+or the browser claimed the combination first.
+
+**Fix.** Enable it and pick a free key. See
+[Open a component in your editor from the page](/vite-plugin-lit/guides/source-overlay/).
+
+### It works locally but not on StackBlitz
+
+**Symptom.** Clicking an element opens nothing in the hosted preview.
+
+**Cause.** Opening goes through a dev-server middleware, and falls back to the
+editor's URL scheme when the server is unreachable.
+
+**Fix.** Nothing. This is expected in a hosted preview. See
+[Open a component in your editor from the page](/vite-plugin-lit/guides/source-overlay/).
+
+## The CLI and agents
+
+### The command needs an optional peer
+
+**Symptom.**
+
+```text frame="terminal"
+[lit-devtools] this command needs the optional peer "cac". Install it and retry:
+
+  npm install -D cac
+```
+
+**Cause.** `cac` and `@devframes/agentic` are optional peers, imported only on
+the path that needs them.
+
+**Fix.** Install the named package. See
+[CLI](/vite-plugin-lit/reference/cli/).
+
+### The agent lists no instances
+
+**Symptom.** `devframe_connect_list-instances` comes back empty.
+
+**Cause.** No dev server is running, or registry discovery was unavailable and
+the plugin warned about it at startup.
+
+**Fix.** Start the server, or bridge the URL directly with
+`mcp-remote http://localhost:<port>/__devtools/__mcp`. See
+[Connect a coding agent](/vite-plugin-lit/guides/devtools/agents/).
+
+### lit_recent-events returns nothing
+
+**Symptom.** The tool answers with `recording: false` and no events.
+
+**Cause.** Recording is off, and nothing is being captured.
+
+**Fix.** Call `lit_set-recording`, or press **▶ Record** in the panel. See
+[Connect a coding agent](/vite-plugin-lit/guides/devtools/agents/).
+
+## Configuration
+
+### An environment variable is ignored
+
+**Symptom.** `LIT_PLUGIN_*` has no effect.
+
+**Cause.** An explicit `litPlugin()` option wins over the variable. Booleans
+also only accept `true`, `1`, `false` and `0`.
+
+**Fix.** Remove the explicit option, fix the value, and restart the dev server
+after editing `.env`. See
+[Environment variables](/vite-plugin-lit/reference/environment-variables/).
+
+### LIT_PLUGIN_CSS_SHEET_BUILD is rejected
+
+**Symptom.** A startup warning names the variable and lists the allowed values.
+
+**Cause.** The value is outside the closed set, usually a typo.
+
+**Fix.** Use `auto`, `url`, `inline` or `inline-raw`. A typo falls back to the
+default rather than disabling the feature. See
+[Environment variables](/vite-plugin-lit/reference/environment-variables/).
+
+### Rolldown full-bundle dev mode gives plain reloads
+
+**Symptom.** No HMR features apply at all.
+
+**Cause.** The plugin targets the standard Vite dev server pipeline, where each
+module is served and re-executed on its own.
+
+**Fix.** Use the standard dev server. There is no supported configuration of
+the full-bundle mode. See
+[Limitations](/vite-plugin-lit/reference/limitations/).
+
+### virtual:lit-plugin/timeline breaks vite build or reports TS2307
+
+**Symptom.** The build fails, or TypeScript cannot resolve the virtual module.
+
+**Cause.** Both were bugs before 0.3.0, which moved the hooks and shipped
+ambient types.
+
+**Fix.** Upgrade to 0.3.0 or later. See
+[Changelog](/vite-plugin-lit/reference/changelog/).
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Limitations"
+    description="Every component shape that cannot be patched, with its console line."
+    href="/vite-plugin-lit/reference/limitations/"
+  />
+  <LinkCard
+    title="Keep state across edits"
+    description="The defaults behind most of the entries above."
+    href="/vite-plugin-lit/guides/hmr/"
+  />
+</CardGrid>

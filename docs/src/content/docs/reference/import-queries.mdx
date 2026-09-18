@@ -1,26 +1,30 @@
 ---
 title: Import queries
-description: The ?css-sheet and ?hmr-url queries the plugin adds, the Vite queries it builds on, and their ambient types.
+description: 'The ?css-sheet and ?hmr-url queries the plugin adds, the Vite queries it builds on, and the ambient types for both.'
 sidebar:
   order: 3
 ---
 
 import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
 
-| Query        | Yields                        | Added by    | HMR behaviour                               |
-| ------------ | ----------------------------- | ----------- | ------------------------------------------- |
-| `?css-sheet` | a shared `CSSStyleSheet`      | this plugin | swaps in place, no component re-render      |
-| `?hmr-url`   | a stylesheet URL (`string`)   | this plugin | re-renders the component with a busted href |
-| `?url`       | an asset URL (`string`)       | Vite        | URL is stable; use `devCacheBust()` in dev  |
-| `?inline`    | processed CSS text (`string`) | Vite        | re-renders the component                    |
-| `?raw`       | verbatim file text (`string`) | Vite        | re-renders the component                    |
+Five import queries deliver CSS into a shadow root, and two of them come from
+this plugin. This page states what each one yields and how it behaves on an
+edit; the guides linked in the last column show them in use.
 
-The delivery tradeoffs between them are in the
-[stylesheets guide](/vite-plugin-lit/guides/stylesheets/).
+| Query        | Yields                        | Added by    | HMR behaviour                               | Used on                                                                   |
+| ------------ | ----------------------------- | ----------- | ------------------------------------------- | ------------------------------------------------------------------------- |
+| `?css-sheet` | a shared `CSSStyleSheet`      | this plugin | swaps in place, no component re-render      | [`?css-sheet`](/vite-plugin-lit/guides/stylesheets/css-sheet/)            |
+| `?hmr-url`   | a stylesheet URL (`string`)   | this plugin | re-renders the component with a busted href | [Component styles](/vite-plugin-lit/guides/stylesheets/component-styles/) |
+| `?url`       | an asset URL (`string`)       | Vite        | URL is stable, so call `devCacheBust()`     | [`urlSheet()`](/vite-plugin-lit/guides/stylesheets/url-sheet/)            |
+| `?inline`    | processed CSS text (`string`) | Vite        | re-renders the component                    | [Component styles](/vite-plugin-lit/guides/stylesheets/component-styles/) |
+| `?raw`       | verbatim file text (`string`) | Vite        | re-renders the component                    | [Component styles](/vite-plugin-lit/guides/stylesheets/component-styles/) |
+
+Which one to reach for is a delivery tradeoff, and the
+[stylesheets guide](/vite-plugin-lit/guides/stylesheets/) works through it.
 
 ## Ambient types
 
-The two queries this plugin adds ship ambient declarations in
+The two queries this plugin adds ship their declarations in
 `@oddsquad/vite-plugin-lit/client`:
 
 ```ts
@@ -37,74 +41,51 @@ declare module '*.css?css-sheet' {
 
 Pull them in through the `types` field of your `tsconfig.json`:
 
-```json
+```json title="tsconfig.json" {5}
 {
   "compilerOptions": {
-    "types": ["vite/client", "@oddsquad/vite-plugin-lit/client"]
-  }
+    "target": "ES2022",
+    "module": "ESNext",
+    "types": ["vite/client", "@oddsquad/vite-plugin-lit/client"],
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false
+  },
+  "include": ["src"]
 }
 ```
 
-or with a triple-slash reference in any `.d.ts` in your project:
+A triple-slash reference in any `.d.ts` file does the same job, and leaves the
+`types` field alone:
 
-```ts
+```ts title="src/vite-env.d.ts"
+/// <reference types="vite/client" />
 /// <reference types="@oddsquad/vite-plugin-lit/client" />
 ```
 
-`?url`, `?inline`, and `?raw` are typed by `vite/client`, which you almost
-certainly already reference.
+`?url`, `?inline`, and `?raw` are typed by `vite/client`, which a Vite project
+almost always references already.
 
 <Aside type="caution" title="`types` replaces, it does not extend">
-  Listing `types` at all narrows the ambient packages TypeScript loads. If you
-  add `@oddsquad/vite-plugin-lit/client`, keep `vite/client` (and anything else
-  you relied on) in the same array.
+  Listing `types` at all narrows the set of ambient packages TypeScript loads.
+  If you add `@oddsquad/vite-plugin-lit/client`, keep `vite/client` and anything
+  else you relied on in the same array.
 </Aside>
 
 ## virtual:lit-plugin/timeline
 
-The [custom timeline layers](/vite-plugin-lit/guides/devtools-timeline/custom-layers/)
-API is imported from a virtual module:
+Custom timeline layers are imported from a virtual module rather than a file
+path:
 
 ```ts
 import {addTimelineEvent, addTimelineLayer} from 'virtual:lit-plugin/timeline';
 ```
 
-Its types ship in the same `@oddsquad/vite-plugin-lit/client` declarations as
-the two CSS queries above, so the `types` entry (or triple-slash reference)
-you already added covers this module too:
-
-```ts
-declare module 'virtual:lit-plugin/timeline' {
-  export interface TimelineLayer {
-    id: string;
-    label: string;
-    /** 0xRRGGBB */
-    color: number;
-  }
-
-  export interface TimelineEvent<TData = unknown> {
-    layerId: string;
-    /** Milliseconds since the current recording started. */
-    time: number;
-    data: TData;
-    title?: string;
-    subtitle?: string;
-    groupId?: number | string;
-    logType?: 'default' | 'warning' | 'error';
-    meta?: {
-      elementId?: number;
-      tagName?: string;
-      source?: {file: string; line: number};
-    };
-  }
-
-  export function addTimelineEvent(event: TimelineEvent): void;
-  export function addTimelineLayer(layer: TimelineLayer): void;
-}
-```
-
-`meta` is filled in by the plugin's own capture layers; custom events have no
-reason to set it.
+Its types ship in the same `@oddsquad/vite-plugin-lit/client` declarations, so
+the `types` entry or the triple-slash reference above already covers it. The
+full declaration is on the
+[runtime API page](/vite-plugin-lit/reference/runtime-api/), and
+[custom layers](/vite-plugin-lit/guides/devtools/custom-layers/) puts it to
+work.
 
 ## Related
 
@@ -115,8 +96,8 @@ reason to set it.
     href="/vite-plugin-lit/reference/runtime-api/"
   />
   <LinkCard
-    title="Link and inline"
+    title="Component styles"
     description="When to reach for ?hmr-url, ?inline, or ?raw."
-    href="/vite-plugin-lit/guides/stylesheets/link-and-inline/"
+    href="/vite-plugin-lit/guides/stylesheets/component-styles/"
   />
 </CardGrid>

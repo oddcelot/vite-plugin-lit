@@ -1,0 +1,161 @@
+---
+title: Record and read the timeline
+description: 'Start a recording, choose layers, read a row, export a session, and link to a view.'
+sidebar:
+  order: 2
+---
+
+import {Aside, CardGrid, Code, LinkCard} from '@astrojs/starlight/components';
+import lifecycle from '../../../../../../playground/src/hmr-lifecycle.ts?raw';
+import {stripHeader} from '../../../../lib/fixture';
+import ThemedImage from '../../../../components/ThemedImage.astro';
+import devtoolsTimelineCollapsedLight from '../../../../assets/shots/devtools-timeline-collapsed.light.png';
+import devtoolsTimelineCollapsedDark from '../../../../assets/shots/devtools-timeline-collapsed.dark.png';
+import devtoolsTimelineRawLight from '../../../../assets/shots/devtools-timeline-raw.light.png';
+import devtoolsTimelineRawDark from '../../../../assets/shots/devtools-timeline-raw.dark.png';
+import devtoolsTimelineRowDetailsLight from '../../../../assets/shots/devtools-timeline-row-details.light.png';
+import devtoolsTimelineRowDetailsDark from '../../../../assets/shots/devtools-timeline-row-details.dark.png';
+import devtoolsExportSnapshotLight from '../../../../assets/shots/devtools-export-snapshot.light.png';
+import devtoolsExportSnapshotDark from '../../../../assets/shots/devtools-export-snapshot.dark.png';
+
+Record what your components did and in what order, then scrub it. Use it for
+ordering questions; for "why did this re-render", go to the
+[Updates tab](/vite-plugin-lit/guides/devtools/updates/).
+
+## Start and stop recording
+
+Open the **Timeline** tab and press **▶ Record**. Interact with the page, then
+press **⏹ Stop**. Stopping keeps what you captured.
+
+Recording is shared state, so it does not matter which tab you start it from,
+and a coding agent can flip it too. Starting again clears the previous
+recording: the page re-zeroes its timeline clock each time, and events from the
+old clock would sit in the list on a different time origin.
+
+**Clear** empties the list without stopping the recording.
+
+## Choose layers
+
+A strip of coloured pills under the toolbar turns each layer on or off. A layer
+is one category of recorded timeline events, with its own colour and toggle.
+
+| Layer         | What it captures                                                                                                                                                    | Default |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| Lit Lifecycle | `connectedCallback`, `performUpdate`, `willUpdate`, `update`, `updated`, `firstUpdated`, `disconnectedCallback`, with per-phase durations and changed-property keys | on      |
+| Lit Render    | `begin render` and `end render`, from Lit's built-in `lit-debug` events                                                                                             | on      |
+| Mouse         | `mousedown`, `mouseup`, `click`, `dblclick`                                                                                                                         | off     |
+| Keyboard      | `keydown`, `keyup`                                                                                                                                                  | off     |
+
+Your toggles are remembered between sessions in `localStorage`.
+
+A phase only reports if the component lets the base class run. The playground
+fixture below overrides every hook and calls `super` on the marked lines, so
+all of them show up.
+
+<Code
+  code={stripHeader(lifecycle)}
+  lang="ts"
+  title="src/hmr-lifecycle.ts"
+  mark={[40, 45, 52, 57, 62, 67]}
+/>
+
+## Read a row
+
+Rows are collapsed spans, not raw events. The capture layers emit a start and
+an end per phase, so each row is one phase with its duration, and a lifecycle
+row also lists the reactive properties that changed.
+
+<ThemedImage
+  light={devtoolsTimelineCollapsedLight}
+  dark={devtoolsTimelineCollapsedDark}
+  alt="The Timeline tab with collapsed lifecycle rows for hmr-counter, each showing its duration."
+/>
+
+Press **Raw** in the filter bar for one row per recorded event instead. Reach
+for it on ordering questions, and for
+[custom layers](/vite-plugin-lit/guides/devtools/custom-layers/), which have no
+pairs to collapse.
+
+<ThemedImage
+  light={devtoolsTimelineRawLight}
+  dark={devtoolsTimelineRawDark}
+  alt="The Timeline tab with Raw on: one row per recorded event, including custom Router events."
+/>
+
+Click any row to see the element tag name, its stable instance id, the
+duration, the changed properties, the source file and the raw event data. Click
+the file to open it in your editor.
+
+<ThemedImage
+  light={devtoolsTimelineRowDetailsLight}
+  dark={devtoolsTimelineRowDetailsDark}
+  alt="A timeline row expanded to show the element, instance id, changed properties and source link."
+/>
+
+An element row also carries two links. **filter** narrows the list to that
+element. **inspect** opens the
+[Components tab](/vite-plugin-lit/guides/devtools/components/) on it, because
+both views use the same instance id.
+
+## Export a session for a bug report
+
+**Export snapshot** freezes the current session into a self-contained
+directory: the recorded events, the component tree, the details of everything
+you opened, and any HMR incompatibilities. The dev server writes it, and the
+panel reports where.
+
+<ThemedImage
+  light={devtoolsExportSnapshotLight}
+  dark={devtoolsExportSnapshotDark}
+  alt="An exported snapshot opened as a static page: the same timeline, read-only."
+/>
+
+The result is a static site. Open `index.html` from any file server and the
+panel renders the recording with no dev server, no checkout of the app and no
+reproduction steps. The frozen panel is read-only: recording, picking and tree
+refresh are hidden, because there is no page behind it to command.
+
+Two limits matter when you record something to report.
+
+- Only components you actually opened have their details baked in. Details are
+  read from live DOM, so a component nobody inspected has nothing to freeze.
+  Click through the ones that matter before exporting.
+- The timeline keeps its most recent events, not all of them. A long session
+  exports its tail.
+
+`lit-devtools build` does not produce one of these. A fresh CLI process has no
+session to freeze, so export from the running server that recorded it.
+
+## Link to a view
+
+The panel is addressable. Opened on its own, or from an exported snapshot, it
+reads its position from the URL hash and keeps it up to date as you click.
+Copying the address bar gives a link that reopens the same view.
+
+```text frame="terminal"
+#tab=components&component=7
+```
+
+`tab` is `components`, `updates`, `timeline` or `settings`. `component` is the
+element id from the Components tree; on the Updates tab it selects the
+component row that instance belongs to.
+
+<Aside type="note" title="The hash, not the query">
+  The query string is where the DevTools handshake token lives, and that must
+  not travel in a link you paste into an issue.
+</Aside>
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="CLI"
+    description="Why lit-devtools build cannot export a snapshot for you."
+    href="/vite-plugin-lit/reference/cli/"
+  />
+  <LinkCard
+    title="Find out why a component re-rendered"
+    description="The same recording, read as updates instead of events."
+    href="/vite-plugin-lit/guides/devtools/updates/"
+  />
+</CardGrid>
