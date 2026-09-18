@@ -19,7 +19,9 @@ for (const [from, to] of Object.entries(redirects)) {
   try {
     html = await readFile(page, 'utf8');
   } catch {
-    console.error(`[check-redirects] missing redirect page for ${from}: ${page}`);
+    console.error(
+      `[check-redirects] missing redirect page for ${from}: ${page}`
+    );
     failures++;
     continue;
   }
@@ -31,7 +33,9 @@ for (const [from, to] of Object.entries(redirects)) {
   }
   const url = decodeURIComponent(match[1]);
   if (url !== target) {
-    console.error(`[check-redirects] ${from}: refresh points at ${url}, config says ${target}`);
+    console.error(
+      `[check-redirects] ${from}: refresh points at ${url}, config says ${target}`
+    );
     failures++;
     continue;
   }

@@ -1,60 +1,155 @@
 ---
-title: How it works
-description: Why Lit loses state under plain Vite HMR, and the two mechanisms this plugin uses to keep it.
+title: How hot patching works
+description: Why Lit loses state under plain Vite HMR, the two mechanisms that stop it, and the shapes that still force a reload.
 sidebar:
   order: 1
 ---
 
-Read this when you want to know what the plugin is actually doing to your
-classes, or when you are deciding how much to trust it. Nothing here is
-required to use it.
+import {Code, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import siblings from '../../../../../playground/src/hmr-siblings.ts?raw';
+import {stripHeader} from '../../../lib/fixture';
 
-## The problem
+Plain Vite HMR re-runs a module; Lit then sees every template as new and
+rebuilds the whole component. This page explains the two mechanisms that stop
+that, and why some shapes still force a reload.
 
-lit-html decides "is this the same template?" by **object identity** of the
-`TemplateStringsArray`, not by content. Vite HMR re-executes an edited
-module, so every `` html`...` `` produces a fresh strings array and lit
-rebuilds the component's **entire** subtree for a one-character edit: focus,
-scroll, and input state are lost, child `@state` resets, and cached DOM
-references are orphaned.
+## Why Lit loses state on a re-execution
 
-## The two mechanisms
+lit-html answers "is this the same template?" by the object identity of the
+`TemplateStringsArray`, not by its text. Two arrays with identical content are
+two different templates to it.
 
-This plugin fixes that with two cooperating mechanisms:
+Vite HMR re-executes the module you edited. Every `` html`…` `` in it produces
+a fresh strings array, so lit-html sees every template as new and rebuilds the
+component's entire subtree. Focus, selection, scroll offsets and input values
+go with it, child `@state` resets, and cached DOM references are left pointing
+at detached nodes.
 
-1. **Template-strings interning** — the `html`/`svg`/`mathml`/`css` tags are
-   wrapped in dev so strings arrays are canonicalized by content. Unchanged
-   templates keep their identity across re-execution, so only the **edited**
-   template rebuilds its part of the DOM. Sibling templates, child
-   components, focus, selection, and constructed stylesheets all survive.
-2. **In-place class patching** — a `customElements.define` interceptor
-   catches the duplicate define from the re-executed module and patches the
-   originally-registered class in place: prototype and static descriptors
-   are copied over, reactive property values are snapshotted and restored
-   through the new accessors, styles are re-adopted, and live instances
-   re-render once.
+The class has the same problem from the other side. The re-executed module
+calls `customElements.define()` again, the platform registry refuses to
+redefine a tag, and the instances already on the page keep the prototype chain
+they were built with.
 
-Both run only on the dev server. A production build never sees either one.
+## Template interning
 
-## What this buys you
+Template interning means reusing the same template object for identical
+template text, so Lit sees an unchanged template as unchanged.
 
-Because the canonical class object is patched rather than replaced, everything
-holding a reference to it stays valid: the custom elements registry, existing
-instances, other modules that imported the class, and controllers that closed
-over it. That is also why the plugin can be honest about the cases it cannot
-handle — see [Limitations](/vite-plugin-lit/reference/limitations/) — instead
-of leaving you in a half-patched state.
+On the dev server the plugin wraps Lit's `html`, `svg`, `mathml` and `css`
+tags. Each wrapper looks up its strings array by content: the first array seen
+for a given content becomes canonical, and every later array with the same
+content maps onto it. Keys are namespaced per tag, so an `html` and an `svg`
+template with equal text never share a parsed template.
 
-## Relationship to the upstream plugin
+The effect is local. Only the literal whose text actually changed gets a new
+identity; its siblings keep theirs and keep their DOM.
 
-This package is based on `@lit-labs/vite-plugin-lit` (formerly
-`@lit-labs/vite-hmr`) from the
-[lit monorepo](https://github.com/lit/lit), which is kept checked out as a
-read-only submodule in this repository for reference and opt-in canary testing
-against lit `main`.
+The playground fixture below is the shape that makes it visible. Edit the
+marked header literal and only the `<header>` is rebuilt: the `<ul>` keeps its
+DOM identity, and the `<input>` keeps focus, value and selection.
 
-A page-by-page account of the behavioural differences from upstream is not
-written yet. Until it is, treat the upstream README as the description of the
-shared core (interning plus in-place patching) and this site as the description
-of what this package ships today: the CSS delivery helpers, the DevTools
-timeline and inspector, the source overlay, and the option/env surface.
+<Code
+  code={stripHeader(siblings)}
+  lang="ts"
+  title="playground/src/hmr-siblings.ts"
+  mark={[25]}
+/>
+
+Edit a string inside `renderList()` instead and the trade flips: the list
+rebuilds, the header does not.
+
+## In-place class patching
+
+Interning saves the DOM. Patching saves the class.
+
+The plugin intercepts `customElements.define()`. When the re-executed module
+redefines an existing tag, the new class is not registered. The plugin patches
+the canonical class instead: the class the browser registered first, updated in
+place rather than replaced.
+
+Patching syncs own members from the new class onto the canonical one: keys that
+disappeared are deleted, then every remaining own descriptor is copied, for the
+prototype and the statics. Reactive property values are snapshotted first and
+written back through the new accessors, `static styles` is re-adopted, and every
+live instance re-renders once.
+
+Both mechanisms are dev-server only. A production build never loads either one.
+
+## What the plugin can therefore promise
+
+Because the class object is patched and not swapped, every reference to it
+stays valid: the custom elements registry, the instances on the page, other
+modules that imported the class, and controllers that closed over it.
+
+Because interning keeps unchanged templates unchanged, the DOM those instances
+own is not rebuilt. Focus, selection, scroll position, input values and child
+component state survive an edit to their parent.
+
+One thing does not: state declared at the top level of the module you edited.
+That module re-executes, so its own `const`s are re-created. Only the class
+rides through.
+
+## Why some shapes cannot be patched
+
+An incompatible patch is a component shape the plugin cannot update in place,
+so it reloads or warns instead. Four causes matter.
+
+**Standard `accessor` decorators.** Reactive properties declared with TC39
+decorators close over private slots created fresh on every class evaluation.
+Accessors copied onto the canonical class would read the wrong slot. The plugin
+detects this before it touches anything.
+
+**Native `#private` fields.** Instances carry the private brand from the
+previous class evaluation, and methods copied from the new class expect the new
+one. There is no detector. A copied property accessor that touches private state
+fails the patch and reports it; a method or `render()` that touches it fails
+later, as an uncaught `TypeError` on every update. Use TypeScript's `private`
+modifier, which has no brand check.
+
+**A changed `observedAttributes` list.** The platform snapshots that list at
+define time and nothing can change it afterwards. The patch succeeds, so this
+case never reloads; the old list stays in effect until you reload by hand.
+
+**New reactive properties on live instances.** A property the edit introduces
+gets its initial value in the constructor, which has already run for every
+instance on the page. Those instances have no value for it, so a template that
+reads it throws. Reload once after adding one.
+
+[Limitations](/vite-plugin-lit/reference/limitations/) lists all of them with
+the console line each prints.
+
+## What the indicator colours mean
+
+The indicator reports which path an update took. Green means a component
+re-rendered, and the running count advances. Cyan means something updated
+without re-rendering a component, in practice a shared stylesheet: one
+`CSSStyleSheet` object adopted by many shadow roots, swapped in place. A full
+reload resets the count, which is the quickest way to tell a reload from a
+patch.
+
+## Relationship to `@lit-labs/vite-plugin-lit`
+
+This package is based on `@lit-labs/vite-plugin-lit`, formerly
+`@lit-labs/vite-hmr`, from the [lit monorepo](https://github.com/lit/lit), kept
+here as a read-only submodule for reference and canary testing against lit
+`main`.
+
+Interning and in-place patching are the shared core, described by the upstream
+README. This package adds the CSS delivery helpers, the DevTools panel, the
+source overlay, and the option surface. A behavioural diff against upstream is
+not written yet.
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Limitations"
+    description="Every shape that cannot be patched, with its console line."
+    href="/vite-plugin-lit/reference/limitations/"
+  />
+  <LinkCard
+    title="Keep state across edits"
+    description="The settings that decide what happens on an incompatible edit."
+    href="/vite-plugin-lit/guides/hmr/"
+  />
+</CardGrid>

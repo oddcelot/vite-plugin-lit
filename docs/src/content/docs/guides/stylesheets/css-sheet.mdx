@@ -10,6 +10,9 @@ import vsheetCss from '../../../../../../playground/src/hmr-vsheet.css?raw';
 import vsheetA from '../../../../../../playground/src/hmr-vsheet-a.ts?raw';
 import vsheetB from '../../../../../../playground/src/hmr-vsheet-b.ts?raw';
 import {stripHeader} from '../../../../lib/fixture';
+import ThemedImage from '../../../../components/ThemedImage.astro';
+import indicatorCyanLight from '../../../../assets/shots/indicator-cyan.light.png';
+import indicatorCyanDark from '../../../../assets/shots/indicator-cyan.dark.png';
 
 Import a `.css` file with `?css-sheet` and every component that imports it
 shares one `CSSStyleSheet`. Edit the file and every adopter restyles in place,
@@ -77,7 +80,11 @@ Change a colour in `hmr-vsheet.css` and save. Both chips restyle, neither
 component re-renders, and the on-page indicator gives the calmer cyan pulse
 reserved for updates that do not re-render anything.
 
-{/* shot: css-sheet-cyan-pulse */}
+<ThemedImage
+  light={indicatorCyanLight}
+  dark={indicatorCyanDark}
+  alt="The indicator pulsing cyan after a shared stylesheet edit, with the count unchanged."
+/>
 
 The `renders:` badge on each component is the proof. It does not move.
 

@@ -45,7 +45,7 @@ export class HmrCustomLayer extends LitElement {
             >
               ${route}
             </button>
-          `,
+          `
         )}
       </nav>
       <p>Current route: <code>${this.route}</code></p>

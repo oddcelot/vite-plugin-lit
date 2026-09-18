@@ -1,63 +1,74 @@
 ---
-title: Custom layers
-description: Emit your own events onto the Lit timeline from app code or another Vite plugin.
+title: Put your own events on the timeline
+description: 'Emit your own router, store or socket events onto the Lit timeline from app code or another Vite plugin.'
 sidebar:
   order: 6
 ---
 
-import {CardGrid, LinkCard} from '@astrojs/starlight/components';
+import {Code, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import customLayer from '../../../../../../playground/src/hmr-custom-layer.ts?raw';
+import {stripHeader} from '../../../../lib/fixture';
+import ThemedImage from '../../../../components/ThemedImage.astro';
+import devtoolsCustomLayerLight from '../../../../assets/shots/devtools-custom-layer.light.png';
+import devtoolsCustomLayerDark from '../../../../assets/shots/devtools-custom-layer.dark.png';
 
-You want this when your app has its own events worth lining up against Lit's —
-a router navigation, a websocket message, a store commit — and you would rather
-see them on the same time axis than in the console.
+Line up your router, store or socket events against Lit's on the same time
+axis. Two calls, safe to leave in production code.
 
-## Register a layer, emit events
+## Register a layer
 
-App code and other plugins can emit events on custom layers:
+Call `addTimelineLayer` once, at module scope. It is idempotent, so a hot patch
+that re-runs the module is harmless.
 
-```ts
-import {addTimelineEvent, addTimelineLayer} from 'virtual:lit-plugin/timeline';
+<Code
+  code={stripHeader(customLayer)}
+  lang="ts"
+  title="src/hmr-custom-layer.ts"
+  mark={[7, 52]}
+/>
 
-// Register once (idempotent)
-addTimelineLayer({id: 'my-layer', label: 'My Events', color: 0xff6b35});
+`color` is a number, not a CSS string: `0xff6b35` rather than `'#ff6b35'`.
 
-// Emit from anywhere in the app
-addTimelineEvent({
-  layerId: 'my-layer',
-  time: performance.now(),
-  title: 'something happened',
-  data: {detail: 42},
-});
-```
+A layer registered before the panel or an agent connects is still there once it
+does. The dev server keeps registered layers in its session state instead of
+relaying them to whoever happens to be listening.
 
-The virtual module resolves to a no-op stub in any `vite build` — including a
-build with `timeline` enabled, since the events only ever travel over the dev
-server's HMR channel — and in dev when `timeline` is disabled. Imports are safe
-to leave in component code.
+## Emit events
 
-`color` is a number, not a CSS string — `0xff6b35` rather than `'#ff6b35'`.
-`data` is whatever you want the event's detail pane to show; it is serialized,
-so keep it to plain values.
+`addTimelineEvent` takes the layer id, a time, and whatever you want the
+event's detail pane to show. `data` is serialized, so keep it to plain values.
 
-A layer registered before the panel (or an agent) connects is still there once
-it does — the dev server keeps registered layers in its session state rather
-than relaying them to whoever happens to be listening at the time.
+Custom events have no start and end to pair, so they only appear under **Raw**
+in the [timeline](/vite-plugin-lit/guides/devtools/timeline/) filter bar. Their
+pill is always on: app code decides whether it emits at all.
 
-TypeScript picks the module up from `@oddsquad/vite-plugin-lit/client`; see
-[import queries](/vite-plugin-lit/reference/import-queries/#virtuallit-plugintimeline)
-for how to reference it.
+<ThemedImage
+  light={devtoolsCustomLayerLight}
+  dark={devtoolsCustomLayerDark}
+  alt="Timeline rows from a custom Router layer, in the layer colour, next to Lit lifecycle rows."
+/>
+
+Both functions resolve to a no-op stub in any `vite build`, including a build
+with `timeline` enabled, and in dev when `timeline` is off. Leave the imports
+in component code.
+
+## Types
+
+TypeScript picks the virtual module up from
+`@oddsquad/vite-plugin-lit/client`. Add it to `types` in `tsconfig.json`, next
+to `vite/client`.
 
 ## Related
 
 <CardGrid>
   <LinkCard
-    title="DevTools timeline"
-    description="Setup, the built-in layers, and the Components tab."
-    href="/vite-plugin-lit/guides/devtools-timeline/"
+    title="Runtime API"
+    description="addTimelineLayer, addTimelineEvent and the event shape in full."
+    href="/vite-plugin-lit/reference/runtime-api/"
   />
   <LinkCard
-    title="Runtime API"
-    description="The virtual module's exports in full."
-    href="/vite-plugin-lit/reference/runtime-api/"
+    title="Record and read the timeline"
+    description="Where your events show up, and how to read a row."
+    href="/vite-plugin-lit/guides/devtools/timeline/"
   />
 </CardGrid>

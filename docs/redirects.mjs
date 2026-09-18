@@ -15,9 +15,10 @@ export const moved = {
   '/guides/devtools-timeline': '/guides/devtools/',
   '/guides/devtools-timeline/updates': '/guides/devtools/updates/',
   '/guides/devtools-timeline/custom-layers': '/guides/devtools/custom-layers/',
-  '/guides/stylesheets/link-and-inline': '/guides/stylesheets/component-styles/',
+  '/guides/stylesheets/link-and-inline':
+    '/guides/stylesheets/component-styles/',
 };
 
 export const redirects = Object.fromEntries(
-  Object.entries(moved).map(([from, to]) => [from, base + to]),
+  Object.entries(moved).map(([from, to]) => [from, base + to])
 );

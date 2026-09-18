@@ -1,98 +1,301 @@
 ---
-title: Quick start
-description: Add the plugin to vite.config.ts, edit a component, and read what the on-page indicator is telling you.
+title: Build your first hot-reloading component
+description: Scaffold a Lit app, add the plugin, and watch a list, a counter and a half-typed input survive every edit.
 sidebar:
   order: 2
 ---
 
-import {Aside, CardGrid, LinkCard, Steps} from '@astrojs/starlight/components';
+import {Code, CardGrid, LinkCard, Steps} from '@astrojs/starlight/components';
+import myElement from '../../../../../examples/tutorial/src/my-element.ts?raw';
+import themeCss from '../../../../../examples/tutorial/src/theme.css?raw';
+import ThemedImage from '../../../components/ThemedImage.astro';
+import indicatorIdleLight from '../../../assets/shots/indicator-idle.light.png';
+import indicatorIdleDark from '../../../assets/shots/indicator-idle.dark.png';
+import indicatorGreenLight from '../../../assets/shots/indicator-green.light.png';
+import indicatorGreenDark from '../../../assets/shots/indicator-green.dark.png';
+import indicatorCyanLight from '../../../assets/shots/indicator-cyan.light.png';
+import indicatorCyanDark from '../../../assets/shots/indicator-cyan.dark.png';
 
-You want this the first time you add the plugin: one config change, one edit,
-and a way to tell whether a save was hot-patched or silently reloaded the page.
-
-## Add the plugin
-
-```ts
-// vite.config.ts
-import {defineConfig} from 'vite';
-import {litPlugin} from '@oddsquad/vite-plugin-lit';
-
-export default defineConfig({
-  plugins: [litPlugin()],
-});
-```
-
-That is the whole setup. HMR, the on-page indicator, and the CSS import
-queries are on by default; the DevTools timeline and the source overlay are
-opt-in.
-
-The HMR feature only applies to the dev server (`apply: 'serve'`); production
-builds are untouched. The CSS queries (`?hmr-url`, `?css-sheet`) and Lightning
-CSS literal processing apply in both dev and build.
-
-## Make your first edit
+Build a small Lit app and watch its state survive every edit you make to it.
+Start here if the plugin is new to you; Installation is the short version for a
+project you already have. It takes about fifteen minutes and needs Node 20 or
+newer, an editor, and no knowledge of Vite plugins.
 
 <Steps>
 
-1. Start the dev server and open a page that renders a Lit component.
+1. **Scaffold the app.** The Lit and TypeScript template asks no questions.
 
-2. Type into an input inside that component, or scroll a list it owns — give
-   it some state worth losing.
+   ```sh frame="terminal"
+   npm create vite@latest my-lit-app -- --template lit-ts
+   cd my-lit-app
+   npm install
+   npm run dev
+   ```
 
-3. Edit the component's template: change a label, add a class, tweak the
-   markup around the part you interacted with.
+   Open the URL Vite prints.
 
-4. Save. The component's DOM updates, the focus, selection, and scroll
-   position stay exactly where they were, and the indicator in the corner of
-   the page pulses green.
+   **Check:** a page with the Lit and Vite logos and a button reading
+   `Count is 0`. Click it and the number goes up.
+
+2. **Feel the problem.** Click the button three times, so it reads
+   `Count is 3`. Then rename the label in the starter component.
+
+   ```diff lang="ts" title="src/my-element.ts"
+             part="button"
+           >
+   -         Count is ${this.count}
+   +         Clicked ${this.count} times
+           </button>
+   ```
+
+   **Check:** the page reloads and the button reads `Clicked 0 times`. Your
+   three clicks are gone.
+
+   Nothing in that module tells Vite it can apply its own update, so the edit
+   walks all the way up to a full page reload.
+
+3. **Add the plugin.**
+
+   ```sh frame="terminal"
+   npm install -D @oddsquad/vite-plugin-lit
+   ```
+
+   The template ships without a Vite config, so write one.
+
+   ```ts title="vite.config.ts"
+   import {defineConfig} from 'vite';
+   import {litPlugin} from '@oddsquad/vite-plugin-lit';
+
+   export default defineConfig({
+     plugins: [litPlugin({hmr: {indicator: {count: true}}})],
+   });
+   ```
+
+   `indicator.count` puts a running total next to the on-page indicator. Every
+   step below reads it.
+
+   Register the plugin's ambient types in the same sitting. TypeScript's
+   `types` array replaces its default, so keep `vite/client` in the list.
+
+   ```diff lang="json" title="tsconfig.json"
+   -    "types": ["vite/client"],
+   +    "types": ["vite/client", "@oddsquad/vite-plugin-lit/client"],
+   ```
+
+   Do it now rather than later: editing `tsconfig.json` forces a full reload,
+   and from the next step on you have state on the page worth keeping.
+
+   Stop the dev server and start it again. Vite does not pick up a config file
+   that did not exist when it started.
+
+   ```sh frame="terminal"
+   npm run dev
+   ```
+
+   **Check:** a small indicator in the corner of the page, showing a `0`.
+
+   <ThemedImage
+     light={indicatorIdleLight}
+     dark={indicatorIdleDark}
+     alt="The indicator at rest in the corner of the page, showing 0."
+   />
+
+4. **Make the same kind of edit, and keep your clicks.** Click the button three
+   times, then rename the label once more.
+
+   ```diff lang="ts" title="src/my-element.ts"
+   -         Clicked ${this.count} times
+   +         You clicked ${this.count} times
+   ```
+
+   **Check:** the label changes to `You clicked 3 times`. The page does not
+   reload, the count stays at 3, and the indicator pulses green and goes from
+   `0` to `1`.
+
+   <ThemedImage
+     light={indicatorGreenLight}
+     dark={indicatorGreenDark}
+     alt="The indicator pulsing green after the label edit; the count reads 1."
+   />
+
+   That is a hot patch: an edit applied to the running page without a reload.
+
+5. **Give it state worth losing.** One number is a thin test. Replace
+   `src/my-element.ts` with a component that holds a list, a counter and an
+   input.
+
+   ```ts title="src/my-element.ts"
+   import {LitElement, css, html} from 'lit';
+   import {customElement, state} from 'lit/decorators.js';
+
+   @customElement('my-element')
+   export class MyElement extends LitElement {
+     static styles = css`
+       :host {
+         display: block;
+         max-width: 32rem;
+         margin: 3rem auto;
+         font-family: system-ui, sans-serif;
+       }
+
+       input:focus {
+         outline: 2px solid currentColor;
+       }
+     `;
+
+     @state() private count = 0;
+     @state() private notes: string[] = [];
+
+     private renderHeader() {
+       return html`<h1>Notebook</h1>`;
+     }
+
+     private renderList() {
+       return html`<ul>
+         ${this.notes.map((note) => html`<li>${note}</li>`)}
+       </ul>`;
+     }
+
+     render() {
+       return html`
+         ${this.renderHeader()}
+         <input placeholder="Type a note, press Enter" @keydown=${this.onKey} />
+         ${this.renderList()}
+         <button @click=${this.onClick}>Clicked ${this.count} times</button>
+       `;
+     }
+
+     private onClick() {
+       this.count++;
+     }
+
+     private onKey(event: KeyboardEvent) {
+       const input = event.target as HTMLInputElement;
+       if (event.key === 'Enter' && input.value) {
+         this.notes = [...this.notes, input.value];
+         input.value = '';
+       }
+     }
+   }
+
+   declare global {
+     interface HTMLElementTagNameMap {
+       'my-element': MyElement;
+     }
+   }
+   ```
+
+   Take the template's placeholder content out of the page. Leave the `<script>`
+   in the head where it is.
+
+   ```diff lang="html" title="index.html"
+     <body>
+   -   <my-element>
+   -     <h1>Get started</h1>
+   -   </my-element>
+   +   <my-element></my-element>
+     </body>
+   ```
+
+   Reload the page once. `notes` is a new reactive property, and reactive
+   properties get their initial value when an instance is constructed, so the
+   instance already on the page does not have one; a reload starts clean.
+
+   Add two notes, click the button twice, then type half a third note and leave
+   the caret in the input. Now edit the heading, and nothing else.
+
+   ```diff lang="ts" title="src/my-element.ts"
+     private renderHeader() {
+   -   return html`<h1>Notebook</h1>`;
+   +   return html`<h1>My notes</h1>`;
+     }
+   ```
+
+   **Check:** the heading reads `My notes`. Both notes are still listed, the
+   button still reads `Clicked 2 times`, your half-typed third note is still in
+   the input, and the caret is still where you left it.
+
+   `renderHeader()` and `renderList()` are separate `html` literals, and only
+   the header's text changed. That is template interning: reusing the same
+   template object for identical template text, so Lit sees an unchanged
+   template as unchanged and rebuilds only the header.
+
+6. **Hot-swap a stylesheet.** Write a stylesheet the component can adopt.
+
+   <Code code={themeCss} lang="css" title="src/theme.css" />
+
+   Import it with `?css-sheet` and put it at the front of `static styles`. The
+   query hands you a `CSSStyleSheet` object, and `static styles` takes an array,
+   so the component's own rules stack on top of it. Give each note the `card`
+   class while you are there.
+
+   <Code
+     code={myElement}
+     lang="ts"
+     title="src/my-element.ts"
+     mark={[3, 7, 8, 32]}
+   />
+
+   That is a component edit, so saving it gives you a green pulse and the count
+   goes up. Now change one word in the stylesheet.
+
+   ```diff lang="css" title="src/theme.css"
+   -  border: 2px solid dodgerblue;
+   +  border: 2px solid tomato;
+   ```
+
+   **Check:** the note borders turn red. The indicator pulses cyan, and the
+   count does not move.
+
+   <ThemedImage
+     light={indicatorCyanLight}
+     dark={indicatorCyanDark}
+     alt="The indicator pulsing cyan after the theme.css edit; the count has not moved."
+   />
+
+   Cyan means a shared stylesheet was swapped in place. One `CSSStyleSheet`
+   object is adopted by every shadow root that imported it, and replacing its
+   rules restyles them all without re-rendering a component.
+
+7. **See what a reload looks like.** Change the page title.
+
+   ```diff lang="html" title="index.html"
+   -    <title>my-lit-app</title>
+   +    <title>My notes</title>
+   ```
+
+   **Check:** the page reloads. The notes are gone, the input is empty, and the
+   indicator is back to `0`.
+
+   `index.html` is not a module, so there is nothing to patch. A few component
+   shapes cannot be patched either, standard `accessor` decorators among them.
+   [Limitations](/vite-plugin-lit/reference/limitations/) names each one, what
+   you see when it fires, and what to write instead. If you would rather keep the page up and reload by
+   hand, `hmr.onIncompatible` has a `'warn'` mode; the
+   [HMR guide](/vite-plugin-lit/guides/hmr/) covers it.
 
 </Steps>
 
-If instead the whole page reloads, the edit hit one of the cases that cannot
-be patched in place — see [Limitations](/vite-plugin-lit/reference/limitations/)
-for the full list and how to tell which one fired.
+## Where next
 
-<Aside title="Try it without installing anything">
-  The repository ships a [playground
-  app](https://github.com/oddcelot/vite-plugin-lit/tree/main/playground) that is
-  self-contained enough to open on StackBlitz straight from the repo URL. It is
-  also the source for the e2e fixtures, so it exercises every delivery mode
-  documented here.
-</Aside>
-
-## What the indicator counts
-
-The injected indicator (`hmr.indicator`, with `hmr.indicator.count` for the
-running total) counts only updates that actually **re-render a component**. A
-pure shared-stylesheet hot-swap restyles adopted sheets in place without
-re-rendering, so it pulses in the calmer info color and leaves the count
-untouched; a per-element `.css` or any component-module edit both re-renders and
-counts (green pulse). A non-accepted edit (e.g. `main.ts`) falls back to a full
-reload, which remounts everything and resets the count.
-
-| Playground edit         | Delivery                  | Re-renders? | Counts? | Pulse           |
-| ----------------------- | ------------------------- | ----------- | ------- | --------------- |
-| `hmr-vsheet.css`        | `?css-sheet` shared sheet | no          | no      | info (cyan)     |
-| `hmr-shared.css`        | `?raw` → shared sheet     | no          | no      | info (cyan)     |
-| `hmr-utility-sheet.css` | `?url` → shared sheet     | no          | no      | info (cyan)     |
-| `hmr-linked-css.css`    | `?hmr-url` `<link>`       | yes         | yes     | success (green) |
-| `hmr-import-css.css`    | `?hmr-url` `@import`      | yes         | yes     | success (green) |
-| `hmr-css-url.css`       | `?url` + `devCacheBust()` | yes         | yes     | success (green) |
-| `hmr-raw-css.css`       | `?raw` static styles      | yes         | yes     | success (green) |
-| any `*.ts` component    | component module          | yes         | yes     | success (green) |
-| `main.ts`               | not self-accepting        | full reload | resets  | —               |
-
-## Related
+You have a component whose list, counter, input text and caret ride through
+every edit, and a stylesheet that restyles the whole app without re-rendering
+anything. These three pages take it further.
 
 <CardGrid>
   <LinkCard
-    title="How it works"
-    description="The two mechanisms that keep state alive across an edit."
-    href="/vite-plugin-lit/getting-started/how-it-works/"
+    title="Keep state across edits"
+    description="What a hot patch preserves, and the three settings worth changing."
+    href="/vite-plugin-lit/guides/hmr/"
   />
   <LinkCard
-    title="Options"
-    description="Every option litPlugin() takes, with defaults."
-    href="/vite-plugin-lit/reference/options/"
+    title="Choose how to deliver CSS"
+    description="When a shared sheet beats per-component styles, and how to wire each."
+    href="/vite-plugin-lit/guides/stylesheets/"
+  />
+  <LinkCard
+    title="DevTools timeline"
+    description="Record what your components did, and see why they re-rendered."
+    href="/vite-plugin-lit/guides/devtools/"
   />
 </CardGrid>

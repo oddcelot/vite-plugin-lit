@@ -6,6 +6,9 @@ sidebar:
 ---
 
 import {Aside, CardGrid, LinkCard, Steps} from '@astrojs/starlight/components';
+import ThemedImage from '../../../components/ThemedImage.astro';
+import sourceOverlayArmedLight from '../../../assets/shots/source-overlay-armed.light.png';
+import sourceOverlayArmedDark from '../../../assets/shots/source-overlay-armed.dark.png';
 
 Point at any element on the page and jump to the file and line that renders
 it. Off by default; one option turns it on.
@@ -38,20 +41,27 @@ LIT_PLUGIN_SOURCE_OVERLAY_EDITOR=zed
 
 <Steps>
 
-1. Press **Ctrl+Shift+S** in the page to arm the picker.
+1. Press **Ctrl+Shift+S** (**⌘⇧S** on a Mac) in the page to arm the picker.
 
 2. Move the pointer. The element under it is outlined, and a panel shows its
    tag name and source file.
 
-   {/* shot: source-overlay-armed */}
+   <ThemedImage
+     light={sourceOverlayArmedLight}
+     dark={sourceOverlayArmedDark}
+     alt="The source overlay outlining a component, with a tooltip showing its tag name and source file."
+   />
 
-3. Click to open that file in your editor. Press **Ctrl+Shift+S** again to
-   dismiss without opening anything.
+3. Hold **Ctrl** (or **⌘**) and click the element to open that file in your
+   editor at that line. The tooltip's own **open** button does the same.
+
+4. Press the same keys again to put the picker away without opening anything.
 
 </Steps>
 
-The panel also carries a copy button for the file path, for when you want to
-paste it somewhere instead of opening it.
+A plain click, without the modifier, hands the element to the DevTools
+Components tab instead, when the panel is set up. The tooltip also carries a
+**copy** button for the `file:line` pair, for pasting into an issue.
 
 ## Choose your editor
 
@@ -116,7 +126,7 @@ export default defineConfig({
 ```
 
 - `key` is the letter combined with Ctrl+Shift, so `'i'` gives Ctrl+Shift+I.
-  Defaults to `'s'`. Avoid `'e'`: the DevTools panel uses Ctrl+Shift+E to pick.
+  Defaults to `'s'`. Avoid `'e'`: it collides with the panel's Meta+Shift+E pick shortcut.
 
 - `throttleMs` throttles pointer-move hit testing. Defaults to `50`.
 - `workspaceRoot` prefixes source paths, for when your editor needs absolute

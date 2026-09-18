@@ -5,4 +5,121 @@ sidebar:
   order: 3
 ---
 
-This page is being written.
+import {CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+The panel is a devframe: the small framework it is built on, which runs inside
+Vite DevTools, in its own tab, or from the CLI. Knowing that explains where
+settings live, how files open, and why an agent can read the same data.
+
+## One panel, three hosts
+
+One definition declares what the panel needs rather than where it runs: its RPC
+functions, its shared state, and the timeline stream. The page runtime reaches
+it through an injected port, so nothing in the definition knows about Vite. That
+gives three ways to open the same UI.
+
+Docked in Vite DevTools it appears as the `lit` dock: a panel slot inside Vite
+DevTools, served as an iframe by the DevTools hub. This is the normal case, and
+the only one with a live page behind it.
+
+On its own it is served by the dev server at `<origin>/__lit/`. Same panel, same
+data, its own browser tab.
+
+From the command line, `lit-devtools dev` starts the panel with no page behind
+it. The component tree is empty by construction, because there is no inspected
+document. The command exists to prove the panel is framework-neutral, not to
+debug an app; for that, run your Vite dev server with DevTools enabled.
+
+## How settings persist
+
+The panel's overrides, and its own light or dark preference, are written to
+devframe's settings store. Under Vite DevTools that is
+`~/.vite/devtools/settings/lit.json`.
+
+That location is deliberate. The file lives in your home directory, not the
+repository, so nothing needs a `.gitignore` entry and nothing reaches a
+teammate. Settings follow you to another browser on the same machine, and
+survive clearing site data or restarting the dev server. Project-wide defaults
+belong in `litPlugin({…})`, which is committed on purpose.
+
+`localStorage` is still written, and still matters. The inspected page reads its
+overrides synchronously while its own modules initialise, long before any
+connection to DevTools exists, so it cannot wait on a file-backed store. Treat
+it as a per-browser cache that the panel refills from the durable copy on its
+first connection.
+
+The consequence is visible once: in a browser that has never opened the panel
+for this project, the page boots with the resolved config and picks the
+overrides up the moment you open the panel.
+
+## How source links open
+
+Every source link in the panel prefers `@devframes/service-open`, the shared
+open-in-editor service a Vite DevTools host installs. It resolves symlinks
+before it decides, and it opens nothing outside the workspace root.
+
+When that service is absent, or refuses a path outside the workspace root, the
+panel falls back to the plugin's own `/__lit-open-in-editor` endpoint. That one
+trusts whatever Vite itself serves, `server.fs.allow`, so it covers linked
+packages the stricter service turns down.
+
+The in-page source overlay only ever uses the fallback endpoint: it runs in the
+page, where no DevTools host and no service exist. Either path ends at
+`launch-editor`, so both land on the same file and line in the same editor.
+
+## How the docked panel talks to the page
+
+Hovering a row in the Components tree outlines that element in the app. How that
+instruction travels depends on where the panel is.
+
+Docked inside the app's own window, the panel talks to the page over a direct
+channel, with no round trip through the dev server. Opened as its own tab there
+is no page in that window to talk to, so the same command goes out over the
+server route instead. The outline is identical; only the path differs.
+
+## Deep links and RPC
+
+Standing alone, the panel keeps its position in the URL hash and updates it as
+you click, so copying the address bar reopens the same view.
+
+The hash, not the query string. The query is where the DevTools handshake token
+lives, and a token must not travel in a link you paste into an issue.
+
+Docked, the panel is an iframe whose address nobody reads, so a link has to
+arrive as a call instead. Anything holding a DevTools client can ask the hub to
+bring the panel forward on a specific element:
+
+```ts title="any DevTools client"
+await rpc.call('hub:docks:activate', {
+  dockId: 'lit',
+  params: {tab: 'components', componentId: 7},
+});
+```
+
+Picking an element in the page uses exactly this. The plugin activates its own
+dock with the picked id attached.
+
+## Where the data goes
+
+Because the definition owns the data rather than the UI, the panel is not its
+only reader. The same RPC functions are exposed as MCP tools on the DevTools
+hub, so a coding agent queries the live component tree, the update summary and
+the recorded events against the running app instead of guessing from source.
+
+The panel and the agent see one authority, not two copies. That is why an agent
+turning recording on also changes what you see in an open panel.
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="CLI"
+    description="Every lit-devtools command, and what each one can and cannot do."
+    href="/vite-plugin-lit/reference/cli/"
+  />
+  <LinkCard
+    title="Ask a coding agent"
+    description="The MCP tools the panel's data is exposed through, and how to point an agent at them."
+    href="/vite-plugin-lit/guides/devtools/agents/"
+  />
+</CardGrid>

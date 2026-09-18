@@ -65,15 +65,18 @@ Reference:
 [environment variables](https://oddcelot.github.io/vite-plugin-lit/reference/environment-variables/) ·
 [import queries](https://oddcelot.github.io/vite-plugin-lit/reference/import-queries/) ·
 [runtime API](https://oddcelot.github.io/vite-plugin-lit/reference/runtime-api/) ·
+[CLI](https://oddcelot.github.io/vite-plugin-lit/reference/cli/) ·
 [limitations](https://oddcelot.github.io/vite-plugin-lit/reference/limitations/) ·
-[benchmarks](https://oddcelot.github.io/vite-plugin-lit/reference/benchmarks/)
+[compatibility](https://oddcelot.github.io/vite-plugin-lit/reference/compatibility/) ·
+[benchmarks](https://oddcelot.github.io/vite-plugin-lit/reference/benchmarks/) ·
+[troubleshooting](https://oddcelot.github.io/vite-plugin-lit/guides/troubleshooting/)
 
 ## Coding agents (MCP)
 
 The DevTools panel's data is also exposed as MCP tools — `lit_list-components`,
-`lit_component-details`, `lit_recent-events`, `lit_get-meta`,
-`lit_hmr-incompatibilities`, `lit_set-recording` — so an agent can read the
-live component tree and timeline instead of guessing from source.
+`lit_component-details`, `lit_update-summary`, `lit_recent-events`,
+`lit_get-meta`, `lit_hmr-incompatibilities`, `lit_set-recording` — so an agent
+can read the live component tree and timeline instead of guessing from source.
 
 These answer only while a Vite dev server with DevTools is **running**. There
 is no stored data and nothing to go stale: with the server down an agent gets

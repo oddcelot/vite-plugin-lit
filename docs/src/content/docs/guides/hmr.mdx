@@ -10,6 +10,11 @@ import siblings from '../../../../../playground/src/hmr-siblings.ts?raw';
 import sharedSignal from '../../../../../playground/src/shared-signal.ts?raw';
 import signals from '../../../../../playground/src/hmr-signals.ts?raw';
 import {stripHeader} from '../../../lib/fixture';
+import ThemedImage from '../../../components/ThemedImage.astro';
+import indicatorGreenLight from '../../../assets/shots/indicator-green.light.png';
+import indicatorGreenDark from '../../../assets/shots/indicator-green.dark.png';
+import indicatorCyanLight from '../../../assets/shots/indicator-cyan.light.png';
+import indicatorCyanDark from '../../../assets/shots/indicator-cyan.dark.png';
 
 Keep focus, input text, scroll position and child state while you edit a
 component. This page covers the defaults and the three settings worth
@@ -130,13 +135,21 @@ It separates a successful patch from a silent no-op without the console.
 
 A green pulse means a component re-rendered.
 
-{/* shot: hmr-indicator-green */}
+<ThemedImage
+  light={indicatorGreenLight}
+  dark={indicatorGreenDark}
+  alt="The indicator pulsing green after a component edit; the count reads 1."
+/>
 
 A calmer cyan pulse means something updated without re-rendering a component.
 In practice that is a shared stylesheet, one `CSSStyleSheet` object adopted by
 many shadow roots, swapped in place.
 
-{/* shot: hmr-indicator-cyan */}
+<ThemedImage
+  light={indicatorCyanLight}
+  dark={indicatorCyanDark}
+  alt="The indicator pulsing cyan after a stylesheet swap; the count has not moved."
+/>
 
 Only green pulses advance the count, and a full reload resets it. Each row
 below is an edit you can make in the playground.

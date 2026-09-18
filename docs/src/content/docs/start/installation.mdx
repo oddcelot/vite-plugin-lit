@@ -1,19 +1,21 @@
 ---
 title: Installation
-description: Install @oddsquad/vite-plugin-lit, its peer dependencies, and the ambient types for its import queries.
+description: Install @oddsquad/vite-plugin-lit, add it to vite.config.ts, register the ambient types, and confirm the dev server is patching.
 sidebar:
   order: 1
 ---
 
 import {PackageManagers} from 'starlight-package-managers';
-import {Aside, CardGrid, LinkCard, Steps} from '@astrojs/starlight/components';
+import {CardGrid, LinkCard} from '@astrojs/starlight/components';
+import ThemedImage from '../../../components/ThemedImage.astro';
+import indicatorIdleLight from '../../../assets/shots/indicator-idle.light.png';
+import indicatorIdleDark from '../../../assets/shots/indicator-idle.dark.png';
 
-You want this when you have a Vite project using Lit and editing a component
-throws away the page's state on every save. Installing the plugin is a
-dependency, one line of config, and — if you use its CSS import queries — one
-tsconfig entry.
+Install the plugin, add one line to `vite.config.ts`, and register the ambient
+types. If you have never used the plugin, follow the tutorial instead; it
+includes these steps.
 
-## Install the package
+## Install
 
 <PackageManagers
   type="add"
@@ -22,58 +24,112 @@ tsconfig entry.
   pkgManagers={['npm', 'pnpm', 'yarn', 'bun']}
 />
 
-## Peer dependencies
+Lit and Vite stay your dependencies.
+[Compatibility](/vite-plugin-lit/reference/compatibility/) lists the versions
+each release supports and the one dev mode it does not.
 
-| Package        | Range                | Required                                                     |
-| -------------- | -------------------- | ------------------------------------------------------------ |
-| `lit`          | `^3.0.0`             | yes                                                          |
-| `vite`         | `^7.0.0 \|\| ^8.0.0` | yes                                                          |
-| `lightningcss` | `^1.30.0`            | optional — only for Lightning CSS processing of css literals |
+## Add it to Vite
 
-Node `>=20` is the runtime requirement for the published output.
+Add `litPlugin()` to the `plugins` array. Nothing else moves.
 
-<Aside type="caution" title="Rolldown full-bundle dev mode is unsupported">
-  The plugin targets the standard Vite dev server pipeline. See
-  [Limitations](/vite-plugin-lit/reference/limitations/).
-</Aside>
+```ts title="vite.config.ts" {5}
+import {defineConfig} from 'vite';
+import {litPlugin} from '@oddsquad/vite-plugin-lit';
 
-## Ambient types for the import queries
+export default defineConfig({
+  plugins: [litPlugin()],
+});
+```
 
-The CSS import queries (`?css-sheet`, `?hmr-url`) ship ambient declarations in
+Hot patching, the on-page indicator and the CSS import queries are on from
+here. The DevTools timeline and the source overlay are opt-in; the
+[options reference](/vite-plugin-lit/reference/options/) has the switches.
+
+The patching applies to the dev server only, so a production build is
+untouched. The `?css-sheet` and `?hmr-url` queries resolve in dev and build
+alike.
+
+## Add the types
+
+The import queries ship ambient declarations in
 `@oddsquad/vite-plugin-lit/client`. Without them TypeScript cannot type
-`import sheet from './x.css?css-sheet'`.
+`import sheet from './theme.css?css-sheet'`.
 
-<Steps>
+The `types` array replaces TypeScript's default, so list `vite/client` next to
+it rather than instead of it. The rest of this file is the `lit-ts` template's,
+unchanged.
 
-1. Add the types to your `tsconfig.json`:
+```json title="tsconfig.json" ins={8}
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "module": "esnext",
+    "lib": ["ES2023", "DOM"],
+    "types": ["vite/client", "@oddsquad/vite-plugin-lit/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
 
-   ```json
-   {
-     "compilerOptions": {
-       "types": ["vite/client", "@oddsquad/vite-plugin-lit/client"]
-     }
-   }
-   ```
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
 
-2. Or reference them from a single `.d.ts` in your project instead:
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}
+```
 
-   ```ts
-   /// <reference types="@oddsquad/vite-plugin-lit/client" />
-   ```
+One `.d.ts` anywhere in your `include` does the same job, if you would rather
+not touch `types`:
 
-</Steps>
+```ts title="src/lit-plugin.d.ts"
+/// <reference types="@oddsquad/vite-plugin-lit/client" />
+```
+
+## Check it works
+
+Start the dev server and open a page that renders a Lit component.
+
+```sh frame="terminal"
+npm run dev
+```
+
+A small indicator sits in the corner of the page. It is idle until an update
+arrives.
+
+<ThemedImage
+  light={indicatorIdleLight}
+  dark={indicatorIdleDark}
+  alt="The HMR indicator at rest in the corner of the page: a flame icon, a dot and a zero."
+/>
+
+Type into an input inside a component, then edit that component's template and
+save. The markup changes, what you typed stays, and the indicator pulses green.
+That is a hot patch: an edit applied to the running page without a reload.
+
+If the page reloads instead, the edit hit a shape that cannot be patched in
+place. [Limitations](/vite-plugin-lit/reference/limitations/) names each one.
 
 ## Related
 
 <CardGrid>
   <LinkCard
-    title="Quick start"
-    description="Wire the plugin into vite.config.ts and make your first edit."
-    href="/vite-plugin-lit/getting-started/quick-start/"
+    title="Options"
+    description="Every option litPlugin() takes, with defaults."
+    href="/vite-plugin-lit/reference/options/"
   />
   <LinkCard
-    title="Import queries"
-    description="What ?css-sheet, ?hmr-url, ?inline and ?raw resolve to."
-    href="/vite-plugin-lit/reference/import-queries/"
+    title="Keep state across edits"
+    description="What a hot patch preserves, and the three settings worth changing."
+    href="/vite-plugin-lit/guides/hmr/"
   />
 </CardGrid>

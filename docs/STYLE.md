@@ -28,19 +28,19 @@ The first time a term appears on a page, define it in the same sentence in
 plain words. Later pages may link the concept page instead. Use these
 phrasings:
 
-| Term | First-use phrasing |
-| --- | --- |
-| hot patch | an edit applied to the running page without a reload |
-| template interning | reusing the same template object for identical template text, so Lit sees an unchanged template as unchanged |
-| canonical class | the class the browser registered first; the plugin updates it in place instead of replacing it |
-| self-accepting module | a module that tells Vite it can apply its own updates, so an edit stops there instead of reloading the page |
-| incompatible patch | a component shape the plugin cannot update in place, so it reloads or warns instead |
-| shared stylesheet | one `CSSStyleSheet` object adopted by many shadow roots |
-| FOUC | a brief flash of unstyled content while a stylesheet is still loading |
-| devframe | the small framework the panel is built on; it runs inside Vite DevTools, in its own tab, or from the CLI |
-| dock | a panel slot inside Vite DevTools; the Lit panel is the `lit` dock |
-| layer | one category of recorded timeline events, with its own colour and toggle |
-| Vite DevTools | the browser overlay from `@vitejs/devtools` that hosts plugin panels |
+| Term                  | First-use phrasing                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ |
+| hot patch             | an edit applied to the running page without a reload                                                         |
+| template interning    | reusing the same template object for identical template text, so Lit sees an unchanged template as unchanged |
+| canonical class       | the class the browser registered first; the plugin updates it in place instead of replacing it               |
+| self-accepting module | a module that tells Vite it can apply its own updates, so an edit stops there instead of reloading the page  |
+| incompatible patch    | a component shape the plugin cannot update in place, so it reloads or warns instead                          |
+| shared stylesheet     | one `CSSStyleSheet` object adopted by many shadow roots                                                      |
+| FOUC                  | a brief flash of unstyled content while a stylesheet is still loading                                        |
+| devframe              | the small framework the panel is built on; it runs inside Vite DevTools, in its own tab, or from the CLI     |
+| dock                  | a panel slot inside Vite DevTools; the Lit panel is the `lit` dock                                           |
+| layer                 | one category of recorded timeline events, with its own colour and toggle                                     |
+| Vite DevTools         | the browser overlay from `@vitejs/devtools` that hosts plugin panels                                         |
 
 ## One page, one job (Diátaxis)
 
@@ -61,7 +61,7 @@ Never mix. When a guide starts explaining, cut the paragraph and link.
 - Always `title="path/from/project/root"`. Shell blocks use
   `frame="terminal"` and no title.
 - Highlight the lines the page is about with `{3-5}`. Show edits with
-  `ins={…}` / `del={…}`, or a ```` ```diff lang="ts" ```` fence.
+  `ins={…}` / `del={…}`, or a ` ```diff lang="ts" ` fence.
 - Available (expressive-code 0.44): `frames`, `shiki`, `text-markers`.
   Not available: `showLineNumbers`, `collapse`, `// [!code …]` comments.
 - Playground-sourced examples are imported, not pasted, so they cannot rot:
@@ -73,12 +73,18 @@ Never mix. When a guide starts explaining, cut the paragraph and link.
   import src from '../../../../playground/src/hmr-siblings.ts?raw';
   import {stripHeader} from '../../lib/fixture';
 
-  <Code code={stripHeader(src)} lang="ts" title="src/hmr-siblings.ts" mark={[12]} />
+  <Code
+    code={stripHeader(src)}
+    lang="ts"
+    title="src/hmr-siblings.ts"
+    mark={[12]}
+  />
   ```
 
 - Hand-written blocks are only for files that have no fixture:
   `vite.config.ts`, `tsconfig.json`, `.env.local`, MCP JSON, and the tutorial
-  files under `examples/tutorial/` (typechecked by `vp check`).
+  files under `examples/tutorial/` (verified by hand in a scaffolded project;
+  see its README).
 - Component examples include the import lines, the `@customElement` line, the
   class, and `render()`.
 

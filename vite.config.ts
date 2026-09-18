@@ -68,6 +68,13 @@ export default defineConfig({
       'bench/results/',
       'docs/dist/',
       'docs/.astro/',
+      // Finished files from the docs tutorial. They are a plain-Vite user's
+      // project, not this package: `import {defineConfig} from 'vite'` is the
+      // point, and the ambient types resolve only once the plugin is
+      // installed from npm. Verified by hand per examples/tutorial/README.md.
+      '/examples/',
+      // Generated from the root CHANGELOG.md on every docs build.
+      'docs/src/content/docs/reference/changelog.md',
     ],
   },
   fmt: {
@@ -88,6 +95,7 @@ export default defineConfig({
       'bench/results/',
       'docs/dist/',
       'docs/.astro/',
+      'docs/src/content/docs/reference/changelog.md',
     ],
   },
 });
