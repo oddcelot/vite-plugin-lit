@@ -1,0 +1,18 @@
+---
+/**
+ * Starlight's `Head` with the font tags appended. Astro's font pipeline emits
+ * its `@font-face` rules through the `<Font>` component rather than a
+ * stylesheet, so they have to be injected into the head from here — Starlight
+ * owns that element, and `components.Head` is the seam it offers.
+ *
+ * Manrope is preloaded because it paints the first text on every page. Roboto
+ * Mono is not: it only appears once a code block or an inline `code` scrolls
+ * into view, so preloading it would compete with the text font.
+ */
+import Default from '@astrojs/starlight/components/Head.astro';
+import {Font} from 'astro:assets';
+---
+
+<Default />
+<Font cssVariable="--font-manrope" preload />
+<Font cssVariable="--font-roboto-mono" />
