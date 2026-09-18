@@ -9,24 +9,29 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: corepack enable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # `vp check` type checks the playground and the docs site, which import
+      # the plugin's own build output and Astro's generated `astro:content`
+      # types. Both are gitignored, so generate them before checking.
+      - run: pnpm run build
+      - run: pnpm --filter ./docs run sync
+      - run: pnpm --filter ./docs exec astro sync
       - run: pnpm exec vp check
       - run: pnpm run test:unit
-      - run: pnpm run build
 
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: corepack enable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
           cache: pnpm
