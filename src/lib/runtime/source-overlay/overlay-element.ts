@@ -59,6 +59,7 @@ class LitSourceOverlay extends HTMLElement {
   #lastMouseY = 0;
   #edgeDispose: (() => void) | undefined;
   #overrideSubscribed = false;
+  #hotOff: (() => void) | undefined;
 
   constructor() {
     super();
@@ -91,16 +92,27 @@ class LitSourceOverlay extends HTMLElement {
       import.meta as {
         hot?: {
           on: (event: string, cb: (data?: unknown) => void) => void;
+          off: (event: string, cb: (data?: unknown) => void) => void;
           send: (event: string, data: unknown) => void;
         };
       }
     ).hot;
     this.#hot = hot;
-    hot?.on('vite:beforeFullReload', () => this.deactivate());
-    hot?.on('vite:ws:disconnect', () => (this.#connected = false));
-    hot?.on('vite:ws:connect', () => (this.#connected = true));
-    // Toggle from the Vite DevTools command/shortcut (handler runs server-side).
-    hot?.on(INSPECT_OVERLAY_TOGGLE_CHANNEL, () => this.toggle());
+    if (hot !== undefined && this.#hotOff === undefined) {
+      // Removed again in disconnectedCallback, so a re-attached overlay
+      // doesn't stack duplicates and a detached one stops reacting.
+      const handlers: Array<[string, (data?: unknown) => void]> = [
+        ['vite:beforeFullReload', () => this.deactivate()],
+        ['vite:ws:disconnect', () => (this.#connected = false)],
+        ['vite:ws:connect', () => (this.#connected = true)],
+        // Toggle from the Vite DevTools command/shortcut (handler runs server-side).
+        [INSPECT_OVERLAY_TOGGLE_CHANNEL, () => this.toggle()],
+      ];
+      for (const [event, cb] of handlers) hot.on(event, cb);
+      this.#hotOff = () => {
+        for (const [event, cb] of handlers) hot.off(event, cb);
+      };
+    }
     // Keep the (bottom-fixed) tooltip clear of the Vite DevTools edge panel.
     this.#edgeDispose = observeEdgeInsets((insets) => {
       this.style.setProperty('--edge-bottom', `${insets.bottom}px`);
@@ -124,6 +136,8 @@ class LitSourceOverlay extends HTMLElement {
     this.deactivate();
     this.#edgeDispose?.();
     this.#edgeDispose = undefined;
+    this.#hotOff?.();
+    this.#hotOff = undefined;
   }
 
   configure(options: SourceOverlayInitOptions) {
