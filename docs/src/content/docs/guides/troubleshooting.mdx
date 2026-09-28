@@ -242,12 +242,14 @@ and the update still counts.
 keeping `vite/client` alongside it. See
 [Import queries](/vite-plugin-lit/reference/import-queries/).
 
-### The shared sheet applies nothing and there is no error
+### The shared sheet applies nothing
 
-**Symptom.** Adopters render unstyled, and the console is clean.
+**Symptom.** Adopters render unstyled, and the console shows
+`[lit-plugin] urlSheet: failed to load …`.
 
-**Cause.** The sheet is fetch-backed. A 404 resolves into a silently empty
-`CSSStyleSheet`.
+**Cause.** The sheet is fetch-backed. When the request fails or returns an
+error status, the `CSSStyleSheet` stays empty (or keeps its last good css
+after an HMR update).
 
 **Fix.** Check the Network tab for the stylesheet request. See
 [Share one stylesheet with ?css-sheet](/vite-plugin-lit/guides/stylesheets/css-sheet/).

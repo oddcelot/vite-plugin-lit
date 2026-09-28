@@ -42,7 +42,7 @@ const installFetch = (byUrl: Record<string, string>) => {
     vi.fn((url: string) => {
       calls.push(url);
       const body = byUrl[url] ?? byUrl['*'] ?? '';
-      return Promise.resolve({text: () => Promise.resolve(body)});
+      return Promise.resolve({ok: true, text: () => Promise.resolve(body)});
     })
   );
   return calls;
@@ -132,16 +132,37 @@ describe('urlSheet', () => {
     expect(calls).toHaveLength(1);
   });
 
-  test('a failed fetch is swallowed (no unhandled rejection, sheet left empty)', async () => {
+  test('a failed fetch warns instead of rejecting, and leaves the sheet empty', async () => {
     installSheet();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.stubGlobal(
       'fetch',
       vi.fn(() => Promise.reject(new Error('network')))
     );
     const {sheet} = urlSheet('/util.css');
-    // Give the rejected chain a few microtasks to settle.
-    await Promise.resolve();
-    await Promise.resolve();
+    await vi.waitFor(() => expect(warn).toHaveBeenCalledOnce());
+    expect(String(warn.mock.calls[0]?.[0])).toContain('/util.css');
     expect(replacedOf(sheet)).toEqual([]);
+    warn.mockRestore();
+  });
+
+  test('a non-ok response is not adopted as css', async () => {
+    installSheet();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 404,
+          text: () => Promise.resolve('<!doctype html>not found'),
+        })
+      )
+    );
+    const {sheet} = urlSheet('/missing.css');
+    await vi.waitFor(() => expect(warn).toHaveBeenCalledOnce());
+    expect(String(warn.mock.calls[0]?.[1])).toContain('404');
+    expect(replacedOf(sheet)).toEqual([]);
+    warn.mockRestore();
   });
 });
