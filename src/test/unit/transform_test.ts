@@ -279,6 +279,45 @@ describe('litPlugin css literals plugin', () => {
     ).toBeNull();
     const otherTag = 'const s = unsafeCSS`#box { &:hover { color: red; } }`;';
     expect(callTransform(plugin, otherTag, '/app/src/el.ts')).toBeNull();
+    const memberTag = 'const s = x.css`#box { &:hover { color: red; } }`;';
+    expect(callTransform(plugin, memberTag, '/app/src/el.ts')).toBeNull();
+  });
+
+  test('leaves css-looking text in a string literal alone', async () => {
+    const plugin = await makePlugin('lightningcss');
+    const code = 'const s = "css`#box { &:hover { color: red; } }`";';
+    expect(callTransform(plugin, code, '/app/src/el.ts')).toBeNull();
+  });
+
+  test('leaves css-looking text in a line comment alone', async () => {
+    const plugin = await makePlugin('lightningcss');
+    const code = '// css`#box { &:hover { color: red; } }`\nconst s = 1;';
+    expect(callTransform(plugin, code, '/app/src/el.ts')).toBeNull();
+  });
+
+  test('leaves css-looking text in a block comment alone', async () => {
+    const plugin = await makePlugin('lightningcss');
+    const code = '/* css`#box { &:hover { color: red; } }` */\nconst s = 1;';
+    expect(callTransform(plugin, code, '/app/src/el.ts')).toBeNull();
+  });
+
+  test('leaves css-looking text inside another template literal alone', async () => {
+    const plugin = await makePlugin('lightningcss');
+    // The escaped backticks here are just characters in `html`'s single
+    // template element — never a nested `css` tagged template — so a regex
+    // scanning raw text would wrongly match them where an AST walk won't.
+    const code =
+      'const s = html`<p>css\\`#box { &:hover { color: red; } }\\`</p>`;';
+    expect(callTransform(plugin, code, '/app/src/el.ts')).toBeNull();
+  });
+
+  test('transforms a literal after a non-ASCII character at the right offset', async () => {
+    const plugin = await makePlugin('lightningcss');
+    const code =
+      'const emoji = "é"; const s = css`#box { &:hover { color: red; } }`;';
+    const result = callTransform(plugin, code, '/app/src/el.ts')!;
+    expect(result.code).toContain('#box:hover');
+    expect(result.code).toContain('const emoji = "é";');
   });
 });
 
