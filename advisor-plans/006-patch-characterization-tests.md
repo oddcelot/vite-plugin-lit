@@ -117,7 +117,7 @@ Existing test conventions — `src/test/unit/patch_test.ts` is the model:
 ```ts
 /**
  * @license
- * Copyright 2026 Google LLC
+ * Copyright 2026 oddcelot
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
