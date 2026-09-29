@@ -224,6 +224,11 @@ export class TimelineView extends LitElement {
   /** `_spans` after the element and regex filters, for Tracks. The list
    *  applies the same filter itself because its Raw mode filters events. */
   private _filteredSpans: TimelineSpan[] = [];
+  /** An event id a deep link asked for that the store has not delivered yet;
+   *  the store loads asynchronously, so it is applied once events arrive. */
+  private _pendingEventId: string | null = null;
+  private _revealSelection = false;
+  private _pendingSettled = false;
   private readonly _listRef = createRef<TimelineEventList>();
   /** Captured, not-hidden layer ids. Cached so a selection change does not
    *  hand `timeline-tracks` a new array and re-pack every lane. */
@@ -285,6 +290,7 @@ export class TimelineView extends LitElement {
       ) {
         this._selectedKey = null;
       }
+      this._applyPendingEvent();
     }
     if (
       changed.has('_events') ||
@@ -298,6 +304,54 @@ export class TimelineView extends LitElement {
         this._elementFilter,
         compileRegex(this._regex).re
       );
+    }
+  }
+
+  /**
+   * Select the span a deep link named. Its start event is the natural target
+   * (`span.events[0]`), but any of the span's events matches, so a link to
+   * either half of a pair lands on the same row.
+   *
+   * An id the buffer does not hold — evicted, or from another session — ends
+   * with no selection and no error, once there are events to have looked in.
+   */
+  selectEvent(id: string): void {
+    this._pendingEventId = id;
+    this._applyPendingEvent();
+    this.requestUpdate();
+  }
+
+  private _applyPendingEvent(): void {
+    const id = this._pendingEventId;
+    // An empty buffer is "not loaded yet", not "not found".
+    if (id === null || this._spans.length === 0) return;
+    const span = this._spans.find((s) => s.events.some((e) => e.id === id));
+    this._pendingEventId = null;
+    this._pendingSettled = true;
+    // A miss clears the selection: the link named something, and leaving the
+    // previous row highlighted would read as if that were it.
+    this._selectedKey = span?.key ?? null;
+    if (span !== undefined) this._revealSelection = true;
+  }
+
+  /** Id of the selected span's start event, for the shell's URL sync. While a
+   *  linked id is still waiting on the store it is reported as-is, so the
+   *  address bar does not drop it before the events land. */
+  get selectedEventId(): string | null {
+    if (this._pendingEventId !== null) return this._pendingEventId;
+    const key = this._selectedKey;
+    if (key === null) return null;
+    return this._spans.find((s) => s.key === key)?.events[0]?.id ?? null;
+  }
+
+  override updated(changed: Map<string, unknown>) {
+    if (this._revealSelection) {
+      this._revealSelection = false;
+      void this.updateComplete.then(() => this._listRef.value?.reveal());
+    }
+    if (changed.has('_selectedKey') || this._pendingSettled) {
+      this._pendingSettled = false;
+      this.dispatchEvent(new CustomEvent('selection-change'));
     }
   }
 
@@ -466,6 +520,7 @@ export class TimelineView extends LitElement {
   }
 
   private _onSpanSelect(e: CustomEvent<{key: string | null}>) {
+    this._pendingEventId = null;
     this._selectedKey = e.detail.key;
   }
 
