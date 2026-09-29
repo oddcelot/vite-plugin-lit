@@ -15,15 +15,19 @@ import {
 import {
   SOURCE_OVERLAY_EDITORS,
   type FeatureSettings,
+  type OverrideBaselines,
   type SettingSources,
   type SettingsOverride,
 } from '../types/timeline.js';
+import {baselineChanged} from '../lib/override-baselines.js';
 import {getMeta, litRpc, type LitClient} from './client.js';
 import {
   adoptOverride,
   commitOverride,
   dropOverrideKey,
   onOverrideChange,
+  keepBaseline,
+  readBaselines,
   readOverride,
   resetOverride,
 } from './settings-override.js';
@@ -166,6 +170,30 @@ export class DevtoolsSettings extends LitElement {
         background: var(--lit-devtools-surface-hover);
         color: var(--lit-devtools-text);
       }
+      .nudge {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: var(--lit-devtools-space-3);
+        margin-top: var(--lit-devtools-space-2);
+        color: var(--lit-devtools-warning);
+        font-family: inherit;
+        font-size: var(--lit-devtools-text-2xs);
+      }
+      .nudge button {
+        appearance: none;
+        border: 1px solid var(--lit-devtools-border-strong);
+        background: var(--lit-devtools-surface-elevated);
+        color: var(--lit-devtools-text);
+        border-radius: var(--lit-devtools-radius-sm);
+        font: inherit;
+        line-height: 1;
+        padding: 1px var(--lit-devtools-space-3);
+        cursor: pointer;
+      }
+      .nudge button:hover {
+        background: var(--lit-devtools-surface-hover);
+      }
       label.toggle {
         display: inline-flex;
         align-items: center;
@@ -206,6 +234,7 @@ export class DevtoolsSettings extends LitElement {
 
   @state() private _settings: FeatureSettings | null = null;
   @state() private _override: SettingsOverride = {};
+  @state() private _recorded: OverrideBaselines = {};
   @state() private _loaded = false;
   @state() private _colorScheme: ColorSchemePreference = 'auto';
 
@@ -218,9 +247,11 @@ export class DevtoolsSettings extends LitElement {
     // then reconciles against the durable store, which is what makes these
     // preferences survive a different browser or cleared site data.
     this._override = readOverride();
+    this._recorded = readBaselines();
     // Other tabs (Components' Flash button) flip overrides too; stay in sync.
     this._unsubscribeOverride = onOverrideChange((o) => {
       this._override = o;
+      this._recorded = readBaselines();
     });
     this._colorScheme = readColorSchemePreference();
     void this._fetch();
@@ -265,22 +296,26 @@ export class DevtoolsSettings extends LitElement {
 
   /**
    * Apply a settings snapshot. Both branches no-op when the value already
-   * matches, which is what stops `_adopt` -> `_push` -> store write ->
+   * matches, which is what stops `_adopt` -> `commitOverride` -> store write ->
    * `onChange` -> `_adopt` from looping.
    */
   private _adopt(all: Readonly<LitSettings>): void {
-    const {appearance, override} = all;
+    const {appearance, override, overrideBaselines} = all;
     if (appearance !== undefined && appearance !== this._colorScheme) {
       this._colorScheme = appearance;
       setColorSchemePreference(appearance);
     }
     if (
       override !== undefined &&
-      JSON.stringify(override) !== JSON.stringify(this._override)
+      (JSON.stringify(override) !== JSON.stringify(this._override) ||
+        JSON.stringify(overrideBaselines ?? {}) !==
+          JSON.stringify(readBaselines()))
     ) {
       // Mirrors to the page and `localStorage` without writing back to the
       // store the value just came from; `_override` updates via the listener.
-      adoptOverride(override);
+      // The baselines come along so a second browser judges "config changed"
+      // against what the first one recorded.
+      adoptOverride(override, overrideBaselines ?? {});
     }
   }
 
@@ -319,16 +354,19 @@ export class DevtoolsSettings extends LitElement {
     }
   }
 
-  /** Persist the merged override and push it to the app runtime. */
-  private _push(override: SettingsOverride) {
-    commitOverride(override);
-  }
-
   private _set<K extends keyof SettingsOverride>(
     key: K,
     value: SettingsOverride[K]
   ) {
-    this._push({...this._override, [key]: value});
+    // Remember the config value this override was made against, so a later
+    // change to `.env` or the plugin options can be pointed out.
+    const s = this._settings;
+    const baselines = readBaselines();
+    if (s !== null && key in this._baselines(s)) {
+      baselines[key as OverridableKey] =
+        this._baselines(s)[key as OverridableKey];
+    }
+    commitOverride({...this._override, [key]: value}, baselines);
   }
 
   /** The resolved config value of every overridable setting. */
@@ -387,11 +425,20 @@ export class DevtoolsSettings extends LitElement {
    * Badge for an overridable row. Without an override it's the plain origin
    * badge; with one it's "(overridden)", the baseline it replaced
    * ("env: Zed") and a reset for just this row. `baseline` is the config
-   * value as the row displays it.
+   * value as the row displays it, `fmt` renders a recorded raw value the same
+   * way. When the config value moved since the override was made, a second
+   * line says so and offers Reset or Keep.
    */
-  private _ovrSource(key: OverridableKey, baseline: string) {
+  private _ovrSource(
+    key: OverridableKey,
+    baseline: string,
+    fmt: (value: unknown) => string = String
+  ) {
     if (this._override[key] === undefined) return this._source(key);
     const src = this._settings?.sources?.[key] ?? 'config';
+    const s = this._settings;
+    const current = s === null ? undefined : this._baselines(s)[key];
+    const changed = baselineChanged(key, this._recorded[key], current);
     return html`<span class="ovr">(overridden)</span>
       <span class="env">${src}: ${baseline}</span>
       <button
@@ -401,7 +448,19 @@ export class DevtoolsSettings extends LitElement {
         @click=${() => this._resetKey(key)}
       >
         ×
-      </button>`;
+      </button>
+      ${
+        changed
+          ? html`<div class="nudge" data-nudge=${key}>
+              <span
+                >Config changed since you overrode this: was
+                ${fmt(this._recorded[key])}, now ${baseline}</span
+              >
+              <button @click=${() => this._resetKey(key)}>Reset</button>
+              <button @click=${() => keepBaseline(key, current)}>Keep</button>
+            </div>`
+          : nothing
+      }`;
   }
 
   private _readonlyRow(
@@ -489,7 +548,11 @@ export class DevtoolsSettings extends LitElement {
               />
               ${reconnect ? 'on' : 'off'}
             </label>
-            ${this._ovrSource('hmrReconnect', s.hmr.reconnect ? 'on' : 'off')}
+            ${this._ovrSource(
+              'hmrReconnect',
+              s.hmr.reconnect ? 'on' : 'off',
+              (v) => (v ? 'on' : 'off')
+            )}
           </td>
         </tr>
         <tr>
@@ -536,7 +599,8 @@ export class DevtoolsSettings extends LitElement {
             </label>
             ${this._ovrSource(
               'hmrIndicatorVisible',
-              s.hmr.indicatorEnabled ? 'shown' : 'off (config)'
+              s.hmr.indicatorEnabled ? 'shown' : 'off (config)',
+              (v) => (v ? 'shown' : 'off (config)')
             )}
           </td>
         </tr>
@@ -558,7 +622,8 @@ export class DevtoolsSettings extends LitElement {
             </label>
             ${this._ovrSource(
               'hmrIndicatorCount',
-              s.hmr.indicatorCount ? 'shown' : 'hidden'
+              s.hmr.indicatorCount ? 'shown' : 'hidden',
+              (v) => (v ? 'shown' : 'hidden')
             )}
           </td>
         </tr>
@@ -575,9 +640,10 @@ export class DevtoolsSettings extends LitElement {
     const baseline = s.sourceOverlay.editor;
     const custom = baseline === 'custom';
     const current = this._override.sourceOverlayEditor ?? baseline;
-    const label =
-      SOURCE_OVERLAY_EDITORS.find((ed) => ed.value === baseline)?.label ??
-      (custom ? 'Custom' : baseline);
+    const editorLabel = (value: string) =>
+      SOURCE_OVERLAY_EDITORS.find((ed) => ed.value === value)?.label ??
+      (value === 'custom' ? 'Custom' : value);
+    const label = editorLabel(baseline);
     return html`
       <tr>
         <td class="key">editor</td>
@@ -604,7 +670,9 @@ export class DevtoolsSettings extends LitElement {
                   )
             }
           </select>
-          ${this._ovrSource('sourceOverlayEditor', label)}
+          ${this._ovrSource('sourceOverlayEditor', label, (v) =>
+            editorLabel(String(v))
+          )}
         </td>
       </tr>
     `;

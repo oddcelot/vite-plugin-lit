@@ -17,7 +17,9 @@
  */
 
 import {
+  OVERRIDE_BASELINES_LS_KEY,
   SETTINGS_OVERRIDE_LS_KEY,
+  type OverrideBaselines,
   type SettingsOverride,
 } from '../types/timeline.js';
 import {litRpc} from './client.js';
@@ -49,6 +51,49 @@ const writeLocal = (override: SettingsOverride | null): void => {
   } catch {
     // ignore (private mode / storage unavailable)
   }
+};
+
+/**
+ * The config values the current overrides were made against; `{}` when unset
+ * or unparsable. Deliberately separate from the override itself, so the
+ * runtime's apply and the live push never carry it.
+ */
+export const readBaselines = (): OverrideBaselines => {
+  try {
+    const raw = localStorage.getItem(OVERRIDE_BASELINES_LS_KEY);
+    if (raw !== null) return JSON.parse(raw) as OverrideBaselines;
+  } catch {
+    // storage unavailable / malformed — treat as none recorded
+  }
+  return {};
+};
+
+const writeLocalBaselines = (baselines: OverrideBaselines | null): void => {
+  try {
+    if (baselines === null || Object.keys(baselines).length === 0)
+      localStorage.removeItem(OVERRIDE_BASELINES_LS_KEY);
+    else
+      localStorage.setItem(
+        OVERRIDE_BASELINES_LS_KEY,
+        JSON.stringify(baselines)
+      );
+  } catch {
+    // ignore (private mode / storage unavailable)
+  }
+};
+
+/** Write the durable baselines (or delete them when empty), best-effort. */
+const persistBaselines = (baselines: OverrideBaselines | undefined): void => {
+  const empty = baselines === undefined || Object.keys(baselines).length === 0;
+  litRpc()
+    .then((rpc) =>
+      empty
+        ? rpc.settings.global.delete('overrideBaselines')
+        : rpc.settings.global.set('overrideBaselines', baselines)
+    )
+    .catch(() => {
+      // dev tool — ignore connection/call errors
+    });
 };
 
 /** Send an override to the app runtime over RPC, best-effort. */
@@ -85,10 +130,21 @@ export const onOverrideChange = (cb: Listener): (() => void) => {
   };
 };
 
-/** A change made in this panel: all three copies, then listeners. */
-export const commitOverride = (next: SettingsOverride): void => {
+/**
+ * A change made in this panel: all three copies, then listeners. `baselines`,
+ * when given, replaces the recorded baselines (local and durable; never sent
+ * to the page).
+ */
+export const commitOverride = (
+  next: SettingsOverride,
+  baselines?: OverrideBaselines
+): void => {
   writeLocal(next);
   persist(next);
+  if (baselines !== undefined) {
+    writeLocalBaselines(baselines);
+    persistBaselines(baselines);
+  }
   pushLive(next);
   notify(next);
 };
@@ -102,8 +158,12 @@ export const patchOverride = (patch: Partial<SettingsOverride>): void => {
  * A value that arrived *from* the durable store: mirror it locally and to the
  * page, but don't write it back — that would be a pointless round trip.
  */
-export const adoptOverride = (next: SettingsOverride): void => {
+export const adoptOverride = (
+  next: SettingsOverride,
+  baselines?: OverrideBaselines
+): void => {
   writeLocal(next);
+  if (baselines !== undefined) writeLocalBaselines(baselines);
   pushLive(next);
   notify(next);
 };
@@ -116,6 +176,8 @@ export const adoptOverride = (next: SettingsOverride): void => {
 export const resetOverride = (envValues?: SettingsOverride): void => {
   writeLocal(null);
   persist(undefined);
+  writeLocalBaselines(null);
+  persistBaselines(undefined);
   if (envValues !== undefined) pushLive(envValues);
   notify({});
 };
@@ -135,6 +197,24 @@ export const dropOverrideKey = <K extends keyof SettingsOverride>(
   const empty = Object.keys(next).length === 0;
   writeLocal(empty ? null : next);
   persist(empty ? undefined : next);
+  const baselines = readBaselines();
+  delete baselines[key as keyof OverrideBaselines];
+  writeLocalBaselines(baselines);
+  persistBaselines(baselines);
   pushLive({...next, [key]: baseline});
   notify(next);
+};
+
+/**
+ * Re-stamp one key's baseline to the config value it has now ("Keep"), so the
+ * changed-config hint goes away while the override stays.
+ */
+export const keepBaseline = (
+  key: keyof OverrideBaselines,
+  current: unknown
+): void => {
+  const next = {...readBaselines(), [key]: current};
+  writeLocalBaselines(next);
+  persistBaselines(next);
+  notify(readOverride());
 };

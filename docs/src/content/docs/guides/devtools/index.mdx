@@ -105,6 +105,13 @@ Each value carries its origin in parentheses: `(option)` for `litPlugin()`,
 **×** beside it resets just that row. A custom editor object from `litPlugin()`
 shows as `Custom (option)` and can't be switched from the panel.
 
+If the value underneath an override has changed since you made it, say you
+switched the editor to Cursor and `.env` now says Zed, the row adds a line:
+`Config changed since you overrode this: was VS Code, now Zed`. **Reset** drops
+the override so the new value applies. **Keep** leaves it in place and stops
+the reminder until the config changes again. Overrides saved before this
+existed have nothing to compare against, so they never show it.
+
 A setting whose feature is off at config time stays read-only. Its runtime was
 never injected into the page, so there is nothing there to change.
 
