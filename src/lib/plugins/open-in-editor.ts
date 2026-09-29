@@ -6,6 +6,7 @@
 
 import {existsSync} from 'node:fs';
 import {resolve as resolvePath, sep} from 'node:path';
+import {toLaunchEditor} from '../devframe/launch-editor.js';
 import {isTrustedRequest, type TrustHeaders} from '../http.js';
 
 export const OPEN_IN_EDITOR_PATH = '/__lit-open-in-editor';
@@ -72,17 +73,23 @@ export const createOpenInEditorMiddleware = (
     const column = String(
       Math.max(1, Number.parseInt(params.get('column') ?? '1', 10) || 1)
     );
+    // The overlay names the editor it is using (the panel's override, else the
+    // configured one). Only keys `toLaunchEditor` knows become a command;
+    // anything else, or nothing, leaves `launch-editor` to auto-detect.
+    const editor = toLaunchEditor(params.get('editor') ?? undefined);
     const fileRef = `${resolved}:${line}:${column}`;
     import('launch-editor')
       .then(
         (mod: {
           default?: (
             file: string,
+            editor: string | undefined,
             cb: (fileName: string, errorMessage: string | null) => void
           ) => void;
         }) => {
           const launch = (mod.default ?? mod) as (
             file: string,
+            editor: string | undefined,
             cb: (fileName: string, errorMessage: string | null) => void
           ) => void;
           // `launch-editor` invokes the callback only on failure — synchronously
@@ -96,11 +103,15 @@ export const createOpenInEditorMiddleware = (
             res.statusCode = statusCode;
             res.end(msg);
           };
-          launch(fileRef, (_fileName: string, errorMessage: string | null) => {
-            if (errorMessage !== null) {
-              finish(500, errorMessage);
+          launch(
+            fileRef,
+            editor,
+            (_fileName: string, errorMessage: string | null) => {
+              if (errorMessage !== null) {
+                finish(500, errorMessage);
+              }
             }
-          });
+          );
           finish(200, 'ok');
         }
       )

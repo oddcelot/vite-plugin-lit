@@ -213,6 +213,11 @@ class LitSourceOverlay extends HTMLElement {
         file: path,
         line: String(lineNumber),
       });
+      // Name the editor the developer picked (config, env or the panel's
+      // override) so the server opens that one; custom editors and an unset
+      // choice send nothing and the server auto-detects.
+      const {editor} = this.#options;
+      if (typeof editor === 'string') params.set('editor', editor);
       const res = await fetch(`${endpoint}?${params.toString()}`);
       if (res.ok) return;
     } catch {
