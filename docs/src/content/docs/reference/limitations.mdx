@@ -7,7 +7,7 @@ sidebar:
 
 import {CardGrid, LinkCard} from '@astrojs/starlight/components';
 
-Seven shapes behave differently under a hot patch, an edit applied to the
+Eight shapes behave differently under a hot patch, an edit applied to the
 running page without a reload. Each entry gives the console line it prints, the
 reason, and the fix; if you are chasing a reload and do not know which one
 fired, start at
@@ -108,6 +108,34 @@ code. Only the component class survives, not the module's own variables.
 **What to do.** Keep shared signals, context keys, and caches in a module you do
 not edit in the same loop. See
 [Ecosystem libraries](/vite-plugin-lit/guides/ecosystem/).
+
+## Children of an edited template
+
+**What you see.** After a parent edit, a child element rendered in the edited
+template literal keeps its count, but a reference you held to it is stale, and
+listeners or controllers it set up are new. Less often:
+
+- An edit that removes one child and adds another of the same tag in the same
+  shadow root hands the removed child's state to the added one.
+- A value set through an element directive such as `spread()` reverts to the
+  old element's value.
+- The old and new element share the same object or array for a carried
+  property, so mutating one mutates the other's.
+- Under `'reuse'`, a `@query(…, true)` cached during the edit still points at
+  the discarded element.
+
+**Why.** Lit clones fresh DOM for an edited template, so every child in it is
+a new element. With the default `hmr.childState: 'transfer'`, the plugin pairs
+old and new children by tag and order within their shadow root and copies
+reactive properties and `#private` fields across. It skips values the template
+sets through attributes and property, boolean or attribute bindings, but it
+can't see what a directive sets. It copies references, not deep clones.
+
+**What to do.** Move the part you edit often into its own template literal,
+returned from a helper method, so the children's template never changes. For a
+child without bindings, `hmr.childState: 'reuse'` puts the original element
+back. `'reset'` turns the transfer off. See
+[`hmr.childState`](/vite-plugin-lit/reference/options/#hmrchildstate).
 
 ## Interning map growth
 
