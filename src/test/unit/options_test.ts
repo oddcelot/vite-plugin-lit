@@ -80,6 +80,7 @@ describe('hmr', () => {
     expect(r.hmrEnabled).toBe(true);
     expect(r.reconnect).toBe(false);
     expect(r.onIncompatible).toBe('reload');
+    expect(r.childState).toBe('transfer');
   });
 
   test('privateFields defaults to true; option and env can turn it off', () => {
@@ -140,6 +141,29 @@ describe('hmr', () => {
     ).toBe('reload');
     expect(warn).toHaveBeenCalledOnce();
     expect(warn.mock.calls[0][0]).toContain('LIT_PLUGIN_HMR_ON_INCOMPATIBLE');
+  });
+
+  test('reads childState from options or env, option first', () => {
+    expect(resolve({hmr: {childState: 'reuse'}}).childState).toBe('reuse');
+    expect(resolve({}, {LIT_PLUGIN_HMR_CHILD_STATE: 'reset'}).childState).toBe(
+      'reset'
+    );
+    const r = resolve(
+      {hmr: {childState: 'transfer'}},
+      {LIT_PLUGIN_HMR_CHILD_STATE: 'reset'}
+    );
+    expect(r.childState).toBe('transfer');
+    expect(r.sources.hmrChildState).toBe('option');
+    expect(toFeatureSettings(r).hmr.childState).toBe('transfer');
+  });
+
+  test('an unrecognized LIT_PLUGIN_HMR_CHILD_STATE warns and falls back', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(resolve({}, {LIT_PLUGIN_HMR_CHILD_STATE: 'keep'}).childState).toBe(
+      'transfer'
+    );
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0][0]).toContain('LIT_PLUGIN_HMR_CHILD_STATE');
   });
 });
 
@@ -277,6 +301,7 @@ describe('sources', () => {
     expect(resolve({sourceOverlay: true}).sources).toEqual({
       hmrReconnect: 'default',
       hmrOnIncompatible: 'default',
+      hmrChildState: 'default',
       hmrIndicatorVisible: 'default',
       hmrIndicatorCount: 'default',
       sourceOverlayKey: 'default',
@@ -334,6 +359,7 @@ describe('toFeatureSettings', () => {
     expect(f.sources).toEqual({
       hmrReconnect: 'env',
       hmrOnIncompatible: 'default',
+      hmrChildState: 'default',
       hmrIndicatorVisible: 'default',
       hmrIndicatorCount: 'option',
       sourceOverlayKey: 'option',

@@ -20,6 +20,11 @@
  * custom elements, which get prototype/static patching only).
  */
 
+import {
+  createChildState,
+  type ChildState,
+  type ChildStateMode,
+} from './child-state.js';
 import {subscribeOverride} from './overrides.js';
 import {pageChannel} from './page-channel.js';
 import type {PageTransport, ViteHotLike} from './page-channel.js';
@@ -45,6 +50,15 @@ export interface PatchOptions {
    * standard `accessor` decorators). Defaults to `'reload'`.
    */
   onIncompatible?: 'reload' | 'warn';
+
+  /**
+   * What happens to custom elements a hot patch re-creates (an edited
+   * template clones fresh DOM): `'reset'` leaves them at their defaults,
+   * `'transfer'` copies the old element's state onto the new one, `'reuse'`
+   * puts the old element back where the new one carries no bindings (and
+   * transfers otherwise). Defaults to `'transfer'`.
+   */
+  childState?: ChildStateMode;
 }
 
 interface ReactiveElementLike extends HTMLElement {
@@ -77,6 +91,8 @@ interface PatchState {
   options: Required<PatchOptions>;
   /** Set in `install()`; reports HMR-incompatibility events when present. */
   hot?: HotChannel;
+  /** Pairs re-created child elements with the ones they replace. */
+  childState?: ChildState;
 }
 
 type LifecycleName = 'connectedCallback' | 'disconnectedCallback';
@@ -165,6 +181,9 @@ const instrument = (
     const wrapper: BrandedWrapper =
       name === 'connectedCallback'
         ? function (this: ReactiveElementLike) {
+            // Before the original runs, so a transfer lands ahead of the
+            // element's first update.
+            state.childState?.connected(this, !state.generationOf.has(this));
             record.instances.add(this);
             const stamp = state.generationOf.get(this);
             if (stamp !== undefined && stamp !== record.generation) {
@@ -176,6 +195,7 @@ const instrument = (
           }
         : function (this: ReactiveElementLike) {
             record.instances.delete(this);
+            state.childState?.disconnected(this);
             original?.call(this);
           };
     wrapper[RECORD_BRAND] = record;
@@ -407,7 +427,9 @@ const hotPatch = (
       );
     }
 
-    // 7. Update live instances.
+    // 7. Update live instances. Re-renders may re-create child elements
+    //    (edited templates clone fresh DOM); the window pairs them up.
+    state.childState?.open();
     const newPropertyKeys = NewClass.elementProperties?.keys() ?? [];
     // After the static sync this is the NEW class's initializer list.
     const initializers = OldClass._initializers;
@@ -447,6 +469,8 @@ const hotPatch = (
       state.generationOf.set(el, record.generation);
       el.requestUpdate?.();
     }
+    // Read after requestUpdate() so each promise covers the new update.
+    state.childState?.watch(record.instances);
   } catch (e) {
     incompatible(state, record.tagName, {
       code: 'patch-failed',
@@ -473,6 +497,9 @@ export const install = (options: PatchOptions = {}): void => {
     if (options.onIncompatible !== undefined) {
       existing.options.onIncompatible = options.onIncompatible;
     }
+    if (options.childState !== undefined) {
+      existing.options.childState = options.childState;
+    }
     return;
   }
   const hot = (import.meta as {hot?: ViteHotLike}).hot;
@@ -482,9 +509,13 @@ export const install = (options: PatchOptions = {}): void => {
     options: {
       reconnect: options.reconnect ?? false,
       onIncompatible: options.onIncompatible ?? 'reload',
+      childState: options.childState ?? 'transfer',
     },
     hot: hot === undefined ? undefined : pageChannel,
   };
+  state.childState = createChildState({
+    mode: () => state.options.childState,
+  });
   g[STATE_KEY] = state;
 
   // Let the DevTools panel override these behaviours live (and persist across

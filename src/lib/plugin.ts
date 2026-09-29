@@ -196,6 +196,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
         const runtimeOptions = {
           reconnect: resolved.reconnect,
           onIncompatible: resolved.onIncompatible,
+          childState: resolved.childState,
         };
         return {
           code:

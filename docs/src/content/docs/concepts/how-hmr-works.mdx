@@ -85,6 +85,13 @@ Because interning keeps unchanged templates unchanged, the DOM those instances
 own is not rebuilt. Focus, selection, scroll position, input values and child
 component state survive an edit to their parent.
 
+An edited template is new to Lit, so it clones fresh DOM for it, and every
+custom element inside is a new instance. For a moment after each patch the
+plugin pairs the elements that leave a shadow root with the new ones of the
+same tag that arrive in it, in document order, and hands each new element its
+predecessor's state. With `hmr.childState: 'reuse'`, a new element that carries
+no bindings is replaced by its predecessor, which keeps its full identity.
+
 One thing does not: state declared at the top level of the module you edited.
 That module re-executes, so its own `const`s are re-created. Only the class
 rides through.

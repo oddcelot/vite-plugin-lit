@@ -81,6 +81,11 @@ export interface FeatureSettings {
     enabled: boolean;
     reconnect: boolean;
     onIncompatible: 'reload' | 'warn';
+    /**
+     * `hmr.childState`. Optional so older producers (and snapshots) without
+     * it still type-check.
+     */
+    childState?: 'reset' | 'transfer' | 'reuse';
     indicatorEnabled: boolean;
     indicatorCount: boolean;
   };
@@ -112,6 +117,7 @@ export type SettingSource = 'option' | 'env' | 'default';
 export interface SettingSources {
   hmrReconnect?: SettingSource;
   hmrOnIncompatible?: SettingSource;
+  hmrChildState?: SettingSource;
   hmrIndicatorVisible?: SettingSource;
   hmrIndicatorCount?: SettingSource;
   sourceOverlayEditor?: SettingSource;

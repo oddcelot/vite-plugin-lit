@@ -17,24 +17,25 @@ environment variable, and where to read more.
   page](/vite-plugin-lit/reference/environment-variables/).
 </Aside>
 
-| Option                        | Type                                          | Default    | Env var                                 |
-| ----------------------------- | --------------------------------------------- | ---------- | --------------------------------------- |
-| `hmr`                         | `boolean \| HmrOptions`                       | `true`     | `LIT_PLUGIN_HMR`                        |
-| `hmr.enabled`                 | `boolean`                                     | `true`     | `LIT_PLUGIN_HMR`                        |
-| `hmr.reconnect`               | `boolean`                                     | `false`    | `LIT_PLUGIN_HMR_RECONNECT`              |
-| `hmr.privateFields`           | `boolean`                                     | `true`     | `LIT_PLUGIN_HMR_PRIVATE_FIELDS`         |
-| `hmr.onIncompatible`          | `'reload' \| 'warn'`                          | `'reload'` | `LIT_PLUGIN_HMR_ON_INCOMPATIBLE`        |
-| `hmr.indicator`               | `boolean \| HmrIndicatorOptions`              | `true`     | `LIT_PLUGIN_HMR_INDICATOR`              |
-| `hmr.indicator.count`         | `boolean`                                     | `false`    | `LIT_PLUGIN_HMR_INDICATOR_COUNT`        |
-| `sourceOverlay`               | `boolean \| SourceOverlayOptions`             | `false`    | `LIT_PLUGIN_SOURCE_OVERLAY`             |
-| `sourceOverlay.key`           | `string`                                      | `'s'`      | `LIT_PLUGIN_SOURCE_OVERLAY_KEY`         |
-| `sourceOverlay.editor`        | `string \| EditorConfig`                      | `'vscode'` | `LIT_PLUGIN_SOURCE_OVERLAY_EDITOR`      |
-| `sourceOverlay.workspaceRoot` | `string`                                      | —          | —                                       |
-| `sourceOverlay.throttleMs`    | `number`                                      | `50`       | `LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS` |
-| `sourceOverlay.exclude`       | `(el: Element) => boolean`                    | —          | —                                       |
-| `sourceOverlay.onSelect`      | `(info: ElementInfo) => void`                 | —          | —                                       |
-| `timeline`                    | `boolean`                                     | `false`    | `LIT_PLUGIN_TIMELINE`                   |
-| `cssSheetBuild`               | `'auto' \| 'url' \| 'inline' \| 'inline-raw'` | `'auto'`   | `LIT_PLUGIN_CSS_SHEET_BUILD`            |
+| Option                        | Type                                          | Default      | Env var                                 |
+| ----------------------------- | --------------------------------------------- | ------------ | --------------------------------------- |
+| `hmr`                         | `boolean \| HmrOptions`                       | `true`       | `LIT_PLUGIN_HMR`                        |
+| `hmr.enabled`                 | `boolean`                                     | `true`       | `LIT_PLUGIN_HMR`                        |
+| `hmr.reconnect`               | `boolean`                                     | `false`      | `LIT_PLUGIN_HMR_RECONNECT`              |
+| `hmr.privateFields`           | `boolean`                                     | `true`       | `LIT_PLUGIN_HMR_PRIVATE_FIELDS`         |
+| `hmr.childState`              | `'reset' \| 'transfer' \| 'reuse'`            | `'transfer'` | `LIT_PLUGIN_HMR_CHILD_STATE`            |
+| `hmr.onIncompatible`          | `'reload' \| 'warn'`                          | `'reload'`   | `LIT_PLUGIN_HMR_ON_INCOMPATIBLE`        |
+| `hmr.indicator`               | `boolean \| HmrIndicatorOptions`              | `true`       | `LIT_PLUGIN_HMR_INDICATOR`              |
+| `hmr.indicator.count`         | `boolean`                                     | `false`      | `LIT_PLUGIN_HMR_INDICATOR_COUNT`        |
+| `sourceOverlay`               | `boolean \| SourceOverlayOptions`             | `false`      | `LIT_PLUGIN_SOURCE_OVERLAY`             |
+| `sourceOverlay.key`           | `string`                                      | `'s'`        | `LIT_PLUGIN_SOURCE_OVERLAY_KEY`         |
+| `sourceOverlay.editor`        | `string \| EditorConfig`                      | `'vscode'`   | `LIT_PLUGIN_SOURCE_OVERLAY_EDITOR`      |
+| `sourceOverlay.workspaceRoot` | `string`                                      | —            | —                                       |
+| `sourceOverlay.throttleMs`    | `number`                                      | `50`         | `LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS` |
+| `sourceOverlay.exclude`       | `(el: Element) => boolean`                    | —            | —                                       |
+| `sourceOverlay.onSelect`      | `(info: ElementInfo) => void`                 | —            | —                                       |
+| `timeline`                    | `boolean`                                     | `false`      | `LIT_PLUGIN_TIMELINE`                   |
+| `cssSheetBuild`               | `'auto' \| 'url' \| 'inline' \| 'inline-raw'` | `'auto'`     | `LIT_PLUGIN_CSS_SHEET_BUILD`            |
 
 ## hmr
 
@@ -121,6 +122,38 @@ Turn the rewrite off if a test or a library relies on the brand check in dev.
 `LIT_PLUGIN_HMR_PRIVATE_FIELDS`
 
 See also: [Limitations](/vite-plugin-lit/reference/limitations/).
+
+### hmr.childState
+
+What happens to a child element when a parent edit changes the template
+literal it sits in. Lit clones fresh DOM for an edited template, so the child
+is a new element.
+
+```ts title="vite.config.ts" {5}
+import {defineConfig} from 'vite';
+import {litPlugin} from '@oddsquad/vite-plugin-lit';
+
+export default defineConfig({
+  plugins: [litPlugin({hmr: {childState: 'reuse'}})],
+});
+```
+
+- `'transfer'` copies the old element's reactive properties and `#private`
+  fields onto the new one before its first render. Properties and attributes
+  the template sets are left alone, so an edited binding takes effect.
+- `'reuse'` puts the old element back in place of the new one, keeping its
+  identity, shadow DOM and controllers. It only does so when no binding
+  targets the new element or its light DOM; otherwise it transfers.
+- `'reset'` leaves the new element at its defaults.
+
+Old and new elements are matched by tag and order within the same shadow
+root. An edit that removes one child and adds another of the same tag in the
+same root can hand the removed child's state to the new one.
+
+**Type:** `'reset' | 'transfer' | 'reuse'` · **Default:** `'transfer'` ·
+**Env:** `LIT_PLUGIN_HMR_CHILD_STATE`
+
+See also: [HMR that keeps state](/vite-plugin-lit/guides/hmr/).
 
 ### hmr.onIncompatible
 

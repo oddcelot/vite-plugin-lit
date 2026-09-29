@@ -122,12 +122,18 @@ of the component. See
 ### Editing the parent re-renders the child, or an input loses focus
 
 **Symptom.** A change to the parent's header rebuilds a child element below it.
+The child keeps its count, but focus, listeners added by hand, or a reference
+you held to the element are gone. With `hmr.childState: 'reset'`, its state
+resets too.
 
 **Cause.** Everything in one template literal shares one template object, so
-editing any part of it invalidates the whole.
+editing any part of it invalidates the whole. The child is a new element; the
+default `'transfer'` only carries its reactive properties and `#private`
+fields across.
 
 **Fix.** Put the part you edit often in its own template literal, returned from
-a helper method. See
+a helper method. For a child without bindings, `hmr.childState: 'reuse'` puts
+the original element back. See
 [Keep state across edits](/vite-plugin-lit/guides/hmr/).
 
 ### Every update throws "Cannot read private member"

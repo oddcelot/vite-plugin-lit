@@ -11,6 +11,7 @@ import type {
   SettingSources,
 } from '../types/timeline.js';
 import {BUILTIN_EDITORS} from './runtime/source-overlay/editors.js';
+import type {ChildStateMode} from './runtime/child-state.js';
 
 /**
  * On-page HMR feedback: a small pulsing indicator in the corner of the host
@@ -58,6 +59,23 @@ export interface HmrOptions {
    * standard `accessor` decorators). Defaults to `'reload'`.
    */
   onIncompatible?: 'reload' | 'warn';
+
+  /**
+   * What happens to custom elements inside a template whose text a hot patch
+   * changed. lit-html clones fresh DOM for the edited template, so those
+   * elements are re-created.
+   *
+   * - `'reset'`: they start over from their defaults.
+   * - `'transfer'`: each new element takes the old one's reactive properties
+   *   and `#private` state (keys the new template binds or sets as an
+   *   attribute keep the template's value).
+   * - `'reuse'`: where the new element carries no bindings, the old element
+   *   (identity, shadow DOM, controllers) is put back in its place; elsewhere
+   *   as `'transfer'`.
+   *
+   * Defaults to `'transfer'`.
+   */
+  childState?: ChildStateMode;
 
   /**
    * The on-page update indicator. `true` enables it without a count; an
@@ -141,6 +159,7 @@ export interface ResolvedOptions {
   reconnect: boolean;
   privateFields: boolean;
   onIncompatible: 'reload' | 'warn';
+  childState: ChildStateMode;
   indicator: false | {count: boolean};
   sourceOverlay: false | SourceOverlayOptions;
   timeline: boolean;
@@ -158,6 +177,12 @@ export const ENV_PREFIX = 'LIT_PLUGIN';
 const ON_INCOMPATIBLE_MODES: readonly ('reload' | 'warn')[] = [
   'reload',
   'warn',
+];
+
+const CHILD_STATE_MODES: readonly ChildStateMode[] = [
+  'reset',
+  'transfer',
+  'reuse',
 ];
 
 /** Parse a boolean-ish env string; `undefined` when unset/unrecognized. */
@@ -247,6 +272,15 @@ export const resolveOptions = (
     ),
     'reload'
   );
+  const childState = pick<ChildStateMode>(
+    hmrObj?.childState,
+    envEnum(
+      env[`${ENV_PREFIX}_HMR_CHILD_STATE`],
+      CHILD_STATE_MODES,
+      `${ENV_PREFIX}_HMR_CHILD_STATE`
+    ),
+    'transfer'
+  );
 
   const ind = hmrObj?.indicator;
   const indObj = typeof ind === 'object' ? ind : undefined;
@@ -267,6 +301,7 @@ export const resolveOptions = (
   const sources: SettingSources = {
     hmrReconnect: reconnect.source,
     hmrOnIncompatible: onIncompatible.source,
+    hmrChildState: childState.source,
     hmrIndicatorVisible: indEnabled.source,
     hmrIndicatorCount: indCount.source,
   };
@@ -318,6 +353,7 @@ export const resolveOptions = (
     reconnect: reconnect.value,
     privateFields: privateFields.value,
     onIncompatible: onIncompatible.value,
+    childState: childState.value,
     indicator,
     sourceOverlay,
     timeline,
@@ -340,6 +376,7 @@ export const toFeatureSettings = (r: ResolvedOptions): FeatureSettings => {
       enabled: r.hmrEnabled,
       reconnect: r.reconnect,
       onIncompatible: r.onIncompatible,
+      childState: r.childState,
       indicatorEnabled: r.indicator !== false,
       indicatorCount: r.indicator !== false && r.indicator.count,
     },
