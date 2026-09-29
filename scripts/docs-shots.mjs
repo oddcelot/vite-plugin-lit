@@ -317,7 +317,7 @@ const SHOTS = [
       const {panel} = await recordSession(ctx);
       // The Router layer's events are the only ones titled `navigate …`, and
       // custom layers have no toggle chip — the regex box is the filter.
-      await eventList(panel).locator('css=input.regex').fill('navigate');
+      await timelineView(panel).locator('css=input.regex').fill('navigate');
       await sleep(400);
       await ctx.shot(panel);
     },
