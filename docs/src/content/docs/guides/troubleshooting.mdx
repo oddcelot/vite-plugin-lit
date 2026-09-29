@@ -139,11 +139,14 @@ reload, and the page looks like it worked.
 Uncaught TypeError: Cannot read private member #x from an object whose class did not declare it
 ```
 
-**Cause.** `render()`, `updated()` or a method reads a native `#private` field.
-No detector catches it, and the throw lands inside Lit's asynchronous update.
+**Cause.** `render()`, `updated()` or a method reads a native `#private` field
+that the dev rewrite did not cover: `hmr.privateFields` is off, or the module
+has a decorated private member. The throw lands inside Lit's asynchronous
+update.
 
-**Fix.** Reload to recover, then switch to TypeScript's `private` modifier. See
-[Limitations](/vite-plugin-lit/reference/limitations/).
+**Fix.** Reload to recover. Then turn `hmr.privateFields` back on, or switch to
+TypeScript's `private` modifier. See
+[Limitations](/vite-plugin-lit/reference/limitations/#native-private-fields).
 
 ### A newly added reactive property is undefined
 

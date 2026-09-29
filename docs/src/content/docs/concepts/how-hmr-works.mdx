@@ -99,12 +99,13 @@ decorators close over private slots created fresh on every class evaluation.
 Accessors copied onto the canonical class would read the wrong slot. The plugin
 detects this before it touches anything.
 
-**Native `#private` fields.** Instances carry the private brand from the
-previous class evaluation, and methods copied from the new class expect the new
-one. There is no detector. A copied property accessor that touches private state
-fails the patch and reports it; a method or `render()` that touches it fails
-later, as an uncaught `TypeError` on every update. Use TypeScript's `private`
-modifier, which has no brand check.
+**Native `#private` fields, with the rewrite off.** Instances carry the
+private brand from the previous class evaluation, and methods copied from the
+new class expect the new one. By default the dev server rewrites `#private`
+members to shared `Symbol.for()` keys, which removes the brand and lets the
+patch go through. With `hmr.privateFields: false`, a copied accessor that
+touches private state fails the patch, and a method or `render()` that touches
+it throws later on every update.
 
 **A changed `observedAttributes` list.** The platform snapshots that list at
 define time and nothing can change it afterwards. The patch succeeds, so this

@@ -38,26 +38,35 @@ by hand.
 
 ## Native `#private` fields
 
-**What you see**, when a copied reactive-property accessor touches `#private`
-state:
+Patched in place by default. In dev the plugin rewrites each `#private` member
+to a `Symbol.for()` key built from the file, the class and the member name.
+Instances created before an edit and methods copied from after it use the same
+key, so private state survives the edit. Builds keep real `#private`. What's
+left:
+
+- **Dev drops the brand check.** Reading `obj.#x` from the wrong object returns
+  `undefined` instead of throwing, and `Object.getOwnPropertySymbols()` lists
+  private members. Code that relies on either behaves differently in dev.
+- **Decorated private members** such as `@state() accessor #x` leave the whole
+  module unrewritten. They already fall under
+  [standard `accessor` decorators](#standard-accessor-decorators).
+- **A mixin applied twice in one chain** shares its private keys across both
+  applications, since every class it returns has the same key.
+- **Two same-named classes in one file** are told apart by order. Adding one
+  above the other resets the lower one's private state once.
+
+With `hmr.privateFields: false`, or a module the rewrite skips, you get the
+old failure. A copied reactive-property accessor that touches `#private` state
+throws inside the patch, which is reported as `patching failed` and honours
+`onIncompatible`:
 
 ```text frame="terminal"
 [lit-plugin] <my-element>: patching failed: Cannot read private member #count from an object whose class did not declare it — performing full reload.
 ```
 
-**What you see**, when only a method or `render()` touches it: nothing at patch
-time, then an uncaught `TypeError` from Lit's update the next time that code
-runs.
-
-**Why.** There is no detector for `#private`. Instances built by the old class
-evaluation carry the old private brand, and the methods copied from the new
-class expect the new one. The patch restores property values inside a
-`try`/`catch`, so a throw there is reported as `patching failed` and honours
-`onIncompatible`. A throw from `render()` happens later, in Lit's asynchronous
-update, outside that `try`.
-
-**What to do.** Use TypeScript's `private` modifier instead. It compiles to a
-plain property with no brand check, so copied methods keep working.
+A `render()` or method that touches it throws later, in Lit's asynchronous
+update, as an uncaught `TypeError`. TypeScript's `private` modifier compiles to
+a plain property and avoids both.
 
 ## `observedAttributes` changes
 
