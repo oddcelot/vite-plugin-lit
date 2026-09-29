@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {resolve as resolvePath} from 'node:path';
 import {confineToRoots} from '../confine.js';
 import {toLaunchEditor} from '../devframe/launch-editor.js';

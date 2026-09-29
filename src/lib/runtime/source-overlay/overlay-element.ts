@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import type {ElementInfo, EditorConfig} from '../../types.js';
 import {BUILTIN_EDITORS, resolveEditor} from './editors.js';
 import {

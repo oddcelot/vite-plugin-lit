@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Regression coverage for the source overlay's `import.meta.hot` listener
  * lifecycle.
  *

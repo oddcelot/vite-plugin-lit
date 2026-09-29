@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Mounts the Lit devframe ({@link createLitDevframe}) into the Vite DevTools
  * hub and bridges the page runtime's `import.meta.hot` transport to the
  * definition's `TimelineSource` port. Everything Vite-specific lives here:

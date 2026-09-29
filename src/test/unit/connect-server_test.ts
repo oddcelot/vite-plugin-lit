@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {afterAll, beforeAll, describe, expect, test, vi} from 'vite-plus/test';
 import {createDevServer} from 'devframe/adapters/dev';
 import {getDevframeRpcClient} from 'devframe/client';

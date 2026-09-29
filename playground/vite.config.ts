@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import Inspect from 'vite-plugin-inspect';
 import {defineConfig, loadEnv} from 'vite-plus';
 import {lazyPlugins} from 'vite-plus';

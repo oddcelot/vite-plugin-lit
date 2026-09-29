@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Carries child element state across a template re-instantiation.
  *
  * When a hot patch changes a template's text, lit-html sees a new template,

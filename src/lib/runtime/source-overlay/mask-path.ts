@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 // Build an SVG clip-path that fills the viewport except a rounded-rect hole at
 // (l, t, w, h) with corner radius r — the spotlight cut-out for the highlight.
 // Outer rect (clockwise) + inner rounded rect (counterclockwise) combine under

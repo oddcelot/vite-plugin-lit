@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Buffered transport for timeline events.
  *
  * Forwards events over the page channel (`../page-channel.ts`), which is

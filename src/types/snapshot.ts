@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * A recorded DevTools session, frozen so someone else can open it.
  *
  * The point is not "a static copy of the panel". It is a bug report a

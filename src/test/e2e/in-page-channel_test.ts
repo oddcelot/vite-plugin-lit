@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * The direct page <-> panel channel, end to end in a real browser.
  *
  * Worth an e2e rather than a unit test: the whole point of the feature is the

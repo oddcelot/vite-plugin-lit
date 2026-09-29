@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {signal} from '@lit-labs/signals';
 import {install} from 'temporal-polyfill/shim';
 

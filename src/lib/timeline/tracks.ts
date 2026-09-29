@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Layout for the Timeline's track view: one horizontal lane per layer on a
  * shared time axis.
  *

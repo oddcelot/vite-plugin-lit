@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Stable per-instance id and source-meta lookup for the timeline.
  *
  * Assigns monotonic numeric ids to ReactiveElement instances via a WeakMap

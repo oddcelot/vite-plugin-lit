@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Mouse and keyboard timeline layers — plain window listeners, direct port
  * of the Vue DevTools timeline input capture pattern.
  */

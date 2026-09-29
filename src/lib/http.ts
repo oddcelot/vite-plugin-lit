@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Headers the trust check looks at. Both the open-in-editor endpoint and the
  * timeline/inspector endpoints are local-only dev tooling: only the page the
  * dev server itself served may drive them.

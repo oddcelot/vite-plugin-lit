@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * The panel's single owner of the {@link SettingsOverride}: what it is right
  * now, how it changes, and who wants to know.
  *

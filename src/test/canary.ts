@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 Oddsquad
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 // Opt-in canary testing: with `LIT_CANARY=1`, bare `lit` / `@lit/*` /
 // `@lit-labs/*` imports resolve into the checked-out lit submodule (built
 // from real source) instead of the published npm versions. This lets the

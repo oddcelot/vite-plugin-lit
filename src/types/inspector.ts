@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Shared types and channel/path constants for the Components inspector.
  *
  * The inspector lets the DevTools panel show a hierarchical tree of the Lit

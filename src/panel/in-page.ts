@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * The panel end of the direct page channel (see `types/in-page.ts`).
  *
  * Connected lazily, on first use, rather than at panel boot: connecting posts

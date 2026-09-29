@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Default monospace font stack for the devtools UI (HMR indicator, source
  * overlay). Surfaced through the `--lit-devtools-font-mono` custom property so
  * consumers can override it; this constant is the fallback default, mirroring

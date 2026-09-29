@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {init, parse} from 'es-module-lexer';
 import MagicString from 'magic-string';
 import {WRAP_TABLE} from './wrap-table.js';

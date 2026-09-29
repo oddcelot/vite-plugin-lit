@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {FONT_MONO_VAR} from '../fonts.js';
 import {CODE_ICON, COPY_ICON} from '../../icons.js';
 

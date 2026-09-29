@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import './hmr-counter.js';
 import './hmr-lifecycle.js';
 import './hmr-custom-layer.js';

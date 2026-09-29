@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {fileURLToPath} from 'node:url';
 import {defineConfig} from 'vite-plus';
 

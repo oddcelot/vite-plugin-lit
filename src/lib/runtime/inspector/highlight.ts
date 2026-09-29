@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * The hover outline the panel draws over an element in the page.
  *
  * Its own module because two transports drive it: the in-page channel (the

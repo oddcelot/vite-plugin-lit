@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {afterAll, beforeAll, expect, test} from 'vite-plus/test';
 import {type Fixture, type PanelHandle, startFixture} from './utils.js';
 

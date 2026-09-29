@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import type {EditorConfig} from '../../types.js';
 
 // `<scheme>://file/` already ends in the slash that starts a POSIX path, so a

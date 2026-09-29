@@ -1,11 +1,5 @@
 #!/usr/bin/env node
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * `lit-devtools` — the package's command line.
  *
  * Built on a bare `cac()` instance rather than devframe's `createCac()`

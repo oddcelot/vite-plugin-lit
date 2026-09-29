@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Ambient types for the import queries provided by the Lit Vite plugin.
  *
  * Reference via tsconfig (`"types": ["@oddsquad/vite-plugin-lit/client"]`) or

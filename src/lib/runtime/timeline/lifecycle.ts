@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * ReactiveElement prototype instrumentation for the lifecycle timeline layer.
  *
  * Wraps the lifecycle methods listed in PHASES on the prototype of the

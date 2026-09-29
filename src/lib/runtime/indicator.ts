@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Custom element for the HMR update indicator.
  * Injected by the Vite plugin as an external module so that
  * `import.meta.hot` is available.

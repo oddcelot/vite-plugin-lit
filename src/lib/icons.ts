@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 // Phosphor Icons (https://phosphoricons.com, MIT) inlined so the devtools
 // modules stay self-contained with no extra icon library dependency.
 // Panel icons are SVG path data used via <svg viewBox="0 0 256 256"

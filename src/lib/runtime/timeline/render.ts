@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * lit-render timeline layers — listen to the built-in lit-debug CustomEvents
  * instead of patching prototypes, so they're zero-cost when the Lit debug
  * flag is off and perfectly accurate for the render layers.

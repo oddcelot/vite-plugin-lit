@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * The exact wrap surface: which template-tag exports of which lit-family
  * module specifiers get interned, and in which namespace.
  *

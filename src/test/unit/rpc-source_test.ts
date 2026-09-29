@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {afterEach, describe, expect, test} from 'vite-plus/test';
 import {initDevframe} from 'devframe/initiate';
 import type {DevframeInstance} from 'devframe/initiate';

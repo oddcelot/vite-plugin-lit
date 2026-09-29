@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Screenshot generator for the docs site.
  *
  * Boots a throwaway copy of `playground/` on a Vite dev server with the plugin

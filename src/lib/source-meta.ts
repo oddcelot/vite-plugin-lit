@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import type MagicString from 'magic-string';
 
 /** Stable key shared between transform output and runtime resolution. */

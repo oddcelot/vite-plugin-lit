@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {LitElement, css, html, nothing, type PropertyValues} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 

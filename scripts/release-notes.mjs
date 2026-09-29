@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 Oddsquad
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 // Prints one version's section of CHANGELOG.md, without its heading, for use
 // as GitHub Release notes:
 //

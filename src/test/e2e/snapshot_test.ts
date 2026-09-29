@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Exporting a recorded session as a static panel.
  *
  * Lives with the e2e suite rather than the unit one because it runs devframe's

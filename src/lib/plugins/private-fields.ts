@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import type {Plugin} from 'vite';
 import {parseAst} from 'vite';
 import MagicString from 'magic-string';
