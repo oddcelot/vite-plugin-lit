@@ -199,6 +199,9 @@ export class TimelineView extends LitElement {
   ];
 
   @state() private _recording = false;
+  /** Whether a session state has been applied yet. The first one is the
+   *  panel catching up with a recording already under way, not a start. */
+  private _sessionSeen = false;
   @state() private _exporting = false;
   /** Result or failure of the last export; `null` until one is attempted. */
   @state() private _exportNote: string | null = null;
@@ -411,9 +414,15 @@ export class TimelineView extends LitElement {
     // list that runs backwards mid-scroll -- and, once spans are paired by
     // time, negative durations across the seam. The dev server drops its own
     // buffer on the same edge (`devframe/definition.ts`).
-    if (recordingState && !this._recording) {
+    //
+    // Only a start the panel *watched*: the first state it applies is not an
+    // edge. A panel opened (or reloaded) mid-recording sees `false` -> `true`
+    // against its own default, and clearing then would wipe the events the
+    // stream just replayed to it.
+    if (this._sessionSeen && recordingState && !this._recording) {
       clearTimelineEvents();
     }
+    this._sessionSeen = true;
     this._recording = recordingState;
     this._layers = this._mergeLayers(state.layers, state.customLayers);
   }

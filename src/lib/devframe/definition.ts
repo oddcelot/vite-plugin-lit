@@ -49,6 +49,7 @@ import {
   RPC_INSPECTOR_MESSAGE,
   RPC_LIST_COMPONENTS,
   RPC_RECENT_EVENTS,
+  RPC_TIMELINE_HISTORY,
   RPC_SET_RECORDING,
   RPC_EXPORT_SNAPSHOT,
   RPC_OPEN_SOURCE,
@@ -189,9 +190,10 @@ export function createLitDevframe(
         replay?.details.map((d) => [d.id, d])
       );
 
-      // Bounded history for the `recent-events` agent query. A plain array,
-      // not devframe's internal per-stream replay buffer, which devframe
-      // marks `@internal` (see plans/roadmap/02-agent-timeline-access.md).
+      // Bounded history for the `recent-events` agent query and the panel's
+      // `timeline-history` seed. A plain array, not devframe's internal
+      // per-stream replay buffer, which devframe marks `@internal` (see
+      // plans/roadmap/02-agent-timeline-access.md).
       const recentEvents: TimelineEvent[] = replay ? [...replay.events] : [];
 
       // Event ids: `${epoch}-${seq}`. The epoch is the session start, so a
@@ -239,10 +241,14 @@ export function createLitDevframe(
       // static build or MCP run has no page attached (its `source` is a
       // `createNullSource()`), and `ctx.mode` is 'build' there.
       if (ctx.mode === 'dev') {
-        const channel = my.rpc.streaming.create<TimelineEvent[]>(
-          TIMELINE_STREAM_NAME,
-          {replayWindow: 512}
-        );
+        // No `replayWindow`: a subscriber would be replayed the whole buffer
+        // in separate chunks, including batches from before the last
+        // recording started (a different clock) and ones the panel's Clear
+        // dropped, and the node has no way to forget them. A connecting panel
+        // is seeded from `timeline-history` instead, which is `recentEvents`,
+        // cleared on the same edges.
+        const channel =
+          my.rpc.streaming.create<TimelineEvent[]>(TIMELINE_STREAM_NAME);
         // Started eagerly, not on the first event: `streaming:subscribe` is
         // fire-and-forget on the wire, and a subscribe naming a stream id
         // that does not exist yet is dropped with a DF0030 diagnostic rather
@@ -493,6 +499,20 @@ export function createLitDevframe(
               truncated: events.length < filtered.length,
             };
           },
+        })
+      );
+
+      my.rpc.register(
+        defineRpcFunction({
+          name: RPC_TIMELINE_HISTORY,
+          type: 'query',
+          jsonSerializable: true,
+          // Not agent-exposed (agents have `recent-events`) and not baked
+          // into a snapshot (a frozen panel reads `recent-events`, which
+          // answers a replayed session with its whole buffer). This is the
+          // live panel's seed: the stream carries nothing from before a
+          // panel subscribed, so a reloaded panel asks for it here.
+          handler: async (): Promise<TimelineEvent[]> => [...recentEvents],
         })
       );
 

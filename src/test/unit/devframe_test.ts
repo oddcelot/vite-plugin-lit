@@ -102,6 +102,7 @@ describe('lit devframe definition', () => {
       'lit:list-components',
       'lit:component-details',
       'lit:recent-events',
+      'lit:timeline-history',
       'lit:update-summary',
       'lit:inspect',
       'lit:set-recording',
@@ -379,6 +380,24 @@ describe('lit devframe definition', () => {
         meta: {elementId: 1},
       },
     ]);
+  });
+
+  test('timeline-history answers the whole buffer, uncapped by the agent limit', async () => {
+    const {ctx, source} = await boot();
+    source.sink!.pushEvents(
+      Array.from({length: 300}, (_, i) => ({
+        layerId: 'mouse',
+        time: i,
+        data: {},
+      }))
+    );
+    const history = await ctx.rpc.invokeLocal('lit:timeline-history');
+    expect(history.length).toBe(300);
+    expect(history[299]!.time).toBe(299);
+
+    // Same reset as recent-events: a new page is a new clock.
+    source.sink!.runtimeReady();
+    expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toEqual([]);
   });
 
   test('stamps each event with a unique id that outlives a buffer reset', async () => {

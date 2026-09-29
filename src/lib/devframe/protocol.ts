@@ -49,9 +49,8 @@ export const TIMELINE_STREAM_NAME = 'timeline';
 export const TIMELINE_STREAM_ID = 'live';
 
 /**
- * Cap on the node-side recent-events ring buffer, matching the timeline
- * stream's own `replayWindow` so an agent and a (re)connecting panel see
- * comparable history.
+ * Cap on the node-side recent-events ring buffer. It is also the history a
+ * (re)connecting panel is seeded with (see {@link RPC_TIMELINE_HISTORY}).
  */
 export const RECENT_EVENTS_BUFFER_SIZE = 512;
 
@@ -66,6 +65,14 @@ export const RPC_COMPONENT_DETAILS = 'component-details';
 
 /** Bare name of the `recent-events` query. */
 export const RPC_RECENT_EVENTS = 'recent-events';
+
+/**
+ * Bare name of the `timeline-history` query: the node's whole recent-events
+ * buffer, oldest first, as `TimelineEvent[]`. What a live panel seeds itself
+ * with on connect, since the stream only carries events from then on. Not
+ * `recent-events`, whose live answer is filtered and capped for agents.
+ */
+export const RPC_TIMELINE_HISTORY = 'timeline-history';
 
 /** Bare name of the `update-summary` query. */
 export const RPC_UPDATE_SUMMARY = 'update-summary';
@@ -274,6 +281,7 @@ declare module 'devframe' {
     'lit:recent-events': (
       args?: RecentEventsArgs
     ) => Promise<RecentEventsResult>;
+    'lit:timeline-history': () => Promise<TimelineEvent[]>;
     'lit:update-summary': (
       args?: UpdateSummaryArgs
     ) => Promise<UpdateSummaryResult>;
