@@ -57,7 +57,23 @@ describe('resolveEditor', () => {
   test('resolves a builtin name', () => {
     const zed = resolveEditor('zed');
     expect(zed).toBe(BUILTIN_EDITORS.zed);
-    expect(zed.url('/a.ts', 3)).toBe('zed://file//a.ts:3');
+    expect(zed.url('/a.ts', 3)).toBe('zed://file/a.ts:3');
+  });
+
+  test('puts one slash between file and a POSIX path', () => {
+    for (const name of ['vscode', 'cursor', 'zed', 'windsurf']) {
+      expect(BUILTIN_EDITORS[name].url('/Users/me/a.ts', 3)).toBe(
+        `${name}://file/Users/me/a.ts:3`
+      );
+    }
+  });
+
+  test('leaves Windows drive and UNC paths intact', () => {
+    const {url} = BUILTIN_EDITORS.vscode;
+    expect(url('C:/proj/a.ts', 3)).toBe('vscode://file/C:/proj/a.ts:3');
+    expect(url('//server/share/a.ts', 3)).toBe(
+      'vscode://file//server/share/a.ts:3'
+    );
   });
 
   test('builds an idea url with an encoded path', () => {
