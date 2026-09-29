@@ -26,6 +26,11 @@ export interface TrustHeaders {
  *     user-typed URL) are ours, `cross-site`/`same-site` are not.
  * A request is trusted only when every signal it does carry says same-origin,
  * and at least one of them is present.
+ *
+ * This does not stop DNS rebinding, where a hostile page reaches the server
+ * under its own name and `Origin` and `Host` agree. Vite's
+ * `server.allowedHosts` check does, and it runs before any plugin middleware,
+ * so this doesn't repeat it (source-overlay_test pins that ordering).
  */
 export const isTrustedRequest = (headers: TrustHeaders): boolean => {
   const site = headers['sec-fetch-site'];
