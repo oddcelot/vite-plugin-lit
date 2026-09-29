@@ -13,8 +13,8 @@ Releases are hand-driven and land in this order:
    (`feature/`, `fix/`, `docs/`, `roadmap/NN-slug`, `advisor/NNN-slug`).
 2. A release commit bumps `package.json`, writes the `CHANGELOG.md` section,
    and gets a `v<version>` tag.
-3. `git push origin main --follow-tags`, then `pnpm publish` locally, gated by
-   `prepublishOnly` (`vp check` + unit tests + build).
+3. `git push origin main --follow-tags`. The tag triggers
+   `.github/workflows/release.yaml` (see "CI releases" below).
 
 `pnpm run changelog` drafts step 2 from the commits since the last tag,
 grouped by a `Changelog: Added|Changed|Fixed|Removed` trailer in the commit
@@ -64,16 +64,23 @@ in the commit) and **Conventional Commits** with semantic-release or
 changelogen (would put `feat:`/`fix:` on subject lines that currently carry a
 full sentence; the trailer buys the same machine-readability without that).
 
-## Next step, when release friction justifies it
+## CI releases (done 2026-09-29)
 
-A GitHub Actions workflow triggered on `v*` tag push that:
+`.github/workflows/release.yaml` runs on every `v*` tag push, which makes
+`git push --follow-tags` the whole release while keeping local merges and
+hand-written prose:
 
-- runs the existing gate, then `pnpm publish`, and
-- creates the GitHub Release from the matching `CHANGELOG.md` section.
+- It checks that the tag matches `package.json`, and that `CHANGELOG.md` has
+  a section for the version (`scripts/release-notes.mjs`).
+- It runs the CI gate: build, docs sync, `vp check`, `test:unit`.
+- `pnpm pack`, then `npm publish` of the tarball over npm trusted publishing
+  (OIDC). There is no token to expire, which is what stalled 0.3.0. npm does
+  the publish because it handles the OIDC exchange, and pnpm documents
+  pack-then-publish as the route since its native `publish` in v11. npm runs
+  outside the checkout, because `devEngines` refuses it there.
+- Prerelease versions (`-` in the tag) go to the `next` dist-tag.
+- A second job creates the GitHub Release from the changelog section.
 
-That keeps local merges and hand-written prose while making
-`git push --follow-tags` the entire release. Authenticate it with an npm
-automation token or npm's OIDC trusted publishing — the 0.3.0 publish stalled
-on an expired local token, and CI credentials are the durable fix. Note that
-the `v0.3.0` tag is pushed but no GitHub Release object exists for it; the
-releases page is empty.
+The `v0.3.0` tag predates this and still has no GitHub Release object. To
+backfill it:
+`node scripts/release-notes.mjs 0.3.0 > /tmp/n.md && gh release create v0.3.0 --verify-tag --title v0.3.0 --notes-file /tmp/n.md`.

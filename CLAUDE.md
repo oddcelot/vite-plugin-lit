@@ -47,7 +47,10 @@ opt in.
 Work lands on a branch named for its kind (`feature/`, `fix/`, `docs/`,
 `roadmap/NN-slug`, `advisor/NNN-slug`) and merges with `--no-ff`. Release
 commits bump `package.json`, write the `CHANGELOG.md` section, and get a
-`v<version>` tag.
+`v<version>` tag. Pushing that tag (`git push origin main --follow-tags`) is
+the release: `.github/workflows/release.yaml` runs the gate, publishes to npm
+over trusted publishing, and creates the GitHub Release from the changelog
+section. Don't `pnpm publish` by hand.
 
 At release time, draft the section from the commits since the last tag:
 
