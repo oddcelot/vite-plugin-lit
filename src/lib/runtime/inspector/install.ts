@@ -50,7 +50,7 @@ if (typeof window !== 'undefined') {
   channel.events.on('panel:disconnected', () => clearHighlight());
 }
 
-if (hot !== undefined && typeof window !== 'undefined') {
+if (typeof window !== 'undefined') {
   const send = (msg: InspectorMessage): void => {
     try {
       pageChannel.send(INSPECT_DATA_CHANNEL, msg);
@@ -293,4 +293,7 @@ if (hot !== undefined && typeof window !== 'undefined') {
 
   // Announce readiness so a panel that loaded first re-requests the tree.
   send({type: 'ready'});
+  // A carrier attached later (a standalone dev server) starts with no idea a
+  // runtime exists.
+  pageChannel.onAttach(() => send({type: 'ready'}));
 }
