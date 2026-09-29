@@ -3,6 +3,42 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.6.1 — 2026-09-29
+
+A fix release. Components whose `extends` clause holds braces load in dev
+again, and the plugin now shares one devframe with the current Vite DevTools.
+The rest comes from a security pass over the dev server: source opens and
+snapshot exports stay inside the project, and the standalone server won't go
+without its code gate on a network address.
+
+### Changed
+
+- **`lit-devtools dev --no-auth` only runs on localhost.** Combined with a
+  `--host` other machines can reach, it now refuses to start instead of
+  letting anyone on the network drive the panel without a code.
+
+### Fixed
+
+- **Components whose `extends` clause has braces load in dev again.** With
+  `sourceOverlay` on, a class like `extends Dialog<{open: boolean}>` or
+  `extends Mixin(Base, {shadow: true})` broke the module with a 500 from the
+  dev server. Broken since 0.3.0.
+- **Exporting a snapshot can no longer delete your files.** The export wipes
+  its output directory before writing, and nothing checked which directory
+  that was. It now only writes inside the dev server's working directory and
+  only replaces an earlier snapshot.
+- **The panel can only open source files inside your project.** Source links
+  from the DevTools panel used to open any absolute path they were given. They
+  now follow the same rule as the in-page overlay: the path has to be under
+  the Vite root or `server.fs.allow`.
+- **Symlinks can't send the editor outside your project.** Opening a source
+  file used to follow a symlink under the project to wherever it pointed. Now
+  the target has to be inside the project too.
+- **One copy of devframe alongside the current Vite DevTools.** The plugin
+  pinned devframe 1.0.0 exactly, so apps on `@vitejs/devtools-kit` 0.7.6
+  installed a second copy and got an unmet-peer warning. It now accepts any
+  devframe 1.x.
+
 ## 0.6.0 — 2026-09-29
 
 A small release with one feature. The Lit timeline can now appear in Chrome
