@@ -116,7 +116,53 @@ export default defineConfig({
           items: [{autogenerate: {directory: 'contributing'}}],
         },
       ],
-      plugins: [starlightLinksValidator(), starlightLlmsTxt()],
+      plugins: [
+        starlightLinksValidator(),
+        // llms.txt and friends, for coding agents working in a project that
+        // uses the plugin. The package name is what an agent has to install,
+        // so it heads the file. Setup comes first and the contributor pages
+        // last; llms-small drops what a user of the plugin never needs
+        // (contributing, the changelog, benchmarks, the tutorial's
+        // step-by-step and the explanation pages).
+        starlightLlmsTxt({
+          projectName: '@oddsquad/vite-plugin-lit',
+          promote: ['index*', 'start/installation*', 'reference/options*'],
+          demote: [
+            'contributing/**',
+            'reference/changelog*',
+            'reference/benchmarks*',
+          ],
+          exclude: [
+            'contributing/**',
+            'concepts/**',
+            'reference/changelog',
+            'reference/benchmarks',
+            'start/first-component',
+          ],
+          customSets: [
+            {
+              label: 'DevTools',
+              description:
+                'the DevTools panel, the timeline, and connecting a coding agent over MCP',
+              paths: [
+                'guides/devtools/**',
+                'reference/cli',
+                'concepts/devtools-architecture',
+              ],
+            },
+            {
+              label: 'Stylesheets',
+              description:
+                'delivering CSS to shadow roots: import queries, ?css-sheet and urlSheet()',
+              paths: [
+                'guides/stylesheets/**',
+                'reference/import-queries',
+                'concepts/css-delivery',
+              ],
+            },
+          ],
+        }),
+      ],
     }),
     sitemap(),
   ],
