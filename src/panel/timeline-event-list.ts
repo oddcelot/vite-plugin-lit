@@ -7,7 +7,7 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, property, state} from 'lit/decorators.js';
 import {ref, createRef} from 'lit/directives/ref.js';
-import {repeat} from 'lit/directives/repeat.js';
+import {virtualize} from '@lit-labs/virtualizer/virtualize.js';
 import {tokens} from '../lib/tokens.js';
 import type {TimelineEvent} from '../types/timeline.js';
 import {toSpans} from '../lib/timeline/derive.js';
@@ -135,6 +135,9 @@ export class TimelineEventList extends LitElement {
         color: var(--lit-devtools-text-muted);
       }
       .row {
+        /* The virtualizer positions rows absolutely; stretch them back. */
+        box-sizing: border-box;
+        width: 100%;
         display: flex;
         align-items: baseline;
         gap: var(--lit-devtools-space-4);
@@ -261,7 +264,6 @@ export class TimelineEventList extends LitElement {
    *  `_elementsCache` — deriving in `render()` would re-pair the whole buffer
    *  on every keystroke in the regex box. */
   private _rowsCache: TimelineSpan[] = [];
-
   /** `_rowsCache` after the layer/element/regex filters, recomputed only when
    *  one of those or `_rowsCache` itself changes — not on every render (e.g.
    *  selecting a row must not re-filter up to `MAX_EVENTS` rows). */
@@ -449,53 +451,64 @@ export class TimelineEventList extends LitElement {
             `
           : nothing
       }
-      <div class="scroll" ${ref(this._scrollRef)}>
-        ${
-          visible.length === 0
-            ? html`
+      ${
+        // Two separate scrollers, not one with a switched child: the
+        // virtualizer owns its host's scroll height, so an empty state
+        // rendered into it after Clear would sit thousands of px above view.
+        visible.length === 0
+          ? html`
+              <div class="scroll">
                 <div class="empty">
                   <span>No events recorded.</span>
                   <span class="hint"
                     >Press Record then interact with the page.</span
                   >
                 </div>
-              `
-            : repeat(
-                visible,
-                (row) => row.key,
-                (row) => html`
-                  <div
-                    class="row ${
-                      this._selectedKey === row.key ? 'selected' : ''
-                    }"
-                    @click=${() => {
-                      this._selectedKey = row.key;
-                    }}
-                  >
-                    <span class="time">${row.start.toFixed(1)}ms</span>
-                    <span
-                      class="dot"
-                      style=${'background:' + this._colorOf(row.layerId)}
-                    ></span>
-                    <span class="title">${row.name}</span>
-                    ${
-                      row.changed?.length
-                        ? html`<span class="changed"
-                            >${row.changed.join(', ')}</span
-                          >`
-                        : nothing
-                    }
-                    <span class="subtitle">${row.subtitle ?? nothing}</span>
-                    <span
-                      class="dur ${row.duration === undefined ? 'open' : ''}"
-                      >${renderDuration(row)}</span
-                    >
-                  </div>
-                `
-              )
-        }
-      </div>
+              </div>
+            `
+          : html`
+              <div class="scroll" ${ref(this._scrollRef)}>
+                ${virtualize({
+                  scroller: true,
+                  items: visible,
+                  // The directive re-renders its previous index range against
+                  // a new `items` before the virtualizer recomputes it, so the
+                  // tail of that range can briefly be past the end.
+                  keyFunction: (row, i) => row?.key ?? i,
+                  renderItem: (row) => (row ? this._renderRow(row) : html``),
+                })}
+              </div>
+            `
+      }
       ${selected ? this._renderDetail(selected) : nothing}
+    `;
+  }
+
+  /** One row of the virtualized list (`virtualize`'s `renderItem`). */
+  private _renderRow(row: TimelineSpan) {
+    return html`
+      <div
+        class="row ${this._selectedKey === row.key ? 'selected' : ''}"
+        @click=${() => {
+          this._selectedKey = row.key;
+        }}
+      >
+        <span class="time">${row.start.toFixed(1)}ms</span>
+        <span
+          class="dot"
+          style=${'background:' + this._colorOf(row.layerId)}
+        ></span>
+        <span class="title">${row.name}</span>
+        ${
+          row.changed?.length
+            ? html`<span class="changed">${row.changed.join(', ')}</span>`
+            : nothing
+        }
+        <span class="subtitle">${row.subtitle ?? nothing}</span>
+        <span class="dur ${row.duration === undefined ? 'open' : ''}"
+          >${renderDuration(row)}</span
+        >
+      </div>
     `;
   }
 
