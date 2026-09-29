@@ -18,6 +18,7 @@ import {
   type PatchOptions,
 } from '../../lib/runtime/patch.js';
 import {HMR_INCOMPATIBLE_CHANNEL} from '../../types/hmr-incompatibility.js';
+import {SETTINGS_OVERRIDE_LS_KEY} from '../../types/timeline.js';
 
 /**
  * Characterization harness.
@@ -537,5 +538,20 @@ describe('child state across a hot patch', () => {
   test("'reset' leaves the re-created child at its defaults", async () => {
     installFresh({childState: 'reset'});
     expect((await recreate()).count).toBe(0);
+  });
+
+  test('a panel override replaces the configured mode', async () => {
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) =>
+        key === SETTINGS_OVERRIDE_LS_KEY
+          ? JSON.stringify({hmrChildState: 'reset'})
+          : null,
+    });
+    try {
+      installFresh({childState: 'transfer'});
+      expect((await recreate()).count).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
