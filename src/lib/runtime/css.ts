@@ -12,6 +12,8 @@
  *
  * This module is dependency-free and must stay safe to load in any
  * environment.
+ *
+ * @module
  */
 
 /**
