@@ -46,6 +46,14 @@ export interface HmrOptions {
   reconnect?: boolean;
 
   /**
+   * Rewrite native `#private` class members to stable `Symbol.for` keys in
+   * dev so classes using them can be hot-patched in place. This trades real
+   * privacy and brand checks for working HMR, in dev only; builds are never
+   * touched. Defaults to `true`.
+   */
+  privateFields?: boolean;
+
+  /**
    * What to do when a component can't be hot-patched in place (e.g.
    * standard `accessor` decorators). Defaults to `'reload'`.
    */
@@ -131,6 +139,7 @@ export interface LitPluginOptions {
 export interface ResolvedOptions {
   hmrEnabled: boolean;
   reconnect: boolean;
+  privateFields: boolean;
   onIncompatible: 'reload' | 'warn';
   indicator: false | {count: boolean};
   sourceOverlay: false | SourceOverlayOptions;
@@ -224,6 +233,11 @@ export const resolveOptions = (
     envBool(env[`${ENV_PREFIX}_HMR_RECONNECT`]),
     false
   );
+  const privateFields = pick(
+    hmrObj?.privateFields,
+    envBool(env[`${ENV_PREFIX}_HMR_PRIVATE_FIELDS`]),
+    true
+  );
   const onIncompatible = pick<'reload' | 'warn'>(
     hmrObj?.onIncompatible,
     envEnum(
@@ -302,6 +316,7 @@ export const resolveOptions = (
   return {
     hmrEnabled,
     reconnect: reconnect.value,
+    privateFields: privateFields.value,
     onIncompatible: onIncompatible.value,
     indicator,
     sourceOverlay,

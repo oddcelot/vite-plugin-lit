@@ -82,6 +82,20 @@ describe('hmr', () => {
     expect(r.onIncompatible).toBe('reload');
   });
 
+  test('privateFields defaults to true; option and env can turn it off', () => {
+    expect(resolve({}).privateFields).toBe(true);
+    expect(resolve({hmr: {privateFields: false}}).privateFields).toBe(false);
+    expect(
+      resolve({}, {LIT_PLUGIN_HMR_PRIVATE_FIELDS: '0'}).privateFields
+    ).toBe(false);
+    expect(
+      resolve(
+        {hmr: {privateFields: true}},
+        {LIT_PLUGIN_HMR_PRIVATE_FIELDS: '0'}
+      ).privateFields
+    ).toBe(true);
+  });
+
   test('`hmr: false` and `hmr: {enabled: false}` both disable it', () => {
     expect(resolve({hmr: false}).hmrEnabled).toBe(false);
     expect(resolve({hmr: {enabled: false}}).hmrEnabled).toBe(false);

@@ -22,6 +22,7 @@ environment variable, and where to read more.
 | `hmr`                         | `boolean \| HmrOptions`                       | `true`     | `LIT_PLUGIN_HMR`                        |
 | `hmr.enabled`                 | `boolean`                                     | `true`     | `LIT_PLUGIN_HMR`                        |
 | `hmr.reconnect`               | `boolean`                                     | `false`    | `LIT_PLUGIN_HMR_RECONNECT`              |
+| `hmr.privateFields`           | `boolean`                                     | `true`     | `LIT_PLUGIN_HMR_PRIVATE_FIELDS`         |
 | `hmr.onIncompatible`          | `'reload' \| 'warn'`                          | `'reload'` | `LIT_PLUGIN_HMR_ON_INCOMPATIBLE`        |
 | `hmr.indicator`               | `boolean \| HmrIndicatorOptions`              | `true`     | `LIT_PLUGIN_HMR_INDICATOR`              |
 | `hmr.indicator.count`         | `boolean`                                     | `false`    | `LIT_PLUGIN_HMR_INDICATOR_COUNT`        |
@@ -96,6 +97,30 @@ a plain patch leaves alone. Turn it on when a component does setup work in
 `LIT_PLUGIN_HMR_RECONNECT`
 
 See also: [HMR that keeps state](/vite-plugin-lit/guides/hmr/).
+
+### hmr.privateFields
+
+Rewrites native `#private` class members to keys the next evaluation of the
+module shares, so components that use them are patched in place and keep their
+private state. Only the dev server does this; builds keep real `#private`.
+
+```ts title="vite.config.ts" {5}
+import {defineConfig} from 'vite';
+import {litPlugin} from '@oddsquad/vite-plugin-lit';
+
+export default defineConfig({
+  plugins: [litPlugin({hmr: {privateFields: false}})],
+});
+```
+
+In dev, a private member becomes a symbol-keyed property. It no longer throws
+when read from the wrong object, and `Object.getOwnPropertySymbols()` lists it.
+Turn the rewrite off if a test or a library relies on the brand check in dev.
+
+**Type:** `boolean` · **Default:** `true` · **Env:**
+`LIT_PLUGIN_HMR_PRIVATE_FIELDS`
+
+See also: [Limitations](/vite-plugin-lit/reference/limitations/).
 
 ### hmr.onIncompatible
 
