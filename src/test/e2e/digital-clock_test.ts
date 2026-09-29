@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+/// <reference lib="esnext.temporal" />
+
 import {afterAll, beforeAll, expect, test} from 'vite-plus/test';
 import {
   type Fixture,
@@ -55,20 +57,20 @@ test('digital clock formats via Intl, follows the timezone picker, survives a pa
     .poll(() => shadowText(page, 'hmr-digital-clock >> #tz'))
     .toBe(TZ);
 
-  // The displayed hour agrees with this host's Intl for the same zone.
+  // The displayed hour agrees with this host's Temporal for the same zone.
   await expect
     .poll(async () => {
       const displayed = await digitalText();
-      const expected = new Intl.DateTimeFormat('en-US', {
+      const expected = Temporal.Now.instant().toLocaleString('en-US', {
         timeStyle: 'medium',
         timeZone: TZ,
-      }).format(new Date());
+      });
       return displayed?.split(':')[0] === expected.split(':')[0];
     })
     .toBe(true);
 
   // The analog clock follows the same shared signal: its hour hand points
-  // where Intl says Kiritimati's hour is.
+  // where Temporal says Kiritimati's hour is.
   await expect
     .poll(async () => {
       const transform = await page
@@ -81,15 +83,8 @@ test('digital clock formats via Intl, follows the timezone picker, survives a pa
         )
         .catch(() => null);
       const actual = Number(/rotate\(([\d.]+)/.exec(transform ?? '')?.[1]);
-      const parts = new Intl.DateTimeFormat('en-US', {
-        hour: 'numeric',
-        minute: 'numeric',
-        hourCycle: 'h23',
-        timeZone: TZ,
-      }).formatToParts(new Date());
-      const num = (type: string) =>
-        Number(parts.find((p) => p.type === type)?.value ?? 0);
-      const expected = ((num('hour') % 12) + num('minute') / 60) * 30;
+      const {hour, minute} = Temporal.Now.zonedDateTimeISO(TZ);
+      const expected = ((hour % 12) + minute / 60) * 30;
       return Math.abs(actual - expected) < 1;
     })
     .toBe(true);

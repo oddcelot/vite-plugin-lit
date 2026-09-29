@@ -14,7 +14,8 @@
     "@lit-labs/virtualizer": "^2.1.1",
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
-    "lit": "^3.3.3"
+    "lit": "^3.3.3",
+    "temporal-polyfill": "^1.0.5"
   },
   "devDependencies": {
     "@oddsquad/vite-plugin-lit": "workspace:*",
