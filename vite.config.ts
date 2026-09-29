@@ -21,6 +21,13 @@ export default defineConfig({
       },
       {
         test: {
+          name: 'dom',
+          environment: 'happy-dom',
+          include: ['src/test/dom/**/*_test.ts'],
+        },
+      },
+      {
+        test: {
           name: 'e2e',
           environment: 'node',
           include: ['src/test/e2e/**/*_test.ts'],

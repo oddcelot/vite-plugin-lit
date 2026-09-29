@@ -104,6 +104,7 @@
     "@vitejs/devtools-kit": "0.7.6",
     "cac": "7.0.0",
     "git-cliff": "^2.14.2",
+    "happy-dom": "^20.14.5",
     "lightningcss": "^1.33.0",
     "lit": "^3.3.3",
     "playwright-core": "^1.63.0",
