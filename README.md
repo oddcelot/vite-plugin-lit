@@ -144,11 +144,8 @@ locations and open-in-editor do not work there; the tree, inspector and timeline
 do. A page that Vite serves can instead call `connectToDevServer()` from
 `@oddsquad/vite-plugin-lit/connect.js`.
 
-To try it from this repo, `pnpm run standalone:demo` builds the playground to
-static files, serves them without Vite with the script tag added, and starts
-`lit-devtools dev`, each on the first free port from 5181 and 5180 up. Open both
-printed URLs side by side. `DEMO_AUTH=1` keeps the one-time-code gate;
-`DEMO_APP_PORT` and `DEMO_DEV_PORT` pin the ports.
+To try it from this repo, run `pnpm run standalone:demo`; see
+[Playground](#playground).
 
 ## Playground
 
@@ -160,6 +157,12 @@ straight from the repo URL. Run it locally from the repo root:
 ```sh
 pnpm dev   # builds the plugin, then serves http://localhost:5179
 ```
+
+The same playground runs in standalone mode, built to static files and fed to
+a `lit-devtools dev` panel on another port: `pnpm run standalone:demo` here, or
+[on StackBlitz](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?startScript=standalone)
+with `?startScript=standalone`. StackBlitz installs the published plugin, so
+that link works from the first release that ships standalone mode.
 
 ## Development
 

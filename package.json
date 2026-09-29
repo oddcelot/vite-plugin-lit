@@ -63,7 +63,7 @@
     "prepare": "vp config",
     "build:panel": "vp build src/panel",
     "build:standalone": "vp build src/standalone",
-    "standalone:demo": "pnpm run build && node scripts/standalone-demo.mjs"
+    "standalone:demo": "pnpm run build && pnpm --dir playground run standalone"
   },
   "dependencies": {
     "devframe": "^1.1.0",

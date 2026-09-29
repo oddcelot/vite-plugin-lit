@@ -5,19 +5,23 @@
  */
 
 /**
- * Hands-on demo of the standalone mode: the playground, built to plain static
- * files and served without Vite, feeding the panel of a `lit-devtools dev`
- * process on another port through nothing but the script tag.
+ * The playground in standalone mode: built to plain static files and served
+ * without Vite, feeding the panel of a `lit-devtools dev` process on another
+ * port through nothing but the script tag.
  *
- *     pnpm run standalone:demo                 # builds the plugin first
- *     DEMO_AUTH=1 pnpm run standalone:demo     # keep the one-time-code gate
- *     DEMO_APP_PORT=8080 DEMO_DEV_PORT=5280 pnpm run standalone:demo
+ *     npm run standalone                       # in this directory
+ *     pnpm run standalone:demo                 # from the repo root, builds the plugin first
+ *     DEMO_AUTH=1 npm run standalone           # keep the one-time-code gate
+ *     DEMO_APP_PORT=8080 DEMO_DEV_PORT=5280 npm run standalone
+ *
+ * On StackBlitz, open the playground with `?startScript=standalone`.
  *
  * Open the two printed URLs side by side. The playground's components show up
  * in the panel's Components tab, and Record captures their updates. HMR,
  * source locations and open-in-editor need Vite and stay off here.
  *
- * `src/test/e2e/standalone-connect_test.ts` checks the same path automatically.
+ * `src/test/e2e/standalone-connect_test.ts` in the repo checks the same path
+ * automatically.
  */
 
 import {spawn} from 'node:child_process';
@@ -30,10 +34,17 @@ import process from 'node:process';
 import {fileURLToPath} from 'node:url';
 import {build} from 'vite';
 
-const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const PLAYGROUND = path.join(ROOT, 'playground');
-const OUT_DIR = path.join(tmpdir(), 'lit-devtools-standalone-demo');
+const PLAYGROUND = fileURLToPath(new URL('.', import.meta.url));
+const CLI = fileURLToPath(
+  new URL('./node_modules/@oddsquad/vite-plugin-lit/bin.mjs', import.meta.url)
+);
+const OUT_DIR = path.join(tmpdir(), 'lit-devtools-standalone-playground');
 const AUTH = process.env['DEMO_AUTH'] !== undefined;
+
+// StackBlitz serves every port of a project from its own origin, which is
+// only known once the project boots, so the dev server admits the whole
+// WebContainer domain. Loopback origins are allowed anyway.
+const WEBCONTAINER_ORIGINS = 'https://*.webcontainer-api.io';
 
 /** Whether `port` can be bound on localhost right now. */
 const isFree = (port) =>
@@ -68,7 +79,7 @@ const TYPES = {
   '.json': 'application/json',
 };
 
-console.log('[demo] building the playground as static files…');
+console.log('[standalone] building the playground as static files…');
 await build({
   root: PLAYGROUND,
   logLevel: 'warn',
@@ -76,37 +87,50 @@ await build({
 });
 
 // Passed through to the terminal, so the one-time code shows when DEMO_AUTH
-// is set; the origin is read from the script tag the CLI prints.
+// is set. Without it the gate is off, as in the Vite playground: this is a
+// throwaway demo server, and on StackBlitz nobody can read the code off a
+// terminal in time. Do not copy that into a real project.
 const cli = spawn(
   process.execPath,
   [
-    path.join(ROOT, 'bin.mjs'),
+    CLI,
     'dev',
     '--port',
     String(DEV_PORT),
+    '--allow-origin',
+    WEBCONTAINER_ORIGINS,
     ...(AUTH ? [] : ['--no-auth']),
   ],
-  {cwd: ROOT, stdio: ['inherit', 'pipe', 'inherit']}
+  {cwd: PLAYGROUND, stdio: ['inherit', 'pipe', 'inherit']}
 );
-const devOrigin = await new Promise((resolve, reject) => {
+await new Promise((resolve, reject) => {
   let output = '';
   cli.stdout.on('data', (chunk) => {
     process.stdout.write(chunk);
     output += chunk.toString();
-    const match = /<script src="(http:\/\/[^"]+)\/lit-devtools\.js">/.exec(
-      output
-    );
-    if (match !== null) resolve(match[1]);
+    if (output.includes('/lit-devtools.js">')) resolve();
   });
   cli.on('exit', (code) =>
     reject(new Error(`lit-devtools dev exited with code ${code}`))
   );
 });
 
-// Not Vite: a bare static server. The devtools script goes first in <head>,
-// so its `customElements.define` hook is in place before the app's module
-// scripts define anything.
-const tag = `<script src="${devOrigin}/lit-devtools.js"></script>`;
+// The script tag, written by the page itself: the dev server's address is
+// only known in the browser. Locally it is the page's host on the dev port;
+// on StackBlitz the port is a `--<port>--` segment of the host.
+const loader = `<script>
+      (() => {
+        const port = ${DEV_PORT};
+        const host = /--\\d+--/.test(location.host)
+          ? location.host.replace(/--\\d+--/, '--' + port + '--')
+          : location.hostname + ':' + port;
+        const script = document.createElement('script');
+        script.src = location.protocol + '//' + host + '/lit-devtools.js';
+        document.head.append(script);
+      })();
+    </script>`;
+
+// Not Vite: a bare static server.
 const app = createServer(async (req, res) => {
   const pathname = new URL(req.url ?? '/', 'http://x').pathname;
   const file = path.join(OUT_DIR, pathname === '/' ? 'index.html' : pathname);
@@ -117,7 +141,7 @@ const app = createServer(async (req, res) => {
   try {
     let body = await readFile(file);
     if (file.endsWith('.html')) {
-      body = body.toString().replace('<head>', `<head>\n    ${tag}`);
+      body = body.toString().replace('<head>', `<head>\n    ${loader}`);
     }
     res.setHeader(
       'content-type',
@@ -134,10 +158,12 @@ await new Promise((resolve, reject) => {
 });
 
 console.log(
-  `\n[demo] page (static, no Vite): http://localhost:${APP_PORT}/\n` +
-    `[demo] panel:                  ${devOrigin}/\n` +
-    (AUTH ? `[demo] the page asks for the one-time code printed above\n` : '') +
-    `[demo] Ctrl+C to stop\n`
+  `\n[standalone] page (static, no Vite): http://localhost:${APP_PORT}/\n` +
+    `[standalone] panel:                  http://localhost:${DEV_PORT}/\n` +
+    (AUTH
+      ? `[standalone] the page asks for the one-time code printed above\n`
+      : '') +
+    `[standalone] Ctrl+C to stop\n`
 );
 
 const stop = async () => {
