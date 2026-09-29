@@ -22,6 +22,15 @@ export interface Fixture {
   browser: Browser;
   page: Page;
   root: string;
+  /** Origin of the dev server, no trailing slash. */
+  origin: string;
+  /**
+   * Opens the built DevTools panel (`dist/client`, served by the devframe at
+   * `/__lit/`) in a new tab of the same browser and waits for it to mount.
+   * Needs `startFixture({panel: true})`. Console output and uncaught page
+   * errors collect in `errors` from before the first navigation.
+   */
+  openPanel(): Promise<PanelHandle>;
   /**
    * Edits a fixture file relative to the served root and lets the dev
    * server pick it up. Throws on no-op transforms so a green test can't be
@@ -31,7 +40,19 @@ export interface Fixture {
   close(): Promise<void>;
 }
 
+export interface PanelHandle {
+  page: Page;
+  /** `console.error` messages and uncaught exceptions, in arrival order. */
+  errors: string[];
+}
+
 export interface StartFixtureOptions {
+  /**
+   * Turn on the Vite DevTools hub so the plugin mounts its devframe and
+   * serves the built panel at `/__lit/`. Off by default: most tests never
+   * look at the panel and shouldn't pay for the hub. Requires `pnpm build`.
+   */
+  panel?: boolean;
   /** `false` disables the plugin entirely (baseline runs). */
   plugin?: false | LitPluginOptions;
 }
@@ -74,6 +95,11 @@ export const startFixture = async (
     // Empty unless LIT_CANARY=1 (see ../canary.ts).
     ...canarySettings(),
     server: {host: '127.0.0.1', port: 0},
+    // `clientAuth: false` skips the terminal approval prompt nobody can
+    // answer in a test run (same as playground/vite.config.ts).
+    ...(options.panel === true
+      ? {devtools: {enabled: true, clientAuth: false}}
+      : {}),
     // Baseline runs keep the CSS import-query plugin and the timeline
     // virtual-module stub (the playground source can't boot without either:
     // hmr-custom-layer.ts imports `virtual:lit-plugin/timeline`) but drop the
@@ -89,7 +115,8 @@ export const startFixture = async (
   if (address === null || typeof address !== 'object') {
     throw new Error('dev server has no address');
   }
-  const url = `http://127.0.0.1:${address.port}/`;
+  const origin = `http://127.0.0.1:${address.port}`;
+  const url = `${origin}/`;
 
   const executablePath = process.env['HMR_E2E_EXECUTABLE'];
   const browser = await chromium.launch({
@@ -116,6 +143,29 @@ export const startFixture = async (
     browser,
     page,
     root,
+    origin,
+    openPanel: async () => {
+      if (options.panel !== true) {
+        throw new Error('openPanel needs startFixture({panel: true})');
+      }
+      const panel = await browser.newPage();
+      const errors: string[] = [];
+      panel.on('pageerror', (error) => errors.push(error.message));
+      panel.on('console', (msg) => {
+        // Opened as a top-level page (the dock embeds it in an iframe), the
+        // browser asks for a favicon the panel doesn't ship. Not the panel's.
+        if (
+          msg.type() !== 'error' ||
+          msg.location().url.endsWith('/favicon.ico')
+        ) {
+          return;
+        }
+        errors.push(`${msg.text()} @ ${msg.location().url}`);
+      });
+      await panel.goto(`${origin}/__lit/`);
+      await panel.waitForSelector('lit-devtools-panel');
+      return {page: panel, errors};
+    },
     edit: async (rel, transform) => {
       const file = path.join(root, rel);
       const code = await readFile(file, 'utf8');
