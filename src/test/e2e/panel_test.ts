@@ -62,6 +62,21 @@ test('timeline rows span the full width of the list', async () => {
 
 test('Clear leaves the empty state in view', async () => {
   const {page} = panel;
+  // The original bug needs a list tall enough to scroll, scrolled away from
+  // the top: the virtualizer leaves its host sized to the old content.
+  const scroller = page.locator('timeline-event-list .scroll');
+  const increment = fixture.page.locator('hmr-counter #increment');
+  for (let i = 0; i < 60; i++) {
+    await increment.click();
+  }
+  await expect
+    .poll(() => scroller.evaluate((el) => el.scrollHeight - el.clientHeight))
+    .toBeGreaterThan(500);
+  await scroller.evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+  });
+  expect(await scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+
   await page.getByRole('button', {name: 'Clear'}).click();
   const empty = page.locator('timeline-event-list .empty');
   await empty.waitFor();
