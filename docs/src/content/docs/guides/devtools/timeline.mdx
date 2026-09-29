@@ -1,6 +1,6 @@
 ---
 title: Record and read the timeline
-description: 'Start a recording, choose layers, read a row, export a session, and link to a view.'
+description: 'Start a recording, choose layers, read a row, see it as tracks, export a session, and link to a view.'
 sidebar:
   order: 2
 ---
@@ -15,6 +15,8 @@ import devtoolsTimelineRawLight from '../../../../assets/shots/devtools-timeline
 import devtoolsTimelineRawDark from '../../../../assets/shots/devtools-timeline-raw.dark.png';
 import devtoolsTimelineRowDetailsLight from '../../../../assets/shots/devtools-timeline-row-details.light.png';
 import devtoolsTimelineRowDetailsDark from '../../../../assets/shots/devtools-timeline-row-details.dark.png';
+import devtoolsTimelineTracksLight from '../../../../assets/shots/devtools-timeline-tracks.light.png';
+import devtoolsTimelineTracksDark from '../../../../assets/shots/devtools-timeline-tracks.dark.png';
 import devtoolsExportSnapshotLight from '../../../../assets/shots/devtools-export-snapshot.light.png';
 import devtoolsExportSnapshotDark from '../../../../assets/shots/devtools-export-snapshot.dark.png';
 
@@ -97,6 +99,40 @@ An element row also carries two links. **filter** narrows the list to that
 element. **inspect** opens the
 [Components tab](/vite-plugin-lit/guides/devtools/components/) on it, because
 both views use the same instance id.
+
+## See it as tracks
+
+The list shows order and attribution. It does not show what happened at the
+same time, or how far apart things were. Switch **List | Tracks** at the left
+of the toolbar to see the same recording as one horizontal lane per layer on a
+shared time axis. The panel remembers which view you left it in.
+
+<ThemedImage
+  light={devtoolsTimelineTracksLight}
+  dark={devtoolsTimelineTracksDark}
+  alt="The Timeline in Tracks mode: lanes for Lit Lifecycle, Lit Render and Router on a millisecond axis, with a selected performUpdate span shown in the detail pane."
+/>
+
+Each mark is one span, placed by its start and end. Overlapping spans stack
+into rows, so an update tick reads as `performUpdate` on top with
+`willUpdate`, `update` and `updated` beneath it. A point event, or a span too
+short to show at the current zoom, draws as a thin tick. A span that has not
+ended yet runs to the end of the recording.
+
+- **Wheel** zooms around the pointer. **Shift+wheel** or a horizontal swipe
+  pans.
+- **Drag** pans.
+- **Double-click** fits the whole recording again. While you record, a fitted
+  view follows the newest events.
+
+Click a mark to select it. The same detail pane opens under the tracks, and
+the selection carries over: switch back to **List** and it scrolls to that
+row.
+
+The **Tracks** strip picks which lanes to draw. It is a view filter only.
+Hiding a track does not stop that layer being recorded, and the list is
+unaffected. Only layers you capture get a track, custom layers included. The
+list's element and regex filters do not apply to the tracks yet.
 
 ## Export a session for a bug report
 

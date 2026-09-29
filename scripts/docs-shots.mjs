@@ -286,6 +286,32 @@ const SHOTS = [
     },
   },
   {
+    name: 'devtools-timeline-tracks',
+    capture: async (ctx) => {
+      const {panel} = await recordSession(ctx);
+      await timelineView(panel)
+        .locator('css=segmented-tabs button', {hasText: 'Tracks'})
+        .click();
+      const tracks = timelineView(panel).locator('css=timeline-tracks');
+      // Zoom in on the start of the recording, anchored at the left edge,
+      // so the first update ticks show their nesting under performUpdate
+      // rather than one tick-wide column.
+      const mark = tracks.locator('css=.mark').first();
+      await mark.waitFor();
+      const box = await mark.boundingBox();
+      if (box) {
+        await panel.mouse.move(box.x, box.y + box.height / 2);
+        for (let i = 0; i < 6; i++) {
+          await panel.mouse.wheel(0, -400);
+          await sleep(30);
+        }
+      }
+      await tracks.locator('css=.mark').first().click();
+      await sleep(400);
+      await ctx.shot(panel);
+    },
+  },
+  {
     name: 'devtools-custom-layer',
     capture: async (ctx) => {
       const {panel} = await recordSession(ctx);

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {LitElement, html, css} from 'lit';
+import {LitElement, html, css, nothing} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
 import {tokens} from '../lib/tokens.js';
 
@@ -15,7 +15,26 @@ export interface LayerState {
   enabled: boolean;
 }
 
-/** Strip of colored pill toggles — one per timeline layer. */
+/** A layer's `0xRRGGBB` colour as a CSS hex string. */
+export const hexColor = (color: number): string =>
+  '#' + color.toString(16).padStart(6, '0');
+
+/** CSS colour of layer `id`, grey for a layer `layers` does not know. */
+export const layerColor = (
+  layers: readonly LayerState[],
+  id: string
+): string => {
+  const layer = layers.find((l) => l.id === id);
+  return layer ? hexColor(layer.color) : '#888';
+};
+
+/**
+ * Strip of colored pill toggles — one per timeline layer.
+ *
+ * Used twice by `timeline-view`: once for the capture toggles, and in Tracks
+ * mode once more for which lanes to draw. `caption` labels the strip so the
+ * two are not mistaken for each other.
+ */
 @customElement('timeline-layers')
 export class TimelineLayers extends LitElement {
   static override styles = [
@@ -51,6 +70,12 @@ export class TimelineLayers extends LitElement {
       button:hover {
         background: var(--lit-devtools-surface-hover);
       }
+      .caption {
+        align-self: center;
+        color: var(--lit-devtools-text-muted);
+        font-size: var(--lit-devtools-text-2xs);
+        margin-right: var(--lit-devtools-space-2);
+      }
       .dot {
         width: 8px;
         height: 8px;
@@ -65,6 +90,8 @@ export class TimelineLayers extends LitElement {
   ];
 
   @property({type: Array}) layers: LayerState[] = [];
+  /** Optional leading label, e.g. "Tracks". */
+  @property() caption = '';
 
   private _toggle(id: string) {
     this.dispatchEvent(
@@ -77,17 +104,18 @@ export class TimelineLayers extends LitElement {
   }
 
   override render() {
-    return html`${this.layers.map(
+    return html`${
+      this.caption
+        ? html`<span class="caption">${this.caption}</span>`
+        : nothing
+    }${this.layers.map(
       (l) => html`
         <button
           class=${l.enabled ? 'on' : ''}
           title=${l.enabled ? `Hide ${l.label}` : `Show ${l.label}`}
           @click=${() => this._toggle(l.id)}
         >
-          <span
-            class="dot"
-            style=${'background:#' + l.color.toString(16).padStart(6, '0')}
-          ></span>
+          <span class="dot" style=${'background:' + hexColor(l.color)}></span>
           ${l.label}
         </button>
       `

@@ -6,6 +6,7 @@
 
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
+import {ref, createRef} from 'lit/directives/ref.js';
 import {tokens} from '../lib/tokens.js';
 import type {
   TimelineEvent,
@@ -13,8 +14,14 @@ import type {
   TimelineLayersState,
 } from '../types/timeline.js';
 import type {LayerState} from './timeline-layers.js';
+import {toSpans} from '../lib/timeline/derive.js';
+import type {TimelineSpan} from '../lib/timeline/derive.js';
+import '../lib/segmented-tabs.js';
+import type {TabItem} from '../lib/segmented-tabs.js';
 import './timeline-layers.js';
-import './timeline-event-list.js';
+import {isRawKey} from './timeline-event-list.js';
+import type {TimelineEventList} from './timeline-event-list.js';
+import './timeline-tracks.js';
 import {litRpc, getMeta, describeError, isSnapshot} from './client.js';
 import {
   clearTimelineEvents,
@@ -26,12 +33,63 @@ import type {LitClient} from './client.js';
 import {LAYER_FLAGS, SESSION_STATE_KEY} from '../lib/devframe/protocol.js';
 import type {SessionState} from '../lib/devframe/protocol.js';
 
+type ViewMode = 'list' | 'tracks';
+
+/** localStorage key remembering List vs Tracks. */
+const MODE_LS_KEY = 'lit-devtools-timeline-mode';
+/** localStorage key remembering which tracks the user hid. Stored as the
+ *  hidden set, not the shown one, so a layer seen for the first time (a
+ *  custom layer, a new built-in) gets a track by default. */
+const HIDDEN_TRACKS_LS_KEY = 'lit-devtools-timeline-hidden-tracks';
+
+const MODE_TABS: TabItem[] = [
+  {id: 'list', label: 'List'},
+  {id: 'tracks', label: 'Tracks'},
+];
+
+const readMode = (): ViewMode => {
+  try {
+    return localStorage.getItem(MODE_LS_KEY) === 'tracks' ? 'tracks' : 'list';
+  } catch {
+    return 'list';
+  }
+};
+
+const readHiddenTracks = (): Set<string> => {
+  try {
+    const parsed: unknown = JSON.parse(
+      localStorage.getItem(HIDDEN_TRACKS_LS_KEY) ?? '[]'
+    );
+    return new Set(
+      Array.isArray(parsed)
+        ? parsed.filter((id): id is string => typeof id === 'string')
+        : []
+    );
+  } catch {
+    return new Set();
+  }
+};
+
+const store = (key: string, value: string) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore (private/storage unavailable)
+  }
+};
+
 /**
  * The Timeline view: records and lists Lit lifecycle / render / input events.
  * One tab of the DevTools panel shell (`lit-devtools-panel`). The recorded
  * events come from `timeline-store.ts`, which the Updates view reads too; this
  * view owns the recording state and layer toggles, which live in devframe
  * shared state so it stays in sync with other panels and the page runtime.
+ *
+ * The events are shown two ways, List (`timeline-event-list`) and Tracks
+ * (`timeline-tracks`). This view derives the spans once for both and owns
+ * the selection, so clicking a mark and switching to the list lands on the
+ * same row. Both stay mounted and the inactive one is hidden, so the list
+ * keeps its filters and scroll and the tracks keep their zoom.
  */
 @customElement('timeline-view')
 export class TimelineView extends LitElement {
@@ -84,9 +142,17 @@ export class TimelineView extends LitElement {
         background: var(--lit-devtools-error-soft);
         color: var(--lit-devtools-error);
       }
-      timeline-event-list {
+      .toolbar segmented-tabs {
+        align-self: stretch;
+        margin: calc(-1 * var(--lit-devtools-space-3)) 0;
+      }
+      timeline-event-list,
+      timeline-tracks {
         flex: 1;
         overflow: hidden;
+      }
+      [hidden] {
+        display: none !important;
       }
       .error {
         padding: var(--lit-devtools-space-5);
@@ -103,6 +169,19 @@ export class TimelineView extends LitElement {
   @state() private _events: TimelineEvent[] = [];
   @state() private _layers: LayerState[] = [];
   @state() private _error: string | null = null;
+  @state() private _mode: ViewMode = readMode();
+  /** Layers whose track the user hid. View-only: capture is untouched. */
+  @state() private _hiddenTracks: Set<string> = readHiddenTracks();
+  /** Selection shared by both presentations; see `timeline-event-list`. */
+  @state() private _selectedKey: string | null = null;
+
+  /** `toSpans(_events)`, re-derived only when the buffer changes. */
+  private _spans: TimelineSpan[] = [];
+  private _spansOf: TimelineEvent[] | null = null;
+  private readonly _listRef = createRef<TimelineEventList>();
+  /** Captured, not-hidden layer ids. Cached so a selection change does not
+   *  hand `timeline-tracks` a new array and re-pack every lane. */
+  private _visibleTracks: string[] = [];
 
   /** Built-in + runtime-announced layers as of the last `get-meta` call. */
   private _baseLayers: TimelineLayer[] = [];
@@ -128,6 +207,30 @@ export class TimelineView extends LitElement {
     this._sessionOff = null;
     this._storeOff?.();
     this._storeOff = null;
+  }
+
+  override willUpdate(changed: Map<string, unknown>) {
+    if (changed.has('_layers') || changed.has('_hiddenTracks')) {
+      this._visibleTracks = this._layers
+        .filter((l) => l.enabled && !this._hiddenTracks.has(l.id))
+        .map((l) => l.id);
+    }
+    // The store hands out a new array whenever the buffer changes, so identity
+    // is the memo key.
+    if (this._events !== this._spansOf) {
+      this._spansOf = this._events;
+      this._spans = toSpans(this._events);
+      // A span can fall out of the buffer cap, or vanish on Clear. Raw-mode
+      // keys are the list's to interpret.
+      const key = this._selectedKey;
+      if (
+        key !== null &&
+        !isRawKey(key) &&
+        !this._spans.some((s) => s.key === key)
+      ) {
+        this._selectedKey = null;
+      }
+    }
   }
 
   private _readStore(): void {
@@ -260,12 +363,45 @@ export class TimelineView extends LitElement {
       });
   }
 
+  private _onModeChange(e: CustomEvent<{value: string}>) {
+    e.stopPropagation();
+    this._mode = e.detail.value === 'tracks' ? 'tracks' : 'list';
+    store(MODE_LS_KEY, this._mode);
+    if (this._mode === 'list') {
+      // The list was hidden while the selection may have moved; bring the
+      // selected row (or the newest one) back into view.
+      void this.updateComplete.then(() => this._listRef.value?.reveal());
+    }
+  }
+
+  private _onTrackToggle(e: CustomEvent<{id: string}>) {
+    // A view filter: this deliberately does not call `toggle-layer`.
+    e.stopPropagation();
+    const hidden = new Set(this._hiddenTracks);
+    if (!hidden.delete(e.detail.id)) hidden.add(e.detail.id);
+    this._hiddenTracks = hidden;
+    store(HIDDEN_TRACKS_LS_KEY, JSON.stringify([...hidden]));
+  }
+
+  private _onSpanSelect(e: CustomEvent<{key: string | null}>) {
+    this._selectedKey = e.detail.key;
+  }
+
   override render() {
     if (this._error !== null) {
       return html`<div class="error">${this._error}</div>`;
     }
+    const tracks = this._mode === 'tracks';
+    // Only captured layers can have events to draw.
+    const captured = this._layers.filter((l) => l.enabled);
     return html`
       <div class="toolbar">
+        <segmented-tabs
+          size="sm"
+          .items=${MODE_TABS}
+          .value=${this._mode}
+          @change=${this._onModeChange}
+        ></segmented-tabs>
         ${
           this._exportNote === null
             ? nothing
@@ -296,10 +432,36 @@ export class TimelineView extends LitElement {
         .layers=${this._layers}
         @layer-toggle=${this._onLayerToggle}
       ></timeline-layers>
+      ${
+        tracks
+          ? html`<timeline-layers
+              caption="Tracks"
+              .layers=${captured.map((l) => ({
+                ...l,
+                enabled: !this._hiddenTracks.has(l.id),
+              }))}
+              @layer-toggle=${this._onTrackToggle}
+            ></timeline-layers>`
+          : nothing
+      }
       <timeline-event-list
+        ${ref(this._listRef)}
+        ?hidden=${tracks}
         .events=${this._events}
+        .spans=${this._spans}
         .layers=${this._layers}
+        .selectedKey=${this._selectedKey}
+        @span-select=${this._onSpanSelect}
       ></timeline-event-list>
+      <timeline-tracks
+        ?hidden=${!tracks}
+        .spans=${this._spans}
+        .layers=${this._layers}
+        .visibleTracks=${this._visibleTracks}
+        .selectedKey=${this._selectedKey}
+        ?recording=${this._recording}
+        @span-select=${this._onSpanSelect}
+      ></timeline-tracks>
     `;
   }
 }
