@@ -135,13 +135,20 @@ export const urlSheet = (url: string): UrlSheet => {
   const update = (next: string): Promise<void> => {
     const token = ++latest;
     return fetch(devDirect(next))
-      .then((r) => r.text())
+      .then((r) => {
+        // A 404 still has a body (Vite's fallback page); don't adopt it as css.
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
       .then((css) => {
         if (token === latest) {
           sheet.replaceSync(css);
         }
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        // Keep the last good sheet; just say why this update didn't land.
+        console.warn(`[lit-plugin] urlSheet: failed to load ${next}:`, err);
+      });
   };
   void update(url);
   return {
