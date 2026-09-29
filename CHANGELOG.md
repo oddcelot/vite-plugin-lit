@@ -3,6 +3,45 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.7.0 — 2026-09-29
+
+Hot-patching covers two cases it used to get wrong: components with native
+`#private` members, which threw, and child elements whose parent template you
+edit, which lost their state. The standalone `lit-devtools dev` server also
+gets pages to feed it: one script tag connects any page running Lit, whether
+Vite serves it or not, directly or through a proxy. Two fixes ride along:
+open-in-editor links lose a stray slash, and the timeline no longer misses the
+first component's connect and disconnect.
+
+### Added
+
+- **Components with `#private` fields keep hot-patching.** Editing an element
+  that uses native `#private` fields or methods now updates it in place and
+  keeps its private state, instead of throwing "Cannot read private member".
+  Set `hmr.privateFields: false` to keep real brand checks in dev.
+- **Child components keep their state when you edit the parent.** Changing the
+  template a child element sits in no longer resets its `@state` and
+  `#private` fields; `hmr.childState: 'reuse'` keeps the original element
+  where it has no bindings, and `'reset'` restores the old behaviour. The
+  DevTools Settings tab can switch the mode live; the next edit uses it.
+- **Pages outside Vite can feed the standalone panel.** `lit-devtools dev` now
+  prints a `<script src=".../lit-devtools.js">` tag; a page that loads it shows
+  its component tree, inspector and timeline in the panel, even when Vite
+  doesn't serve it or it's reached through a proxy or tunnel. Pages on
+  localhost connect on any port, and `--allow-origin` admits others, with `*`
+  for any subdomain (`--allow-origin 'https://*.webcontainer-api.io'` for
+  StackBlitz). HMR, source locations and open-in-editor still need Vite.
+
+### Fixed
+
+- **Open-in-editor links use the documented URL form.** Links to VS Code,
+  Cursor, Zed and Windsurf no longer carry a double slash before absolute
+  paths like `/Users/...`.
+- **The timeline records the first component's connect and disconnect.** On a
+  page with no Lit element when the DevTools runtime starts, the first
+  component defined afterwards now shows its `connectedCallback` and
+  `disconnectedCallback` events like the rest.
+
 ## 0.6.1 — 2026-09-29
 
 A fix release. Components whose `extends` clause holds braces load in dev
