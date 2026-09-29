@@ -600,6 +600,37 @@ standalone `dev` is:
 State this in the README section from Step 1/5 rather than let a user
 discover it by running `dev` and finding an empty panel.
 
+### Update: the transport seam has landed (bead vpl-zua)
+
+The "option 2" transport described above now exists, in a deliberately narrow
+form. What works:
+
+- The page runtime no longer reads `import.meta.hot` for its `lit:*` traffic;
+  it goes through a page channel (`src/lib/runtime/page-channel.ts`) whose
+  default carrier is Vite's HMR socket, unchanged.
+- `lit-devtools dev` now builds its definition with an `RpcTimelineSource`
+  (`src/lib/devframe/rpc-source.ts`) instead of `createNullSource()`. It
+  registers one RPC event, `lit:page-send`, and broadcasts another,
+  `lit:page-receive`, carrying the same channels `HotTimelineSource` carries.
+- A page calls `connectToDevServer(url)` (exported as
+  `@oddsquad/vite-plugin-lit/connect.js`, implemented in
+  `src/lib/runtime/rpc-transport.ts`), which dials the server with devframe's
+  `getDevframeRpcClient()` and attaches an RPC carrier to the page channel.
+  The panel then shows that page's live tree, inspector and timeline.
+- Auth is devframe's own: the one-time code, a stored token, an explicit
+  `authToken`, or `--no-auth` on the server.
+
+What is still deferred (tracked in a follow-up bead):
+
+- Getting the runtime into a page that is not on a Vite dev server, for
+  instance a served script tag or snippet.
+- Cross-origin access: the standalone server sends no CORS headers on
+  `__connection.json`, and the auth handshake for a page on another origin has
+  not been designed. `connectToDevServer()` is only known to work where the
+  page can already reach the server (verified over a real WebSocket in Node
+  with a stubbed `location`, not from a second browser origin).
+- A server-side pick does not raise a dock, since standalone has no hub.
+
 ## Verification
 
 Full gate, once all steps land:
