@@ -30,7 +30,18 @@ jobs:
       - run: pnpm exec vp check
       - run: pnpm run test:unit
       # Catches a jsr.json that no longer matches the build before a tag does.
-      - run: pnpm dlx jsr@0.14.3 publish --dry-run --set-version "$(node -p "require('./package.json').version")"
+      # The dry run resolves imports from node_modules, so an import JSR can't
+      # map through package.json only shows up as an "Ignoring failed to
+      # resolve" line; fail on it. The vite edit mirrors release.yaml.
+      - name: JSR dry run
+        run: |
+          set -o pipefail
+          node -e "const p=require('./package.json');delete p.devDependencies.vite;require('fs').writeFileSync('package.json',JSON.stringify(p,null,2))"
+          pnpm dlx jsr@0.14.3 publish --dry-run --allow-dirty --set-version "$(node -p "require('./package.json').version")" 2>&1 | tee jsr.log
+          if grep -q 'Ignoring failed to resolve' jsr.log; then
+            echo "::error::JSR could not map an import through package.json"
+            exit 1
+          fi
 
   e2e:
     runs-on: ubuntu-latest
