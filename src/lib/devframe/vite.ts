@@ -179,6 +179,7 @@ export class HotTimelineSource implements TimelineSource {
     this.#hot?.send('lit:timeline:layers-changed', {
       litLifecycleEnabled: layers.litLifecycleEnabled,
       litRenderEnabled: layers.litRenderEnabled,
+      litRenderVerboseEnabled: layers.litRenderVerboseEnabled,
       mouseEventEnabled: layers.mouseEventEnabled,
       keyboardEventEnabled: layers.keyboardEventEnabled,
     });

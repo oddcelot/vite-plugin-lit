@@ -99,8 +99,6 @@ The feature is enabled with `litPlugin({timeline: true})` in `vite.config.ts`.
 
 ### What is NOT yet done
 
-- Verbose render toggle (commit/set-part events from lit-debug — currently suppressed as too noisy)
-- `@lit-labs/virtualizer` for the event list (scrollable div used instead; virtualizer deferred)
 - Playwright test for actual event capture (current e2e covers infrastructure only)
 - Published-package panel build (panel `.ts` files are dev-only via `/@fs/`; a production `panel/` dist would need a separate build step)
 

@@ -5,19 +5,27 @@
  */
 
 /**
- * lit-render timeline layer — listens to the built-in lit-debug CustomEvents
- * instead of patching prototypes, so it's zero-cost when the Lit debug flag
- * is off and perfectly accurate for the render layer.
+ * lit-render timeline layers — listen to the built-in lit-debug CustomEvents
+ * instead of patching prototypes, so they're zero-cost when the Lit debug
+ * flag is off and perfectly accurate for the render layers.
  *
  * `globalThis.emitLitDebugLogEvents = true` gates the events, and lit-html
  * dispatches a CustomEvent per render whenever it's set — a real per-render
  * cost. So the caller drives the flag via {@link setRenderDebugEnabled} from
- * `recording × layer-enabled` rather than leaving it on for the whole session.
+ * `recording × (lit-render OR lit-render-verbose enabled)` rather than
+ * leaving it on for the whole session.
  * The events are tagged `*Unstable` in the Lit source; we tolerate missing
  * `kind` values gracefully.
  *
  * begin render / end render share a numeric `id` → we use it as groupId so
  * the panel can show a duration bar for each render call.
+ *
+ * `template updating` / `template instantiated[ and updated]` / `set part` /
+ * `commit *` fire once per template-bound part on *every* render — extremely
+ * high volume (a ticking clock or animation floods the layer). They're
+ * emitted on the separate opt-in `lit-render-verbose` layer rather than
+ * `lit-render`, so the common case (the begin/end render duration bar) stays
+ * quiet by default.
  */
 
 import type {TimelineEvent} from '../../../types/timeline.js';
@@ -28,7 +36,12 @@ type EmitFn = (event: TimelineEvent) => void;
 type RecordingFn = () => boolean;
 type LayerEnabledFn = () => boolean;
 
-/** Minimal shape of the lit-debug event detail we care about. */
+/**
+ * Minimal shape of the lit-debug event detail we care about. Broader than any
+ * single `kind` needs — see lit-html's `LitUnstable.DebugLog.Entry` union in
+ * `packages/lit-html/src/lit-html.ts` for the exact per-kind shapes; fields
+ * below are the ones this layer reads across all of them.
+ */
 interface LitDebugDetail {
   kind: string;
   id?: number;
@@ -36,6 +49,26 @@ interface LitDebugDetail {
   instance?: unknown;
   /** Render options passed to lit-html's `render()`; `host` is the element. */
   options?: {host?: unknown};
+  /** `template updating` / `template instantiated[ and updated]`. */
+  values?: unknown[];
+  /** `set part` / most `commit *` kinds. */
+  value?: unknown;
+  /**
+   * `set part` only. Unlike every other kind, `set part` carries no
+   * top-level `options` — the host lives on the `Part` instance itself
+   * (`ChildPart` / `AttributePart` / `EventPart` / `ElementPart` all expose a
+   * public `options: RenderOptions | undefined`), so the host is derived via
+   * {@link partHost} instead of `options?.host` directly.
+   */
+  part?: {options?: {host?: unknown}};
+  /** `set part`. */
+  valueIndex?: number;
+  /** `commit attribute` / `commit property` / `commit boolean attribute` /
+   *  `commit event listener`. */
+  name?: string;
+  /** `commit event listener`. */
+  addListener?: boolean;
+  removeListener?: boolean;
 }
 
 /**
@@ -56,17 +89,58 @@ const hostMeta = (
   };
 };
 
+/** Reads the render `host` off a `Part` for the one kind (`set part`) whose
+ *  detail carries the part instead of the render `options` directly. */
+const partHost = (part: LitDebugDetail['part']): unknown => part?.options?.host;
+
 type LitDebugEvent = CustomEvent<LitDebugDetail>;
 
 let removeListener: (() => void) | null = null;
+
+/**
+ * Reduces an arbitrary lit-html binding value to a small JSON-serializable
+ * summary for the verbose layer's `data` field. Never puts the value itself
+ * in `data` — it may be a DOM Node, a TemplateResult, a function, or hold a
+ * reference back to the host element, none of which survive (or belong in) a
+ * structured-clone over the HMR channel.
+ */
+const describeValue = (value: unknown): string => {
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'string') {
+    return value.length > 40
+      ? `string:"${value.slice(0, 40)}…"`
+      : `string:"${value}"`;
+  }
+  if (typeof value === 'number') return `number:${value}`;
+  if (typeof value === 'boolean') return `boolean:${value}`;
+  if (typeof value === 'function') {
+    return `function:${value.name || 'anonymous'}`;
+  }
+  // lit's sentinels (`nothing`, `noChange`) are symbols.
+  if (typeof value === 'symbol') return `symbol:${value.description ?? ''}`;
+  if (Array.isArray(value)) return `array(${value.length})`;
+  if (typeof value === 'object' && '_$litType$' in value) return 'template';
+  if (typeof Node !== 'undefined' && value instanceof Node) {
+    const tag = (value as Partial<Element>).tagName?.toLowerCase();
+    return tag ? `node:<${tag}>` : `node:#${value.nodeType}`;
+  }
+  const ctor = (value as {constructor?: {name?: string}})?.constructor?.name;
+  return `object:${ctor ?? 'Object'}`;
+};
+
+/** Summarizes each entry of a template-instance's `values` array. */
+const describeValues = (values: unknown[] | undefined): string[] | undefined =>
+  values?.map(describeValue);
 
 const onLitDebug = (
   e: Event,
   emit: EmitFn,
   recording: RecordingFn,
-  layerEnabled: LayerEnabledFn
+  renderEnabled: LayerEnabledFn,
+  verboseEnabled: LayerEnabledFn
 ): void => {
-  if (!recording() || !layerEnabled()) return;
+  if (!recording() || (!renderEnabled() && !verboseEnabled())) return;
 
   const detail = (e as LitDebugEvent).detail;
   if (!detail?.kind) return;
@@ -76,6 +150,7 @@ const onLitDebug = (
 
   switch (kind) {
     case 'begin render': {
+      if (!renderEnabled()) break;
       const meta = hostMeta(detail.options?.host);
       emit({
         layerId: 'lit-render',
@@ -90,6 +165,7 @@ const onLitDebug = (
     }
 
     case 'end render': {
+      if (!renderEnabled()) break;
       const meta = hostMeta(detail.options?.host);
       emit({
         layerId: 'lit-render',
@@ -106,6 +182,7 @@ const onLitDebug = (
     // `template prep` fires once per *unique* template, the first time it's
     // compiled — low volume, useful as a "new template" marker.
     case 'template prep':
+      if (!renderEnabled()) break;
       emit({
         layerId: 'lit-render',
         time,
@@ -114,32 +191,134 @@ const onLitDebug = (
       });
       break;
 
-    // `template updating` / `template instantiated` / `…and updated` fire once
-    // per template-bound ChildPart on *every* render — extremely high volume
-    // (a ticking clock or animation floods the layer). The begin/end render
-    // pair above already captures each render as a grouped duration, so these
-    // add noise without signal. Skip them; re-expose behind a "verbose" toggle
-    // if per-part detail is ever needed. Same rationale for commit * / set part.
+    // The events below fire once per template-bound part on *every* render —
+    // extremely high volume (a ticking clock or animation floods the layer).
+    // The begin/end render pair above already captures each render as a
+    // grouped duration, so these live on the separate opt-in
+    // `lit-render-verbose` layer instead of adding noise to `lit-render`.
+    case 'template updating':
+    case 'template instantiated':
+    case 'template instantiated and updated': {
+      if (!verboseEnabled()) break;
+      const meta = hostMeta(detail.options?.host);
+      emit({
+        layerId: 'lit-render-verbose',
+        time,
+        title: kind,
+        subtitle: meta?.tagName,
+        data: {kind, values: describeValues(detail.values)},
+        meta,
+      });
+      break;
+    }
+
+    case 'set part': {
+      if (!verboseEnabled()) break;
+      const meta = hostMeta(partHost(detail.part));
+      emit({
+        layerId: 'lit-render-verbose',
+        time,
+        title: kind,
+        subtitle: meta?.tagName,
+        data: {
+          kind,
+          valueIndex: detail.valueIndex,
+          value: describeValue(detail.value),
+        },
+        meta,
+      });
+      break;
+    }
+
+    case 'commit nothing to child': {
+      if (!verboseEnabled()) break;
+      const meta = hostMeta(detail.options?.host);
+      emit({
+        layerId: 'lit-render-verbose',
+        time,
+        title: kind,
+        subtitle: meta?.tagName,
+        data: {kind},
+        meta,
+      });
+      break;
+    }
+
+    case 'commit text':
+    case 'commit node':
+    case 'commit to element binding': {
+      if (!verboseEnabled()) break;
+      const meta = hostMeta(detail.options?.host);
+      emit({
+        layerId: 'lit-render-verbose',
+        time,
+        title: kind,
+        subtitle: meta?.tagName,
+        data: {kind, value: describeValue(detail.value)},
+        meta,
+      });
+      break;
+    }
+
+    case 'commit attribute':
+    case 'commit property':
+    case 'commit boolean attribute': {
+      if (!verboseEnabled()) break;
+      const meta = hostMeta(detail.options?.host);
+      emit({
+        layerId: 'lit-render-verbose',
+        time,
+        title: kind,
+        subtitle: meta?.tagName,
+        data: {kind, name: detail.name, value: describeValue(detail.value)},
+        meta,
+      });
+      break;
+    }
+
+    case 'commit event listener': {
+      if (!verboseEnabled()) break;
+      const meta = hostMeta(detail.options?.host);
+      emit({
+        layerId: 'lit-render-verbose',
+        time,
+        title: kind,
+        subtitle: meta?.tagName,
+        data: {
+          kind,
+          name: detail.name,
+          addListener: detail.addListener,
+          removeListener: detail.removeListener,
+        },
+        meta,
+      });
+      break;
+    }
+
+    // Unknown or future `*Unstable` kind — ignore rather than guess a shape.
     default:
       break;
   }
 };
 
 /**
- * Install the lit-debug render layer.
+ * Install the lit-debug render layers (`lit-render` and the opt-in
+ * `lit-render-verbose`).
  * Idempotent — calling again when already installed is a no-op.
  */
 export const installRenderLayer = (
   emit: EmitFn,
   recording: RecordingFn,
-  layerEnabled: LayerEnabledFn
+  renderEnabled: LayerEnabledFn,
+  verboseEnabled: LayerEnabledFn
 ): void => {
   if (removeListener !== null) return;
 
   // The listener is cheap and always attached; the per-render cost lives in the
   // `emitLitDebugLogEvents` flag, which the caller toggles via
   // `setRenderDebugEnabled` only while actively capturing.
-  const handler = (e: Event) => onLitDebug(e, emit, recording, layerEnabled);
+  const handler = (e: Event) =>
+    onLitDebug(e, emit, recording, renderEnabled, verboseEnabled);
   window.addEventListener('lit-debug', handler);
   removeListener = () => window.removeEventListener('lit-debug', handler);
 };

@@ -32,6 +32,7 @@ const state: TimelineLayersState = {
   recordingState: false,
   litLifecycleEnabled: true,
   litRenderEnabled: true,
+  litRenderVerboseEnabled: false,
   mouseEventEnabled: false,
   keyboardEventEnabled: false,
 };
@@ -39,14 +40,18 @@ const state: TimelineLayersState = {
 const recording = (): boolean => state.recordingState;
 const lifecycleEnabled = (): boolean => state.litLifecycleEnabled;
 const renderEnabled = (): boolean => state.litRenderEnabled;
+const renderVerboseEnabled = (): boolean => state.litRenderVerboseEnabled;
 const mouseEnabled = (): boolean => state.mouseEventEnabled;
 const keyboardEnabled = (): boolean => state.keyboardEventEnabled;
 
-// Drive Lit's debug event flag from recording × render-layer-enabled so
-// lit-html only pays the per-render CustomEvent dispatch cost while we're
-// actually capturing the render layer.
+// Drive Lit's debug event flag from recording × (render-layer-enabled OR
+// verbose-layer-enabled) so lit-html only pays the per-render CustomEvent
+// dispatch cost while we're actually capturing one of the two render layers.
 const syncRenderDebug = (): void => {
-  setRenderDebugEnabled(state.recordingState && state.litRenderEnabled);
+  setRenderDebugEnabled(
+    state.recordingState &&
+      (state.litRenderEnabled || state.litRenderVerboseEnabled)
+  );
 };
 
 // ---------------------------------------------------------------------------
@@ -54,7 +59,7 @@ const syncRenderDebug = (): void => {
 // ---------------------------------------------------------------------------
 
 installLifecycleLayer(emit, recording, lifecycleEnabled);
-installRenderLayer(emit, recording, renderEnabled);
+installRenderLayer(emit, recording, renderEnabled, renderVerboseEnabled);
 installMouseLayer(emit, recording, mouseEnabled);
 installKeyboardLayer(emit, recording, keyboardEnabled);
 

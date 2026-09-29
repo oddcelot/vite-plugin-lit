@@ -31,6 +31,13 @@ export interface TimelineLayersState {
   recordingState: boolean;
   litLifecycleEnabled: boolean;
   litRenderEnabled: boolean;
+  /**
+   * Per-part `lit-debug` events (`template updating`, `set part`, `commit
+   * *`, …) — one per binding on *every* render, so a ticking clock or
+   * animation floods the layer. Off by default; the `lit-render` layer's
+   * begin/end render pair already covers the common case.
+   */
+  litRenderVerboseEnabled: boolean;
   mouseEventEnabled: boolean;
   keyboardEventEnabled: boolean;
 }
@@ -38,6 +45,7 @@ export interface TimelineLayersState {
 export const TIMELINE_LAYERS: readonly TimelineLayer[] = [
   {id: 'lit-lifecycle', label: 'Lit Lifecycle', color: 0x4d63ff},
   {id: 'lit-render', label: 'Lit Render', color: 0x325cff},
+  {id: 'lit-render-verbose', label: 'Lit Render (verbose)', color: 0x99aeff},
   {id: 'mouse', label: 'Mouse', color: 0xa451af},
   {id: 'keyboard', label: 'Keyboard', color: 0x8151af},
 ];
@@ -46,6 +54,7 @@ export const DEFAULT_LAYERS_STATE: TimelineLayersState = {
   recordingState: false,
   litLifecycleEnabled: true,
   litRenderEnabled: true,
+  litRenderVerboseEnabled: false,
   mouseEventEnabled: false,
   keyboardEventEnabled: false,
 };
