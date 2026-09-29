@@ -5,7 +5,12 @@
  */
 
 import type {SourceOverlayOptions} from './types.js';
-import type {FeatureSettings} from '../types/timeline.js';
+import type {
+  FeatureSettings,
+  SettingSource,
+  SettingSources,
+} from '../types/timeline.js';
+import {BUILTIN_EDITORS} from './runtime/source-overlay/editors.js';
 
 /**
  * On-page HMR feedback: a small pulsing indicator in the corner of the host
@@ -131,6 +136,11 @@ export interface ResolvedOptions {
   sourceOverlay: false | SourceOverlayOptions;
   timeline: boolean;
   cssSheetBuild: CssSheetBuild;
+  /**
+   * Which layer each panel-visible setting came from. Source-overlay keys are
+   * present only when the overlay is enabled.
+   */
+  sources: SettingSources;
 }
 
 /** Env var prefix consumed at config time. */
@@ -175,6 +185,26 @@ const envEnum = <T extends string>(
   return undefined;
 };
 
+/** Keys a `LIT_PLUGIN_SOURCE_OVERLAY_EDITOR` value may name. */
+const EDITOR_KEYS: readonly string[] = Object.keys(BUILTIN_EDITORS);
+
+/** Which layer supplied a value: the first of option, env that is defined. */
+const sourceOf = (option: unknown, env: unknown): SettingSource =>
+  option !== undefined ? 'option' : env !== undefined ? 'env' : 'default';
+
+/**
+ * Take the first defined of an explicit option and an env value, else the
+ * default, and record which layer won.
+ */
+const pick = <T>(
+  option: T | undefined,
+  env: T | undefined,
+  fallback: T
+): {value: T; source: SettingSource} => ({
+  value: option ?? env ?? fallback,
+  source: sourceOf(option, env),
+});
+
 /**
  * Merge explicit options over env vars over defaults (in that precedence) into
  * the flat shape the plugin hooks consume.
@@ -189,27 +219,43 @@ export const resolveOptions = (
     (typeof hmr === 'boolean' ? hmr : hmrObj?.enabled) ??
     envBool(env[`${ENV_PREFIX}_HMR`]) ??
     true;
-  const reconnect =
-    hmrObj?.reconnect ?? envBool(env[`${ENV_PREFIX}_HMR_RECONNECT`]) ?? false;
-  const onIncompatible =
-    hmrObj?.onIncompatible ??
+  const reconnect = pick(
+    hmrObj?.reconnect,
+    envBool(env[`${ENV_PREFIX}_HMR_RECONNECT`]),
+    false
+  );
+  const onIncompatible = pick<'reload' | 'warn'>(
+    hmrObj?.onIncompatible,
     envEnum(
       env[`${ENV_PREFIX}_HMR_ON_INCOMPATIBLE`],
       ON_INCOMPATIBLE_MODES,
       `${ENV_PREFIX}_HMR_ON_INCOMPATIBLE`
-    ) ??
-    'reload';
+    ),
+    'reload'
+  );
 
   const ind = hmrObj?.indicator;
   const indObj = typeof ind === 'object' ? ind : undefined;
-  const indEnabled =
-    (typeof ind === 'boolean' ? ind : indObj?.enabled) ??
-    envBool(env[`${ENV_PREFIX}_HMR_INDICATOR`]) ??
-    true;
-  const indCount =
-    indObj?.count ?? envBool(env[`${ENV_PREFIX}_HMR_INDICATOR_COUNT`]) ?? false;
+  const indEnabled = pick(
+    typeof ind === 'boolean' ? ind : indObj?.enabled,
+    envBool(env[`${ENV_PREFIX}_HMR_INDICATOR`]),
+    true
+  );
+  const indCount = pick(
+    indObj?.count,
+    envBool(env[`${ENV_PREFIX}_HMR_INDICATOR_COUNT`]),
+    false
+  );
   // The indicator is meaningless without HMR, so it follows the master toggle.
-  const indicator = hmrEnabled && indEnabled ? {count: indCount} : false;
+  const indicator =
+    hmrEnabled && indEnabled.value ? {count: indCount.value} : false;
+
+  const sources: SettingSources = {
+    hmrReconnect: reconnect.source,
+    hmrOnIncompatible: onIncompatible.source,
+    hmrIndicatorVisible: indEnabled.source,
+    hmrIndicatorCount: indCount.source,
+  };
 
   const so = options.sourceOverlay;
   const soExplicit =
@@ -219,9 +265,25 @@ export const resolveOptions = (
   let sourceOverlay: false | SourceOverlayOptions = false;
   if (soEnabled) {
     const base: SourceOverlayOptions = typeof so === 'object' ? {...so} : {};
-    base.key ??= env[`${ENV_PREFIX}_SOURCE_OVERLAY_KEY`] || undefined;
-    base.editor ??= env[`${ENV_PREFIX}_SOURCE_OVERLAY_EDITOR`] || undefined;
-    base.throttleMs ??= envNum(env[`${ENV_PREFIX}_SOURCE_OVERLAY_THROTTLE_MS`]);
+    // Defaults for these are applied later (toFeatureSettings / the runtime),
+    // so only option-vs-env is decided here; neither set means 'default'.
+    const envKey = env[`${ENV_PREFIX}_SOURCE_OVERLAY_KEY`] || undefined;
+    const envThrottle = envNum(env[`${ENV_PREFIX}_SOURCE_OVERLAY_THROTTLE_MS`]);
+    // Only read (and warn about) the env editor when no option supplies one.
+    const envEditor =
+      base.editor === undefined
+        ? envEnum(
+            env[`${ENV_PREFIX}_SOURCE_OVERLAY_EDITOR`],
+            EDITOR_KEYS,
+            `${ENV_PREFIX}_SOURCE_OVERLAY_EDITOR`
+          )
+        : undefined;
+    sources.sourceOverlayKey = sourceOf(base.key, envKey);
+    sources.sourceOverlayEditor = sourceOf(base.editor, envEditor);
+    sources.sourceOverlayThrottleMs = sourceOf(base.throttleMs, envThrottle);
+    base.key ??= envKey;
+    base.editor ??= envEditor;
+    base.throttleMs ??= envThrottle;
     sourceOverlay = base;
   }
 
@@ -239,12 +301,13 @@ export const resolveOptions = (
 
   return {
     hmrEnabled,
-    reconnect,
-    onIncompatible,
+    reconnect: reconnect.value,
+    onIncompatible: onIncompatible.value,
     indicator,
     sourceOverlay,
     timeline,
     cssSheetBuild,
+    sources,
   };
 };
 
@@ -273,5 +336,6 @@ export const toFeatureSettings = (r: ResolvedOptions): FeatureSettings => {
       throttleMs: (so === false ? undefined : so.throttleMs) ?? 50,
     },
     timeline: r.timeline,
+    sources: {...r.sources},
   };
 };

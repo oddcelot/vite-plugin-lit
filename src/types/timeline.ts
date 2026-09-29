@@ -86,6 +86,31 @@ export interface FeatureSettings {
     throttleMs: number;
   };
   timeline: boolean;
+  /**
+   * Which layer supplied each setting, keyed like {@link SettingsOverride}
+   * (plus the read-only source-overlay rows). Lets the panel label a value
+   * "Zed (env)" and name the baseline a panel override replaced. Optional so
+   * older producers (and snapshots) without it still type-check.
+   */
+  sources?: SettingSources;
+}
+
+/**
+ * Where a resolved setting came from, in precedence order after a panel
+ * override: an explicit `litPlugin({...})` option, a `LIT_PLUGIN_*` env var,
+ * or the built-in default.
+ */
+export type SettingSource = 'option' | 'env' | 'default';
+
+/** Per-setting {@link SettingSource}, as carried on {@link FeatureSettings}. */
+export interface SettingSources {
+  hmrReconnect?: SettingSource;
+  hmrOnIncompatible?: SettingSource;
+  hmrIndicatorVisible?: SettingSource;
+  hmrIndicatorCount?: SettingSource;
+  sourceOverlayEditor?: SettingSource;
+  sourceOverlayKey?: SettingSource;
+  sourceOverlayThrottleMs?: SettingSource;
 }
 
 /**

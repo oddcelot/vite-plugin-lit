@@ -98,6 +98,13 @@ toggles are editable there. A change reaches the running page at once, with no
 dev-server restart and no edit to `vite.config.ts`. **Reset to env** drops your
 overrides and puts the resolved values back.
 
+Each value carries its origin in parentheses: `(option)` for `litPlugin()`,
+`(env)` for a `LIT_PLUGIN_*` variable, `(default)` for the built-in default. So
+`Zed (env)` means the editor came from your `.env`. An overridden row reads
+`(overridden)` next to the value it replaced, such as `env: Zed`, and the small
+**×** beside it resets just that row. A custom editor object from `litPlugin()`
+shows as `Custom (option)` and can't be switched from the panel.
+
 A setting whose feature is off at config time stays read-only. Its runtime was
 never injected into the page, so there is nothing there to change.
 

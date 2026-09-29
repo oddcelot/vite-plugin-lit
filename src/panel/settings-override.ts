@@ -119,3 +119,22 @@ export const resetOverride = (envValues?: SettingsOverride): void => {
   if (envValues !== undefined) pushLive(envValues);
   notify({});
 };
+
+/**
+ * Drop one key from the override, leaving the rest in place. `baseline` is
+ * that key's resolved config value; it goes to the live runtime alongside the
+ * remaining override (a missing field would leave the current live value in
+ * place) but isn't stored, so the key reads as un-overridden again.
+ */
+export const dropOverrideKey = <K extends keyof SettingsOverride>(
+  key: K,
+  baseline: SettingsOverride[K]
+): void => {
+  const next = {...readOverride()};
+  delete next[key];
+  const empty = Object.keys(next).length === 0;
+  writeLocal(empty ? null : next);
+  persist(empty ? undefined : next);
+  pushLive({...next, [key]: baseline});
+  notify(next);
+};
