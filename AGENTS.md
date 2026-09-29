@@ -50,13 +50,13 @@ that is gone or the thing now possible. `/changelog entry` drafts it from the
 staged diff. A trailer with nothing folded under it still lands in the draft,
 with the body as a placeholder to rewrite.
 
-Work lands on a branch named for its kind (`feature/`, `fix/`, `docs/`,
-`roadmap/NN-slug`, `advisor/NNN-slug`) and merges with `--no-ff`. Release
-commits bump `package.json`, write the `CHANGELOG.md` section, and get a
-`v<version>` tag. Pushing that tag (`git push origin main --follow-tags`) is
-the release: `.github/workflows/release.yaml` runs the gate, publishes to npm
-over trusted publishing, and creates the GitHub Release from the changelog
-section. Don't `pnpm publish` by hand.
+Work lands on a branch named for its kind (`feature/`, `fix/`, `docs/`) and
+merges with `--no-ff`. Release commits bump `package.json`, write the
+`CHANGELOG.md` section, and get a `v<version>` tag. Pushing that tag
+(`git push origin main --follow-tags`) is the release:
+`.github/workflows/release.yaml` runs the gate, publishes to npm over trusted
+publishing, and creates the GitHub Release from the changelog section. Don't
+`pnpm publish` by hand.
 
 At release time, `/changelog release v0.6.0` assembles the section: it runs
 the draft, rewrites any entry that fell back to a commit body, writes the

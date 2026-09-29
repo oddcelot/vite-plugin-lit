@@ -63,7 +63,7 @@ that stays with the person.
    the release workflow fails without it.
 5. Bump `version` in `package.json`.
 6. Show the resulting diff and stop. The release commit itself is described in
-   CLAUDE.md ("Commits and the changelog"); its subject is `Release X.Y.Z`,
+   AGENTS.md ("Commits and the changelog"); its subject is `Release X.Y.Z`,
    its body a two-sentence summary ending in "See CHANGELOG.md for the full
    section.", and its trailer `Changelog: skip`.
 

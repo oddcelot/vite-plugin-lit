@@ -19,7 +19,7 @@
 #
 # A trailer without an entry still works: the draft falls back to the subject
 # and body and marks the entry as needing a rewrite. See the commit
-# conventions in CLAUDE.md and the /changelog skill.
+# conventions in AGENTS.md and the /changelog skill.
 
 [changelog]
 header = ""
