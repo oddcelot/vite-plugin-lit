@@ -7,8 +7,8 @@ linkWorkspacePackages: true
 # playground/package.json repeats vite and vite-plus as plain versions (npm on
 # StackBlitz cannot read `catalog:`); bump them there too.
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@0.3.2
-  vite-plus: 0.3.2
+  vite: npm:@voidzero-dev/vite-plus-core@1.0.0
+  vite-plus: 1.0.0
 overrides:
   vite@*: 'catalog:'
   # satori pins 0.7.3, inside GHSA-px8p-9vwx-vf98 (an infinite loop in
