@@ -11,6 +11,12 @@ export interface TimelineLayer {
 }
 
 export interface TimelineEvent<TData = unknown> {
+  /**
+   * Stable identity, stamped on the Node side (`${epoch}-${seq}`) when the
+   * event is received, so it survives the stream, `recent-events` and a
+   * snapshot export. Absent on events still in the page runtime.
+   */
+  id?: string;
   layerId: string;
   /**
    * Milliseconds since recording started, stamped in the browser page
