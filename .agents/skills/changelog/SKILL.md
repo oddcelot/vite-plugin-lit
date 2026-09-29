@@ -38,9 +38,9 @@ Rules for the entry:
   option, env var or UI control the user touches, in backticks.
 - Group: `Added` for a new capability, `Changed` for different behaviour of an
   existing one, `Fixed` for a bug, `Removed` for something gone. `skip` with
-  nothing folded under it for tests, docs, tooling, refactors and plan-status
-  bumps. When in doubt between Changed and Fixed: was the old behaviour ever
-  intended? Fixed if not.
+  nothing folded under it for tests, docs, tooling and refactors. When in
+  doubt between Changed and Fixed: was the old behaviour ever intended? Fixed
+  if not.
 - Match the voice of the existing entries in `CHANGELOG.md`.
 
 ## `/changelog release vX.Y.Z`
