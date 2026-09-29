@@ -272,12 +272,16 @@ export const installLifecycleLayer = (
   // per prototype+method), so re-running once the shared bases are wrapped is a
   // cheap no-op.
   const origDefine = customElements.define.bind(customElements);
+  // Patch before defining: the platform reads connectedCallback and
+  // disconnectedCallback off the prototype at define() time, so wrapping them
+  // afterwards would miss the first component defined on a page with no Lit
+  // element yet.
   customElements.define = (name, ctor, options) => {
-    origDefine(name, ctor, options);
     const p = ctor?.prototype as Proto | null;
     if (p != null && 'performUpdate' in p) {
       patchBases(p, emit, recording, enabled);
     }
+    origDefine(name, ctor, options);
   };
 };
 
