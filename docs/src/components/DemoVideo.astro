@@ -1,24 +1,28 @@
 ---
 /**
- * The short product demo from `public/demo/`. Muted autoplay on a loop, like
- * a moving screenshot; the controls are there to pause it or turn the music
+ * A short demo video from `public/demo/`. Muted autoplay on a loop, like a
+ * moving screenshot; the controls are there to pause it or turn the music
  * on. Files in `public/` are not processed, so the paths carry the base.
  */
 interface Props {
   /** What the video shows, for screen readers. */
   label: string;
+  /** File stem in `public/demo/`: `<name>.mp4` and `<name>-poster.jpg`. */
+  name?: string;
+  width?: number;
+  height?: number;
 }
 
-const {label} = Astro.props;
+const {label, name = 'hmr-demo', width = 1440, height = 902} = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 
 <figure class="demo-video">
   <video
-    src={`${base}/demo/hmr-demo.mp4`}
-    poster={`${base}/demo/hmr-demo-poster.jpg`}
-    width="1440"
-    height="902"
+    src={`${base}/demo/${name}.mp4`}
+    poster={`${base}/demo/${name}-poster.jpg`}
+    width={width}
+    height={height}
     aria-label={label}
     autoplay
     muted

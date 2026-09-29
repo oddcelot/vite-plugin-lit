@@ -11,6 +11,7 @@ import sharedSignal from '../../../../../playground/src/shared-signal.ts?raw';
 import signals from '../../../../../playground/src/hmr-signals.ts?raw';
 import {stripHeader} from '../../../lib/fixture';
 import ThemedImage from '../../../components/ThemedImage.astro';
+import DemoVideo from '../../../components/DemoVideo.astro';
 import indicatorGreenLight from '../../../assets/shots/indicator-green.light.png';
 import indicatorGreenDark from '../../../assets/shots/indicator-green.dark.png';
 import indicatorCyanLight from '../../../assets/shots/indicator-cyan.light.png';
@@ -19,6 +20,8 @@ import indicatorCyanDark from '../../../assets/shots/indicator-cyan.dark.png';
 Keep focus, input text, scroll position and child state while you edit a
 component. This page covers the defaults and the three settings worth
 changing; how the patching works is in Concepts.
+
+<DemoVideo label="A counter is clicked to 3, then its template is edited live: the heading changes, the count stays 3, the HMR indicator pulses, and the DevTools timeline lists the updates." />
 
 ## What survives an edit
 

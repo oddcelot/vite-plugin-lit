@@ -22,7 +22,12 @@ import {CardGrid, LinkCard} from '@astrojs/starlight/components';
 import {PackageManagers} from 'starlight-package-managers';
 import DemoVideo from '../../components/DemoVideo.astro';
 
-<DemoVideo label="A counter is clicked to 3, then its template is edited live: the heading changes, the count stays 3, the HMR indicator pulses, and the DevTools timeline lists the updates." />
+<DemoVideo
+  name="promo"
+  width={1920}
+  height={1080}
+  label="A tour of the plugin inside the Lit DevTools timeline. A template is edited and saved while a counter keeps its count of 42; one shared stylesheet recolors a thousand shadow roots at once; the inspector shows the component tree, its state and lifecycle events; clicking an element opens its source line; a coding agent lists the live components over MCP. It ends on the plugin name and the litPlugin() setup line."
+/>
 
 <CardGrid>
   <LinkCard
