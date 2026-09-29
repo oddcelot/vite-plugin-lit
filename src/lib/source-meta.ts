@@ -26,13 +26,53 @@ export const lineNumberAt = (code: string, index: number): number =>
   code.slice(0, index).split('\n').length;
 
 /**
+ * Finds the `{` that opens the body of the class starting at `classStart`:
+ * the first one at the top level of the heading. The heading can hold braces
+ * of its own — type literals in generic arguments
+ * (`extends Dialog<{open: boolean}>`), options passed to a mixin
+ * (`extends Mixin(Base, {shadow: true})`) — so anything nested in `<…>`,
+ * `(…)` or `[…]` is skipped, along with strings and comments. The `>` of an
+ * arrow type (`() => void`) doesn't close a `<`.
+ */
+const findClassBodyOpen = (code: string, classStart: number): number => {
+  let depth = 0;
+  for (let i = classStart + 'class'.length; i < code.length; i++) {
+    const ch = code[i];
+    if (ch === '"' || ch === "'" || ch === '`') {
+      i++;
+      while (i < code.length && code[i] !== ch) {
+        if (code[i] === '\\') i++;
+        i++;
+      }
+    } else if (ch === '/' && code[i + 1] === '/') {
+      i = code.indexOf('\n', i);
+      if (i === -1) return -1;
+    } else if (ch === '/' && code[i + 1] === '*') {
+      i = code.indexOf('*/', i + 2);
+      if (i === -1) return -1;
+      i++;
+    } else if (ch === '{') {
+      if (depth === 0) return i;
+      depth++;
+    } else if (ch === '(' || ch === '[' || ch === '<') {
+      depth++;
+    } else if (ch === '}' || ch === ')' || ch === ']') {
+      depth--;
+    } else if (ch === '>' && code[i - 1] !== '=') {
+      depth--;
+    }
+  }
+  return -1;
+};
+
+/**
  * Finds the index after the closing `}` of a class body starting at
  * `classStart`. Skips braces inside strings, comments, regex literals, and
  * template literals — including code in `${…}` interpolations, where nested
  * templates (Lit's `html\`…\`` inside `.map()` etc.) recurse arbitrarily.
  */
 const findClassBodyEnd = (code: string, classStart: number): number => {
-  const open = code.indexOf('{', classStart);
+  const open = findClassBodyOpen(code, classStart);
   if (open === -1) return -1;
   // Brace depth of the code scope currently being scanned. Entering a `${…}`
   // interpolation pushes the enclosing scope's depth and restarts at 1 (the
