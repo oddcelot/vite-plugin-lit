@@ -7,11 +7,12 @@ https://github.com/user-attachments/assets/bacc7649-746a-4ecf-a017-0370b5af23ca
 
 **[Documentation →](https://oddcelot.github.io/vite-plugin-lit/)**
 
-Try it in the browser on StackBlitz: the
-**[playground](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?file=src/hmr-counter.ts)** (click the counter, edit
-`src/hmr-counter.ts`, and the count stays), or the same page in
-**[standalone mode](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?file=package.json&startScript=standalone)**
-with the DevTools panel on its own port.
+**[Try it on StackBlitz →](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?startScript=stackblitz)**
+The playground with HMR and the Vite DevTools dock: click the counter, edit
+`src/hmr-counter.ts`, and the count stays.
+[Standalone mode](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?file=package.json&startScript=standalone)
+runs the same page as static files, without Vite, next to the DevTools panel
+on its own port.
 
 Based on `@lit-labs/vite-plugin-lit` (formerly `@lit-labs/vite-hmr`) from the
 [lit monorepo](https://github.com/lit/lit), which is kept checked out as a
@@ -157,7 +158,7 @@ To try it from this repo, run `pnpm run standalone:demo`; see
 
 A manually inspectable fixture app (also the source for the e2e fixtures), and
 self-contained enough to open on
-[StackBlitz](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground)
+[StackBlitz](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?startScript=stackblitz)
 straight from the repo URL. Run it locally from the repo root:
 
 ```sh
