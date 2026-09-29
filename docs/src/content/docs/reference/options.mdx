@@ -235,6 +235,10 @@ Built-in keys are `vscode`, `cursor`, `zed`, `idea`, and `windsurf`. An unknown
 name falls back to VS Code. A `{name, url}` object supplies your own URL
 builder, called with the file path and the line number.
 
+The DevTools panel's source links also open in this editor (`vscode`, `cursor`,
+`zed` and `idea`). Other values leave the choice to `launch-editor`'s
+auto-detection. See [Open a component in your editor](/vite-plugin-lit/guides/source-overlay/#choose-your-editor).
+
 **Type:** `string | EditorConfig` · **Default:** `'vscode'` · **Env:**
 `LIT_PLUGIN_SOURCE_OVERLAY_EDITOR`
 
