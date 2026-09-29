@@ -135,17 +135,13 @@ without re-rendering a component, in practice a shared stylesheet: one
 reload resets the count, which is the quickest way to tell a reload from a
 patch.
 
-## Relationship to `@lit-labs/vite-plugin-lit`
+## Relationship to lit
 
-This package is based on `@lit-labs/vite-plugin-lit`, formerly
-`@lit-labs/vite-hmr`, from the [lit monorepo](https://github.com/lit/lit), kept
-here as a read-only submodule for reference and canary testing against lit
+This package started in a fork of the
+[lit monorepo](https://github.com/lit/lit) as a proposed `@lit-labs/vite-hmr`
+package, and was never published from there. It now lives on its own. Lit is
+kept here as a read-only submodule for reference and canary testing against lit
 `main`.
-
-Interning and in-place patching are the shared core, described by the upstream
-README. This package adds the CSS delivery helpers, the DevTools panel, the
-source overlay, and the option surface. A behavioural diff against upstream is
-not written yet.
 
 ## Related
 
