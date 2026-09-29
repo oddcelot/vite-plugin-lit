@@ -21,6 +21,7 @@ const launchMock = vi.hoisted(() =>
   vi.fn(
     (
       file: string,
+      _editor: string | undefined,
       cb: (fileName: string, errorMessage: string | null) => void
     ) => cb(file, null)
   )
@@ -85,6 +86,7 @@ describe('createOpenInEditorMiddleware', () => {
     expect(body).toBe('ok');
     expect(launchMock).toHaveBeenCalledWith(
       `${appFile}:14:1`,
+      undefined,
       expect.any(Function)
     );
   });
@@ -98,15 +100,51 @@ describe('createOpenInEditorMiddleware', () => {
     expect(body).toBe('ok');
     expect(launchMock).toHaveBeenCalledWith(
       `${uiFile}:3:1`,
+      undefined,
       expect.any(Function)
     );
   });
+
+  test('launches the editor the overlay names, mapped to its command', async () => {
+    const q = `file=${encodeURIComponent(appFile)}`;
+    await run(middleware, `${q}&editor=vscode`);
+    await run(middleware, `${q}&editor=cursor`);
+    expect(launchMock).toHaveBeenNthCalledWith(
+      1,
+      `${appFile}:1:1`,
+      'code',
+      expect.any(Function)
+    );
+    expect(launchMock).toHaveBeenNthCalledWith(
+      2,
+      `${appFile}:1:1`,
+      'cursor',
+      expect.any(Function)
+    );
+  });
+
+  test.each(['windsurf', 'nope', '--evil', '__proto__', 'code', ''])(
+    'auto-detects for the editor value %j',
+    async (editor) => {
+      const {status} = await run(
+        middleware,
+        `file=${encodeURIComponent(appFile)}&editor=${encodeURIComponent(editor)}`
+      );
+      expect(status).toBe(200);
+      expect(launchMock).toHaveBeenCalledWith(
+        `${appFile}:1:1`,
+        undefined,
+        expect.any(Function)
+      );
+    }
+  );
 
   test('resolves a relative file against the primary root', async () => {
     const {status} = await run(middleware, 'file=app-element.ts');
     expect(status).toBe(200);
     expect(launchMock).toHaveBeenCalledWith(
       `${appFile}:1:1`,
+      undefined,
       expect.any(Function)
     );
   });
@@ -160,6 +198,7 @@ describe('createOpenInEditorMiddleware', () => {
     launchMock.mockImplementationOnce(
       (
         file: string,
+        _editor: string | undefined,
         cb: (fileName: string, errorMessage: string | null) => void
       ) => cb(file, 'could not guess editor')
     );
