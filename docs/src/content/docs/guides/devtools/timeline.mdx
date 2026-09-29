@@ -159,8 +159,8 @@ Two limits matter when you record something to report.
 - Only components you actually opened have their details baked in. Details are
   read from live DOM, so a component nobody inspected has nothing to freeze.
   Click through the ones that matter before exporting.
-- The timeline keeps its most recent events, not all of them. A long session
-  exports its tail.
+- The timeline keeps its most recent 512 events, not all of them. A long
+  session exports its tail.
 
 `lit-devtools build` does not produce one of these. A fresh CLI process has no
 session to freeze, so export from the running server that recorded it.

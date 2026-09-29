@@ -352,6 +352,45 @@ describe('lit devframe definition', () => {
     expect(ids).not.toContain(after[0]!.id);
   });
 
+  test('a replayed session answers recent-events with its whole buffer', async () => {
+    const events = Array.from({length: 300}, (_, i) => ({
+      id: `old-${i}`,
+      layerId: 'mouse',
+      time: i,
+      data: {},
+    }));
+    instance = initDevframe(
+      createLitDevframe({
+        source: new FakeSource(),
+        version: '9.9.9',
+        features: () => null,
+        replay: {
+          capturedAt: new Date().toISOString(),
+          version: '9.9.9',
+          customLayers: [],
+          roots: [],
+          details: [],
+          events,
+          hmrIncompatibilities: [],
+        },
+      }),
+      {
+        base: '/__lit/',
+        distDir: false,
+        ws: false,
+        sse: false,
+        getStorageDir: () => './node_modules/.tmp-lit-devframe-test',
+      }
+    );
+    const ctx = await instance.context;
+    await instance.ready;
+    const result = await ctx.rpc.invokeLocal('lit:recent-events');
+    // The frozen panel reads this no-argument call; the live default of 50
+    // would drop everything a link could point at.
+    expect(result.events.length).toBe(300);
+    expect(result.events[0]!.id).toBe('old-0');
+  });
+
   test('keeps an id the event already carries', async () => {
     const {ctx, source} = await boot();
     source.sink!.pushEvents([{id: 'x-1', layerId: 'mouse', time: 1, data: {}}]);

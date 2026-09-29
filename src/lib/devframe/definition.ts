@@ -467,7 +467,15 @@ export function createLitDevframe(
               const cutoff = newest - args.sinceMs;
               filtered = filtered.filter((e) => e.time >= cutoff);
             }
-            const limit = Math.min(args.limit ?? 50, 200);
+            // A frozen session's panel reads the baked no-argument call, so
+            // the agent-friendly 50/200 window would silently cut an export to
+            // its last 25 spans -- and a link to anything older would miss.
+            const limit = replay
+              ? Math.min(
+                  args.limit ?? RECENT_EVENTS_BUFFER_SIZE,
+                  RECENT_EVENTS_BUFFER_SIZE
+                )
+              : Math.min(args.limit ?? 50, 200);
             const events = filtered.slice(-limit);
             return {
               recording,
