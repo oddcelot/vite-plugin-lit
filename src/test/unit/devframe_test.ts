@@ -210,6 +210,9 @@ describe('lit devframe definition', () => {
       '../../package.json',
       `${appRoot}-evil/confine.ts`,
       'missing.ts',
+      // A committed symlink to the repo's LICENSE: beneath `pkgRoot` by
+      // name, outside every root once resolved.
+      `${pkgRoot}/escape`,
     ]) {
       expect(await ctx.rpc.invokeLocal('lit:open-source', {file})).toEqual({
         opened: false,

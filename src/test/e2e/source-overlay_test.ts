@@ -99,3 +99,27 @@ test('a detached-and-reattached overlay applies exactly one toggle, not zero', a
   await page.waitForTimeout(300);
   expect(await isOverlayActive()).toBe(false);
 });
+
+test('a DNS-rebound request never reaches the open-in-editor endpoint', async () => {
+  // Under DNS rebinding a hostile page reaches the dev server under its own
+  // name, so `Origin` and `Host` agree and `isTrustedRequest` (src/lib/http.ts)
+  // would pass it. What stops it is Vite's `server.allowedHosts` check, which
+  // runs before any plugin middleware. Pinned here because the endpoint relies
+  // on it: a `Blocked request` 403 is Vite's answer, while our own refusals
+  // read differently. The file doesn't exist, so a regression shows up as a
+  // 404 rather than as an editor opening.
+  const {host} = new URL(fixture.origin);
+  const rebound = host.replace(/^[^:]+/, 'rebind.example');
+  const res = await fixture.page.request.get(
+    `${fixture.origin}/__lit-open-in-editor?file=does-not-exist.ts`,
+    {
+      headers: {
+        host: rebound,
+        origin: `http://${rebound}`,
+        'sec-fetch-site': 'same-origin',
+      },
+    }
+  );
+  expect(res.status()).toBe(403);
+  expect(await res.text()).toContain('Blocked request');
+});
