@@ -133,6 +133,20 @@ export const RPC_HMR_INCOMPATIBILITIES = 'hmr-incompatibilities';
 export const RPC_HMR_INCOMPATIBLE = 'hmr-incompatible';
 
 /**
+ * Bare name of the page-to-server event. A page runtime that is not on a Vite
+ * dev server's HMR socket sends every channel message it would have sent over
+ * `import.meta.hot` as `page-send(channel, data)`.
+ */
+export const RPC_PAGE_SEND = 'page-send';
+
+/**
+ * Bare name of the server-to-page client event, the reverse direction of
+ * {@link RPC_PAGE_SEND}: `page-receive(channel, data)`. Broadcast to every
+ * connected client and marked optional, since the panel does not register it.
+ */
+export const RPC_PAGE_RECEIVE = 'page-receive';
+
+/**
  * Recording/layers snapshot shared between every surface (panel, page
  * runtime, MCP). Survives reconnect; mutated either by the `set-recording` /
  * `toggle-layer` actions below or directly by a panel through the generic
@@ -271,11 +285,13 @@ declare module 'devframe' {
       args: ExportSnapshotArgs
     ) => Promise<ExportSnapshotResult>;
     'lit:hmr-incompatibilities': () => Promise<HmrIncompatibilityEvent[]>;
+    'lit:page-send': (channel: string, data?: unknown) => void;
   }
 
   interface DevframeRpcClientFunctions {
     'lit:inspector-message': (message: InspectorMessage) => void;
     'lit:hmr-incompatible': (event: HmrIncompatibilityEvent) => void;
+    'lit:page-receive': (channel: string, data?: unknown) => void;
   }
 
   interface DevframeSettingsRegistry {

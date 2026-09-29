@@ -46,6 +46,8 @@ export const fromViteHot = (hot: ViteHotLike): PageTransport => ({
 export interface PageChannel extends PageTransport {
   /** Whether a carrier is attached. Sends made before one is are dropped. */
   readonly attached: boolean;
+  /** The carrier in use, so a replacement can hand the channel back. */
+  readonly transport: PageTransport | undefined;
   /**
    * Make `transport` the carrier. Listeners already registered are moved onto
    * it and removed from the previous carrier, and `onAttach` callbacks run so
@@ -74,6 +76,9 @@ const createPageChannel = (): PageChannel => {
   const channel: PageChannel = {
     get attached() {
       return transport !== undefined;
+    },
+    get transport() {
+      return transport;
     },
     send(name, data) {
       transport?.send(name, data);

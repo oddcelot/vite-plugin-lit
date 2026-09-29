@@ -46,6 +46,7 @@ import type {
 } from '../../types/timeline.js';
 import {createLitDevframe} from './definition.js';
 import {LIT_DEVFRAME_ID} from './protocol.js';
+import {layersWireFormat} from './source.js';
 import type {TimelineSink, TimelineSource} from './source.js';
 
 export {createLitDevframe};
@@ -174,15 +175,7 @@ export class HotTimelineSource implements TimelineSource {
   }
 
   setLayers(layers: TimelineLayersState): void {
-    // Wire format matches what runtime/timeline/install.ts listens for: a flat
-    // map of the boolean toggle fields, not `{layers}`.
-    this.#hot?.send('lit:timeline:layers-changed', {
-      litLifecycleEnabled: layers.litLifecycleEnabled,
-      litRenderEnabled: layers.litRenderEnabled,
-      litRenderVerboseEnabled: layers.litRenderVerboseEnabled,
-      mouseEventEnabled: layers.mouseEventEnabled,
-      keyboardEventEnabled: layers.keyboardEventEnabled,
-    });
+    this.#hot?.send('lit:timeline:layers-changed', layersWireFormat(layers));
   }
 
   setSettingsOverride(override: SettingsOverride): void {
