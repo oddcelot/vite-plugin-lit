@@ -5,6 +5,11 @@
  */
 
 import {signal} from '@lit-labs/signals';
+import {install} from 'temporal-polyfill/shim';
+
+// Native Temporal where the browser ships it; the polyfill elsewhere (Safari
+// stable, at the time of writing). Runs before anything below reads it.
+install();
 
 /**
  * Current time as a shared signal, ticking once a second. Lives in its own
@@ -12,10 +17,10 @@ import {signal} from '@lit-labs/signals';
  * keeps ticking through hot patches. If this module itself is edited, the
  * dispose hook clears the stale interval before re-execution.
  */
-export const now = signal(new Date());
+export const now = signal(Temporal.Now.instant());
 
 const interval = setInterval(() => {
-  now.set(new Date());
+  now.set(Temporal.Now.instant());
 }, 1000);
 
 import.meta.hot?.dispose(() => clearInterval(interval));
@@ -30,29 +35,11 @@ export const timeZone = signal(
 /** Every IANA timezone the runtime knows about (picker options). */
 export const TIME_ZONES: readonly string[] = Intl.supportedValuesOf('timeZone');
 
-const partFormatters = new Map<string, Intl.DateTimeFormat>();
-
-/**
- * Hours/minutes/seconds of `date` in `tz`, via Intl (formatters cached per
- * timezone — creating one per tick would be wasteful).
- */
+/** Hours/minutes/seconds of `instant` as a wall clock in `tz` reads it. */
 export const getTimeParts = (
-  date: Date,
+  instant: Temporal.Instant,
   tz: string
 ): {hours: number; minutes: number; seconds: number} => {
-  let formatter = partFormatters.get(tz);
-  if (formatter === undefined) {
-    formatter = new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      minute: 'numeric',
-      second: 'numeric',
-      hourCycle: 'h23',
-      timeZone: tz,
-    });
-    partFormatters.set(tz, formatter);
-  }
-  const parts = formatter.formatToParts(date);
-  const num = (type: Intl.DateTimeFormatPartTypes) =>
-    Number(parts.find((p) => p.type === type)?.value ?? 0);
-  return {hours: num('hour'), minutes: num('minute'), seconds: num('second')};
+  const {hour, minute, second} = instant.toZonedDateTimeISO(tz);
+  return {hours: hour, minutes: minute, seconds: second};
 };

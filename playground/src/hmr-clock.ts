@@ -80,7 +80,7 @@ export class HmrClock extends SignalWatcher(LitElement) {
     `;
   }
 
-  private renderHands(time: Date) {
+  private renderHands(time: Temporal.Instant) {
     // Follows the shared timezone signal (see the digital clock's picker).
     const parts = getTimeParts(time, timeZone.get());
     const seconds = parts.seconds;

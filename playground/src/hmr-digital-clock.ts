@@ -9,24 +9,13 @@ import {customElement} from 'lit/decorators.js';
 import {SignalWatcher, html} from '@lit-labs/signals';
 import {TIME_ZONES, now, timeZone} from './clock-signal.js';
 
-const displayFormatters = new Map<string, Intl.DateTimeFormat>();
-
-const formatTime = (date: Date, tz: string): string => {
-  let formatter = displayFormatters.get(tz);
-  if (formatter === undefined) {
-    formatter = new Intl.DateTimeFormat('en-US', {
-      timeStyle: 'medium',
-      timeZone: tz,
-    });
-    displayFormatters.set(tz, formatter);
-  }
-  return formatter.format(date);
-};
+const formatTime = (instant: Temporal.Instant, tz: string): string =>
+  instant.toLocaleString('en-US', {timeStyle: 'medium', timeZone: tz});
 
 /**
  * Digital clock on the same shared `now` signal as the analog one, plus a
- * shared `timeZone` signal formatted via `Intl.DateTimeFormat`. The
- * timezone picker is a searchable `<input list>`/`<datalist>` over every
+ * shared `timeZone` signal, formatted with `Temporal.Instant#toLocaleString`.
+ * The timezone picker is a searchable `<input list>`/`<datalist>` over every
  * IANA zone the runtime supports (`Intl.supportedValuesOf('timeZone')`) —
  * picking one swings the analog clock too.
  *

@@ -15,6 +15,19 @@ const MAX_DEPTH = 2;
 const MAX_ITEMS = 8;
 const MAX_STRING = 120;
 
+/**
+ * `'Temporal.Instant'`, `'Temporal.PlainDate'`, … for a Temporal value, else
+ * `undefined`. Reads the spec's `Symbol.toStringTag` rather than touching the
+ * `Temporal` global, so it works on pages without native Temporal (Safari,
+ * at the time of writing) and with polyfilled values alike.
+ */
+const temporalTag = (value: object): string | undefined => {
+  const tag = (value as {[Symbol.toStringTag]?: unknown})[Symbol.toStringTag];
+  return typeof tag === 'string' && tag.startsWith('Temporal.')
+    ? tag
+    : undefined;
+};
+
 /** A short type label for the details table's "type" column. */
 export const typeTag = (value: unknown): string => {
   if (value === null) return 'null';
@@ -25,6 +38,8 @@ export const typeTag = (value: unknown): string => {
   if (value instanceof Map) return `Map(${value.size})`;
   if (value instanceof Set) return `Set(${value.size})`;
   if (value instanceof Node) return 'Node';
+  const temporal = temporalTag(value as object);
+  if (temporal !== undefined) return temporal;
   const name = (value as object).constructor?.name;
   return name !== undefined && name !== 'Object' ? name : 'object';
 };
@@ -66,6 +81,12 @@ const serializeAt = (
 
   if (value instanceof Node) return previewNode(value);
   if (value instanceof Date) return value.toISOString();
+  // Temporal objects have no own enumerable fields, so the generic object
+  // branch would show `{}`. Their `toString()` is the ISO form.
+  const temporal = temporalTag(obj);
+  if (temporal !== undefined) {
+    return `${temporal}(${(obj as {toString(): string}).toString()})`;
+  }
   if (value instanceof RegExp) return String(value);
   if (value instanceof Map) return `Map(${value.size})`;
   if (value instanceof Set) return `Set(${value.size})`;
