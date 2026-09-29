@@ -3,6 +3,8 @@
 A Vite plugin for Lit projects with true HMR, CSS delivery helpers for shadow
 roots, and a DevTools timeline.
 
+[![Watch the demo: a counter keeps its count through a live template edit, the HMR indicator pulses, and the DevTools timeline lists the updates](https://oddcelot.github.io/vite-plugin-lit/demo/hmr-demo-play.jpg)](https://oddcelot.github.io/vite-plugin-lit/demo/hmr-demo.mp4)
+
 **[Documentation →](https://oddcelot.github.io/vite-plugin-lit/)**
 
 Based on `@lit-labs/vite-plugin-lit` (formerly `@lit-labs/vite-hmr`) from the

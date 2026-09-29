@@ -16,15 +16,9 @@ hero:
 
 import {CardGrid, LinkCard} from '@astrojs/starlight/components';
 import {PackageManagers} from 'starlight-package-managers';
-import ThemedImage from '../../components/ThemedImage.astro';
-import devtoolsPanelDockedLight from '../../assets/shots/devtools-panel-docked.light.png';
-import devtoolsPanelDockedDark from '../../assets/shots/devtools-panel-docked.dark.png';
+import DemoVideo from '../../components/DemoVideo.astro';
 
-<ThemedImage
-  light={devtoolsPanelDockedLight}
-  dark={devtoolsPanelDockedDark}
-  alt="A Lit app with the DevTools panel docked below it and the HMR indicator in the corner."
-/>
+<DemoVideo label="A counter is clicked to 3, then its template is edited live: the heading changes, the count stays 3, the HMR indicator pulses, and the DevTools timeline lists the updates." />
 
 <CardGrid>
   <LinkCard
