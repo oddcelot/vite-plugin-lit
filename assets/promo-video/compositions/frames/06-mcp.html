@@ -1,0 +1,218 @@
+<template>
+  <div id="root" data-composition-id="06-mcp" data-start="0" data-duration="2.5" data-width="1920" data-height="1080">
+    <style>
+      @font-face { font-family: "Manrope"; font-weight: 600; src: url("assets/manrope-semibold.woff2") format("woff2"); }
+      @font-face { font-family: "Manrope"; font-weight: 700; src: url("assets/manrope-bold.woff2") format("woff2"); }
+      @font-face { font-family: "Manrope"; font-weight: 800; src: url("assets/manrope-extrabold.woff2") format("woff2"); }
+      @font-face { font-family: "Roboto Mono"; font-weight: 400; src: url("assets/RobotoMono-Latin-400.woff2") format("woff2"); }
+
+      #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; font-family: "Manrope", sans-serif; }
+      #root * { box-sizing: border-box; }
+      .m-abs { position: absolute; }
+      .m-ground { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: radial-gradient(circle 900px at 960px 360px, rgba(42,44,157,0.35), rgba(42,44,157,0) 100%), #030308; }
+      .m-window { position: absolute; left: 64px; top: 48px; width: 1792px; height: 984px; background: #121212; border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px #363636; }
+      .m-header { position: absolute; left: 64px; top: 48px; width: 1792px; height: 56px; background: #1c1c1c; border-bottom: 1px solid #363636; border-radius: 14px 14px 0 0; }
+      .m-flame { position: absolute; left: 96px; top: 62px; height: 28px; width: 22.4px; }
+      .m-brand { position: absolute; left: 130px; top: 48px; line-height: 56px; font-weight: 800; font-size: 18px; letter-spacing: 0.12em; color: #e3e3e3; white-space: nowrap; }
+      .m-tabs { position: absolute; left: 330px; top: 48px; height: 56px; display: flex; gap: 40px; }
+      .m-tab { position: relative; height: 56px; line-height: 56px; font-weight: 600; font-size: 17px; color: #a1a1a1; white-space: nowrap; }
+      .m-tab.on { color: #4d63ff; }
+      .m-tab.on::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: #4d63ff; }
+      .m-rec { position: absolute; right: 96px; top: 59px; height: 34px; padding: 0 16px; display: flex; align-items: center; gap: 8px; border: 1px solid #ff6b6b; border-radius: 999px; color: #ff6b6b; font-weight: 700; font-size: 15px; white-space: nowrap; }
+      .m-rec i { display: block; width: 9px; height: 9px; background: #ff6b6b; }
+
+      .m-stage { position: absolute; left: 64px; top: 104px; width: 1792px; height: 516px; background: #0a0a10; }
+      .m-ruler { position: absolute; left: 64px; top: 620px; width: 1792px; height: 40px; background: #1c1c1c; border-top: 1px solid #363636; border-bottom: 1px solid #363636; }
+      .m-tick { position: absolute; top: 27px; width: 1px; height: 11px; background: #363636; }
+      .m-lbl { position: absolute; left: 6px; top: -20px; line-height: 18px; font-family: "Roboto Mono", monospace; font-size: 15px; color: #616161; white-space: nowrap; }
+      .m-row { position: absolute; left: 64px; width: 1792px; height: 72px; border-bottom: 1px solid #363636; }
+      .m-gut { position: absolute; left: 0; top: 0; width: 280px; height: 72px; background: #121212; border-right: 1px solid #363636; }
+      .m-dot { position: absolute; left: 32px; top: 31px; width: 10px; height: 10px; border-radius: 50%; background: #4d63ff; }
+      .m-rl { position: absolute; left: 54px; top: 0; line-height: 72px; font-family: "Roboto Mono", monospace; font-size: 20px; color: #a1a1a1; white-space: nowrap; }
+      .m-bar { position: absolute; height: 28px; border-radius: 6px; border: 1.5px solid #324fff; }
+      .m-past { background: #324fff; opacity: 0.7; }
+      .m-future { background: transparent; opacity: 0.55; }
+      #m-fill { position: absolute; left: -1.5px; top: -1.5px; bottom: -1.5px; width: 0; background: #6478ff; border-radius: 6px; }
+      #m-conn { position: absolute; left: 1418px; top: 620px; width: 2px; height: 350px; background: #4d63ff; transform-origin: 50% 100%; }
+      #m-ph { position: absolute; left: 0; top: 620px; width: 2px; height: 400px; background: #00e8ff; box-shadow: 0 0 24px rgba(0,232,255,0.7); }
+      #m-cap { position: absolute; left: -6px; top: 2px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 12px solid #00e8ff; filter: drop-shadow(0 0 6px rgba(0,232,255,0.8)); }
+
+      #m-content { position: absolute; left: 64px; top: 104px; width: 1792px; height: 516px; transform-origin: 50% 100%; }
+      .m-eyebrow { position: absolute; left: 80px; top: 96px; font-weight: 700; font-size: 18px; letter-spacing: 0.14em; text-transform: uppercase; color: #4d63ff; opacity: 0; display: inline-block; }
+      .m-h { position: absolute; left: 80px; font-weight: 800; font-size: 76px; line-height: 80px; letter-spacing: -0.03em; color: #ffffff; white-space: nowrap; opacity: 0; display: inline-block; }
+      .m-cy { color: #00e8ff; }
+      #m-card { position: absolute; left: 816px; top: 92px; width: 896px; height: 330px; background: #07070c; border: 1px solid #363636; border-radius: 10px; overflow: hidden; opacity: 0; box-shadow: 0 0 60px rgba(77,99,255,0.18); }
+      .m-dots { position: absolute; left: 0; top: 0; width: 100%; height: 44px; border-bottom: 1px solid #1c1c1c; }
+      .m-dots i { position: absolute; top: 17px; width: 10px; height: 10px; border-radius: 50%; background: #363636; }
+      .m-body { position: absolute; left: 28px; top: 60px; right: 28px; font-family: "Roboto Mono", monospace; font-size: 20px; color: #e3e3e3; }
+      .m-ln { height: 38px; line-height: 38px; white-space: pre; display: flex; align-items: center; }
+      .m-ln.gap { margin-top: 10px; }
+      .m-hide { opacity: 0; }
+      .m-chev { display: inline-block; width: 12px; height: 12px; position: relative; flex: none; }
+      .m-chev::before { content: ""; position: absolute; left: 0; top: 2px; width: 8px; height: 8px; border-top: 2px solid #00e8ff; border-right: 2px solid #00e8ff; transform: rotate(45deg); }
+      .m-elbow { display: inline-block; width: 12px; height: 12px; margin-top: -8px; border-left: 2px solid #616161; border-bottom: 2px solid #616161; flex: none; }
+      .m-tri { display: inline-block; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 8px solid #a1a1a1; margin-right: 4px; flex: none; }
+      .m-sp { display: inline-block; flex: none; }
+      .m-cur { display: inline-block; width: 10px; height: 22px; background: #a1a1a1; margin-left: 1px; flex: none; opacity: 0; }
+      .m-muted { color: #a1a1a1; }
+      .m-tag { color: #89ddff; display: inline-block; width: 21ch; flex: none; }
+      .m-prop { color: #b2ccd6; }
+      .m-num { color: #f78c6c; }
+    </style>
+
+    <div class="clip m-ground" data-start="0" data-duration="2.5" data-track-index="0"></div>
+
+    <div class="clip m-abs" data-start="0" data-duration="2.5" data-track-index="1" style="left:0;top:0;width:1920px;height:1080px">
+      <div class="m-window"></div>
+      <div class="m-header"></div>
+      <img class="m-flame" src="assets/flame.svg" alt="">
+      <div class="m-brand">LIT DEVTOOLS</div>
+      <div class="m-tabs"><span class="m-tab">Components</span><span class="m-tab">Updates</span><span class="m-tab on">Timeline</span><span class="m-tab">Settings</span></div>
+      <div class="m-rec"><i></i><span>Stop</span></div>
+      <div class="m-stage"></div>
+      <div class="m-ruler">
+      <div class="m-tick" style="left:296px"><span class="m-lbl">0ms</span></div>
+      <div class="m-tick" style="left:368px"></div>
+      <div class="m-tick" style="left:440px"><span class="m-lbl">2000ms</span></div>
+      <div class="m-tick" style="left:512px"></div>
+      <div class="m-tick" style="left:584px"><span class="m-lbl">4000ms</span></div>
+      <div class="m-tick" style="left:656px"></div>
+      <div class="m-tick" style="left:728px"><span class="m-lbl">6000ms</span></div>
+      <div class="m-tick" style="left:800px"></div>
+      <div class="m-tick" style="left:872px"><span class="m-lbl">8000ms</span></div>
+      <div class="m-tick" style="left:944px"></div>
+      <div class="m-tick" style="left:1016px"><span class="m-lbl">10000ms</span></div>
+      <div class="m-tick" style="left:1088px"></div>
+      <div class="m-tick" style="left:1160px"><span class="m-lbl">12000ms</span></div>
+      <div class="m-tick" style="left:1232px"></div>
+      <div class="m-tick" style="left:1304px"><span class="m-lbl">14000ms</span></div>
+      <div class="m-tick" style="left:1376px"></div>
+      <div class="m-tick" style="left:1448px"><span class="m-lbl">16000ms</span></div>
+      <div class="m-tick" style="left:1520px"></div>
+      <div class="m-tick" style="left:1592px"><span class="m-lbl">18000ms</span></div>
+      <div class="m-tick" style="left:1664px"></div>
+      <div class="m-tick" style="left:1736px"><span class="m-lbl">20000ms</span></div>
+      </div>
+    <div class="m-row" style="top:660px"><div class="m-gut"><i class="m-dot" id="m-dot0"></i><span class="m-rl" id="m-rl0">HMR</span></div></div>
+    <div class="m-row" style="top:732px"><div class="m-gut"><i class="m-dot" id="m-dot1"></i><span class="m-rl" id="m-rl1">CSS Sheet</span></div></div>
+    <div class="m-row" style="top:804px"><div class="m-gut"><i class="m-dot" id="m-dot2"></i><span class="m-rl" id="m-rl2">Inspector</span></div></div>
+    <div class="m-row" style="top:876px"><div class="m-gut"><i class="m-dot" id="m-dot3"></i><span class="m-rl" id="m-rl3">Source</span></div></div>
+    <div class="m-row" style="top:948px"><div class="m-gut"><i class="m-dot" id="m-dot4"></i><span class="m-rl" id="m-rl4">MCP</span></div></div>
+    
+    <div class="m-bar m-past" style="left:518.4px;top:682px;width:259.2px"></div>
+    <div class="m-bar m-past" style="left:806.4px;top:754px;width:223.2px"></div>
+    <div class="m-bar m-past" style="left:1058.4px;top:826px;width:187.2px"></div>
+    <div class="m-bar m-past" style="left:1274.4px;top:898px;width:115.2px"></div>
+    <div class="m-bar m-future" id="m-mcpbar" style="left:1418.4px;top:970px;width:151.2px"><div id="m-fill"></div></div>
+    
+      <div id="m-conn"></div>
+    </div>
+
+    <div id="m-content" class="clip" data-start="0" data-duration="2.5" data-track-index="2">
+      <div class="m-eyebrow" id="m-eb">MCP</div>
+      <div class="m-h" id="m-h1" style="top:132px">Your agent</div>
+      <div class="m-h" id="m-h2" style="top:212px"><span class="m-cy">sees it too.</span></div>
+      <div id="m-card">
+        <div class="m-dots"><i style="left:20px"></i><i style="left:40px"></i><i style="left:60px"></i></div>
+        <div class="m-body">
+          <div class="m-ln"><span class="m-chev"></span><span class="m-sp" style="width:8px"></span><span id="m-t1"></span><span class="m-cur" id="m-c1"></span></div>
+          <div class="m-ln m-muted m-hide" id="m-r2"><span class="m-sp" style="width:24px"></span><span class="m-elbow"></span><span class="m-sp" style="width:12px"></span><span>24 components · live</span></div>
+          <div class="m-ln m-hide" id="m-tr1"><span class="m-sp" style="width:48px"></span><span class="m-tag">&lt;hmr-counter&gt;</span><span class="m-prop">count:</span><span>&nbsp;</span><span class="m-num">42</span></div>
+          <div class="m-ln m-hide" id="m-tr2"><span class="m-sp" style="width:48px"></span><span class="m-tag">&lt;hmr-parent&gt;</span><span class="m-tri"></span><span class="m-num">1</span><span class="m-muted">&nbsp;child</span></div>
+          <div class="m-ln m-hide" id="m-tr3"><span class="m-sp" style="width:48px"></span><span class="m-tag">&lt;hmr-virtualizer&gt;</span><span class="m-num">1,000</span><span class="m-muted">&nbsp;items</span></div>
+          <div class="m-ln gap m-hide" id="m-r6"><span class="m-chev"></span><span class="m-sp" style="width:8px"></span><span id="m-t6"></span><span class="m-cur" id="m-c6"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="clip m-abs" data-start="0" data-duration="2.5" data-track-index="3" style="left:0;top:0;width:1920px;height:1080px">
+      <div id="m-ph"><div id="m-cap"></div></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      (function () {
+        var tl = gsap.timeline({ paused: true });
+        window.__timelines = window.__timelines || {};
+        window.__timelines["06-mcp"] = tl;
+        var $ = function (id) { return document.getElementById(id); };
+        var F = 1 / 60;
+
+        // Playhead: x(tg) = 360 + 72 tg, tg = 14.5 + t  ->  1404 + 72 t (line centered: -1)
+        tl.fromTo("#m-ph", { x: 1403 }, { x: 1583, duration: 2.5, ease: "none" }, 0);
+
+        // MCP bar / label become active at 0.2, past at 2.3
+        tl.set("#m-mcpbar", { backgroundColor: "#4d63ff", borderColor: "#4d63ff", opacity: 1, boxShadow: "0 0 20px rgba(77,99,255,0.7)" }, 0.2);
+        tl.fromTo("#m-fill", { width: 0 }, { width: 152.7, duration: 2.1, ease: "none" }, 0.2);
+        tl.set("#m-mcpbar", { backgroundColor: "#324fff", borderColor: "#324fff", opacity: 0.7, boxShadow: "0 0 0 rgba(77,99,255,0)" }, 2.3);
+        tl.set("#m-fill", { opacity: 0 }, 2.3);
+        tl.set("#m-rl4", { color: "#ffffff" }, 0.2);
+        tl.set("#m-dot4", { backgroundColor: "#00e8ff" }, 0.2);
+        tl.set("#m-rl4", { color: "#a1a1a1" }, 2.3);
+        tl.set("#m-dot4", { backgroundColor: "#4d63ff" }, 2.3);
+
+        // Connector grows from the bar up to the stage
+        tl.fromTo("#m-conn", { scaleY: 0 }, { scaleY: 1, duration: 0.2, ease: "power2.out" }, 0.2);
+
+        // Scene 1: eyebrow + headline waterfall
+        tl.set("#m-eb", { opacity: 1, y: 30 }, 0.25);
+        tl.to("#m-eb", { y: 0, duration: 0.12, ease: "power4.out" }, 0.25);
+        tl.set("#m-h1", { opacity: 1, y: 60 }, 0.3);
+        tl.to("#m-h1", { y: 0, duration: 0.18, ease: "power4.out" }, 0.3);
+        tl.set("#m-h2", { opacity: 1, y: 70 }, 0.8);
+        tl.to("#m-h2", { y: 0, duration: 0.2, ease: "power4.out" }, 0.8);
+
+        // Scene 2: terminal card
+        tl.set("#m-card", { opacity: 1, y: 40 }, 0.4);
+        tl.to("#m-card", { y: 0, duration: 0.2, ease: "power4.out" }, 0.4);
+        tl.set("#m-r2", { opacity: 1, y: 14 }, 1.0);
+        tl.to("#m-r2", { y: 0, duration: 0.12, ease: "power4.out" }, 1.0);
+
+        // Scene 3: result tree waterfall, then second command
+        tl.set("#m-tr1", { opacity: 1, y: 40 }, 1.4);
+        tl.to("#m-tr1", { y: 0, duration: 0.16, ease: "power4.out" }, 1.4);
+        tl.set("#m-tr2", { opacity: 1, y: 34 }, 1.4 + 0.16 - F);
+        tl.to("#m-tr2", { y: 0, duration: 0.14, ease: "power4.out" }, 1.4 + 0.16 - F);
+        tl.set("#m-tr3", { opacity: 1, y: 30 }, 1.4 + 0.16 - F + 0.14 - 2 * F);
+        tl.to("#m-tr3", { y: 0, duration: 0.12, ease: "power4.out" }, 1.4 + 0.16 - F + 0.14 - 2 * F);
+        tl.set("#m-r6", { opacity: 1 }, 1.9);
+
+        // Discrete typing sequences
+        function build(start, text, base, step, mod, pauseAt, pause) {
+          var seq = [{ t: 0, text: "" }], t = start;
+          for (var i = 1; i <= text.length; i++) {
+            seq.push({ t: t, text: text.slice(0, i) });
+            t += base + step * ((i * 7) % mod);
+            if (i === pauseAt) t += pause;
+          }
+          return { seq: seq, end: seq[seq.length - 1].t };
+        }
+        var S1 = build(0.45, "lit_list-components", 0.014, 0.009, 3, 4, 0.05);
+        var S6 = build(1.9, "lit_recent-events", 0.006, 0.008, 3, 4, 0.0);
+        function textAt(seq, time) {
+          for (var i = seq.length - 1; i >= 0; i--) if (time >= seq[i].t) return seq[i].text;
+          return "";
+        }
+        function blink(time, from) { return Math.sin((time - from) * Math.PI * 2 / 0.6) > 0 ? "1" : "0"; }
+        function render(t) {
+          $("m-t1").textContent = textAt(S1.seq, t);
+          $("m-t6").textContent = textAt(S6.seq, t);
+          var c1 = "0";
+          if (t >= 0.4 && t < 1.0) c1 = t < S1.end + 0.05 ? "1" : blink(t, S1.end + 0.05);
+          var c6 = "0";
+          if (t >= 1.9 && t < 2.35) c6 = t < S6.end + 0.05 ? "1" : blink(t, S6.end + 0.05);
+          $("m-c1").style.opacity = c1;
+          $("m-c6").style.opacity = c6;
+        }
+        var drv = { t: 0 };
+        tl.to(drv, { t: 2.5, duration: 2.5, ease: "none", onUpdate: function () { render(drv.t); } }, 0);
+        render(0);
+
+        // Scene 4: snap shut toward the ruler (y 620) by 2.35
+        tl.to("#m-content", { scaleY: 0, duration: 0.2, ease: "power3.in" }, 2.15);
+        tl.to("#m-conn", { scaleY: 0, duration: 0.2, ease: "power3.in" }, 2.15);
+        tl.set("#m-content", { opacity: 0 }, 2.35);
+      })();
+    </script>
+  </div>
+</template>

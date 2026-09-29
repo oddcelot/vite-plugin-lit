@@ -1,0 +1,186 @@
+<template>
+<style>
+@font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2")}
+@font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2")}
+@font-face{font-family:"Manrope";font-weight:600;src:url("assets/manrope-semibold.woff2") format("woff2")}
+@font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2")}
+#root{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;font-family:"Manrope",sans-serif}
+#root *{box-sizing:border-box}
+#f02-ground{position:absolute;left:0;top:0;width:1920px;height:1080px;background:radial-gradient(circle 900px at 960px 360px,rgba(42,44,157,0.35),rgba(42,44,157,0) 100%),#030308}
+#f02-win{position:absolute;left:64px;top:48px;width:1792px;height:984px;background:#121212;border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,0.6),0 0 0 1px #363636}
+#f02-header{position:absolute;left:64px;top:48px;width:1792px;height:56px;background:#1c1c1c;border-bottom:1px solid #363636;border-radius:14px 14px 0 0}
+#f02-hflame{background:url("assets/flame.svg") center/contain no-repeat;position:absolute;left:32px;top:14px;height:28px;width:22.4px}
+#f02-htitle{position:absolute;left:66px;top:0;line-height:56px;font-weight:800;font-size:18px;letter-spacing:0.12em;color:#e3e3e3;white-space:nowrap}
+#f02-tabs{position:absolute;left:266px;top:0;height:56px;display:flex;gap:40px;align-items:center;font-weight:600;font-size:17px;color:#a1a1a1}
+.f02-tab{position:relative;line-height:56px}
+.f02-tab.on{color:#4d63ff}
+.f02-tab.on::after{content:"";position:absolute;left:0;right:0;top:53px;height:2px;background:#4d63ff}
+.f02-pill{position:absolute;right:32px;top:11px;height:34px;padding:0 18px;border-radius:999px;display:flex;align-items:center;font-weight:700;font-size:15px;white-space:nowrap}
+#f02-stop{border:1px solid #ff6b6b;color:#ff6b6b;background:transparent}
+#f02-stage{position:absolute;left:64px;top:104px;width:1792px;height:516px;background:#0a0a10}
+#f02-ruler{position:absolute;left:64px;top:620px;width:1792px;height:40px;background:#1c1c1c;border-top:1px solid #363636;border-bottom:1px solid #363636}
+.f02-tick{position:absolute;top:648px;width:1px;height:11px;background:#363636}
+.f02-tlabel{position:absolute;top:628px;font-family:"Roboto Mono",monospace;font-size:15px;color:#616161;line-height:18px;white-space:nowrap}
+.f02-row{position:absolute;left:64px;width:1792px;height:72px;border-bottom:1px solid #363636}
+.f02-gutter{position:absolute;left:0;top:0;width:280px;height:72px;background:#121212;border-right:1px solid #363636;font-family:"Roboto Mono",monospace;font-size:20px;color:#a1a1a1;display:flex;align-items:center}
+.f02-dot{display:block;width:10px;height:10px;border-radius:50%;background:#4d63ff;margin-left:32px;margin-right:12px}
+.f02-bar{position:absolute;top:22px;height:28px;border-radius:6px;border:1.5px solid #324fff;opacity:0.55}
+#f02-bar0{position:absolute;left:454.4px;top:22px;width:259.2px;height:28px}
+#f02-bar0 > div{position:absolute;left:0;top:0;right:0;bottom:0;border-radius:6px}
+#f02-fut{border:1.5px solid #324fff;opacity:0.55}
+#f02-act{background:#4d63ff;box-shadow:0 0 18px rgba(77,99,255,0.8);opacity:0;overflow:hidden}
+#f02-prog{position:absolute;left:0;top:0;bottom:0;width:100%;background:#6478ff;transform-origin:0 50%}
+#f02-past{background:#324fff;opacity:0}
+#f02-conn{position:absolute;left:517px;top:620px;width:2px;height:62px;background:#4d63ff;transform-origin:50% 100%;box-shadow:0 0 10px rgba(77,99,255,0.7)}
+#f02-ph{position:absolute;left:503px;top:620px;width:2px;height:400px;background:#00e8ff;box-shadow:0 0 24px rgba(0,232,255,0.7)}
+#f02-ph::before{content:"";position:absolute;left:-6px;top:2px;border-left:7px solid transparent;border-right:7px solid transparent;border-top:14px solid #00e8ff;width:0;height:0}
+/* bloom stage content (local to stage: page x-64, y-104) */
+#f02-bloom{position:absolute;left:64px;top:104px;width:1792px;height:516px;overflow:hidden;transform-origin:50% 100%}
+#f02-glow{position:absolute;left:594px;top:-228px;width:1340px;height:700px;background:radial-gradient(closest-side,rgba(50,79,255,0.95) 0%,rgba(42,44,157,0.55) 45%,rgba(42,44,157,0) 100%);opacity:0}
+#f02-eyebrow{position:absolute;left:80px;top:96px;font-weight:700;font-size:18px;line-height:22px;letter-spacing:0.14em;text-transform:uppercase;color:#4d63ff}
+.f02-hl{position:absolute;left:80px;font-weight:800;font-size:76px;line-height:80px;letter-spacing:-0.03em;color:#fff;white-space:nowrap;transform-origin:0 50%}
+.f02-hl b{color:#00e8ff;font-weight:800}
+#f02-comp{position:absolute;left:854px;top:32px;width:820px;height:188px;background:#16161f;border:1px solid #363636;border-radius:10px}
+#f02-flash{position:absolute;left:-3px;top:-3px;right:-3px;bottom:-3px;border:2px solid #4d63ff;border-radius:12px;box-shadow:0 0 36px rgba(77,99,255,0.75),inset 0 0 24px rgba(77,99,255,0.25);opacity:0}
+.f02-title{position:absolute;left:36px;top:22px;font-weight:800;font-size:44px;line-height:50px;letter-spacing:-0.02em;color:#fff;white-space:nowrap}
+#f02-row{position:absolute;left:36px;top:92px;height:64px;display:flex;align-items:center;gap:26px}
+#f02-btn{height:64px;padding:0 30px;border:2px solid #4d63ff;border-radius:999px;display:flex;align-items:center;font-weight:700;font-size:30px;color:#e3e3e3;white-space:nowrap}
+#f02-num{position:relative;display:inline-block;color:#00e8ff;margin-left:10px}
+#f02-ring{position:absolute;left:-8px;right:-8px;top:-6px;bottom:-6px;border:2px solid #00e8ff;border-radius:10px;opacity:0;box-shadow:0 0 16px rgba(0,232,255,0.7)}
+#f02-rendbox{position:relative;width:170px;height:26px;font-family:"Roboto Mono",monospace;font-size:20px;line-height:26px;color:#a1a1a1}
+#f02-rendbox span{position:absolute;left:0;top:0;white-space:nowrap}
+#f02-code{position:absolute;left:854px;top:252px;width:820px;height:212px;background:#0b0b12;border:1px solid #363636;border-radius:10px;padding:0 30px;display:flex;flex-direction:column;justify-content:center;font-family:"Roboto Mono",monospace;font-size:26px;line-height:39px;color:#e3e3e3;white-space:pre}
+.f02-tag{color:#89ddff}.f02-str{color:#c3e88d}.f02-kw{color:#c792ea}.f02-call{color:#82aaff}.f02-prop{color:#b2ccd6}
+#f02-caret{display:inline-block;width:3px;height:30px;background:#e3e3e3;vertical-align:-6px;margin-left:1px;opacity:0}
+#f02-chip{position:absolute;left:1440px;top:238px;height:28px;padding:0 14px;border-radius:999px;background:#292929;border:1px solid #363636;display:flex;align-items:center;gap:8px;font-family:"Roboto Mono",monospace;font-size:16px;color:#e3e3e3;white-space:nowrap}
+#f02-chip i{display:block;width:8px;height:8px;border-radius:50%;background:#00e8ff;box-shadow:0 0 8px rgba(0,232,255,0.8)}
+</style>
+<div id="root" data-composition-id="02-hmr" data-start="0" data-duration="4" data-width="1920" data-height="1080">
+  <div id="f02-ground" class="clip" data-start="0" data-duration="4" data-track-index="0"></div>
+  <div id="f02-win"></div>
+  <div id="f02-stage"></div>
+  <div id="f02-header">
+    <div id="f02-hflame"></div>
+    <div id="f02-htitle">LIT DEVTOOLS</div>
+    <div id="f02-tabs"><span class="f02-tab">Components</span><span class="f02-tab">Updates</span><span class="f02-tab on">Timeline</span><span class="f02-tab">Settings</span></div>
+    <div class="f02-pill" id="f02-stop">■ Stop</div>
+  </div>
+  <div id="f02-ruler"></div>
+  <div class="f02-tick" style="left:360px"></div><div class="f02-tlabel" style="left:366px">0ms</div><div class="f02-tick" style="left:432px"></div><div class="f02-tick" style="left:504px"></div><div class="f02-tlabel" style="left:510px">2000ms</div><div class="f02-tick" style="left:576px"></div><div class="f02-tick" style="left:648px"></div><div class="f02-tlabel" style="left:654px">4000ms</div><div class="f02-tick" style="left:720px"></div><div class="f02-tick" style="left:792px"></div><div class="f02-tlabel" style="left:798px">6000ms</div><div class="f02-tick" style="left:864px"></div><div class="f02-tick" style="left:936px"></div><div class="f02-tlabel" style="left:942px">8000ms</div><div class="f02-tick" style="left:1008px"></div><div class="f02-tick" style="left:1080px"></div><div class="f02-tlabel" style="left:1086px">10000ms</div><div class="f02-tick" style="left:1152px"></div><div class="f02-tick" style="left:1224px"></div><div class="f02-tlabel" style="left:1230px">12000ms</div><div class="f02-tick" style="left:1296px"></div><div class="f02-tick" style="left:1368px"></div><div class="f02-tlabel" style="left:1374px">14000ms</div><div class="f02-tick" style="left:1440px"></div><div class="f02-tick" style="left:1512px"></div><div class="f02-tlabel" style="left:1518px">16000ms</div><div class="f02-tick" style="left:1584px"></div><div class="f02-tick" style="left:1656px"></div><div class="f02-tlabel" style="left:1662px">18000ms</div><div class="f02-tick" style="left:1728px"></div><div class="f02-tick" style="left:1800px"></div><div class="f02-tlabel" style="left:1806px">20000ms</div>
+  <div class="f02-row" style="top:660px"><div class="f02-gutter"><i class="f02-dot" id="f02-dot0"></i><span id="f02-lab0">HMR</span></div><div id="f02-bar0"><div id="f02-fut"></div><div id="f02-act"><div id="f02-prog"></div></div><div id="f02-past"></div></div></div>
+  <div class="f02-row" style="top:732px"><div class="f02-gutter"><i class="f02-dot"></i><span>CSS Sheet</span></div><div class="f02-bar" style="left:742.4px;width:223.2px"></div></div>
+  <div class="f02-row" style="top:804px"><div class="f02-gutter"><i class="f02-dot"></i><span>Inspector</span></div><div class="f02-bar" style="left:994.4px;width:187.2px"></div></div>
+  <div class="f02-row" style="top:876px"><div class="f02-gutter"><i class="f02-dot"></i><span>Source</span></div><div class="f02-bar" style="left:1210.4px;width:115.2px"></div></div>
+  <div class="f02-row" style="top:948px"><div class="f02-gutter"><i class="f02-dot"></i><span>MCP</span></div><div class="f02-bar" style="left:1354.4px;width:151.2px"></div></div>
+  <div id="f02-conn"></div>
+  <div id="f02-bloom">
+    <div id="f02-glow"></div>
+    <div id="f02-eyebrow">HMR</div>
+    <div class="f02-hl" id="f02-hl1" style="top:140px">Edit.</div>
+    <div class="f02-hl" id="f02-hl2" style="top:220px">Save.</div>
+    <div class="f02-hl" id="f02-hl3" style="top:300px">Still <b>42.</b></div>
+    <div id="f02-comp">
+      <div id="f02-flash"></div>
+      <div class="f02-title" id="f02-t1">Counter</div>
+      <div class="f02-title" id="f02-t2">Counter: edited live</div>
+      <div id="f02-row">
+        <div id="f02-btn">Count:<span id="f02-num">42<i id="f02-ring"></i></span></div>
+        <div id="f02-rendbox"><span id="f02-r1">renders: 1</span><span id="f02-r2" style="opacity:0">renders: 2</span></div>
+      </div>
+    </div>
+    <div id="f02-code"><span><span class="f02-call">render</span>() {</span>
+<span>  <span class="f02-kw">return</span> <span class="f02-call">html</span><span class="f02-str">`</span><span class="f02-tag">&lt;h2&gt;</span><span class="f02-str" id="f02-codeh">Counter</span><i id="f02-caret"></i><span class="f02-tag">&lt;/h2&gt;</span></span>
+<span>    <span class="f02-tag">&lt;button&gt;</span><span class="f02-str">Count: </span><span class="f02-kw">${</span><span class="f02-kw">this</span><span class="f02-prop">.count</span><span class="f02-kw">}</span><span class="f02-tag">&lt;/button&gt;</span><span class="f02-str">`</span>;</span>
+<span>}</span></div>
+    <div id="f02-chip"><i></i>hmr update</div>
+  </div>
+  <div id="f02-ph"></div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script>
+  (function(){
+    var tl = gsap.timeline({ paused: true });
+
+    // Playhead: linear 72 px/s, tg 2 -> 6
+    tl.fromTo("#f02-ph", { x: 0 }, { x: 288, duration: 4, ease: "none" }, 0);
+
+    // HMR bar: future -> active at 0.2 (playhead hits t0) -> past at 3.8 (t1 = tg 5.8)
+    tl.set("#f02-fut", { opacity: 0 }, 0.2);
+    tl.set("#f02-act", { opacity: 1 }, 0.2);
+    tl.fromTo("#f02-prog", { scaleX: 0 }, { scaleX: 1, duration: 3.6, ease: "none" }, 0.2);
+    tl.set("#f02-act", { opacity: 0 }, 3.8);
+    tl.set("#f02-past", { opacity: 0.7 }, 3.8);
+    tl.set("#f02-lab0", { color: "#ffffff" }, 0.2);
+    tl.set("#f02-dot0", { backgroundColor: "#00e8ff" }, 0.2);
+    tl.set("#f02-lab0", { color: "#a1a1a1" }, 3.8);
+    tl.set("#f02-dot0", { backgroundColor: "#4d63ff" }, 3.8);
+
+    // Connector grows bar -> stage, retracts with the stage snap
+    tl.fromTo("#f02-conn", { scaleY: 0 }, { scaleY: 1, duration: 0.2, ease: "power2.out" }, 0.2);
+    tl.to("#f02-conn", { scaleY: 0, duration: 0.2, ease: "power3.in" }, 3.65);
+
+    // Scene 1: eyebrow
+    tl.fromTo("#f02-eyebrow", { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.3, ease: "power3.out" }, 0.3);
+
+    // Scene 2: cards spring in; glow blooms with them (driver below)
+    tl.fromTo("#f02-comp", { opacity: 0, scale: 0.92, y: 24, transformOrigin: "50% 50%" }, { opacity: 1, scale: 1, y: 0, duration: 0.55, ease: "back.out(1.4)" }, 0.36);
+    tl.fromTo("#f02-code", { opacity: 0, scale: 0.94, y: 28, transformOrigin: "50% 50%" }, { opacity: 1, scale: 1, y: 0, duration: 0.55, ease: "back.out(1.4)" }, 0.5);
+
+    // Kinetic beat slams: distinct entrance per line
+    tl.fromTo("#f02-hl1", { scale: 1.5, filter: "blur(16px)", opacity: 0 }, { scale: 1, filter: "blur(0px)", opacity: 1, duration: 0.5, ease: "power4.out" }, 0.9);
+    tl.fromTo("#f02-hl2", { x: -320, opacity: 0 }, { x: 0, opacity: 1, duration: 0.45, ease: "expo.out" }, 2.0);
+    tl.fromTo("#f02-hl3", { y: 90, rotation: 6, opacity: 0 }, { y: 0, rotation: 0, opacity: 1, duration: 0.55, ease: "circ.out" }, 2.8);
+
+    // Scene 4: save at 2.4 - code border pulse, chip pop, card flash + bump, title swap, ring, renders
+    tl.to("#f02-code", { borderColor: "#4d63ff", duration: 0.08, ease: "none" }, 2.4);
+    tl.to("#f02-code", { borderColor: "#363636", duration: 0.6, ease: "power2.out" }, 2.5);
+    tl.fromTo("#f02-chip", { opacity: 0, scale: 0.5, y: 8, transformOrigin: "50% 100%" }, { opacity: 1, scale: 1, y: 0, duration: 0.28, ease: "back.out(2.2)" }, 2.4);
+    tl.set("#f02-flash", { opacity: 1 }, 2.4);
+    tl.to("#f02-flash", { opacity: 0, duration: 0.75, ease: "power2.out" }, 2.48);
+    tl.to("#f02-comp", { scale: 1.018, duration: 0.1, ease: "power1.in" }, 2.4);
+    tl.to("#f02-comp", { scale: 1, duration: 0.45, ease: "back.out(2.4)" }, 2.5);
+    tl.set("#f02-t1", { opacity: 0 }, 2.4);
+    tl.fromTo("#f02-t2", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.18, ease: "power2.out" }, 2.4);
+    tl.set("#f02-ring", { opacity: 0.9, scale: 1 }, 2.4);
+    tl.to("#f02-ring", { opacity: 0, scale: 1.45, duration: 0.6, ease: "power2.out" }, 2.4);
+    tl.set("#f02-r1", { opacity: 0 }, 2.4);
+    tl.set("#f02-r2", { opacity: 1 }, 2.4);
+
+    // Scene 5: stage snaps shut toward the ruler (y 620) by 3.85
+    tl.to("#f02-bloom", { scaleY: 0, duration: 0.2, ease: "power3.in" }, 3.65);
+
+    // Driver: deterministic functions of time (glow breathe, typed code text, caret)
+    var glow = document.getElementById("f02-glow");
+    var codeH = document.getElementById("f02-codeh");
+    var caret = document.getElementById("f02-caret");
+    var APPEND = ": edited live";
+    var KEYS = [1.50, 1.56, 1.72, 1.78, 1.84, 1.90, 1.95, 2.01, 2.10, 2.16, 2.21, 2.26, 2.31];
+    var PEAK = 0.3;
+    function render(t) {
+      var op, sc;
+      if (t < 0.36) { op = 0; sc = 0.85; }
+      else if (t < 1.0) {
+        var p = (t - 0.36) / 0.64, e = 1 - (1 - p) * (1 - p);
+        op = PEAK * e; sc = 0.85 + 0.15 * e;
+      } else {
+        var s = Math.sin(Math.PI * 2 * (t - 1.0) / 3);
+        op = PEAK + 0.03 * s; sc = 1 + 0.02 * s;
+      }
+      glow.style.opacity = String(op);
+      glow.style.transform = "scale(" + sc + ")";
+      var n = 0, last = 1.4;
+      for (var i = 0; i < KEYS.length; i++) { if (t >= KEYS[i]) { n = i + 1; last = KEYS[i]; } }
+      codeH.textContent = "Counter" + APPEND.slice(0, n);
+      var c = 0;
+      if (t >= 1.4 && t < 2.42) c = (t - last < 0.3) ? 1 : (Math.floor((t - 1.4) / 0.27) % 2 === 0 ? 1 : 0);
+      caret.style.opacity = String(c);
+    }
+    var drv = { t: 0 };
+    render(0);
+    tl.to(drv, { t: 4, duration: 4, ease: "none", onUpdate: function () { render(drv.t); } }, 0);
+
+    window.__timelines = window.__timelines || {};
+    window.__timelines["02-hmr"] = tl;
+  })();
+  </script>
+</div>
+</template>

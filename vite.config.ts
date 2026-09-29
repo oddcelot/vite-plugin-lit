@@ -88,6 +88,8 @@ export default defineConfig({
       '/examples/',
       // Copied from the root CHANGELOG.md on every docs build.
       'docs/.generated/',
+      // HyperFrames video project, written and checked by its own CLI.
+      '/assets/promo-video/',
     ],
   },
   fmt: {
@@ -109,6 +111,7 @@ export default defineConfig({
       'docs/dist/',
       'docs/.astro/',
       'docs/.generated/',
+      '/assets/promo-video/',
     ],
   },
 });

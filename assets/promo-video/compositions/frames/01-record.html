@@ -1,0 +1,118 @@
+<template>
+<style>
+@font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2")}
+@font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2")}
+@font-face{font-family:"Manrope";font-weight:600;src:url("assets/manrope-semibold.woff2") format("woff2")}
+@font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2")}
+#root{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;font-family:"Manrope",sans-serif}
+#root *{box-sizing:border-box}
+#f01-ground{position:absolute;left:0;top:0;width:1920px;height:1080px;background:radial-gradient(circle 900px at 960px 360px,rgba(42,44,157,0.35),rgba(42,44,157,0) 100%),#030308}
+#f01-win{position:absolute;left:64px;top:48px;width:1792px;height:984px;background:#121212;border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,0.6),0 0 0 1px #363636;overflow:hidden}
+#f01-header{position:absolute;left:0;top:0;width:1792px;height:56px;background:#1c1c1c;border-bottom:1px solid #363636}
+#f01-stage{position:absolute;left:0;top:56px;width:1792px;height:516px;background:#0a0a10}
+#f01-hflame{background:url("assets/flame.svg") center/contain no-repeat;position:absolute;left:32px;top:14px;height:28px;width:22.4px}
+#f01-htitle{position:absolute;left:66px;top:0;line-height:56px;font-weight:800;font-size:18px;letter-spacing:0.12em;color:#e3e3e3;white-space:nowrap}
+#f01-tabs{position:absolute;left:266px;top:0;height:56px;display:flex;gap:40px;align-items:center;font-weight:600;font-size:17px;color:#a1a1a1}
+.f01-tab{position:relative;line-height:56px;display:block}
+.f01-tab.on{color:#4d63ff}
+#f01-ul{position:absolute;left:0;right:0;top:53px;height:2px;background:#4d63ff;transform-origin:0 50%}
+#f01-hpill{position:absolute;right:32px;top:11px;width:0;height:34px}
+.f01-pill{position:absolute;right:0;top:0;height:34px;padding:0 18px;border-radius:999px;display:flex;align-items:center;font-weight:700;font-size:15px;white-space:nowrap;border:1px solid transparent}
+#f01-hrec{background:#292929;color:#e3e3e3}
+#f01-hstop{border-color:#ff6b6b;color:#ff6b6b;background:transparent;opacity:0}
+#f01-eyebrow{position:absolute;left:80px;top:142px;font-family:"Roboto Mono",monospace;font-size:22px;line-height:28px;color:#a1a1a1;white-space:nowrap}
+#f01-big{position:absolute;left:0;top:56px;width:1792px;height:516px;display:flex;align-items:center;justify-content:center}
+#f01-bigin{display:grid}
+.f01-bp{grid-area:1/1;display:flex;align-items:center;justify-content:center;gap:18px;padding:0 64px;height:104px;border-radius:999px;font-weight:700;font-size:44px;white-space:nowrap;border:2px solid transparent}
+#f01-bpa{background:#292929;color:#e3e3e3}
+#f01-bpb{border-color:#ff6b6b;color:#ff6b6b;background:transparent;box-shadow:0 0 48px rgba(255,107,107,0.3);opacity:0}
+#f01-rulerwrap{position:absolute;left:0;top:0;width:1920px;height:1080px}
+#f01-ruler{position:absolute;left:64px;top:620px;width:1792px;height:40px;background:#1c1c1c;border-top:1px solid #363636;border-bottom:1px solid #363636}
+.f01-tick{position:absolute;top:648px;width:1px;height:11px;background:#363636}
+.f01-tlabel{position:absolute;top:628px;font-family:"Roboto Mono",monospace;font-size:15px;color:#616161;line-height:18px;white-space:nowrap}
+.f01-row{position:absolute;left:64px;width:1792px;height:72px;border-bottom:1px solid #363636}
+.f01-gutter{position:absolute;left:0;top:0;width:280px;height:72px;background:#121212;border-right:1px solid #363636;font-family:"Roboto Mono",monospace;font-size:20px;color:#a1a1a1;display:flex;align-items:center}
+.f01-dot{display:block;width:10px;height:10px;border-radius:50%;background:#4d63ff;margin-left:32px;margin-right:12px}
+.f01-lbl{white-space:pre}
+.f01-bar{position:absolute;top:22px;height:28px;overflow:visible;opacity:0.55}
+.f01-bar path{fill:none;stroke:#324fff;stroke-width:1.5}
+#f01-ph{position:absolute;left:0;top:620px;width:2px;height:400px;background:#00e8ff;box-shadow:0 0 24px rgba(0,232,255,0.7)}
+#f01-ph::before{content:"";position:absolute;left:-6px;top:2px;border-left:7px solid transparent;border-right:7px solid transparent;border-top:14px solid #00e8ff;width:0;height:0}
+</style>
+<div id="root" data-composition-id="01-record" data-start="0" data-duration="2" data-width="1920" data-height="1080">
+  <div id="f01-ground" class="clip" data-start="0" data-duration="2" data-track-index="0"></div>
+  <div id="f01-win">
+    <div id="f01-header"></div>
+    <div id="f01-stage"></div>
+    <div id="f01-hflame"></div>
+    <div id="f01-htitle">LIT DEVTOOLS</div>
+    <div id="f01-tabs"><span class="f01-tab">Components</span><span class="f01-tab">Updates</span><span class="f01-tab on">Timeline<i id="f01-ul"></i></span><span class="f01-tab">Settings</span></div>
+    <div id="f01-hpill"><div class="f01-pill" id="f01-hrec">▶ Record</div><div class="f01-pill" id="f01-hstop">■ Stop</div></div>
+    <div id="f01-eyebrow">@oddsquad/vite-plugin-lit</div>
+    <div id="f01-big"><div id="f01-bigin"><div class="f01-bp" id="f01-bpa">▶ Record</div><div class="f01-bp" id="f01-bpb">■ Stop</div></div></div>
+  </div>
+  <div id="f01-rulerwrap"><div id="f01-ruler"></div><div class="f01-tick" style="left:360px"></div><div class="f01-tlabel" style="left:366px">0ms</div><div class="f01-tick" style="left:432px"></div><div class="f01-tick" style="left:504px"></div><div class="f01-tlabel" style="left:510px">2000ms</div><div class="f01-tick" style="left:576px"></div><div class="f01-tick" style="left:648px"></div><div class="f01-tlabel" style="left:654px">4000ms</div><div class="f01-tick" style="left:720px"></div><div class="f01-tick" style="left:792px"></div><div class="f01-tlabel" style="left:798px">6000ms</div><div class="f01-tick" style="left:864px"></div><div class="f01-tick" style="left:936px"></div><div class="f01-tlabel" style="left:942px">8000ms</div><div class="f01-tick" style="left:1008px"></div><div class="f01-tick" style="left:1080px"></div><div class="f01-tlabel" style="left:1086px">10000ms</div><div class="f01-tick" style="left:1152px"></div><div class="f01-tick" style="left:1224px"></div><div class="f01-tlabel" style="left:1230px">12000ms</div><div class="f01-tick" style="left:1296px"></div><div class="f01-tick" style="left:1368px"></div><div class="f01-tlabel" style="left:1374px">14000ms</div><div class="f01-tick" style="left:1440px"></div><div class="f01-tick" style="left:1512px"></div><div class="f01-tlabel" style="left:1518px">16000ms</div><div class="f01-tick" style="left:1584px"></div><div class="f01-tick" style="left:1656px"></div><div class="f01-tlabel" style="left:1662px">18000ms</div><div class="f01-tick" style="left:1728px"></div><div class="f01-tick" style="left:1800px"></div><div class="f01-tlabel" style="left:1806px">20000ms</div></div>
+<div class="f01-row" id="f01-row0" style="top:660px"><div class="f01-gutter"><i class="f01-dot"></i><span class="f01-lbl" data-t="HMR"></span></div></div>
+<div class="f01-row" id="f01-row1" style="top:732px"><div class="f01-gutter"><i class="f01-dot"></i><span class="f01-lbl" data-t="CSS Sheet"></span></div></div>
+<div class="f01-row" id="f01-row2" style="top:804px"><div class="f01-gutter"><i class="f01-dot"></i><span class="f01-lbl" data-t="Inspector"></span></div></div>
+<div class="f01-row" id="f01-row3" style="top:876px"><div class="f01-gutter"><i class="f01-dot"></i><span class="f01-lbl" data-t="Source"></span></div></div>
+<div class="f01-row" id="f01-row4" style="top:948px"><div class="f01-gutter"><i class="f01-dot"></i><span class="f01-lbl" data-t="MCP"></span></div></div>
+  <div id="f01-ph"></div>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+  (function(){
+    var tl = gsap.timeline({ paused: true });
+    var NS = "http://www.w3.org/2000/svg";
+    // Scene 1: window expands, header waterfall
+    tl.fromTo("#f01-win", { scale: 0.4 }, { scale: 1, duration: 0.5, ease: "power3.out", transformOrigin: "50% 50%" }, 0);
+    function wf(sel, t, dy, dur) {
+      tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: 0.05, ease: "none" }, t);
+      tl.fromTo(sel, { y: dy }, { y: 0, duration: dur, ease: "power4.out" }, t);
+    }
+    var hs = ["#f01-hflame","#f01-htitle","#f01-tabs .f01-tab:nth-child(1)","#f01-tabs .f01-tab:nth-child(2)","#f01-tabs .f01-tab:nth-child(3)","#f01-tabs .f01-tab:nth-child(4)","#f01-hpill"];
+    for (var h = 0; h < hs.length; h++) wf(hs[h], 0.2 + 0.04 * h, 16, 0.16);
+    tl.fromTo("#f01-ul", { scaleX: 0 }, { scaleX: 1, duration: 0.22, ease: "power3.out" }, 0.42);
+    // Scene 2: big Record pill, press, flips to Stop
+    tl.fromTo("#f01-bigin", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.22, ease: "power3.out" }, 0.5);
+    tl.fromTo("#f01-bigin", { scale: 1 }, { scale: 0.94, duration: 0.06, ease: "power2.in", immediateRender: false }, 0.84);
+    tl.set("#f01-bpa", { opacity: 0 }, 0.9);
+    tl.set("#f01-bpb", { opacity: 1 }, 0.9);
+    tl.fromTo("#f01-bigin", { scale: 0.94 }, { scale: 1, duration: 0.16, ease: "power2.out", immediateRender: false }, 0.9);
+    tl.set("#f01-hrec", { opacity: 0 }, 1.0);
+    tl.set("#f01-hstop", { opacity: 1 }, 1.0);
+    // Scene 3: big pill lifts out; ruler + rows waterfall; labels type on; bars draw
+    tl.fromTo("#f01-bigin", { y: 0, opacity: 1 }, { y: -28, opacity: 0, duration: 0.32, ease: "power2.in", immediateRender: false }, 1.1);
+    wf("#f01-rulerwrap", 1.0, 22, 0.2);
+    var bars = [[2.2,5.8],[6.2,9.3],[9.7,12.3],[12.7,14.3],[14.7,16.8]];
+    var lbls = document.querySelectorAll(".f01-lbl");
+    for (var i = 0; i < 5; i++) {
+      var rt = 1.06 + 0.06 * i;
+      wf("#f01-row" + i, rt, 24, 0.2);
+      var txt = lbls[i].getAttribute("data-t"), chars = [];
+      for (var c = 0; c < txt.length; c++) { var s = document.createElement("span"); s.textContent = txt.charAt(c); lbls[i].appendChild(s); chars.push(s); }
+      tl.fromTo(chars, { opacity: 0 }, { opacity: 1, duration: 0.01, ease: "none", stagger: 0.03 }, rt + 0.06);
+      var x0 = 360 + 72 * bars[i][0], w = 72 * (bars[i][1] - bars[i][0]), hh = 28, ins = 0.75, rr = 6 - ins;
+      var svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("class", "f01-bar");
+      svg.setAttribute("width", w); svg.setAttribute("height", hh);
+      svg.setAttribute("viewBox", "0 0 " + w + " " + hh);
+      svg.style.left = (x0 - 64) + "px";
+      var p = document.createElementNS(NS, "path");
+      p.setAttribute("d", "M " + (ins + rr) + " " + ins + " H " + (w - ins - rr) + " A " + rr + " " + rr + " 0 0 1 " + (w - ins) + " " + (ins + rr) + " V " + (hh - ins - rr) + " A " + rr + " " + rr + " 0 0 1 " + (w - ins - rr) + " " + (hh - ins) + " H " + (ins + rr) + " A " + rr + " " + rr + " 0 0 1 " + ins + " " + (hh - ins - rr) + " V " + (ins + rr) + " A " + rr + " " + rr + " 0 0 1 " + (ins + rr) + " " + ins);
+      svg.appendChild(p);
+      document.getElementById("f01-row" + i).appendChild(svg);
+      var len = (2 * (w - 2 * ins - 2 * rr) + 2 * (hh - 2 * ins - 2 * rr) + 2 * Math.PI * rr) * 1.02;
+      gsap.set(p, { strokeDasharray: len, strokeDashoffset: len });
+      tl.to(p, { strokeDashoffset: 0, duration: 0.36, ease: "power2.out" }, rt + 0.08);
+    }
+    // Scene 4: playhead + eyebrow
+    tl.fromTo("#f01-ph", { opacity: 0 }, { opacity: 1, duration: 0.12, ease: "none" }, 1.0);
+    tl.fromTo("#f01-ph", { x: 432 }, { x: 504, duration: 1.0, ease: "none" }, 1.0);
+    tl.fromTo("#f01-eyebrow", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.25, ease: "power3.out" }, 1.1);
+    tl.fromTo("#f01-eyebrow", { opacity: 1 }, { opacity: 0, duration: 0.25, ease: "power1.in", immediateRender: false }, 1.6);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["01-record"] = tl;
+  })();
+  </script>
+</div>
+</template>
