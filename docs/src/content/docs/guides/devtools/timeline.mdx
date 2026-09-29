@@ -95,8 +95,8 @@ the file to open it in your editor.
   alt="A timeline row expanded to show the element, instance id, changed properties and source link."
 />
 
-An element row also carries two links. **filter** narrows the list to that
-element. **inspect** opens the
+An element row also carries two links. **filter** narrows the list and the tracks to
+that element. **inspect** opens the
 [Components tab](/vite-plugin-lit/guides/devtools/components/) on it, because
 both views use the same instance id.
 
@@ -131,8 +131,10 @@ row.
 
 The **Tracks** strip picks which lanes to draw. It is a view filter only.
 Hiding a track does not stop that layer being recorded, and the list is
-unaffected. Only layers you capture get a track, custom layers included. The
-list's element and regex filters do not apply to the tracks yet.
+unaffected. Only layers you capture get a track, custom layers included.
+
+The **Element** picker and the regex box above the list filter the tracks too,
+so a search you typed in one view still applies when you switch to the other.
 
 ## Export a session for a bug report
 

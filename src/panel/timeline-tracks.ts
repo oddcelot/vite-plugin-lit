@@ -57,7 +57,8 @@ const describe = (span: TimelineSpan): string => {
  *
  * The same {@link TimelineSpan}s as the list, and the same selection: a click
  * on a mark emits `span-select`, and `timeline-view` passes the key back to
- * both presentations. `visibleTracks` is a panel-local view filter, not the
+ * both presentations. `spans` arrive already narrowed by the view's element
+ * and regex filters. `visibleTracks` is a panel-local view filter, not the
  * capture toggle.
  *
  * Wheel zooms around the cursor, drag pans, double-click fits the whole
@@ -360,7 +361,10 @@ export class TimelineTracks extends LitElement {
         ? undefined
         : this.spans.find((s) => s.key === this.selectedKey);
     const detail = selected
-      ? html`<timeline-span-detail .span=${selected}></timeline-span-detail>`
+      ? html`<timeline-span-detail
+          filterable
+          .span=${selected}
+        ></timeline-span-detail>`
       : nothing;
     if (this._tracks.length === 0) {
       return html`<div class="empty">

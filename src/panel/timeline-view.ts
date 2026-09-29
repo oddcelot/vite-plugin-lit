@@ -15,7 +15,11 @@ import type {
 } from '../types/timeline.js';
 import type {LayerState} from './timeline-layers.js';
 import {toSpans} from '../lib/timeline/derive.js';
-import {compileRegex, listElements} from '../lib/timeline/filter.js';
+import {
+  compileRegex,
+  filterSpans,
+  listElements,
+} from '../lib/timeline/filter.js';
 import type {TimelineSpan} from '../lib/timeline/derive.js';
 import '../lib/segmented-tabs.js';
 import type {TabItem} from '../lib/segmented-tabs.js';
@@ -88,9 +92,11 @@ const store = (key: string, value: string) => {
  *
  * The events are shown two ways, List (`timeline-event-list`) and Tracks
  * (`timeline-tracks`). This view derives the spans once for both and owns
- * the selection, so clicking a mark and switching to the list lands on the
- * same row. Both stay mounted and the inactive one is hidden, so the list
- * keeps its filters and scroll and the tracks keep their zoom.
+ * the selection and the element/regex filter, so clicking a mark and
+ * switching to the list lands on the same row, and a filter typed in one
+ * presentation is still applied in the other. Both stay mounted and the
+ * inactive one is hidden, so the list keeps its Raw toggle and scroll and the
+ * tracks keep their zoom.
  */
 @customElement('timeline-view')
 export class TimelineView extends LitElement {
@@ -215,6 +221,9 @@ export class TimelineView extends LitElement {
   /** Distinct elements in `_events`, re-derived with `_spans` so a keystroke
    *  in the regex box does not rescan the buffer. */
   private _elements: Array<{id: number; tag: string}> = [];
+  /** `_spans` after the element and regex filters, for Tracks. The list
+   *  applies the same filter itself because its Raw mode filters events. */
+  private _filteredSpans: TimelineSpan[] = [];
   private readonly _listRef = createRef<TimelineEventList>();
   /** Captured, not-hidden layer ids. Cached so a selection change does not
    *  hand `timeline-tracks` a new array and re-pack every lane. */
@@ -276,6 +285,19 @@ export class TimelineView extends LitElement {
       ) {
         this._selectedKey = null;
       }
+    }
+    if (
+      changed.has('_events') ||
+      changed.has('_elementFilter') ||
+      changed.has('_regex')
+    ) {
+      // Recomputed on its own inputs only, so a selection change does not hand
+      // `timeline-tracks` a new array and re-pack every lane.
+      this._filteredSpans = filterSpans(
+        this._spans,
+        this._elementFilter,
+        compileRegex(this._regex).re
+      );
     }
   }
 
@@ -558,12 +580,13 @@ export class TimelineView extends LitElement {
       ></timeline-event-list>
       <timeline-tracks
         ?hidden=${!tracks}
-        .spans=${this._spans}
+        .spans=${this._filteredSpans}
         .layers=${this._layers}
         .visibleTracks=${this._visibleTracks}
         .selectedKey=${this._selectedKey}
         ?recording=${this._recording}
         @span-select=${this._onSpanSelect}
+        @element-filter=${this._onElementFilter}
       ></timeline-tracks>
     `;
   }

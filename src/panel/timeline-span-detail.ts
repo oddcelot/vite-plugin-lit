@@ -70,7 +70,7 @@ export class TimelineSpanDetail extends LitElement {
   ];
 
   @property({attribute: false}) span: TimelineSpan | undefined;
-  /** Offer the **filter** link (the list has an element filter; tracks do not). */
+  /** Offer the **filter** link (both presentations honour the element filter). */
   @property({type: Boolean}) filterable = false;
 
   private _emit(type: 'element-filter' | 'inspect-element', id: number) {
