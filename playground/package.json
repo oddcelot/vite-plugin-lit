@@ -5,8 +5,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vp dev",
-    "start": "vp dev",
+    "dev": "node dev.mjs",
+    "start": "node dev.mjs",
     "build": "vp build",
     "standalone": "node standalone.mjs"
   },
