@@ -15,16 +15,26 @@ import {
 import {
   SOURCE_OVERLAY_EDITORS,
   type FeatureSettings,
+  type SettingSources,
   type SettingsOverride,
 } from '../types/timeline.js';
 import {getMeta, litRpc, type LitClient} from './client.js';
 import {
   adoptOverride,
   commitOverride,
+  dropOverrideKey,
   onOverrideChange,
   readOverride,
   resetOverride,
 } from './settings-override.js';
+
+/** Settings a panel override can replace and that have a config baseline. */
+type OverridableKey =
+  | 'hmrReconnect'
+  | 'hmrOnIncompatible'
+  | 'hmrIndicatorVisible'
+  | 'hmrIndicatorCount'
+  | 'sourceOverlayEditor';
 
 /** The settings this panel persists, as `DevframeSettingsRegistry.lit`. */
 type LitSettings = Awaited<ReturnType<LitClient['settings']['global']['all']>>;
@@ -133,6 +143,28 @@ export class DevtoolsSettings extends LitElement {
         font-size: var(--lit-devtools-text-2xs);
         margin-left: var(--lit-devtools-space-3);
         vertical-align: middle;
+      }
+      .src {
+        margin-left: var(--lit-devtools-space-3);
+        vertical-align: middle;
+      }
+      .row-reset {
+        appearance: none;
+        border: 1px solid var(--lit-devtools-border-strong);
+        background: var(--lit-devtools-surface-elevated);
+        color: var(--lit-devtools-text-muted);
+        border-radius: var(--lit-devtools-radius-sm);
+        font: inherit;
+        font-size: var(--lit-devtools-text-2xs);
+        line-height: 1;
+        padding: 1px var(--lit-devtools-space-2);
+        margin-left: var(--lit-devtools-space-3);
+        vertical-align: middle;
+        cursor: pointer;
+      }
+      .row-reset:hover {
+        background: var(--lit-devtools-surface-hover);
+        color: var(--lit-devtools-text);
       }
       label.toggle {
         display: inline-flex;
@@ -299,6 +331,19 @@ export class DevtoolsSettings extends LitElement {
     this._push({...this._override, [key]: value});
   }
 
+  /** The resolved config value of every overridable setting. */
+  private _baselines(
+    s: FeatureSettings
+  ): Required<Pick<SettingsOverride, OverridableKey>> {
+    return {
+      hmrReconnect: s.hmr.reconnect,
+      hmrOnIncompatible: s.hmr.onIncompatible,
+      hmrIndicatorVisible: s.hmr.indicatorEnabled,
+      hmrIndicatorCount: s.hmr.indicatorCount,
+      sourceOverlayEditor: s.sourceOverlay.editor,
+    };
+  }
+
   /** Clear overrides and revert the runtime to the resolved env values. */
   private _reset() {
     const s = this._settings;
@@ -309,15 +354,18 @@ export class DevtoolsSettings extends LitElement {
       s === null
         ? undefined
         : ({
-            hmrReconnect: s.hmr.reconnect,
-            hmrOnIncompatible: s.hmr.onIncompatible,
-            hmrIndicatorVisible: s.hmr.indicatorEnabled,
-            hmrIndicatorCount: s.hmr.indicatorCount,
-            sourceOverlayEditor: s.sourceOverlay.editor,
+            ...this._baselines(s),
             flashUpdates: false,
             flashUpdatesRamp: false,
           } satisfies SettingsOverride)
     );
+  }
+
+  /** Drop one overridden setting, reverting it (live) to its baseline. */
+  private _resetKey(key: OverridableKey) {
+    const s = this._settings;
+    if (s === null) return;
+    dropOverrideKey(key, this._baselines(s)[key]);
   }
 
   private _pill(on: boolean) {
@@ -326,16 +374,47 @@ export class DevtoolsSettings extends LitElement {
     >`;
   }
 
-  private _ovr(overridden: boolean) {
-    return overridden ? html`<span class="ovr">(overridden)</span>` : nothing;
+  /**
+   * Origin badge behind a value, from the server-side provenance:
+   * "(env)", "(option)" or "(default)". Nothing when the server sent none.
+   */
+  private _source(key: keyof SettingSources) {
+    const src = this._settings?.sources?.[key];
+    return src ? html`<span class="env src">(${src})</span>` : nothing;
   }
 
-  private _readonlyRow(key: string, value: unknown, env?: string) {
+  /**
+   * Badge for an overridable row. Without an override it's the plain origin
+   * badge; with one it's "(overridden)", the baseline it replaced
+   * ("env: Zed") and a reset for just this row. `baseline` is the config
+   * value as the row displays it.
+   */
+  private _ovrSource(key: OverridableKey, baseline: string) {
+    if (this._override[key] === undefined) return this._source(key);
+    const src = this._settings?.sources?.[key] ?? 'config';
+    return html`<span class="ovr">(overridden)</span>
+      <span class="env">${src}: ${baseline}</span>
+      <button
+        class="row-reset"
+        title="Reset to the ${src} value"
+        aria-label="Reset to the ${src} value"
+        @click=${() => this._resetKey(key)}
+      >
+        ×
+      </button>`;
+  }
+
+  private _readonlyRow(
+    key: string,
+    value: unknown,
+    env?: string,
+    source?: keyof SettingSources
+  ) {
     return html`
       <tr>
         <td class="key">${key}</td>
         <td class="val">
-          ${String(value)}
+          ${String(value)} ${source ? this._source(source) : nothing}
           ${env ? html`<span class="env">${env}</span>` : nothing}
         </td>
       </tr>
@@ -410,7 +489,7 @@ export class DevtoolsSettings extends LitElement {
               />
               ${reconnect ? 'on' : 'off'}
             </label>
-            ${this._ovr(o.hmrReconnect !== undefined)}
+            ${this._ovrSource('hmrReconnect', s.hmr.reconnect ? 'on' : 'off')}
           </td>
         </tr>
         <tr>
@@ -430,7 +509,7 @@ export class DevtoolsSettings extends LitElement {
                 warn
               </option>
             </select>
-            ${this._ovr(o.hmrOnIncompatible !== undefined)}
+            ${this._ovrSource('hmrOnIncompatible', s.hmr.onIncompatible)}
           </td>
         </tr>
         <tr class=${s.hmr.indicatorEnabled ? '' : 'row-disabled'}>
@@ -455,7 +534,10 @@ export class DevtoolsSettings extends LitElement {
                   : 'off (config)'
               }
             </label>
-            ${this._ovr(o.hmrIndicatorVisible !== undefined)}
+            ${this._ovrSource(
+              'hmrIndicatorVisible',
+              s.hmr.indicatorEnabled ? 'shown' : 'off (config)'
+            )}
           </td>
         </tr>
         <tr class=${s.hmr.indicatorEnabled ? '' : 'row-disabled'}>
@@ -474,10 +556,57 @@ export class DevtoolsSettings extends LitElement {
               />
               ${indicatorCount ? 'shown' : 'hidden'}
             </label>
-            ${this._ovr(o.hmrIndicatorCount !== undefined)}
+            ${this._ovrSource(
+              'hmrIndicatorCount',
+              s.hmr.indicatorCount ? 'shown' : 'hidden'
+            )}
           </td>
         </tr>
       </table>
+    `;
+  }
+
+  /**
+   * The editor select. A custom `EditorConfig` object (reported as
+   * `'custom'`) isn't one of the built-in choices, so the select is disabled
+   * and just shows "Custom".
+   */
+  private _renderEditorRow(s: FeatureSettings) {
+    const baseline = s.sourceOverlay.editor;
+    const custom = baseline === 'custom';
+    const current = this._override.sourceOverlayEditor ?? baseline;
+    const label =
+      SOURCE_OVERLAY_EDITORS.find((ed) => ed.value === baseline)?.label ??
+      (custom ? 'Custom' : baseline);
+    return html`
+      <tr>
+        <td class="key">editor</td>
+        <td class="val">
+          <select
+            ?disabled=${custom}
+            @change=${(e: Event) =>
+              this._set(
+                'sourceOverlayEditor',
+                (e.target as HTMLSelectElement).value
+              )}
+          >
+            ${
+              custom
+                ? html`<option value="custom" selected>Custom</option>`
+                : SOURCE_OVERLAY_EDITORS.map(
+                    (ed) =>
+                      html`<option
+                        value=${ed.value}
+                        ?selected=${ed.value === current}
+                      >
+                        ${ed.label}
+                      </option>`
+                  )
+            }
+          </select>
+          ${this._ovrSource('sourceOverlayEditor', label)}
+        </td>
+      </tr>
     `;
   }
 
@@ -572,39 +701,15 @@ export class DevtoolsSettings extends LitElement {
                 ${this._readonlyRow(
                   'hotkey',
                   `Ctrl+Shift+${s.sourceOverlay.key.toUpperCase()}`,
-                  'LIT_PLUGIN_SOURCE_OVERLAY_KEY'
+                  'LIT_PLUGIN_SOURCE_OVERLAY_KEY',
+                  'sourceOverlayKey'
                 )}
-                <tr>
-                  <td class="key">editor</td>
-                  <td class="val">
-                    <select
-                      @change=${(e: Event) =>
-                        this._set(
-                          'sourceOverlayEditor',
-                          (e.target as HTMLSelectElement).value
-                        )}
-                    >
-                      ${SOURCE_OVERLAY_EDITORS.map(
-                        (ed) =>
-                          html`<option
-                            value=${ed.value}
-                            ?selected=${
-                              ed.value ===
-                              (this._override.sourceOverlayEditor ??
-                                s.sourceOverlay.editor)
-                            }
-                          >
-                            ${ed.label}
-                          </option>`
-                      )}
-                    </select>
-                    ${this._ovr(this._override.sourceOverlayEditor !== undefined)}
-                  </td>
-                </tr>
+                ${this._renderEditorRow(s)}
                 ${this._readonlyRow(
                   'throttle (ms)',
                   s.sourceOverlay.throttleMs,
-                  'LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS'
+                  'LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS',
+                  'sourceOverlayThrottleMs'
                 )}
               </table>`
             : html`<p class="empty">

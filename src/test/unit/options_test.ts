@@ -5,6 +5,7 @@
  */
 
 import {afterEach, describe, expect, test, vi} from 'vite-plus/test';
+import {toFeatureSettings} from '../../lib/options.js';
 import {resolveOptions, type LitPluginOptions} from '../../lib/plugin.js';
 
 /**
@@ -221,5 +222,121 @@ describe('timeline', () => {
     expect(
       resolve({timeline: false}, {LIT_PLUGIN_TIMELINE: '1'}).timeline
     ).toBe(false);
+  });
+});
+
+describe('sources', () => {
+  test('an explicit option beats the env var', () => {
+    const r = resolve(
+      {sourceOverlay: {editor: 'cursor'}, hmr: {reconnect: true}},
+      {
+        LIT_PLUGIN_SOURCE_OVERLAY_EDITOR: 'zed',
+        LIT_PLUGIN_HMR_RECONNECT: 'false',
+      }
+    );
+    expect(r.sourceOverlay).toMatchObject({editor: 'cursor'});
+    expect(r.reconnect).toBe(true);
+    expect(r.sources).toMatchObject({
+      sourceOverlayEditor: 'option',
+      hmrReconnect: 'option',
+    });
+  });
+
+  test('the env var beats the default', () => {
+    const r = resolve(
+      {sourceOverlay: true},
+      {
+        LIT_PLUGIN_SOURCE_OVERLAY_EDITOR: 'zed',
+        LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS: '10',
+        LIT_PLUGIN_HMR_ON_INCOMPATIBLE: 'warn',
+      }
+    );
+    expect(r.sourceOverlay).toMatchObject({editor: 'zed', throttleMs: 10});
+    expect(r.sources).toMatchObject({
+      sourceOverlayEditor: 'env',
+      sourceOverlayThrottleMs: 'env',
+      hmrOnIncompatible: 'env',
+    });
+  });
+
+  test('with neither set, every source is the default', () => {
+    expect(resolve({sourceOverlay: true}).sources).toEqual({
+      hmrReconnect: 'default',
+      hmrOnIncompatible: 'default',
+      hmrIndicatorVisible: 'default',
+      hmrIndicatorCount: 'default',
+      sourceOverlayKey: 'default',
+      sourceOverlayEditor: 'default',
+      sourceOverlayThrottleMs: 'default',
+    });
+  });
+
+  test('omits source-overlay sources while the overlay is off', () => {
+    expect(resolve({}).sources).not.toHaveProperty('sourceOverlayEditor');
+  });
+
+  test('an unknown env editor warns and resolves to the default', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = resolve(
+      {sourceOverlay: true},
+      {LIT_PLUGIN_SOURCE_OVERLAY_EDITOR: 'notepad'}
+    );
+    expect(warn).toHaveBeenCalledOnce();
+    expect(String(warn.mock.calls[0]?.[0])).toContain(
+      'LIT_PLUGIN_SOURCE_OVERLAY_EDITOR'
+    );
+    expect(r.sourceOverlay).toMatchObject({editor: undefined});
+    expect(r.sources.sourceOverlayEditor).toBe('default');
+    expect(toFeatureSettings(r).sourceOverlay.editor).toBe('vscode');
+  });
+
+  test('an env editor under an explicit one is not validated', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    resolve(
+      {sourceOverlay: {editor: 'zed'}},
+      {LIT_PLUGIN_SOURCE_OVERLAY_EDITOR: 'notepad'}
+    );
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe('toFeatureSettings', () => {
+  test('carries the sources map alongside the effective values', () => {
+    const f = toFeatureSettings(
+      resolve(
+        {sourceOverlay: {key: 'k'}, hmr: {indicator: {count: true}}},
+        {
+          LIT_PLUGIN_SOURCE_OVERLAY_EDITOR: 'zed',
+          LIT_PLUGIN_HMR_RECONNECT: '1',
+        }
+      )
+    );
+    expect(f.sourceOverlay).toEqual({
+      enabled: true,
+      key: 'k',
+      editor: 'zed',
+      throttleMs: 50,
+    });
+    expect(f.sources).toEqual({
+      hmrReconnect: 'env',
+      hmrOnIncompatible: 'default',
+      hmrIndicatorVisible: 'default',
+      hmrIndicatorCount: 'option',
+      sourceOverlayKey: 'option',
+      sourceOverlayEditor: 'env',
+      sourceOverlayThrottleMs: 'default',
+    });
+  });
+
+  test('a custom editor object reports as a custom option', () => {
+    const f = toFeatureSettings(
+      resolve({
+        sourceOverlay: {
+          editor: {name: 'X', url: (path, line) => `x://${path}:${line}`},
+        },
+      })
+    );
+    expect(f.sourceOverlay.editor).toBe('custom');
+    expect(f.sources?.sourceOverlayEditor).toBe('option');
   });
 });

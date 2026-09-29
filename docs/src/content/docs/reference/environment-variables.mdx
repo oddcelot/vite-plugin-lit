@@ -34,6 +34,12 @@ Precedence applies to each setting on its own, not to the group it sits in. So
 `litPlugin({hmr: {reconnect: true}})` fixes `reconnect`, and
 `LIT_PLUGIN_HMR_INDICATOR_COUNT=1` still reaches the indicator.
 
+A live override from the DevTools **Settings** tab sits above all three, for
+the settings it can change. The tab labels each value with the layer it came
+from, such as `Zed (env)` or `VS Code (default)`. While an override is active
+the row reads `(overridden)` and names the value it replaced, such as
+`env: Zed`, so you can tell what a reset restores.
+
 ## How values are parsed
 
 - **Booleans** accept `true`, `1`, `false`, and `0`. Any other value counts as
@@ -42,6 +48,10 @@ Precedence applies to each setting on its own, not to the group it sits in. So
   is the only one. An unparsable value counts as unset.
 - **`LIT_PLUGIN_CSS_SHEET_BUILD`** is checked against the four allowed values.
   Anything else logs a warning and falls back to the default.
+- **`LIT_PLUGIN_SOURCE_OVERLAY_EDITOR`** must name a built-in editor:
+  `vscode`, `cursor`, `zed`, `idea` or `windsurf`. Anything else logs a warning
+  and falls back to the default. A custom editor object can only be passed as
+  the `sourceOverlay.editor` option.
 
 ## Options with no environment variable
 
