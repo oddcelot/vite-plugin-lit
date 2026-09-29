@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+# A new push to a pull request makes its older run moot, so stop that one.
+# Every push to main gets a group of its own: sharing one would let GitHub
+# drop a queued main run even without cancel-in-progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -37,15 +44,22 @@ jobs:
         run: |
           set -o pipefail
           node scripts/jsr-deps.mjs
-          pnpm dlx jsr@0.14.3 publish --dry-run --allow-dirty --set-version "$(node -p "require('./package.json').version")" 2>&1 | tee jsr.log
+          pnpm exec jsr publish --dry-run --allow-dirty --set-version "$(node -p "require('./package.json').version")" 2>&1 | tee jsr.log
           if grep -q 'Ignoring failed to resolve' jsr.log; then
             echo "::error::JSR could not map an import through package.json"
             exit 1
           fi
 
+  # The e2e files run one at a time within a runner (each owns a dev server
+  # and a browser), so spreading them over runners is what shortens the job.
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    name: e2e (${{ matrix.shard }}/3)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -56,4 +70,4 @@ jobs:
           node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run test:e2e
+      - run: pnpm run test:e2e --shard=${{ matrix.shard }}/3

@@ -1,6 +1,6 @@
 // Rewrites package.json so `jsr publish` can resolve this package's imports:
 //
-//   node scripts/jsr-deps.mjs && pnpm dlx jsr publish --allow-dirty
+//   node scripts/jsr-deps.mjs && pnpm exec jsr publish --allow-dirty
 //
 // JSR turns each bare import into `npm:<name>@<range>`, taking the range
 // from `dependencies` or `devDependencies` only. Peer dependencies aren't
