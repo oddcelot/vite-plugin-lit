@@ -58,7 +58,8 @@ const describe = (span: TimelineSpan): string => {
  * The same {@link TimelineSpan}s as the list, and the same selection: a click
  * on a mark emits `span-select`, and `timeline-view` passes the key back to
  * both presentations. `spans` arrive already narrowed by the view's element
- * and regex filters. `visibleTracks` is a panel-local view filter, not the
+ * and regex filters; `selectedSpan` does not, so the detail outlives a filter
+ * that hides the selected mark. `visibleTracks` is a panel-local view filter, not the
  * capture toggle.
  *
  * Wheel zooms around the cursor, drag pans, double-click fits the whole
@@ -201,6 +202,11 @@ export class TimelineTracks extends LitElement {
   @property({type: Array}) spans: TimelineSpan[] = [];
   @property({type: Array}) layers: LayerState[] = [];
   @property({attribute: false}) selectedKey: string | null = null;
+  /**
+   * The selected span, resolved by the view against the unfiltered spans so
+   * a filter that hides its mark does not close its detail pane.
+   */
+  @property({attribute: false}) selectedSpan: TimelineSpan | undefined;
   /** Layer ids to draw a lane for, in no particular order. */
   @property({type: Array}) visibleTracks: string[] = [];
   /** Follow the live edge while this is set and the user has not panned away. */
@@ -356,10 +362,7 @@ export class TimelineTracks extends LitElement {
   }
 
   override render() {
-    const selected =
-      this.selectedKey === null
-        ? undefined
-        : this.spans.find((s) => s.key === this.selectedKey);
+    const selected = this.selectedSpan;
     const detail = selected
       ? html`<timeline-span-detail
           filterable

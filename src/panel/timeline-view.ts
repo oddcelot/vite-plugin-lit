@@ -643,6 +643,11 @@ export class TimelineView extends LitElement {
         .layers=${this._layers}
         .visibleTracks=${this._visibleTracks}
         .selectedKey=${this._selectedKey}
+        .selectedSpan=${
+          this._selectedKey === null
+            ? undefined
+            : this._spans.find((s) => s.key === this._selectedKey)
+        }
         ?recording=${this._recording}
         @span-select=${this._onSpanSelect}
         @element-filter=${this._onElementFilter}
