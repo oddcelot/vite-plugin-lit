@@ -69,7 +69,7 @@
     "devframe": "^1.1.0",
     "es-module-lexer": "^3.0.2",
     "launch-editor": "^2.14.1",
-    "magic-string": "^1.4.1"
+    "magic-string": "^1.4.2"
   },
   "peerDependencies": {
     "@devframes/agentic": "^1.0.0",
@@ -100,10 +100,10 @@
     "@lit-labs/virtualizer": "^2.1.1",
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
-    "@types/node": "^26.6.1",
+    "@types/node": "^26.6.3",
     "@vitejs/devtools-kit": "0.7.6",
     "cac": "7.0.0",
-    "git-cliff": "^2.13.1",
+    "git-cliff": "^2.14.2",
     "lightningcss": "^1.33.0",
     "lit": "^3.3.3",
     "playwright-core": "^1.63.0",
