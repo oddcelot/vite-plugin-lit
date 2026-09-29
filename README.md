@@ -7,6 +7,12 @@ https://github.com/user-attachments/assets/bacc7649-746a-4ecf-a017-0370b5af23ca
 
 **[Documentation →](https://oddcelot.github.io/vite-plugin-lit/)**
 
+Try it in the browser on StackBlitz: the
+**[playground](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?file=src/hmr-counter.ts)** (click the counter, edit
+`src/hmr-counter.ts`, and the count stays), or the same page in
+**[standalone mode](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?file=package.json&startScript=standalone)**
+with the DevTools panel on its own port.
+
 Based on `@lit-labs/vite-plugin-lit` (formerly `@lit-labs/vite-hmr`) from the
 [lit monorepo](https://github.com/lit/lit), which is kept checked out as a
 read-only [submodule](./lit) here for reference and opt-in canary testing
@@ -160,9 +166,9 @@ pnpm dev   # builds the plugin, then serves http://localhost:5179
 
 The same playground runs in standalone mode, built to static files and fed to
 a `lit-devtools dev` panel on another port: `pnpm run standalone:demo` here, or
-[on StackBlitz](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?startScript=standalone)
+[on StackBlitz](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?file=package.json&startScript=standalone)
 with `?startScript=standalone`. StackBlitz installs the published plugin, so
-that link works from the first release that ships standalone mode.
+both links run the latest release of the plugin against the playground on `main`.
 
 ## Development
 
