@@ -697,6 +697,18 @@ export function createLitDevframe(
             // loading in contexts with no filesystem, and the build adapter
             // it pulls in reaches straight for `node:fs`.
             const {buildSnapshot} = await import('../snapshot.js');
+            // `outDir` comes from the client and the build deletes it before
+            // writing, so it has to land strictly beneath the working
+            // directory -- never the directory itself, and never elsewhere
+            // on disk.
+            const {resolve, sep} = await import('node:path');
+            const cwd = process.cwd();
+            const outDir = resolve(cwd, args.outDir ?? 'lit-devtools-snapshot');
+            if (!outDir.startsWith(cwd + sep)) {
+              throw new Error(
+                `[lit-devtools] export-snapshot: outDir must be inside ${cwd}`
+              );
+            }
             return buildSnapshot(
               {
                 capturedAt: new Date().toISOString(),
@@ -708,7 +720,7 @@ export function createLitDevframe(
                 hmrIncompatibilities: [...hmrIncompatibilities],
               },
               {
-                outDir: args.outDir ?? 'lit-devtools-snapshot',
+                outDir,
                 features: features ? features() : null,
                 clientAssets: options.clientAssets,
               }

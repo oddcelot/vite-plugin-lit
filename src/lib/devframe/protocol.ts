@@ -119,8 +119,10 @@ export const RPC_EXPORT_SNAPSHOT = 'export-snapshot';
 /** Arguments for {@link RPC_EXPORT_SNAPSHOT}. */
 export interface ExportSnapshotArgs {
   /**
-   * Where to write. Relative paths resolve against the dev server's cwd.
-   * Defaults to `lit-devtools-snapshot`.
+   * Where to write. Relative paths resolve against the dev server's cwd,
+   * and the result has to stay beneath it. Defaults to
+   * `lit-devtools-snapshot`. An existing directory is only replaced when it
+   * holds an earlier snapshot.
    */
   outDir?: string;
 }
