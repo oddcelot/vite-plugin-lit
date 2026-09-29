@@ -86,8 +86,8 @@ export default defineConfig({
       // point, and the ambient types resolve only once the plugin is
       // installed from npm. Verified by hand per examples/tutorial/README.md.
       '/examples/',
-      // Generated from the root CHANGELOG.md on every docs build.
-      'docs/src/content/docs/reference/changelog.md',
+      // Copied from the root CHANGELOG.md on every docs build.
+      'docs/.generated/',
     ],
   },
   fmt: {
@@ -108,7 +108,7 @@ export default defineConfig({
       'bench/results/',
       'docs/dist/',
       'docs/.astro/',
-      'docs/src/content/docs/reference/changelog.md',
+      'docs/.generated/',
     ],
   },
 });

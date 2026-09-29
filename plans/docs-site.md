@@ -49,10 +49,16 @@ file. Voice and page structure rules are in `docs/STYLE.md`.
   third-party plugin, and a Lit wordmark would imply it is Lit. The
   design-system fonts (Manrope, Roboto Mono) are pulled from Fontsource at build
   time and self-hosted, so nothing loads from a CDN at runtime.
-- **The changelog page is synced from `CHANGELOG.md`** by
-  `docs/scripts/sync-changelog.mjs`, which runs before dev and build. CI and the
-  release workflow run `docs run sync` and `astro sync` before `vp check`,
-  because the check type-checks generated, gitignored files.
+- **The changelog is rendered by `starlight-changelogs`** from the root
+  `CHANGELOG.md`: a version list at `/reference/changelog/` and a page per
+  release. Its Keep a Changelog provider reads a date only from
+  `## X.Y.Z - YYYY-MM-DD`, and our headings use an em dash that
+  `scripts/release-notes.mjs` matches on, so `docs/scripts/sync-changelog.mjs`
+  writes a copy with the dash swapped (`docs/.generated/`, gitignored) before
+  dev and build. The pages sit outside the docs collection, so the links
+  validator excludes them and they are not in llms.txt. CI and the release
+  workflow run `docs run sync` and `astro sync` before `vp check`, because the
+  check type-checks generated, gitignored files.
 - **No embedded live demos, no i18n, no versioned docs.** The playground is
   StackBlitz-ready and is linked instead of iframed, which would fight the
   `base` path and CSP. There is one `en` locale, so URLs stay unprefixed. The
