@@ -22,6 +22,10 @@ catalog:
   vite-plus: 0.3.2
 overrides:
   vite@*: 'catalog:'
+  # satori pins 0.7.3, inside GHSA-px8p-9vwx-vf98 (an infinite loop in
+  # `unzipSync`). It only calls `inflateSync`, so this is for a clean audit,
+  # and a patch release can't break it. Drop it once satori moves on.
+  fflate@<0.7.5: ^0.7.5
 peerDependencyRules:
   allowAny:
     - vite
