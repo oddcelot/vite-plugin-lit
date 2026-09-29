@@ -202,7 +202,7 @@ export function createLitDevframe(
       // Bounded history for the `recent-events` agent query and the panel's
       // `timeline-history` seed. A plain array, not devframe's internal
       // per-stream replay buffer, which devframe marks `@internal` (see
-      // plans/roadmap/02-agent-timeline-access.md).
+      // plans/devtools-features.md).
       const recentEvents: TimelineEvent[] = replay ? [...replay.events] : [];
 
       // Event ids: `${epoch}-${seq}`. The epoch is the session start, so a

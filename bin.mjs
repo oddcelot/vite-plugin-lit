@@ -21,7 +21,7 @@
  * and only on the path that needs them, so installing this package without
  * them stays supported.
  *
- * @see plans/roadmap/03-cli-and-stdio-mcp.md
+ * @see plans/devtools-features.md (CLI and stdio MCP)
  */
 
 import {readFile} from 'node:fs/promises';
@@ -193,7 +193,7 @@ const main = async () => {
       // dev server's memory -- a fresh CLI process has no page, no timeline
       // and no component tree, so anything it could build would be an empty
       // shell. The export therefore runs inside the dev server that holds
-      // the data; see plans/roadmap/08-static-snapshot.md.
+      // the data; see plans/devtools-features.md.
       console.error(
         `[lit-devtools] A static snapshot is exported from a running ` +
           `session, not from this CLI.\n` +
