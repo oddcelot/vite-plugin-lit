@@ -63,13 +63,13 @@
     "build:panel": "vp build src/panel"
   },
   "dependencies": {
-    "devframe": "1.0.0",
+    "devframe": "^1.1.0",
     "es-module-lexer": "^3.0.2",
     "launch-editor": "^2.14.1",
     "magic-string": "^1.4.1"
   },
   "peerDependencies": {
-    "@devframes/agentic": "1.0.0",
+    "@devframes/agentic": "^1.0.0",
     "@vitejs/devtools-kit": "^0.7.5",
     "cac": "^7.0.0",
     "lightningcss": "^1.30.0",
@@ -91,14 +91,14 @@
     }
   },
   "devDependencies": {
-    "@devframes/agentic": "1.0.0",
-    "@devframes/service-open": "1.0.0",
+    "@devframes/agentic": "1.1.0",
+    "@devframes/service-open": "1.1.0",
     "@lit-labs/signals": "^0.3.0",
     "@lit-labs/virtualizer": "^2.1.1",
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
     "@types/node": "^26.6.1",
-    "@vitejs/devtools-kit": "0.7.5",
+    "@vitejs/devtools-kit": "0.7.6",
     "cac": "7.0.0",
     "git-cliff": "^2.13.1",
     "lightningcss": "^1.33.0",
