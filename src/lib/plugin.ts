@@ -311,6 +311,14 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       createLitDevframePlugin({
         version: PACKAGE_VERSION,
         features: () => toFeatureSettings(resolved),
+        // Only a named editor counts: `toFeatureSettings` reports `vscode`
+        // for "never chose", which must not turn into a forced `code`.
+        configuredEditor: () => {
+          const so = resolved.sourceOverlay;
+          return so !== false && typeof so.editor === 'string'
+            ? so.editor
+            : undefined;
+        },
       })
     );
   }

@@ -61,13 +61,16 @@ class FakeSource implements TimelineSource {
 
 let instance: DevframeInstance | undefined;
 
-const boot = async (options: {sourceRoot?: string} = {}) => {
+const boot = async (
+  options: {sourceRoot?: string; configuredEditor?: string} = {}
+) => {
   const source = new FakeSource();
   const def = createLitDevframe({
     source,
     version: '9.9.9',
     features: () => null,
     sourceRoot: () => options.sourceRoot,
+    configuredEditor: () => options.configuredEditor,
   });
   instance = initDevframe(def, {
     base: '/__lit/',
@@ -168,6 +171,51 @@ describe('lit devframe definition', () => {
     // which has to survive untouched.
     await ctx.rpc.invokeLocal('lit:open-source', {file: '/pkg/lib/x.ts'});
     expect(opened[1]?.path).toBe('/pkg/lib/x.ts');
+  });
+
+  test('open-source passes the chosen editor to the open service', async () => {
+    // The Settings tab's editor pick used to steer only the overlay's URL
+    // scheme; the server-side open handed `launch-editor` no editor and let
+    // it auto-detect. Config picks the editor, the panel's stored override
+    // beats it, and a developer who never chose keeps auto-detection.
+    const {ctx} = await boot({
+      sourceRoot: '/workspace/app',
+      configuredEditor: 'cursor',
+    });
+    const editors: Array<string | undefined> = [];
+    ctx.services.provide('@devframes/service-open', {
+      openInEditor: async (input) => {
+        editors.push(input.editor);
+      },
+      openInFinder: async () => {},
+    });
+    const open = () =>
+      ctx.rpc.invokeLocal('lit:open-source', {file: 'src/app.ts', line: 1});
+    const settings = ctx.scope('lit').settings.global;
+
+    await open();
+    await settings.set('override', {sourceOverlayEditor: 'vscode'});
+    await open();
+    // No launch-editor command for it: auto-detect, not a stale `vscode`.
+    await settings.set('override', {sourceOverlayEditor: 'windsurf'});
+    await open();
+    await settings.delete('override');
+    await new Promise((resolve) => setTimeout(resolve, 250));
+
+    expect(editors).toEqual(['cursor', 'code', undefined]);
+  });
+
+  test('open-source auto-detects when no editor was chosen', async () => {
+    const {ctx} = await boot({sourceRoot: '/workspace/app'});
+    let editor: string | undefined = 'unset';
+    ctx.services.provide('@devframes/service-open', {
+      openInEditor: async (input) => {
+        editor = input.editor;
+      },
+      openInFinder: async () => {},
+    });
+    await ctx.rpc.invokeLocal('lit:open-source', {file: 'src/app.ts'});
+    expect(editor).toBeUndefined();
   });
 
   test('open-source reports back when no open service is installed', async () => {

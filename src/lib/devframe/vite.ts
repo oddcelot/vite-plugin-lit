@@ -90,6 +90,8 @@ declare module 'vite' {
 export interface CreateLitDevframePluginOptions {
   version: string;
   features?: () => FeatureSettings | null;
+  /** See {@link CreateLitDevframeOptions.configuredEditor}. */
+  configuredEditor?: () => string | undefined;
   /** Override the built panel SPA directory. Defaults to `dist/client`. */
   clientAssets?: string;
 }
@@ -346,6 +348,7 @@ export function createLitDevframePlugin(
     source,
     version: options.version,
     features: options.features,
+    configuredEditor: options.configuredEditor,
     clientAssets: options.clientAssets,
     sourceRoot: () => viteRoot,
   });
