@@ -3,6 +3,76 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.5.0 — 2026-09-29
+
+The timeline gets a second view: Tracks, one lane per layer on a shared time
+axis. The Settings tab now says where each value came from and flags overrides
+the config has since moved past. Timeline events can be linked to, a reloaded
+panel keeps what was recorded, and both the panel and the in-page overlay open
+source links in the editor you picked.
+
+### Added
+
+- **Tracks view for the timeline.** A List | Tracks switch in the Timeline
+  toolbar draws the recording as one horizontal lane per layer on a shared time
+  axis, so concurrency, gaps and rhythm are visible: which layers fire
+  together, how a click lines up with the update it caused. Overlapping spans
+  stack, so an update tick reads as `performUpdate` with its phases beneath it,
+  and marks never get narrower than 2px. Wheel zooms around the pointer, drag
+  pans, double-click fits the whole recording, and a fitted view follows the
+  live edge while recording. A chip strip picks which lanes to draw; it is a
+  view filter, not the capture toggle. Both views share one selection and one
+  detail pane.
+- **Where each setting came from.** Settings rows read like "Zed (env)",
+  "VS Code (default)" or "Cursor (option)". An overridden row names the
+  baseline it replaced and has its own reset. An unknown
+  `LIT_PLUGIN_SOURCE_OVERLAY_EDITOR` value now logs a warning and falls back to
+  the default.
+- **A hint when the config moved under an override.** An override remembers
+  the value it was made against. If that config value has since changed, the
+  row says "Config changed since you overrode this: was X, now Y", with Reset
+  (let the new config apply) and Keep (hide the hint, keep the override).
+- **Links to timeline events.** Selecting a row puts `#event=<id>` in the
+  hash; opening that link selects the span and scrolls it into view, in a live
+  session or an exported snapshot. An id the buffer no longer holds opens the
+  Timeline with nothing selected.
+- **Temporal values in the inspector** preview as their kind plus ISO form,
+  e.g. `Temporal.PlainDate(2026-09-29)`, instead of an empty object. This works
+  with native Temporal and with polyfills.
+- **The standalone `lit-devtools dev` server can be fed from a live page.** A
+  page calls `connectToDevServer()` (from `@oddsquad/vite-plugin-lit/connect.js`)
+  to send its tree, inspector and timeline traffic to the server's panel over
+  devframe RPC. `lit-devtools dev --no-auth` skips the one-time code. Pages not
+  served by Vite, and cross-origin pages, are not covered yet.
+
+### Changed
+
+- **The timeline's element and regex filters apply to Tracks too**, so
+  switching views mid-investigation no longer brings back everything you
+  filtered out. A filter that hides the selected mark keeps its detail pane
+  open, as the List always did.
+
+### Fixed
+
+- **A reloaded live panel keeps the recorded events.** Reloading or first
+  opening the panel mid-session used to show "No events recorded." while the
+  dev server still held them, and a cold `#event=` link could not resolve. The
+  panel now fills itself from the server's buffer when it connects, without
+  duplicates, and events you cleared stay cleared across a reload.
+- **Source links open in the editor you chose.** The editor picked through
+  `sourceOverlay.editor`, `LIT_PLUGIN_SOURCE_OVERLAY_EDITOR` or the Settings
+  tab only shaped the overlay's URL scheme; clicks from the panel and the
+  in-page overlay let launch-editor guess, so picking Cursor could open VS
+  Code. Both now pass the chosen editor (`vscode`, `cursor`, `zed`, `idea`).
+  Windsurf, custom editors and projects that never named one still
+  auto-detect.
+- **Exported snapshots contain the whole event buffer**, not the last 50
+  events, so every row in an export can be linked to.
+- **A linked timeline row scrolls into view on a cold open** instead of
+  leaving the list pinned to its newest row.
+- **The panel has a favicon**, so opening it in its own tab no longer logs a
+  404 for `/favicon.ico`.
+
 ## 0.4.0 — 2026-09-29
 
 A maintenance release. The timeline panel stays fast with a full buffer, the
