@@ -5,10 +5,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node dev.mjs",
-    "start": "node dev.mjs",
+    "dev": "vp dev",
+    "start": "vp dev",
     "build": "vp build",
-    "standalone": "node standalone.mjs"
+    "standalone": "node standalone.mjs",
+    "stackblitz": "node stackblitz.mjs"
   },
   "dependencies": {
     "@lit-labs/signals": "^0.3.0",
@@ -30,6 +31,6 @@
   },
   "stackblitz": {
     "installDependencies": true,
-    "startCommand": "npm run dev"
+    "startCommand": "npm run stackblitz"
   }
 }
