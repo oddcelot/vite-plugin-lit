@@ -1,5 +1,10 @@
 # @oddsquad/vite-plugin-lit
 
+[![npm](https://img.shields.io/npm/v/@oddsquad/vite-plugin-lit)](https://www.npmjs.com/package/@oddsquad/vite-plugin-lit)
+[![JSR](https://jsr.io/badges/@oddsquad/vite-plugin-lit)](https://jsr.io/@oddsquad/vite-plugin-lit)
+[![JSR score](https://jsr.io/badges/@oddsquad/vite-plugin-lit/score)](https://jsr.io/@oddsquad/vite-plugin-lit/score)
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?startScript=stackblitz)
+
 A Vite plugin for Lit projects with true HMR, CSS delivery helpers for shadow
 roots, and a DevTools timeline.
 
