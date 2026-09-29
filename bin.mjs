@@ -31,8 +31,7 @@
  */
 
 import process from 'node:process';
-import {createLitDevframe} from './lib/devframe/definition.js';
-import {createNullSource} from './lib/devframe/source.js';
+import {createStandaloneLitDevframe} from './lib/devframe/rpc-source.js';
 import {PACKAGE_VERSION} from './lib/devframe/paths.js';
 
 /**
@@ -62,25 +61,30 @@ const main = async () => {
   const cli = cac('lit-devtools');
 
   cli
-    .command('dev', 'Start a standalone devframe dev server (no page attached)')
+    .command(
+      'dev',
+      'Start a standalone devframe dev server that pages connect to'
+    )
     .option('--port <port>', 'Port to listen on', {default: DEFAULT_DEV_PORT})
     .option('--host <host>', 'Host to bind to', {default: 'localhost'})
     .option('--open', 'Open the browser on start')
+    .option(
+      '--no-auth',
+      'Skip the one-time-code gate, so a page can connect without a token'
+    )
     .action(async (flags) => {
       const {createDevServer} = await import('devframe/adapters/dev');
-      // A standalone server has no Vite and no page, so the component tree
-      // is empty by construction. This command is a framework-neutrality
-      // harness for the definition, not a way to inspect a real app --
-      // for that, run your Vite dev server with DevTools enabled.
+      // A standalone server has no Vite, so it has no page of its own: the
+      // panel stays empty until a page dials in with `connectToDevServer()`
+      // (see `lib/runtime/rpc-transport.ts`), which carries the runtime's
+      // usual channels over devframe RPC. Injecting the runtime into a page
+      // that is not on a Vite dev server is not something this command does.
       await createDevServer(
-        createLitDevframe({
-          source: createNullSource(),
-          version: PACKAGE_VERSION,
-        }),
+        createStandaloneLitDevframe({version: PACKAGE_VERSION}),
         {
           host: flags.host,
           port: Number(flags.port),
-          flags: {open: Boolean(flags.open)},
+          flags: {open: Boolean(flags.open), auth: flags.auth},
         }
       );
     });

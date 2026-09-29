@@ -16,6 +16,7 @@ import {buildSpotlightClipPath} from './mask-path.js';
 import {OVERLAY_HTML} from './template.js';
 import {observeEdgeInsets} from '../edge-panel.js';
 import {subscribeOverride} from '../overrides.js';
+import {pageChannel} from '../page-channel.js';
 import {injectTokens} from '../../tokens.js';
 import {idOf} from '../timeline/identity.js';
 import {
@@ -35,7 +36,7 @@ export interface SourceOverlayInitOptions {
 
 class LitSourceOverlay extends HTMLElement {
   #active = false;
-  #hot: {send: (event: string, data: unknown) => void} | undefined;
+  #hot: typeof pageChannel | undefined;
   #options: SourceOverlayInitOptions = {};
   #editor: EditorConfig = BUILTIN_EDITORS.vscode;
   #resolver: ElementResolver = defaultResolver;
@@ -97,7 +98,8 @@ class LitSourceOverlay extends HTMLElement {
         };
       }
     ).hot;
-    this.#hot = hot;
+    if (hot !== undefined) pageChannel.useViteHot(hot);
+    this.#hot = hot === undefined ? undefined : pageChannel;
     if (hot !== undefined && this.#hotOff === undefined) {
       // Removed again in disconnectedCallback, so a re-attached overlay
       // doesn't stack duplicates and a detached one stops reacting.
@@ -105,12 +107,15 @@ class LitSourceOverlay extends HTMLElement {
         ['vite:beforeFullReload', () => this.deactivate()],
         ['vite:ws:disconnect', () => (this.#connected = false)],
         ['vite:ws:connect', () => (this.#connected = true)],
-        // Toggle from the Vite DevTools command/shortcut (handler runs server-side).
-        [INSPECT_OVERLAY_TOGGLE_CHANNEL, () => this.toggle()],
       ];
       for (const [event, cb] of handlers) hot.on(event, cb);
+      // Toggle from the Vite DevTools command/shortcut (handler runs server-side).
+      const offToggle = pageChannel.on(INSPECT_OVERLAY_TOGGLE_CHANNEL, () =>
+        this.toggle()
+      );
       this.#hotOff = () => {
         for (const [event, cb] of handlers) hot.off(event, cb);
+        offToggle();
       };
     }
     // Keep the (bottom-fixed) tooltip clear of the Vite DevTools edge panel.

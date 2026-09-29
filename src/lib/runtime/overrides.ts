@@ -7,8 +7,11 @@
 /**
  * Browser-runtime side of the panel's live setting overrides. Reads the
  * persisted override (written by the panel; same origin) and subscribes to the
- * Vite HMR channel the server rebroadcasts panel changes on.
+ * page channel the server rebroadcasts panel changes on.
  */
+
+import {pageChannel} from './page-channel.js';
+import type {ViteHotLike} from './page-channel.js';
 
 import {
   SETTINGS_OVERRIDE_CHANNEL,
@@ -16,10 +19,8 @@ import {
   type SettingsOverride,
 } from '../../types/timeline.js';
 
-/** Minimal `import.meta.hot` shape we rely on. */
-type Hot =
-  | {on: (event: string, cb: (data: unknown) => void) => void}
-  | undefined;
+/** `import.meta.hot` of the calling module, when it has one. */
+type Hot = ViteHotLike | undefined;
 
 /** Reads the persisted override; `{}` when unset or unparsable. */
 export const readOverride = (): SettingsOverride => {
@@ -34,7 +35,7 @@ export const readOverride = (): SettingsOverride => {
 
 /**
  * Applies the persisted override immediately, then again whenever the panel
- * pushes a change over the HMR channel. `apply` receives the full override
+ * pushes a change over the page channel. `apply` receives the full override
  * object each time and should act only on the fields it owns.
  */
 export const subscribeOverride = (
@@ -42,7 +43,8 @@ export const subscribeOverride = (
   apply: (override: SettingsOverride) => void
 ): void => {
   apply(readOverride());
-  hot?.on(SETTINGS_OVERRIDE_CHANNEL, (data) =>
+  if (hot !== undefined) pageChannel.useViteHot(hot);
+  pageChannel.on(SETTINGS_OVERRIDE_CHANNEL, (data) =>
     apply((data ?? {}) as SettingsOverride)
   );
 };

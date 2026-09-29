@@ -118,11 +118,22 @@ The two differ in how the server is found, not in what it can do:
   discovery at all. Reach for it if registry discovery is unavailable — the
   plugin logs a warning saying so at startup, naming the reason.
 
-The CLI also has `lit-devtools dev`, a standalone devframe server with no page
-attached. It exists to prove the panel definition runs without Vite (a
-framework-neutrality harness, and the groundwork for non-Vite adapters); it
-cannot show a real component tree, so it is not a way to inspect an app
-without a dev server.
+The CLI also has `lit-devtools dev`, a standalone devframe server. Started on
+its own it shows an empty panel, because it has no page of its own. A page
+served by a Vite dev server that loads this plugin's runtime can point itself
+at it and feed it the live component tree, inspector and timeline:
+
+```ts
+import {connectToDevServer} from '@oddsquad/vite-plugin-lit/connect.js';
+
+await connectToDevServer('http://localhost:5180/');
+```
+
+The server asks for its one-time code unless you start it with `--no-auth`. What
+this does not do yet: put the runtime into a page that is not on a Vite dev
+server, and set up the cross-origin access and authentication a page on another
+origin needs. The dev server's `__connection.json` sends no CORS headers today,
+so from a different origin the connection is blocked by the browser.
 
 ## Playground
 

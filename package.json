@@ -28,6 +28,10 @@
       "types": "./lib/runtime/css.d.ts",
       "default": "./lib/runtime/css.js"
     },
+    "./connect.js": {
+      "types": "./lib/runtime/rpc-transport.d.ts",
+      "default": "./lib/runtime/rpc-transport.js"
+    },
     "./client": {
       "types": "./client.d.ts"
     }

@@ -54,6 +54,19 @@ export interface TimelineSource {
 }
 
 /**
+ * The wire form of {@link TimelineLayersState}: the flat map of boolean toggle
+ * fields the page runtime's `lit:timeline:layers-changed` listener expects,
+ * not `{layers}`. Shared by every source so they cannot drift apart.
+ */
+export const layersWireFormat = (layers: TimelineLayersState) => ({
+  litLifecycleEnabled: layers.litLifecycleEnabled,
+  litRenderEnabled: layers.litRenderEnabled,
+  litRenderVerboseEnabled: layers.litRenderVerboseEnabled,
+  mouseEventEnabled: layers.mouseEventEnabled,
+  keyboardEventEnabled: layers.keyboardEventEnabled,
+});
+
+/**
  * No-op source used wherever no page is attached (`createDevServer()`,
  * `createBuild()`, an MCP server). `attach()` never calls the sink; every
  * other method is a no-op.

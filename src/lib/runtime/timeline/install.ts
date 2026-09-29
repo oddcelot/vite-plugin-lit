@@ -22,6 +22,8 @@ import {installRenderLayer, setRenderDebugEnabled} from './render.js';
 import {installMouseLayer, installKeyboardLayer} from './input.js';
 import {flashUpdate, setFlashEnabled, setFlashRamp} from './flash.js';
 import {subscribeOverride} from '../overrides.js';
+import {pageChannel} from '../page-channel.js';
+import type {ViteHotLike} from '../page-channel.js';
 import type {TimelineLayersState} from '../../../types/timeline.js';
 
 // ---------------------------------------------------------------------------
@@ -69,16 +71,12 @@ installKeyboardLayer(emit, recording, keyboardEnabled);
 setUpdateHook(flashUpdate);
 
 // ---------------------------------------------------------------------------
-// HMR channel wiring (Phase 0/1 transport)
+// Page channel wiring
 // ---------------------------------------------------------------------------
 
 // `import.meta.hot` exists in Vite dev builds; the tsconfig lib set doesn't
 // include it, so we access it through the un-typed global shape.
-type ViteHot = {
-  send: (event: string, data: unknown) => void;
-  on: (event: string, handler: (data: unknown) => void) => void;
-};
-const hot = (import.meta as {hot?: ViteHot}).hot;
+const hot = (import.meta as {hot?: ViteHotLike}).hot;
 
 subscribeOverride(hot, (o) => {
   setFlashEnabled(o.flashUpdates ?? false);
@@ -86,10 +84,11 @@ subscribeOverride(hot, (o) => {
 });
 
 if (hot !== undefined) {
-  setHotClient(hot);
+  pageChannel.useViteHot(hot);
+  setHotClient(pageChannel);
 
   // Panel → app: toggle recording and per-layer flags.
-  hot.on('lit:timeline:recording-changed', (data) => {
+  pageChannel.on('lit:timeline:recording-changed', (data) => {
     const next = (data as {recording: boolean}).recording;
     // Re-zero the timeline clock on the rising edge so event times read as
     // "ms since recording started" rather than since page load.
@@ -98,11 +97,15 @@ if (hot !== undefined) {
     syncRenderDebug();
   });
 
-  hot.on('lit:timeline:layers-changed', (data) => {
+  pageChannel.on('lit:timeline:layers-changed', (data) => {
     Object.assign(state, data as Partial<TimelineLayersState>);
     syncRenderDebug();
   });
 
   // Announce readiness so the panel can detect the runtime.
-  hot.send('lit:timeline:runtime-ready', {});
+  pageChannel.send('lit:timeline:runtime-ready', {});
+  // A carrier attached later starts with no idea a runtime exists.
+  pageChannel.onAttach(() =>
+    pageChannel.send('lit:timeline:runtime-ready', {})
+  );
 }
