@@ -1,0 +1,23 @@
+{
+  "name": "@oddsquad/vite-plugin-lit",
+  "license": "BSD-3-Clause",
+  "exports": {
+    ".": "./index.js",
+    "./css.js": "./lib/runtime/css.js",
+    "./connect.js": "./lib/runtime/rpc-transport.js"
+  },
+  "publish": {
+    "include": [
+      "LICENSE",
+      "README.md",
+      "CHANGELOG.md",
+      "lib/",
+      "dist/client/",
+      "dist/standalone/",
+      "types/",
+      "index.*",
+      "client.d.ts"
+    ],
+    "exclude": ["!lib/", "!dist/", "!types/", "!index.*"]
+  }
+}

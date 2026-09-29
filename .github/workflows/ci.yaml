@@ -29,6 +29,8 @@ jobs:
       - run: pnpm --filter ./docs exec astro sync
       - run: pnpm exec vp check
       - run: pnpm run test:unit
+      # Catches a jsr.json that no longer matches the build before a tag does.
+      - run: pnpm dlx jsr@0.14.3 publish --dry-run --set-version "$(node -p "require('./package.json').version")"
 
   e2e:
     runs-on: ubuntu-latest
