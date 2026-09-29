@@ -14,10 +14,10 @@ The playground with HMR and the Vite DevTools dock: click the counter, edit
 runs the same page as static files, without Vite, next to the DevTools panel
 on its own port.
 
-Based on `@lit-labs/vite-plugin-lit` (formerly `@lit-labs/vite-hmr`) from the
-[lit monorepo](https://github.com/lit/lit), which is kept checked out as a
-read-only [submodule](./lit) here for reference and opt-in canary testing
-against lit `main`.
+Started life in a fork of the [lit monorepo](https://github.com/lit/lit) as a
+proposed `@lit-labs/vite-hmr` package, and now lives here on its own. Lit is
+kept checked out as a read-only [submodule](./lit) for reference and opt-in
+canary testing against lit `main`.
 
 ## Why
 
