@@ -171,10 +171,8 @@ process's clock** — Node's `Date.now()` or `performance.now()` cannot be
 subtracted from a page-relative "ms since recording started" value to get a
 meaningful "events from the last N ms." A `sinceMs` filter must be computed
 **relative to the newest timestamp already in the buffer**, not against any
-server-side wall clock. (`src/types/timeline.ts:15`'s own doc comment —
-`` `performance.now()` timestamp in the browser`` — is slightly imprecise
-about this; it predates `clock.ts`'s recording-relative rezeroing. Worth a
-one-line fix while touching this file, out of scope to chase further here.)
+server-side wall clock. (The field's doc comment in `src/types/timeline.ts`
+now says so too.)
 
 ### `elementId` is already a stable, queryable field on lifecycle/render events
 
