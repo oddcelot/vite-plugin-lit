@@ -1,0 +1,16 @@
+# Every non-merge commit says whether it belongs in the changelog. Untrailed
+# commits are silently left out of the draft, which is how the 0.5.0 section
+# had to be reconstructed by hand. See "Commits and the changelog" in CLAUDE.md.
+f="$1"
+grep -qE '^Merge ' "$f" && exit 0
+group=$(git interpret-trailers --parse < "$f" | sed -n 's/^Changelog: *//p' | head -1 | cut -d' ' -f1)
+case "$group" in
+  Added|Changed|Fixed|Removed|skip) exit 0 ;;
+  "")
+    echo "commit-msg: add a 'Changelog: Added | Changed | Fixed | Removed | skip' trailer"
+    echo "            (fold the user-facing entry under it on indented lines)"
+    exit 1 ;;
+  *)
+    echo "commit-msg: unknown Changelog group '$group' (Added | Changed | Fixed | Removed | skip)"
+    exit 1 ;;
+esac
