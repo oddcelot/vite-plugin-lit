@@ -69,7 +69,12 @@ packages the stricter service turns down.
 
 The in-page source overlay only ever uses the fallback endpoint: it runs in the
 page, where no DevTools host and no service exist. Either path ends at
-`launch-editor`, so both land on the same file and line in the same editor.
+`launch-editor`, so both land on the same file and line.
+
+They differ in the editor. The panel passes the editor you chose (config, env or
+the Settings tab's override) to the service, mapped to the command `launch-editor`
+knows, such as `vscode` to `code`. The fallback endpoint and the overlay always
+auto-detect.
 
 ## How the docked panel talks to the page
 

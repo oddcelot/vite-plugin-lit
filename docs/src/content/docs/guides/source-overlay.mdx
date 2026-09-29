@@ -98,6 +98,14 @@ export default defineConfig({
 });
 ```
 
+The DevTools panel's source links open the file in the editor you chose, or in
+whichever one the panel's Settings tab overrides it with, for `vscode`,
+`cursor`, `zed` and `idea`. `windsurf` and custom editors have no matching
+launch command, and neither has a project that never picked one: those links
+open in the editor `launch-editor` auto-detects, set `LAUNCH_EDITOR` to steer
+it. The in-page overlay's own click still uses auto-detection as well; your
+choice only shapes its URL-scheme fallback.
+
 Opening normally goes through a dev-server middleware and falls back to the
 editor's URL scheme when the server is unreachable, as in a StackBlitz
 preview. [DevTools architecture](/vite-plugin-lit/concepts/devtools-architecture/)

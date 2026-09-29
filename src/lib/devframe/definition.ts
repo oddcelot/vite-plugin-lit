@@ -78,6 +78,7 @@ import {
   toSpans,
   toUpdateCycles,
 } from '../timeline/derive.js';
+import {resolveLaunchEditor} from './launch-editor.js';
 import {createNullSource, type TimelineSource} from './source.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
 
@@ -101,6 +102,13 @@ export interface CreateLitDevframeOptions {
    */
   sourceRoot?: () => string | undefined;
   /**
+   * The editor key the developer named in config or env
+   * (`sourceOverlay.editor`), or `undefined` when they never did. Read per
+   * call. `open-source` maps it, or the panel's override of it, to a
+   * `launch-editor` command; without either the editor is auto-detected.
+   */
+  configuredEditor?: () => string | undefined;
+  /**
    * Boot from a recorded session instead of a live one. Set only by the
    * static-snapshot build (see `lib/snapshot.ts`): the caches below start
    * populated, so the frozen panel has a timeline and a component tree to
@@ -117,7 +125,8 @@ export interface CreateLitDevframeOptions {
 export function createLitDevframe(
   options: CreateLitDevframeOptions
 ): DevframeDefinition {
-  const {source, version, features, replay, sourceRoot} = options;
+  const {source, version, features, replay, sourceRoot, configuredEditor} =
+    options;
 
   return defineDevframe({
     id: LIT_DEVFRAME_ID,
@@ -624,7 +633,12 @@ export function createLitDevframe(
               root !== undefined && !isAbsolute(args.file)
                 ? resolve(root, args.file)
                 : args.file;
-            await service.openInEditor({path, line: args.line});
+            const override = await my.settings.global.get('override');
+            await service.openInEditor({
+              path,
+              line: args.line,
+              editor: resolveLaunchEditor(configuredEditor?.(), override),
+            });
             return {opened: true};
           },
         })
