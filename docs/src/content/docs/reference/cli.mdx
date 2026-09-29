@@ -37,13 +37,13 @@ Starts a standalone devframe server, the small framework the panel is built on.
 npx lit-devtools dev --port 5180 --host localhost --open
 ```
 
-| Flag                      | Default       | Meaning                                                           |
-| ------------------------- | ------------- | ----------------------------------------------------------------- |
-| `--port <port>`           | `5180`        | Port to listen on                                                 |
-| `--host <host>`           | `localhost`   | Host to bind to                                                   |
-| `--open`                  | off           | Open the browser on start                                         |
-| `--no-auth`               | auth on       | Skip the one-time-code gate so a page can connect without a token |
-| `--allow-origin <origin>` | loopback only | Also let pages from this origin connect. Repeatable               |
+| Flag                      | Default       | Meaning                                                                  |
+| ------------------------- | ------------- | ------------------------------------------------------------------------ |
+| `--port <port>`           | `5180`        | Port to listen on                                                        |
+| `--host <host>`           | `localhost`   | Host to bind to                                                          |
+| `--open`                  | off           | Open the browser on start                                                |
+| `--no-auth`               | auth on       | Skip the one-time-code gate so a page can connect without a token        |
+| `--allow-origin <origin>` | loopback only | Also let pages from this origin (`*` in the host ok) connect. Repeatable |
 
 The default port is deliberately not the playground's 5179, so both can run
 against one checkout.
@@ -71,7 +71,11 @@ DevTools.
   appended to its URL. The trusted token is remembered per page origin.
 - **Origins.** Pages on a loopback origin (any port) may connect. For any other
   origin, start the server with `--allow-origin https://myapp.test:8443`; repeat
-  the flag for more than one.
+  the flag for more than one. A `*` in the host stands for any subdomain, for
+  origins only known once they are up: `--allow-origin
+'https://*.webcontainer-api.io'` admits every port of a StackBlitz project.
+  Scheme and port still have to match, and the wildcard needs at least two
+  literal labels after it (`https://*.com` is refused).
 - **Limits.** Outside Vite there are no build-time transforms, so HMR patching,
   source locations and open-in-editor are unavailable. The tree, inspector and
   timeline work.

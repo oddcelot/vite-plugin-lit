@@ -34,6 +34,7 @@ import {readFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import process from 'node:process';
 import {pathToFileURL} from 'node:url';
+import {resolveAllowedOrigins} from './lib/devframe/allowed-origins.js';
 import {createStandaloneLitDevframe} from './lib/devframe/rpc-source.js';
 import {PACKAGE_VERSION} from './lib/devframe/paths.js';
 
@@ -87,7 +88,8 @@ const main = async () => {
     .option(
       '--allow-origin <origin>',
       'Also let pages served from this origin connect, e.g. ' +
-        'https://myapp.test:8443. Loopback origins on any port are always ' +
+        'https://myapp.test:8443, or https://*.webcontainer-api.io for any ' +
+        'host under a domain. Loopback origins on any port are always ' +
         'allowed. Repeatable.'
     )
     .option(
@@ -115,10 +117,18 @@ const main = async () => {
       // `connectToDevServer()` (see `lib/runtime/rpc-transport.ts`). HMR
       // patching and source metadata need Vite's transforms and are not part
       // of it.
-      const allowedOrigins = [flags.allowOrigin]
-        .flat()
-        .filter((origin) => origin != null)
-        .map(String);
+      let allowedOrigins;
+      try {
+        allowedOrigins = resolveAllowedOrigins(
+          [flags.allowOrigin]
+            .flat()
+            .filter((origin) => origin != null)
+            .map(String)
+        );
+      } catch (error) {
+        console.error(`[lit-devtools] ${error.message}`);
+        process.exit(1);
+      }
       let server;
       const serveScript = async () => {
         const headers = {
@@ -170,7 +180,7 @@ const main = async () => {
           port: Number(flags.port),
           flags: {open: Boolean(flags.open), auth: flags.auth},
           app,
-          ...(allowedOrigins.length > 0 ? {allowedOrigins} : {}),
+          ...(allowedOrigins !== undefined ? {allowedOrigins} : {}),
           onReady({origin}) {
             console.log(
               `\n[lit-devtools] Add this to a page to connect it:\n\n` +

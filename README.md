@@ -135,7 +135,9 @@ one-time code unless you start it with `--no-auth`: type the code into the
 prompt the page shows, open the page once with `#devframe_otp=<code>` on its
 URL, or skip the gate on a loopback host with `--no-auth`. Pages on a loopback
 origin (any port) may connect; for any other origin, pass it to the server with
-`--allow-origin https://myapp.test:8443` (repeatable).
+`--allow-origin https://myapp.test:8443` (repeatable). A `*` in the host
+matches any subdomain, e.g. `--allow-origin 'https://*.webcontainer-api.io'`
+for StackBlitz, where every port gets its own origin.
 
 Outside Vite the page has no build-time transforms, so HMR patching, source
 locations and open-in-editor do not work there; the tree, inspector and timeline
