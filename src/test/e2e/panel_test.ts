@@ -159,3 +159,20 @@ test('the regex filter narrows the tracks as well as the list', async () => {
   await expect.poll(() => marks.count()).toBeGreaterThan(0);
   expect(panel.errors).toEqual([]);
 });
+
+test('a filter that hides the selected mark keeps its detail in Tracks', async () => {
+  const {page} = panel;
+  await fixture.page.locator('hmr-counter #increment').click();
+  await page.getByText('Tracks', {exact: true}).first().click();
+  const marks = page.locator('timeline-tracks .mark');
+  await expect.poll(() => marks.count()).toBeGreaterThan(0);
+
+  const detail = page.locator('timeline-tracks timeline-span-detail');
+  await marks.first().click();
+  await detail.waitFor();
+
+  await page.locator('timeline-view input.regex').fill('^no-such-span$');
+  await expect.poll(() => marks.count()).toBe(0);
+  expect(await detail.count()).toBe(1);
+  expect(panel.errors).toEqual([]);
+});
