@@ -1,17 +1,25 @@
 # Draft generator for CHANGELOG.md.
 #
 # The committed changelog is hand-written prose — no generator produces the
-# "why this matters" paragraphs, and those are the point. This config only
-# answers the tedious half: what landed since the last tag, and under which
-# heading. Generate a draft (`pnpm run changelog`), then edit it into the file.
+# release intro paragraph, and that is the point. This config answers the
+# tedious half: what landed since the last tag, under which heading, and with
+# which entry. Generate a draft (`pnpm run changelog`), then edit it into the
+# file.
 #
 # Subjects here are plain sentences, not `feat:`/`fix:` prefixes, so the
-# grouping signal is a trailer in the commit body instead:
+# grouping signal is a trailer in the commit body instead. The trailer can
+# carry the user-facing entry, folded under it with indented continuation
+# lines (standard git trailer folding):
 #
-#     Changelog: Added        (or Changed | Fixed | Removed)
+#     Changelog: Fixed
+#       **Source links open in the editor you chose.** Clicks from the
+#       overlay now pass the editor picked in Settings.
+#
 #     Changelog: skip         (plan-status bumps, tooling churn, merges)
 #
-# See the commit conventions in CLAUDE.md.
+# A trailer without an entry still works: the draft falls back to the subject
+# and body and marks the entry as needing a rewrite. See the commit
+# conventions in CLAUDE.md and the /changelog skill.
 
 [changelog]
 header = ""
@@ -19,35 +27,46 @@ body = """
 ## {{ version | default(value="Unreleased") | trim_start_matches(pat="v") }} — {% if timestamp %}{{ timestamp | date(format="%Y-%m-%d") }}{% else %}{{ now() | date(format="%Y-%m-%d") }}{% endif %}
 {% for group, commits in commits | group_by(attribute="group") %}
 ### {{ group }}
-{%- for commit in commits %}
-
-- **{{ commit.message | split(pat="
-") | first }}**
-{%- for line in commit.message | split(pat="
-") | slice(start=1) %}
+{% for commit in commits %}
+{%- set lines = commit.message | split(pat="\n") %}
+{%- set head = lines | first %}
+{%- if head is starting_with("Changelog-Entry") %}
+- {{ lines | slice(start=1) | join(sep=" ") | trim }}
+{%- else %}
+- **{{ head }}** <!-- no entry under the trailer; drafted from the body -->
+{%- for line in lines | slice(start=1) %}
 {%- if not line is starting_with("Changelog:") and not line is starting_with("Co-Authored-By:") %}
 {{ "  " ~ line | trim_end }}
 {%- endif %}
 {%- endfor %}
-{%- endfor %}
-{% endfor %}"""
+{%- endif %}
+{% endfor %}
+{%- endfor %}"""
 trim = true
 
 [git]
 # Subjects are prose; nothing to parse as a conventional type.
 conventional_commits = false
 filter_unconventional = false
-# Only commits that opted in with a trailer reach the draft. An untagged
-# commit is a commit whose author decided it wasn't changelog-worthy.
+# Only commits that opted in with a trailer reach the draft. The commit-msg
+# hook makes sure every non-merge commit opted in one way or the other.
 filter_commits = true
 tag_pattern = "v[0-9]*"
+commit_preprocessors = [
+  # A folded trailer: keep only the group and its entry lines, so the template
+  # can tell an authored entry from a body it has to fall back on.
+  #   "Subject\n\nbody\n\nChangelog: Fixed\n  **Entry.** text"
+  #   -> "Changelog-Entry: Fixed\n**Entry.** text"
+  { pattern = '(?s)^.*?\n\nChangelog: ?(\w+)\n((?:[ \t]+[^\n]*\n?)+).*$', replace = "Changelog-Entry: ${1}\n${2}" },
+  { pattern = '(?m)^[ \t]+', replace = "" },
+]
 # Features land as `--no-ff` merges; the merge itself carries no prose.
 commit_parsers = [
   # `body` matchers need conventional parsing to populate them; with prose
   # subjects the whole message (trailers included) lands in `message`.
-  { message = "(?ms)^Changelog: ?skip", skip = true },
-  { message = "(?ms)^Changelog: ?Added", group = "Added" },
-  { message = "(?ms)^Changelog: ?Changed", group = "Changed" },
-  { message = "(?ms)^Changelog: ?Fixed", group = "Fixed" },
-  { message = "(?ms)^Changelog: ?Removed", group = "Removed" },
+  { message = "(?ms)^Changelog(-Entry)?: ?skip", skip = true },
+  { message = "(?ms)^Changelog(-Entry)?: ?Added", group = "Added" },
+  { message = "(?ms)^Changelog(-Entry)?: ?Changed", group = "Changed" },
+  { message = "(?ms)^Changelog(-Entry)?: ?Fixed", group = "Fixed" },
+  { message = "(?ms)^Changelog(-Entry)?: ?Removed", group = "Removed" },
 ]
