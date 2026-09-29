@@ -16,3 +16,8 @@ docs/.astro/
 node_modules/
 docs/src/content/docs/reference/changelog.md
 /lit-devtools-snapshot/
+
+# Local env files (the playground's own .gitignore covers its directory)
+.env
+.env.*
+!.env.example
