@@ -18,19 +18,47 @@ export const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 export const CANARY_ENABLED = process.env['LIT_CANARY'] === '1';
 
-// Bare specifier -> package directory inside the lit submodule. The lit
-// family is aliased as a unit: `lit` re-exports from `lit-html`,
-// `lit-element`, and `@lit/reactive-element`, so aliasing `lit` alone would
-// mix lit `main` with the published copies of its parts.
+// Bare specifier -> package directory inside the lit submodule, plus the
+// bare entry file. The lit family is aliased as a unit: `lit` re-exports from
+// `lit-html`, `lit-element`, and `@lit/reactive-element`, so aliasing `lit`
+// alone would mix lit `main` with the published copies of its parts.
+//
+// Every package but the virtualizer ships a `development/` build (the one
+// with DEV_MODE on: `lit-debug` events, dev warnings) next to its production
+// build at the package root, selected by the `development` export condition.
+// An alias to a bare directory or a raw file path bypasses `exports`, so it
+// lands on the production build and the dev-only behaviour the plugin relies
+// on silently vanishes. `dev: true` entries are therefore pointed at
+// `development/` explicitly.
 const CANARY_PACKAGES = [
-  {id: 'lit', dir: 'packages/lit'},
-  {id: 'lit-html', dir: 'packages/lit-html'},
-  {id: 'lit-element', dir: 'packages/lit-element'},
-  {id: '@lit/reactive-element', dir: 'packages/reactive-element'},
-  {id: '@lit/context', dir: 'packages/context'},
-  {id: '@lit/task', dir: 'packages/task'},
-  {id: '@lit-labs/signals', dir: 'packages/labs/signals'},
-  {id: '@lit-labs/virtualizer', dir: 'packages/labs/virtualizer'},
+  {id: 'lit', dir: 'packages/lit', entry: 'index.js', dev: true},
+  {id: 'lit-html', dir: 'packages/lit-html', entry: 'lit-html.js', dev: true},
+  {
+    id: 'lit-element',
+    dir: 'packages/lit-element',
+    entry: 'index.js',
+    dev: true,
+  },
+  {
+    id: '@lit/reactive-element',
+    dir: 'packages/reactive-element',
+    entry: 'reactive-element.js',
+    dev: true,
+  },
+  {id: '@lit/context', dir: 'packages/context', entry: 'index.js', dev: true},
+  {id: '@lit/task', dir: 'packages/task', entry: 'index.js', dev: true},
+  {
+    id: '@lit-labs/signals',
+    dir: 'packages/labs/signals',
+    entry: 'index.js',
+    dev: true,
+  },
+  {
+    id: '@lit-labs/virtualizer',
+    dir: 'packages/labs/virtualizer',
+    entry: 'lit-virtualizer.js',
+    dev: false,
+  },
 ] as const;
 
 const LIT_DIR = path.join(REPO_ROOT, 'lit');
@@ -56,12 +84,17 @@ export const canarySettings = (): CanarySettings => {
   }
   return {
     resolve: {
-      alias: CANARY_PACKAGES.map(({id, dir}) => ({
-        find: new RegExp(
-          `^${id.replace(/[\\^$.*+?()[\]{}|]/g, String.raw`\$&`)}(/.*)?$`
-        ),
-        replacement: path.join(LIT_DIR, dir) + '$1',
-      })),
+      alias: CANARY_PACKAGES.flatMap(({id, dir, entry, dev}) => {
+        const root = path.join(LIT_DIR, dir, dev ? 'development' : '');
+        const escaped = id.replace(/[\\^$.*+?()[\]{}|]/g, String.raw`\$&`);
+        return [
+          {
+            find: new RegExp(`^${escaped}$`),
+            replacement: path.join(root, entry),
+          },
+          {find: new RegExp(`^${escaped}/(.*)$`), replacement: `${root}/$1`},
+        ];
+      }),
     },
     // Without this the dep optimizer pre-bundles a second copy of each
     // package from node_modules alongside the aliased one — two module
