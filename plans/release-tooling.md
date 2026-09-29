@@ -5,7 +5,7 @@ Releases are hand-driven and tag-triggered. Work merges to `main` with
 section, and gets a `v<version>` tag. `git push origin main --follow-tags` is
 the release: `.github/workflows/release.yaml` runs the gate, publishes to npm,
 and creates the GitHub Release. Commit and branch conventions are in
-`CLAUDE.md`.
+`AGENTS.md`.
 
 ## Changelog
 
