@@ -142,6 +142,12 @@ locations and open-in-editor do not work there; the tree, inspector and timeline
 do. A page that Vite serves can instead call `connectToDevServer()` from
 `@oddsquad/vite-plugin-lit/connect.js`.
 
+To try it from this repo, `pnpm run standalone:demo` builds the playground to
+static files, serves them without Vite on port 5181 with the script tag added,
+and starts `lit-devtools dev` on 5180. Open both printed URLs side by side.
+`DEMO_AUTH=1` keeps the one-time-code gate; `DEMO_APP_PORT` and `DEMO_DEV_PORT`
+move the ports.
+
 ## Playground
 
 A manually inspectable fixture app (also the source for the e2e fixtures), and
