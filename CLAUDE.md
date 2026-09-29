@@ -29,20 +29,26 @@ release. Add a tool name to select part of the graph. For example, run
 ## Commits and the changelog
 
 Subjects are plain sentences in the imperative — `Flash updated elements on the
-page`, not `feat: flash updates`. The body explains why the change exists; that
-prose is what the changelog is built from, so write it for a reader who wasn't
-here.
+page`, not `feat: flash updates`. The body explains why the change exists, for a
+reader of the git history who wasn't here; the changelog entry is separate,
+below.
 
-A commit that should show up in `CHANGELOG.md` carries a trailer, next to
-`Co-Authored-By`:
+Every non-merge commit carries a `Changelog:` trailer next to `Co-Authored-By`;
+the commit-msg hook refuses one without it. A commit that should show up in
+`CHANGELOG.md` folds its user-facing entry under the trailer, on lines indented
+by two spaces:
 
 ```
-Changelog: Added        # or Changed | Fixed | Removed
-Changelog: skip         # plan-status bumps, tooling churn, refactors
+Changelog: Fixed        # or Added | Changed | Removed
+  **Source links open in the editor you chose.** Clicks from the panel and
+  the in-page overlay now pass the editor picked in config, env or Settings.
+Changelog: skip         # tests, docs, tooling, refactors, plan-status bumps
 ```
 
-Untrailed commits are left out of the draft entirely, so the trailer is how you
-opt in.
+The entry is one bullet from the user's side: a bold outcome, then the symptom
+that is gone or the thing now possible. `/changelog entry` drafts it from the
+staged diff. A trailer with nothing folded under it still lands in the draft,
+with the body as a placeholder to rewrite.
 
 Work lands on a branch named for its kind (`feature/`, `fix/`, `docs/`,
 `roadmap/NN-slug`, `advisor/NNN-slug`) and merges with `--no-ff`. Release
@@ -52,16 +58,18 @@ the release: `.github/workflows/release.yaml` runs the gate, publishes to npm
 over trusted publishing, and creates the GitHub Release from the changelog
 section. Don't `pnpm publish` by hand.
 
-At release time, draft the section from the commits since the last tag:
+At release time, `/changelog release v0.6.0` assembles the section: it runs
+the draft, rewrites any entry that fell back to a commit body, writes the
+intro paragraph, inserts the section into `CHANGELOG.md` and bumps
+`package.json`, then stops for review. The draft alone is
 
 ```sh
 pnpm run changelog                    # heading reads "Unreleased"
 pnpm run changelog --tag v0.4.0       # heading reads "0.4.0" (no `--`)
 ```
 
-That prints to stdout and writes nothing. It groups by the trailers and hands
-back each commit's body; edit it into prose and paste it into `CHANGELOG.md` —
-the file is hand-written on purpose, and `cliff.toml` explains why.
+which prints to stdout and writes nothing. The file is hand-written on
+purpose, and `cliff.toml` explains why.
 
 ## Working through beads
 
