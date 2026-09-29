@@ -152,12 +152,7 @@ export const startFixture = async (
       const errors: string[] = [];
       panel.on('pageerror', (error) => errors.push(error.message));
       panel.on('console', (msg) => {
-        // Opened as a top-level page (the dock embeds it in an iframe), the
-        // browser asks for a favicon the panel doesn't ship. Not the panel's.
-        if (
-          msg.type() !== 'error' ||
-          msg.location().url.endsWith('/favicon.ico')
-        ) {
+        if (msg.type() !== 'error') {
           return;
         }
         errors.push(`${msg.text()} @ ${msg.location().url}`);

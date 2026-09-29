@@ -3,6 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Inline so a top-level visit never asks for /favicon.ico (the dock embeds
+      the panel in an iframe, which never does). The Lit flame, as in
+      docs/src/assets/lit-flame.svg.
+    -->
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 200'><path fill='%2300e8ff' d='M40 120l20-60l90 90l-30 50l-40-40h-20'/><path fill='%23283198' d='M80 160v-80l40-40v80M0 160l40 40l20-40l-20-40h-20'/><path fill='%23324fff' d='M40 120v-80l40-40v80M120 200v-80l40-40v80M0 160v-80l40 40'/><path fill='%2300ffff' d='M40 200v-80l40 40'/></svg>"
+    />
     <title>Lit DevTools</title>
     <style>
       * {
