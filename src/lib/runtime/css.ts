@@ -1,3 +1,4 @@
+/* @ts-self-types="./css.d.ts" */
 /**
  * Browser helpers for referencing CSS files from shadow roots via Vite's
  * `?url` imports.

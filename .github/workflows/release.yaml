@@ -1,12 +1,13 @@
 name: Release
 
 # `git push origin main --follow-tags` is the whole release: a `v*` tag runs
-# the same gate as CI, publishes to npm, then creates the GitHub Release from
-# that version's CHANGELOG.md section.
+# the same gate as CI, publishes to npm, then mirrors the package to JSR and
+# creates the GitHub Release from that version's CHANGELOG.md section.
 #
-# Publishing authenticates with npm trusted publishing (OIDC), so there is no
-# npm token to expire. It needs a one-time trusted publisher entry on npmjs.com
-# for this repository and `release.yaml`.
+# Publishing authenticates over OIDC on both registries, so there is no token
+# to expire. npm needs a one-time trusted publisher entry on npmjs.com for this
+# repository and `release.yaml`; JSR needs this repository linked in the
+# package settings on jsr.io/@oddsquad/vite-plugin-lit.
 
 on:
   push:
@@ -58,6 +59,29 @@ jobs:
             *-*) npm publish package.tgz --access public --tag next ;;
             *) npm publish package.tgz --access public ;;
           esac
+
+  # A separate job, so a JSR failure can be rerun on its own: rerunning
+  # `publish` would fail on the npm version that already exists. JSR has no
+  # dist-tags, so a prerelease version simply never becomes "latest".
+  publish-jsr:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: corepack enable
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      # jsr.json carries no version on purpose: package.json stays the one
+      # place a release bumps it.
+      - run: pnpm dlx jsr@0.14.3 publish --set-version "${GITHUB_REF_NAME#v}"
 
   github-release:
     needs: publish

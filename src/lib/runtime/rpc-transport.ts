@@ -1,3 +1,4 @@
+/* @ts-self-types="./rpc-transport.d.ts" */
 /**
  * Carries the page channel over devframe RPC to a standalone
  * `lit-devtools dev` server, so a page that is not served by a DevTools-enabled
