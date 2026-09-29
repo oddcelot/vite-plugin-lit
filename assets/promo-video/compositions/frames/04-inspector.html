@@ -1,0 +1,233 @@
+<template>
+  <style>
+    @font-face { font-family: "Manrope"; font-weight: 600; src: url("assets/manrope-semibold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 700; src: url("assets/manrope-bold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 800; src: url("assets/manrope-extrabold.woff2") format("woff2"); }
+    @font-face { font-family: "Roboto Mono"; font-weight: 400; src: url("assets/RobotoMono-Latin-400.woff2") format("woff2"); }
+    #root { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; font-family: "Manrope", sans-serif; }
+    #root .i4-abs, #root .i4-abs * { box-sizing: border-box; }
+    #root div, #root span { box-sizing: border-box; }
+    .i4-ground { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: radial-gradient(circle 900px at 960px 360px, rgba(42,44,157,0.35), rgba(42,44,157,0) 900px), #030308; }
+    .i4-win { position: absolute; left: 64px; top: 48px; width: 1792px; height: 984px; background: #121212; border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px #363636; }
+    .i4-head { position: absolute; left: 64px; top: 48px; width: 1792px; height: 56px; background: #1c1c1c; border-bottom: 1px solid #363636; border-radius: 14px 14px 0 0; }
+    .i4-flame { position: absolute; left: 96px; top: 62px; height: 28px; width: 22.4px; }
+    .i4-brand { position: absolute; left: 130px; top: 48px; height: 56px; line-height: 56px; font-weight: 800; font-size: 18px; letter-spacing: 0.12em; color: #e3e3e3; white-space: nowrap; }
+    .i4-tabs { position: absolute; left: 330px; top: 48px; height: 56px; display: flex; gap: 40px; }
+    .i4-tab { height: 56px; line-height: 54px; font-weight: 600; font-size: 17px; color: #a1a1a1; border-bottom: 2px solid transparent; white-space: nowrap; }
+    .i4-tab.i4-on { color: #4d63ff; border-bottom-color: #4d63ff; }
+    .i4-rec { position: absolute; right: 96px; top: 59px; height: 34px; padding: 0 16px; line-height: 32px; border: 1px solid #ff6b6b; border-radius: 999px; color: #ff6b6b; font-weight: 700; font-size: 15px; white-space: nowrap; }
+    .i4-stagebg { position: absolute; left: 64px; top: 104px; width: 1792px; height: 516px; background: #0a0a10; }
+    .i4-ruler { position: absolute; left: 64px; top: 620px; width: 1792px; height: 40px; background: #1c1c1c; border-top: 1px solid #363636; border-bottom: 1px solid #363636; }
+    .i4-tick { position: absolute; top: 650px; width: 1px; height: 10px; background: #363636; }
+    .i4-tlab { position: absolute; top: 628px; height: 18px; line-height: 18px; font-family: "Roboto Mono", monospace; font-size: 15px; color: #616161; white-space: nowrap; }
+    .i4-row { position: absolute; left: 64px; width: 1792px; height: 72px; border-bottom: 1px solid #363636; }
+    .i4-lab { position: absolute; left: 64px; width: 280px; height: 72px; background: #121212; border-right: 1px solid #363636; border-bottom: 1px solid #363636; }
+    .i4-dot { position: absolute; left: 32px; top: 31px; width: 10px; height: 10px; border-radius: 50%; background: #4d63ff; }
+    .i4-lt { position: absolute; left: 54px; top: 0; height: 72px; line-height: 72px; font-family: "Roboto Mono", monospace; font-size: 20px; color: #a1a1a1; white-space: nowrap; }
+    .i4-bar { position: absolute; height: 28px; border-radius: 6px; border: 1.5px solid #324fff; overflow: hidden; }
+    .i4-bar.i4-fut { background: transparent; opacity: 0.55; }
+    .i4-bar.i4-past { background: rgba(50,79,255,0.7); border-color: rgba(50,79,255,0.7); }
+    .i4-fill { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #6478ff; opacity: 0; transform-origin: 0% 50%; }
+    .i4-conn { position: absolute; left: 1057.4px; top: 620px; width: 2px; height: 206px; background: #4d63ff; transform-origin: 50% 100%; }
+    .i4-ph { position: absolute; left: 0; top: 620px; width: 0; height: 400px; z-index: 20; }
+    .i4-ph-line { position: absolute; left: -1px; top: 0; width: 2px; height: 400px; background: #00e8ff; box-shadow: 0 0 24px rgba(0,232,255,0.7); }
+    .i4-ph-cap { position: absolute; left: -7px; top: 2px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 12px solid #00e8ff; filter: drop-shadow(0 0 6px rgba(0,232,255,0.8)); }
+
+    #i4-stage { position: absolute; left: 0; top: 104px; width: 1920px; height: 516px; transform-origin: 50% 100%; }
+    .i4-eyebrow { position: absolute; left: 144px; top: 96px; font-weight: 700; font-size: 18px; letter-spacing: 0.14em; text-transform: uppercase; color: #4d63ff; opacity: 0; line-height: 24px; }
+    .i4-h { position: absolute; left: 144px; font-weight: 800; font-size: 76px; line-height: 80px; letter-spacing: -0.03em; color: #fff; white-space: nowrap; }
+    .i4-w { display: inline-block; opacity: 0; }
+    .i4-cy { color: #00e8ff; }
+    #i4-panel { position: absolute; left: 880px; top: 36px; width: 896px; height: 440px; background: #121218; border: 1px solid #363636; border-radius: 10px; overflow: hidden; opacity: 0; }
+    .i4-pl { position: absolute; left: 0; top: 0; width: 403px; height: 100%; border-right: 1px solid #363636; }
+    .i4-pr { position: absolute; left: 403px; top: 0; width: 491px; height: 100%; }
+    .i4-trow { position: absolute; left: 0; width: 402px; height: 48px; line-height: 48px; font-family: "Roboto Mono", monospace; font-size: 22px; color: #82aaff; white-space: nowrap; opacity: 0; }
+    .i4-sel { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: rgba(77,99,255,0.16); border-left: 2px solid #4d63ff; opacity: 0; }
+    .i4-arr { position: absolute; left: 14px; top: 0; width: 20px; color: #a1a1a1; }
+    .i4-tag { position: absolute; left: 38px; top: 0; }
+    .i4-ph2 { position: absolute; left: 28px; top: 22px; font-weight: 700; font-size: 28px; color: #fff; line-height: 36px; opacity: 0; }
+    .i4-srow { position: absolute; left: 28px; width: 435px; height: 44px; line-height: 44px; font-family: "Roboto Mono", monospace; font-size: 22px; color: #a1a1a1; opacity: 0; white-space: nowrap; }
+    .i4-sv { position: absolute; right: 0; top: 0; min-width: 190px; text-align: right; font-variant-numeric: tabular-nums; transform-origin: 100% 50%; }
+    .i4-k { color: #c792ea; }
+    .i4-lc-h { position: absolute; left: 28px; top: 240px; width: 435px; height: 24px; line-height: 24px; font-family: "Roboto Mono", monospace; font-size: 14px; letter-spacing: 0.14em; color: #616161; border-top: 1px solid #363636; padding-top: 14px; height: 40px; opacity: 0; }
+    .i4-ev { position: absolute; left: 28px; width: 435px; height: 36px; line-height: 36px; font-family: "Roboto Mono", monospace; font-size: 18px; color: #e3e3e3; opacity: 0; }
+    .i4-ev .i4-edot { position: absolute; left: 0; top: 13px; width: 10px; height: 10px; border-radius: 50%; background: #4d63ff; box-shadow: 0 0 10px rgba(77,99,255,0.7); }
+    .i4-ev .i4-en { position: absolute; left: 24px; top: 0; }
+    .i4-ev .i4-ms { position: absolute; right: 0; top: 0; color: #a1a1a1; }
+  </style>
+
+  <div id="root" data-composition-id="04-inspector" data-width="1920" data-height="1080">
+    <div id="i4-ground" class="clip i4-ground" data-start="0" data-duration="3" data-track-index="0"></div>
+
+    <div class="i4-win"></div>
+    <div class="i4-head"></div>
+    <img class="i4-flame" src="assets/flame.svg" alt="" />
+    <div class="i4-brand">LIT DEVTOOLS</div>
+    <div class="i4-tabs"><div class="i4-tab">Components</div><div class="i4-tab">Updates</div><div class="i4-tab i4-on">Timeline</div><div class="i4-tab">Settings</div></div>
+    <div class="i4-rec">■ Stop</div>
+    <div class="i4-stagebg"></div>
+    <div class="i4-ruler"></div>
+    <div class="i4-tick" style="left:359px"></div>
+    <div class="i4-tlab" style="left:366px">0ms</div>
+    <div class="i4-tick" style="left:431px"></div>
+    <div class="i4-tick" style="left:503px"></div>
+    <div class="i4-tlab" style="left:510px">2000ms</div>
+    <div class="i4-tick" style="left:575px"></div>
+    <div class="i4-tick" style="left:647px"></div>
+    <div class="i4-tlab" style="left:654px">4000ms</div>
+    <div class="i4-tick" style="left:719px"></div>
+    <div class="i4-tick" style="left:791px"></div>
+    <div class="i4-tlab" style="left:798px">6000ms</div>
+    <div class="i4-tick" style="left:863px"></div>
+    <div class="i4-tick" style="left:935px"></div>
+    <div class="i4-tlab" style="left:942px">8000ms</div>
+    <div class="i4-tick" style="left:1007px"></div>
+    <div class="i4-tick" style="left:1079px"></div>
+    <div class="i4-tlab" style="left:1086px">10000ms</div>
+    <div class="i4-tick" style="left:1151px"></div>
+    <div class="i4-tick" style="left:1223px"></div>
+    <div class="i4-tlab" style="left:1230px">12000ms</div>
+    <div class="i4-tick" style="left:1295px"></div>
+    <div class="i4-tick" style="left:1367px"></div>
+    <div class="i4-tlab" style="left:1374px">14000ms</div>
+    <div class="i4-tick" style="left:1439px"></div>
+    <div class="i4-tick" style="left:1511px"></div>
+    <div class="i4-tlab" style="left:1518px">16000ms</div>
+    <div class="i4-tick" style="left:1583px"></div>
+    <div class="i4-tick" style="left:1655px"></div>
+    <div class="i4-tlab" style="left:1662px">18000ms</div>
+    <div class="i4-tick" style="left:1727px"></div>
+    <div class="i4-tick" style="left:1799px"></div>
+    <div class="i4-tlab" style="left:1806px">20000ms</div>
+    <div class="i4-row" style="top:660px"></div>
+    <div class="i4-lab" id="i4-lab0" style="top:660px"><span class="i4-dot" id="i4-dot0"></span><span class="i4-lt" id="i4-lt0">HMR</span></div>
+    <div class="i4-row" style="top:732px"></div>
+    <div class="i4-lab" id="i4-lab1" style="top:732px"><span class="i4-dot" id="i4-dot1"></span><span class="i4-lt" id="i4-lt1">CSS Sheet</span></div>
+    <div class="i4-row" style="top:804px"></div>
+    <div class="i4-lab" id="i4-lab2" style="top:804px"><span class="i4-dot" id="i4-dot2"></span><span class="i4-lt" id="i4-lt2">Inspector</span></div>
+    <div class="i4-row" style="top:876px"></div>
+    <div class="i4-lab" id="i4-lab3" style="top:876px"><span class="i4-dot" id="i4-dot3"></span><span class="i4-lt" id="i4-lt3">Source</span></div>
+    <div class="i4-row" style="top:948px"></div>
+    <div class="i4-lab" id="i4-lab4" style="top:948px"><span class="i4-dot" id="i4-dot4"></span><span class="i4-lt" id="i4-lt4">MCP</span></div>
+    <div class="i4-bar i4-past" id="i4-bar0" style="left:518.4px;top:682px;width:259.2px"></div>
+    <div class="i4-bar i4-past" id="i4-bar1" style="left:806.4px;top:754px;width:223.2px"></div>
+    <div class="i4-bar i4-fut" id="i4-bar2" style="left:1058.4px;top:826px;width:187.2px"><div class="i4-fill" id="i4-fill"></div></div>
+    <div class="i4-bar i4-fut" id="i4-bar3" style="left:1274.4px;top:898px;width:115.2px"></div>
+    <div class="i4-bar i4-fut" id="i4-bar4" style="left:1418.4px;top:970px;width:151.2px"></div>
+
+    <div class="i4-conn" id="i4-conn"></div>
+
+    <div id="i4-stage">
+      <div class="i4-eyebrow" id="i4-eyebrow">INSPECTOR</div>
+      <div class="i4-h" style="top:132px"><span class="i4-w" id="i4-w1">See</span> <span class="i4-w" id="i4-w2">every</span></div>
+      <div class="i4-h" style="top:212px"><span class="i4-w i4-cy" id="i4-w3">update.</span></div>
+
+      <div id="i4-panel">
+        <div class="i4-pl">
+        <div class="i4-trow" id="i4-tr0" style="top:24px"><div class="i4-sel" id="i4-sel"></div><span class="i4-arr"></span><span class="i4-tag">&lt;hmr-counter&gt;</span></div>
+        <div class="i4-trow" id="i4-tr1" style="top:80px"><span class="i4-arr"></span><span class="i4-tag">&lt;hmr-lifecycle&gt;</span></div>
+        <div class="i4-trow" id="i4-tr2" style="top:136px"><span class="i4-arr">▸</span><span class="i4-tag">&lt;hmr-parent&gt;</span></div>
+        <div class="i4-trow" id="i4-tr3" style="top:192px"><span class="i4-arr"></span><span class="i4-tag">&lt;hmr-signal-counter&gt;</span></div>
+        <div class="i4-trow" id="i4-tr4" style="top:248px"><span class="i4-arr"></span><span class="i4-tag">&lt;hmr-ctx-provider&gt;</span></div>
+        <div class="i4-trow" id="i4-tr5" style="top:304px"><span class="i4-arr"></span><span class="i4-tag">&lt;hmr-virtualizer&gt;</span></div>
+        </div>
+        <div class="i4-pr">
+          <div class="i4-ph2" id="i4-ph2">hmr-counter</div>
+          <div class="i4-srow" id="i4-s1" style="top:76px"><span class="i4-k">@state</span> count<span class="i4-sv" id="i4-count" style="color:#00e8ff">41</span></div>
+          <div class="i4-srow" id="i4-s2" style="top:124px">renders<span class="i4-sv" id="i4-renders" style="color:#e3e3e3">1</span></div>
+          <div class="i4-srow" id="i4-s3" style="top:172px"><span class="i4-k">@property</span> label<span class="i4-sv" style="color:#c3e88d">"edited live"</span></div>
+          <div class="i4-lc-h" id="i4-lch">LIFECYCLE</div>
+          <div class="i4-ev" id="i4-e1" style="top:288px"><span class="i4-edot"></span><span class="i4-en">willUpdate</span><span class="i4-ms">+0.4ms</span></div>
+          <div class="i4-ev" id="i4-e2" style="top:324px"><span class="i4-edot"></span><span class="i4-en">update</span><span class="i4-ms">+1.1ms</span></div>
+          <div class="i4-ev" id="i4-e3" style="top:360px"><span class="i4-edot"></span><span class="i4-en">updated</span><span class="i4-ms">+1.3ms</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="i4-ph" id="i4-ph"><div class="i4-ph-line"></div><div class="i4-ph-cap"></div></div>
+  </div>
+
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      var F = 1 / 60;
+      var E = "power4.out";
+      function whip(sel, at, y, d) {
+        tl.set(sel, { opacity: 1, y: y }, at);
+        tl.to(sel, { y: 0, duration: d, ease: E }, at);
+      }
+
+      /* Playhead: linear 72px/s, x(tg) = 360 + 72*tg, tg = 9.5 + t */
+      tl.fromTo("#i4-ph", { x: 1044 }, { x: 1260, duration: 3, ease: "none" }, 0);
+
+      /* Inspector bar: future -> active (0.2) -> past (2.8); left part brightens with playhead */
+      tl.set("#i4-bar2", { backgroundColor: "#4d63ff", borderColor: "#4d63ff", opacity: 1, boxShadow: "0 0 18px rgba(77,99,255,0.8)" }, 0.2);
+      tl.set("#i4-fill", { opacity: 1 }, 0.2);
+      tl.fromTo("#i4-fill", { scaleX: 0 }, { scaleX: 1, duration: 2.6, ease: "none" }, 0.2);
+      tl.set("#i4-fill", { opacity: 0 }, 2.8);
+      tl.set("#i4-bar2", { backgroundColor: "rgba(50,79,255,0.7)", borderColor: "rgba(50,79,255,0.7)", boxShadow: "0 0 0 rgba(77,99,255,0)" }, 2.8);
+      tl.set("#i4-lt2", { color: "#ffffff" }, 0.2);
+      tl.set("#i4-dot2", { backgroundColor: "#00e8ff" }, 0.2);
+      tl.set("#i4-lt2", { color: "#a1a1a1" }, 2.8);
+      tl.set("#i4-dot2", { backgroundColor: "#4d63ff" }, 2.8);
+
+      /* Connector grows from the bar to the stage */
+      tl.fromTo("#i4-conn", { scaleY: 0 }, { scaleY: 1, duration: 0.2, ease: "power2.out" }, 0.2);
+
+      /* Scene 1: eyebrow + waterfall headline */
+      whip("#i4-eyebrow", 0.3, 30, 0.14);
+      var t = 0.4;
+      whip("#i4-w1", t, 60, 0.16);
+      t = t + 0.16 - F;
+      whip("#i4-w2", t, 50, 0.16);
+      whip("#i4-w3", 0.9, 80, 0.2);
+
+      /* Scene 2: inspector panel + tree waterfall */
+      whip("#i4-panel", 0.5, 40, 0.22);
+      var rows = [0.62, 0.74, 0.85, 0.95, 1.04, 1.12];
+      for (var i = 0; i < rows.length; i++) whip("#i4-tr" + i, rows[i], 40, 0.15);
+      tl.fromTo("#i4-sel", { opacity: 0 }, { opacity: 1, duration: 0.1, ease: "power2.out" }, 1.2);
+
+      /* Scene 3: right pane fills, lifecycle streams in */
+      whip("#i4-ph2", 1.6, 30, 0.16);
+      whip("#i4-s1", 1.72, 30, 0.14);
+      whip("#i4-s2", 1.86, 30, 0.14);
+      whip("#i4-s3", 2.0, 30, 0.14);
+      tl.set("#i4-lch", { opacity: 1 }, 2.05);
+      whip("#i4-e1", 2.15, 24, 0.12);
+      whip("#i4-e2", 2.3, 24, 0.12);
+      whip("#i4-e3", 2.45, 24, 0.12);
+
+      /* Control-target sync: one state array drives the readouts, the events pulse them */
+      var STEPS = [
+        { t: 0, count: "41", renders: "1" },
+        { t: 2.15, count: "42", renders: "1" },
+        { t: 2.3, count: "42", renders: "2" }
+      ];
+      function stepAt(time) {
+        for (var k = STEPS.length - 1; k >= 0; k--) if (time >= STEPS[k].t) return STEPS[k];
+        return STEPS[0];
+      }
+      var cEl = document.getElementById("i4-count");
+      var rEl = document.getElementById("i4-renders");
+      var drv = { t: 0 };
+      var last = null;
+      tl.to(drv, {
+        t: 3, duration: 3, ease: "none",
+        onUpdate: function () {
+          var s = stepAt(drv.t);
+          if (s !== last) { cEl.textContent = s.count; rEl.textContent = s.renders; last = s; }
+        }
+      }, 0);
+      tl.fromTo("#i4-count", { scale: 1.3 }, { scale: 1, duration: 0.22, ease: "power2.out" }, 2.15);
+      tl.fromTo("#i4-renders", { scale: 1.3 }, { scale: 1, duration: 0.22, ease: "power2.out" }, 2.3);
+
+      /* Scene 4: hold, then snap shut by 2.85 */
+      tl.to("#i4-stage", { scaleY: 0, duration: 0.2, ease: "power3.in" }, 2.65);
+      tl.to("#i4-conn", { scaleY: 0, duration: 0.15, ease: "power3.in" }, 2.7);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["04-inspector"] = tl;
+    })();
+  </script>
+</template>

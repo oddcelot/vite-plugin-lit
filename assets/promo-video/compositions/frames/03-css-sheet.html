@@ -1,0 +1,229 @@
+<template id="03-css-sheet-template">
+  <style>
+    @font-face { font-family: "Manrope"; font-weight: 500; src: url("assets/manrope-medium.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 600; src: url("assets/manrope-semibold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 700; src: url("assets/manrope-bold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 800; src: url("assets/manrope-extrabold.woff2") format("woff2"); }
+    @font-face { font-family: "Roboto Mono"; font-weight: 400; src: url("assets/RobotoMono-Latin-400.woff2") format("woff2"); }
+
+    #root { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; font-family: "Manrope", sans-serif; }
+    #root * { box-sizing: border-box; }
+    .f03-abs { position: absolute; }
+
+    .f03-ground { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: radial-gradient(circle 900px at 960px 360px, rgba(42,44,157,0.35), rgba(42,44,157,0) 100%), #030308; }
+
+    /* window chrome */
+    #f03-window { position: absolute; left: 64px; top: 48px; width: 1792px; height: 984px; background: #121212; border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px #363636; overflow: hidden; }
+    #f03-header { position: absolute; left: 64px; top: 48px; width: 1792px; height: 56px; background: #1c1c1c; border-bottom: 1px solid #363636; border-radius: 14px 14px 0 0; }
+    #f03-flame { position: absolute; left: 96px; top: 62px; height: 28px; width: 22.4px; }
+    #f03-brand { position: absolute; left: 130px; top: 63px; font-weight: 800; font-size: 18px; letter-spacing: 0.12em; color: #e3e3e3; line-height: 26px; white-space: nowrap; }
+    #f03-tabs { position: absolute; left: 330px; top: 48px; height: 56px; display: flex; gap: 40px; align-items: center; font-weight: 600; font-size: 17px; color: #a1a1a1; }
+    #f03-tabs span { white-space: nowrap; height: 56px; line-height: 56px; }
+    #f03-tabs .f03-tab-on { color: #4d63ff; position: relative; }
+    #f03-tabs .f03-tab-on::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: #4d63ff; }
+    #f03-rec { position: absolute; right: 96px; top: 59px; height: 34px; padding: 0 18px; border: 1px solid #ff6b6b; border-radius: 999px; color: #ff6b6b; font-weight: 700; font-size: 15px; display: flex; align-items: center; white-space: nowrap; }
+
+    #f03-bloom { position: absolute; left: 64px; top: 104px; width: 1792px; height: 516px; background: #0a0a10; }
+
+    #f03-ruler { position: absolute; left: 64px; top: 620px; width: 1792px; height: 40px; background: #1c1c1c; border-top: 1px solid #363636; border-bottom: 1px solid #363636; }
+    .f03-tick { position: absolute; top: 27px; width: 1px; height: 11px; background: #363636; }
+    .f03-tlabel { position: absolute; top: 7px; font-family: "Roboto Mono", monospace; font-size: 15px; color: #616161; line-height: 18px; white-space: nowrap; }
+
+    #f03-gutter { position: absolute; left: 64px; top: 660px; width: 280px; height: 360px; background: #121212; border-right: 1px solid #363636; }
+    .f03-rowline { position: absolute; left: 64px; width: 1792px; height: 1px; background: #363636; }
+    .f03-dot { position: absolute; left: 96px; width: 10px; height: 10px; border-radius: 50%; background: #4d63ff; }
+    .f03-rlabel { position: absolute; left: 118px; height: 72px; line-height: 72px; font-family: "Roboto Mono", monospace; font-size: 20px; color: #a1a1a1; white-space: nowrap; }
+
+    /* event bars */
+    .f03-bar { position: absolute; height: 28px; }
+    .f03-bar > div { position: absolute; left: 0; top: 0; width: 100%; height: 100%; border-radius: 6px; }
+    .f03-fut { border: 1.5px solid #324fff; opacity: 0.55; }
+    .f03-past { background: rgba(50,79,255,0.7); opacity: 0; }
+    .f03-past.on { opacity: 1; }
+    .f03-act { background: #4d63ff; box-shadow: 0 0 22px rgba(77,99,255,0.75); opacity: 0; }
+    .f03-clip { position: absolute; left: 0; top: 0; width: 100%; height: 100%; border-radius: 6px; overflow: hidden; }
+    .f03-prog { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #6478ff; transform-origin: 0 50%; }
+
+    /* stage content */
+    #f03-stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; pointer-events: none; }
+    #f03-eyebrow { position: absolute; left: 144px; top: 200px; font-weight: 700; font-size: 18px; letter-spacing: 0.14em; color: #4d63ff; line-height: 24px; }
+    #f03-card { position: absolute; left: 144px; top: 250px; padding: 20px 28px; background: #0b0b12; border: 1px solid #363636; border-radius: 10px; font-family: "Roboto Mono", monospace; font-size: 24px; line-height: 33px; color: #e3e3e3; white-space: pre; }
+    .f03-kw { color: #c792ea; }
+    .f03-str { color: #c3e88d; }
+    #f03-hl { border-radius: 4px; background: rgba(0,232,255,0); padding: 0 2px; margin: 0 -2px; }
+    .f03-hline { position: absolute; left: 144px; font-weight: 800; font-size: 72px; line-height: 70px; letter-spacing: -0.03em; color: #ffffff; white-space: nowrap; }
+    #f03-glow { position: absolute; left: 850px; top: 106px; width: 854px; height: 454px; background: radial-gradient(ellipse at 50% 50%, rgba(0,232,255,0.55), rgba(0,232,255,0) 68%); opacity: 0; }
+    #f03-grid { position: absolute; left: 880px; top: 136px; width: 794px; height: 394px; display: grid; grid-template-columns: repeat(40, 15px); grid-auto-rows: 15px; gap: 5px; }
+    .f03-tile { width: 15px; height: 15px; border-radius: 4px; background: rgba(50,79,255,0.6); will-change: transform; }
+    #f03-counter { position: absolute; left: 880px; top: 548px; height: 28px; line-height: 28px; font-family: "Roboto Mono", monospace; font-size: 20px; color: #a1a1a1; white-space: nowrap; }
+    #f03-cnt { display: inline-block; width: 62px; color: #ffffff; font-variant-numeric: tabular-nums; transform-origin: 0 50%; }
+    #f03-chip { position: absolute; left: 1170px; top: 545px; height: 34px; padding: 0 16px 0 14px; display: flex; align-items: center; gap: 9px; background: #292929; border-radius: 999px; font-family: "Roboto Mono", monospace; font-size: 18px; color: #e3e3e3; white-space: nowrap; transform-origin: 0 50%; }
+    #f03-chip i { display: block; width: 8px; height: 8px; border-radius: 50%; background: #34e0a1; }
+
+    #f03-conn { position: absolute; left: 805.4px; top: 620px; width: 2px; height: 134px; background: #4d63ff; transform-origin: 50% 100%; }
+    #f03-ph { position: absolute; left: 792px; top: 0; width: 0; height: 0; }
+    #f03-ph .line { position: absolute; left: -1px; top: 620px; width: 2px; height: 400px; background: #00e8ff; box-shadow: 0 0 24px rgba(0,232,255,0.7); }
+    #f03-ph .cap { position: absolute; left: -7px; top: 622px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 12px solid #00e8ff; filter: drop-shadow(0 0 6px rgba(0,232,255,0.8)); }
+  </style>
+
+  <div id="root" data-composition-id="03-css-sheet" data-start="0" data-duration="3.5" data-width="1920" data-height="1080">
+    <div class="clip f03-ground" data-start="0" data-duration="3.5" data-track-index="0"></div>
+
+    <!-- persistent stage chrome (STAGE SPEC) -->
+    <div id="f03-window"></div>
+    <div id="f03-header"></div>
+    <img id="f03-flame" src="assets/flame.svg" alt="" />
+    <div id="f03-brand">LIT DEVTOOLS</div>
+    <div id="f03-tabs"><span>Components</span><span>Updates</span><span class="f03-tab-on">Timeline</span><span>Settings</span></div>
+    <div id="f03-rec">&#9632; Stop</div>
+    <div id="f03-bloom"></div>
+    <div id="f03-ruler"></div>
+    <div id="f03-gutter"></div>
+    <div id="f03-rows"></div>
+    <div id="f03-bars"></div>
+
+    <!-- stage content -->
+    <div id="f03-stage">
+      <div id="f03-eyebrow">CSS SHEET</div>
+      <div id="f03-card"><span class="f03-kw">import</span> sheet <span class="f03-kw">from</span>
+  <span id="f03-hl"><span class="f03-str">'./theme.css?css-sheet'</span></span>;</div>
+      <div class="f03-hline f03-h1" style="top:370px">One sheet.</div>
+      <div class="f03-hline f03-h2" style="top:440px">1,000 roots.</div>
+      <div class="f03-hline f03-h3" style="top:510px; color:#00e8ff">Hot-swapped.</div>
+      <div id="f03-glow"></div>
+      <div id="f03-grid"></div>
+      <div id="f03-counter"><span id="f03-cnt">0</span> shadow roots</div>
+      <div id="f03-chip"><i></i>0 re-renders</div>
+    </div>
+
+    <div id="f03-conn"></div>
+    <div id="f03-ph"><div class="line"></div><div class="cap"></div></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script>
+    (function () {
+      var TG0 = 6;
+      var px = function (tg) { return 360 + 72 * tg; };
+      var $ = function (s) { return document.querySelector(s); };
+      var mk = function (cls, css, txt) {
+        var d = document.createElement("div");
+        if (cls) d.className = cls;
+        if (css) d.style.cssText = css;
+        if (txt) d.textContent = txt;
+        return d;
+      };
+
+      // ruler ticks (x relative to ruler left = 64, border 1px)
+      var ruler = $("#f03-ruler");
+      for (var s = 0; s <= 20; s++) {
+        var rx = px(s) - 64;
+        ruler.appendChild(mk("f03-tick", "left:" + rx + "px"));
+        if (s % 2 === 0) ruler.appendChild(mk("f03-tlabel", "left:" + (rx + 6) + "px", (s === 0 ? "0ms" : s + "000ms")));
+      }
+
+      // tracks
+      var names = ["HMR", "CSS Sheet", "Inspector", "Source", "MCP"];
+      var rows = $("#f03-rows");
+      var labels = [], dots = [];
+      names.forEach(function (n, i) {
+        var top = 660 + 72 * i;
+        var dot = mk("f03-dot", "top:" + (top + 31) + "px");
+        var lab = mk("f03-rlabel", "top:" + top + "px", n);
+        rows.appendChild(mk("f03-rowline", "top:" + (top + 71) + "px"));
+        rows.appendChild(dot); rows.appendChild(lab);
+        dots.push(dot); labels.push(lab);
+      });
+
+      // bars: [row, t0, t1]
+      var spec = [[0, 2.2, 5.8], [1, 6.2, 9.3], [2, 9.7, 12.3], [3, 12.7, 14.3], [4, 14.7, 16.8]];
+      var bars = $("#f03-bars");
+      var pastEl, actEl, progEl;
+      spec.forEach(function (b) {
+        var x0 = px(b[1]), x1 = px(b[2]);
+        var bar = mk("f03-bar", "left:" + x0 + "px;top:" + (660 + 72 * b[0] + 22) + "px;width:" + (x1 - x0) + "px");
+        var fut = mk("f03-fut"), past = mk("f03-past" + (b[0] === 0 ? " on" : "")), act = mk("f03-act");
+        var clip = mk("f03-clip"), prog = mk("f03-prog");
+        clip.appendChild(prog); act.appendChild(clip);
+        bar.appendChild(fut); bar.appendChild(past); bar.appendChild(act);
+        bars.appendChild(bar);
+        if (b[0] === 0) fut.style.opacity = 0;
+        if (b[0] === 1) { pastEl = past; actEl = act; progEl = prog; bar._fut = fut; window.__f03fut = fut; }
+      });
+      var futEl = window.__f03fut; delete window.__f03fut;
+
+      // tile field
+      var COLS = 40, ROWS = 20, N = COLS * ROWS;
+      var grid = $("#f03-grid");
+      var frag = document.createDocumentFragment();
+      var x0s = [], y0s = [], delays = [];
+      for (var i = 0; i < N; i++) {
+        frag.appendChild(mk("f03-tile"));
+        var c = i % COLS, r = Math.floor(i / COLS);
+        x0s.push((19.5 - c) * 20); y0s.push((9.5 - r) * 20);
+        var d = Math.sqrt(Math.pow((c - 19.5) / 19.5, 2) + Math.pow((r - 9.5) / 9.5, 2)) / Math.SQRT2;
+        delays.push(d * 0.2);
+      }
+      grid.appendChild(frag);
+      var tiles = grid.children;
+
+      var tl = gsap.timeline({ paused: true });
+      var stage = $("#f03-stage");
+      gsap.set(stage, { transformOrigin: "960px 620px" });
+
+      // playhead: linear, never eased
+      tl.fromTo("#f03-ph", { x: 0 }, { x: 72 * 3.5, duration: 3.5, ease: "none" }, 0);
+
+      // CSS Sheet bar goes active at local 0.2 (tg 6.2), progress follows the playhead, past at 3.3
+      tl.set(futEl, { opacity: 0 }, 0.2);
+      tl.set(actEl, { opacity: 1 }, 0.2);
+      tl.fromTo(progEl, { scaleX: 0 }, { scaleX: 1, duration: 3.1, ease: "none" }, 0.2);
+      tl.set(actEl, { opacity: 0 }, 3.3);
+      tl.set(pastEl, { opacity: 1 }, 3.3);
+      tl.set(labels[1], { color: "#ffffff" }, 0.2);
+      tl.set(dots[1], { backgroundColor: "#00e8ff" }, 0.2);
+      tl.set(labels[1], { color: "#a1a1a1" }, 3.3);
+      tl.set(dots[1], { backgroundColor: "#4d63ff" }, 3.3);
+
+      // connector grows bar -> stage
+      tl.fromTo("#f03-conn", { scaleY: 0 }, { scaleY: 1, duration: 0.2, ease: "power2.out" }, 0.2);
+      tl.to("#f03-conn", { opacity: 0, duration: 0.2, ease: "power2.in" }, 3.15);
+
+      // Scene 1: eyebrow + code card
+      tl.fromTo("#f03-eyebrow", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, 0.3);
+      tl.fromTo("#f03-card", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.35);
+
+      // Scene 2: tiles expand center-outward, counter counts with dynamic scale
+      tl.fromTo(tiles,
+        { x: function (i) { return x0s[i]; }, y: function (i) { return y0s[i]; }, scale: 0.3, opacity: 0 },
+        { x: 0, y: 0, scale: 1, opacity: 1, duration: 0.6, ease: "power3.out", stagger: function (i) { return delays[i]; } }, 0.5);
+      var cnt = $("#f03-cnt");
+      var st = { v: 0 };
+      tl.fromTo("#f03-counter", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power2.out" }, 0.5);
+      tl.to(st, { v: 1000, duration: 0.8, ease: "power3.out", onUpdate: function () { cnt.textContent = Math.round(st.v).toLocaleString("en-US"); } }, 0.5);
+      tl.fromTo(cnt, { scale: 0.6 }, { scale: 1, duration: 0.8, ease: "power3.out" }, 0.5);
+      tl.fromTo(".f03-h1", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.9);
+      tl.fromTo(".f03-h2", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.98);
+
+      // Scene 3: save flash, every tile re-colors in the same instant
+      tl.fromTo("#f03-hl", { backgroundColor: "rgba(0,232,255,0)" }, { backgroundColor: "rgba(0,232,255,0.5)", duration: 0.08, ease: "power2.out" }, 1.5);
+      tl.to("#f03-hl", { backgroundColor: "rgba(0,232,255,0.14)", duration: 0.5, ease: "power2.out" }, 1.58);
+      tl.fromTo("#f03-card", { borderColor: "#363636" }, { borderColor: "#00e8ff", duration: 0.08, ease: "power2.out" }, 1.5);
+      tl.to("#f03-card", { borderColor: "#363636", duration: 0.6, ease: "power2.out" }, 1.58);
+      tl.fromTo(tiles, { backgroundColor: "rgba(50,79,255,0.6)", borderRadius: 4 },
+        { backgroundColor: "rgb(213,251,255)", borderRadius: 9, duration: 0.08, ease: "power2.out" }, 1.5);
+      tl.to(tiles, { backgroundColor: "rgb(0,232,255)", duration: 0.4, ease: "power2.out" }, 1.58);
+      tl.fromTo("#f03-glow", { opacity: 0 }, { opacity: 0.95, duration: 0.08, ease: "power2.out" }, 1.5);
+      tl.to("#f03-glow", { opacity: 0.25, duration: 0.6, ease: "power2.out" }, 1.58);
+      tl.fromTo("#f03-chip", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.7)" }, 1.55);
+      tl.fromTo(".f03-h3", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 1.8);
+
+      // Scene 4: quiet hold with a slow glow breath, then the stage snaps shut
+      tl.to("#f03-glow", { opacity: 0.4, duration: 0.9, ease: "sine.inOut" }, 2.2);
+      tl.to(stage, { scaleY: 0, duration: 0.2, ease: "power3.in" }, 3.15);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["03-css-sheet"] = tl;
+    })();
+  </script>
+</template>
