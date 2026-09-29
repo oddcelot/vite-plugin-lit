@@ -33,8 +33,12 @@ Across an edit to a component module, these survive:
   template you changed is rebuilt.
 - **Reactive properties and `@state`.** Snapshotted before the patch, then
   restored through the new accessors.
-- **Child components.** Untouched unless their own module changed. A parent
-  edit never resets a child's `@state`.
+- **Child components.** Untouched unless their own module changed. When a
+  parent edit changes the template literal a child sits in, Lit re-creates the
+  child element, and the plugin copies the old child's reactive properties and
+  `#private` fields onto the new one before it first renders. Properties the
+  template binds keep their new values. See
+  [`hmr.childState`](/vite-plugin-lit/reference/options/#hmrchildstate).
 - **Adopted stylesheets.** Constructed sheets stay the same objects, so
   nothing is re-parsed and nothing is re-adopted.
 - **Controllers holding instance state.** Task results and context
