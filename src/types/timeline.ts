@@ -12,7 +12,11 @@ export interface TimelineLayer {
 
 export interface TimelineEvent<TData = unknown> {
   layerId: string;
-  /** `performance.now()` timestamp in the browser. */
+  /**
+   * Milliseconds since recording started, stamped in the browser page
+   * (`performance.now()` re-zeroed on each recording start; see
+   * `runtime/timeline/clock.ts`). Not comparable to any Node-side clock.
+   */
   time: number;
   data: TData;
   title?: string;
