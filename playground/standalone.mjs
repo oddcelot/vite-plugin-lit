@@ -25,13 +25,14 @@
  */
 
 import {spawn} from 'node:child_process';
+import {existsSync} from 'node:fs';
 import {readFile, rm} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {createServer as createNetServer} from 'node:net';
 import {tmpdir} from 'node:os';
 import * as path from 'node:path';
 import process from 'node:process';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 import {build} from 'vite';
 
 const PLAYGROUND = fileURLToPath(new URL('.', import.meta.url));
@@ -39,6 +40,22 @@ const CLI = fileURLToPath(
   new URL('./node_modules/@oddsquad/vite-plugin-lit/bin.mjs', import.meta.url)
 );
 const OUT_DIR = path.join(tmpdir(), 'lit-devtools-standalone-playground');
+
+// On StackBlitz the plugin is the published one, which may predate the
+// served script; say so rather than serve a page that never connects.
+if (
+  !existsSync(new URL('dist/standalone/lit-devtools.js', pathToFileURL(CLI)))
+) {
+  const {version} = JSON.parse(
+    await readFile(new URL('package.json', pathToFileURL(CLI)), 'utf8')
+  );
+  console.error(
+    `[standalone] @oddsquad/vite-plugin-lit ${version} has no standalone ` +
+      `script (dist/standalone/lit-devtools.js). It needs a release that ` +
+      `ships standalone mode; in the repo, run \`pnpm run build\` first.`
+  );
+  process.exit(1);
+}
 const AUTH = process.env['DEMO_AUTH'] !== undefined;
 
 // StackBlitz serves every port of a project from its own origin, which is

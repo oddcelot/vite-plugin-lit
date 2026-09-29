@@ -9,14 +9,16 @@ import {defineConfig, loadEnv} from 'vite-plus';
 import {lazyPlugins} from 'vite-plus';
 
 export default defineConfig(async ({mode}) => {
-  // Inside the monorepo, use the built package output (`npm run dev` via
-  // wireit builds it first). When the playground is opened standalone —
-  // e.g. imported into StackBlitz/bolt.new from the repo URL — the parent
-  // package isn't there, so fall back to the published plugin.
-  // The indirection keeps the config bundler from trying (and warning
-  // about failing) to resolve the fallback inside the monorepo.
+  // Inside the monorepo, use the built package output (`pnpm dev` builds it
+  // first). When the playground is opened standalone — e.g. imported into
+  // StackBlitz/bolt.new from the repo URL — the parent package isn't there,
+  // so fall back to the published plugin.
+  // Both specifiers are runtime values so the config bundler leaves them
+  // alone: a literal `../index.js` fails the whole config build where the
+  // file is missing, before the fallback below ever runs.
+  const local = new URL('../index.js', import.meta.url).href;
   const fallback = '@oddsquad/vite-plugin-lit';
-  const {litPlugin} = await import('../index.js').catch(
+  const {litPlugin} = await import(/* @vite-ignore */ local).catch(
     () => import(/* @vite-ignore */ fallback)
   );
   // The plugin reads its own `LIT_PLUGIN_*` options from the env at config

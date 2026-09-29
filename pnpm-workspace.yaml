@@ -1,6 +1,11 @@
 packages:
   - docs
   - playground
+# The playground names the plugin with a plain range, not `workspace:*`, so
+# StackBlitz's `npm install` can read it; this still links the local copy.
+linkWorkspacePackages: true
+# playground/package.json repeats vite and vite-plus as plain versions (npm on
+# StackBlitz cannot read `catalog:`); bump them there too.
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.3.2
   vite-plus: 0.3.2
