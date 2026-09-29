@@ -262,6 +262,15 @@ export class TimelineEventList extends LitElement {
    *  on every keystroke in the regex box. */
   private _rowsCache: TimelineSpan[] = [];
 
+  /** `_rowsCache` after the layer/element/regex filters, recomputed only when
+   *  one of those or `_rowsCache` itself changes — not on every render (e.g.
+   *  selecting a row must not re-filter up to `MAX_EVENTS` rows). */
+  private _visibleCache: TimelineSpan[] = [];
+  /** Whether `_regex` fails to compile, cached alongside `_visibleCache` so
+   *  render() doesn't need to re-try/catch on every keystroke it isn't the
+   *  cause of. */
+  private _regexInvalid = false;
+
   override willUpdate(changed: Map<string, unknown>) {
     if (changed.has('events') || changed.has('_raw')) {
       this._rowsCache = this._raw
@@ -286,6 +295,30 @@ export class TimelineEventList extends LitElement {
       ) {
         this._elementFilter = null;
       }
+    }
+    if (
+      changed.has('events') ||
+      changed.has('_raw') ||
+      changed.has('layers') ||
+      changed.has('_elementFilter') ||
+      changed.has('_regex')
+    ) {
+      // Compile once per relevant change, not once per render; invalid
+      // patterns disable the filter (rather than hiding everything) and flag
+      // the input.
+      let re: RegExp | null = null;
+      this._regexInvalid = false;
+      if (this._regex !== '') {
+        try {
+          re = new RegExp(this._regex, 'i');
+        } catch {
+          this._regexInvalid = true;
+        }
+      }
+      this._visibleCache = this._rowsCache.filter(
+        (row) =>
+          this._isVisible(row) && (re === null || re.test(this._haystack(row)))
+      );
     }
   }
 
@@ -356,21 +389,7 @@ export class TimelineEventList extends LitElement {
 
   override render() {
     const elements = this._elementsCache;
-    // Compile the regex once per render; invalid patterns disable the filter
-    // (rather than hiding everything) and flag the input.
-    let re: RegExp | null = null;
-    let regexInvalid = false;
-    if (this._regex !== '') {
-      try {
-        re = new RegExp(this._regex, 'i');
-      } catch {
-        regexInvalid = true;
-      }
-    }
-    const visible = this._rowsCache.filter(
-      (row) =>
-        this._isVisible(row) && (re === null || re.test(this._haystack(row)))
-    );
+    const visible = this._visibleCache;
     const selected =
       this._selectedKey === null
         ? undefined
@@ -406,7 +425,7 @@ export class TimelineEventList extends LitElement {
                     : nothing
                 }
                 <input
-                  class="regex ${regexInvalid ? 'invalid' : ''}"
+                  class="regex ${this._regexInvalid ? 'invalid' : ''}"
                   type="text"
                   spellcheck="false"
                   placeholder="filter regex…"
