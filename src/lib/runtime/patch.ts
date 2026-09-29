@@ -525,6 +525,11 @@ export const install = (options: PatchOptions = {}): void => {
     if (o.hmrOnIncompatible !== undefined) {
       state.options.onIncompatible = o.hmrOnIncompatible;
     }
+    // Read on every patch (see createChildState's `mode`), so it applies from
+    // the next edit on.
+    if (o.hmrChildState !== undefined) {
+      state.options.childState = o.hmrChildState;
+    }
   });
 
   // Captured to re-invoke below as nativeDefine.call(this, ...).

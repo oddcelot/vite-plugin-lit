@@ -36,6 +36,7 @@ import {
 type OverridableKey =
   | 'hmrReconnect'
   | 'hmrOnIncompatible'
+  | 'hmrChildState'
   | 'hmrIndicatorVisible'
   | 'hmrIndicatorCount'
   | 'sourceOverlayEditor';
@@ -376,6 +377,7 @@ export class DevtoolsSettings extends LitElement {
     return {
       hmrReconnect: s.hmr.reconnect,
       hmrOnIncompatible: s.hmr.onIncompatible,
+      hmrChildState: s.hmr.childState,
       hmrIndicatorVisible: s.hmr.indicatorEnabled,
       hmrIndicatorCount: s.hmr.indicatorCount,
       sourceOverlayEditor: s.sourceOverlay.editor,
@@ -528,6 +530,7 @@ export class DevtoolsSettings extends LitElement {
     }
     const reconnect = o.hmrReconnect ?? s.hmr.reconnect;
     const onIncompatible = o.hmrOnIncompatible ?? s.hmr.onIncompatible;
+    const childState = o.hmrChildState ?? s.hmr.childState;
     // The indicator element only exists when enabled at config time, so it can
     // be hidden/shown (and its count toggled) live but not created here.
     const indicatorVisible = o.hmrIndicatorVisible ?? s.hmr.indicatorEnabled;
@@ -574,6 +577,27 @@ export class DevtoolsSettings extends LitElement {
               </option>
             </select>
             ${this._ovrSource('hmrOnIncompatible', s.hmr.onIncompatible)}
+          </td>
+        </tr>
+        <tr>
+          <td class="key">child state</td>
+          <td class="val">
+            <select
+              @change=${(e: Event) =>
+                this._set(
+                  'hmrChildState',
+                  (e.target as HTMLSelectElement)
+                    .value as FeatureSettings['hmr']['childState']
+                )}
+            >
+              ${(['transfer', 'reuse', 'reset'] as const).map(
+                (mode) =>
+                  html`<option value=${mode} ?selected=${childState === mode}>
+                    ${mode}
+                  </option>`
+              )}
+            </select>
+            ${this._ovrSource('hmrChildState', s.hmr.childState)}
           </td>
         </tr>
         <tr class=${s.hmr.indicatorEnabled ? '' : 'row-disabled'}>

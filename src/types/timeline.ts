@@ -81,11 +81,7 @@ export interface FeatureSettings {
     enabled: boolean;
     reconnect: boolean;
     onIncompatible: 'reload' | 'warn';
-    /**
-     * `hmr.childState`. Optional so older producers (and snapshots) without
-     * it still type-check.
-     */
-    childState?: 'reset' | 'transfer' | 'reuse';
+    childState: 'reset' | 'transfer' | 'reuse';
     indicatorEnabled: boolean;
     indicatorCount: boolean;
   };
@@ -138,6 +134,7 @@ export interface SettingSources {
 export interface SettingsOverride {
   hmrReconnect?: boolean;
   hmrOnIncompatible?: 'reload' | 'warn';
+  hmrChildState?: 'reset' | 'transfer' | 'reuse';
   hmrIndicatorVisible?: boolean;
   hmrIndicatorCount?: boolean;
   /** Built-in editor key for the source overlay's open-in-editor target. */
@@ -189,6 +186,7 @@ export type OverrideBaselines = Partial<
   Record<
     | 'hmrReconnect'
     | 'hmrOnIncompatible'
+    | 'hmrChildState'
     | 'hmrIndicatorVisible'
     | 'hmrIndicatorCount'
     | 'sourceOverlayEditor',
