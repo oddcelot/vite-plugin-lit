@@ -4,7 +4,8 @@ Status: **phases 1–2 done** — the panel runs on devframe and the bespoke
 transport is deleted. Verified end to end in the playground: dock registered in
 the Vite DevTools hub, timeline events streaming, inspector round-tripping, and
 three read-only MCP tools answering. Phases 3–4 (in-page channel, CLI/static
-build) are open.
+build) moved to roadmap items 07, 08, and 03, all shipped. Nothing in this plan
+is open.
 Author: design pass, 2026-09-17
 
 ---
