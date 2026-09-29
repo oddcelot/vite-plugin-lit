@@ -8,6 +8,8 @@
  * Opt-in and explicit: nothing connects until {@link connectToDevServer} is
  * called, and `devframe/client` is only imported then, so a page that never
  * asks pays nothing.
+ *
+ * @module
  */
 
 import {
@@ -21,7 +23,9 @@ import type {PageTransport} from './page-channel.js';
 
 /** The slice of a scoped devframe client the transport uses. */
 export interface PageRpc {
+  /** Fires a devframe event on the server, without waiting for a reply. */
   callEvent(method: string, ...args: unknown[]): void;
+  /** Registers a handler for an event the server sends to this page. */
   register(fn: {
     name: string;
     type: 'event';
@@ -64,6 +68,7 @@ export const createRpcTransport = (rpc: PageRpc): PageTransport => {
   };
 };
 
+/** Options for {@link connectToDevServer}. */
 export interface ConnectOptions {
   /**
    * A bearer token the server already trusts. Without one the client falls
