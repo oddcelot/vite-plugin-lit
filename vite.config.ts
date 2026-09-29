@@ -20,6 +20,18 @@ export default defineConfig({
         },
       },
       {
+        // Vitest's `import.meta.hot` has `on` but no `off`; the runtime under
+        // test treats an absent `hot` as "not in a Vite dev server".
+        plugins: [
+          {
+            name: 'dom-no-hot',
+            enforce: 'post',
+            transform(code: string, id: string) {
+              if (!id.includes('/src/lib/runtime/')) return null;
+              return code.replace(/\(?import\.meta\)?\.hot\b/g, 'undefined');
+            },
+          },
+        ],
         test: {
           name: 'dom',
           environment: 'happy-dom',
