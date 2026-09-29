@@ -147,6 +147,12 @@ export interface SettingsOverride {
    * {@link SettingsOverride.flashUpdates}.
    */
   flashUpdatesRamp?: boolean;
+  /**
+   * Mirror the timeline into Chrome DevTools' Performance panel as custom
+   * tracks (via `console.timeStamp`), independent of panel recording. Pure
+   * preference (no config-time baseline), so `undefined` reads as off.
+   */
+  chromeTracks?: boolean;
 }
 
 /**

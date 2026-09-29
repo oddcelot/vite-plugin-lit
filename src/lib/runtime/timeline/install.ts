@@ -12,11 +12,15 @@
  * transport.
  *
  * Recording starts off; the panel iframe toggles it via the Vite HMR channel
- * (Phase 0/1) or devframe shared state (Phase 2+).
+ * (Phase 0/1) or devframe shared state (Phase 2+). Layers capture while the
+ * panel is recording OR the "chrome performance tracks" preference is on; the
+ * panel transport only receives events while recording, the Chrome tracks sink
+ * only while the preference is on.
  */
 
 import {emit, setHotClient} from './transport.js';
 import {resetClock} from './clock.js';
+import {createChromeTracksSink} from './chrome-tracks.js';
 import {installLifecycleLayer, setUpdateHook} from './lifecycle.js';
 import {installRenderLayer, setRenderDebugEnabled} from './render.js';
 import {installMouseLayer, installKeyboardLayer} from './input.js';
@@ -24,7 +28,10 @@ import {flashUpdate, setFlashEnabled, setFlashRamp} from './flash.js';
 import {subscribeOverride} from '../overrides.js';
 import {pageChannel} from '../page-channel.js';
 import type {ViteHotLike} from '../page-channel.js';
-import type {TimelineLayersState} from '../../../types/timeline.js';
+import type {
+  TimelineEvent,
+  TimelineLayersState,
+} from '../../../types/timeline.js';
 
 // ---------------------------------------------------------------------------
 // Recording state — written by the panel toggle, read by all capture layers.
@@ -39,20 +46,29 @@ const state: TimelineLayersState = {
   keyboardEventEnabled: false,
 };
 
-const recording = (): boolean => state.recordingState;
+// Mirror to Chrome DevTools' Performance panel; a page-side preference driven
+// by the settings override, independent of panel recording.
+let chromeTracks = false;
+const sink = createChromeTracksSink();
+
+// Layers run when either consumer wants events.
+const capturing = (): boolean => state.recordingState || chromeTracks;
+const out = (e: TimelineEvent): void => {
+  if (state.recordingState) emit(e);
+  if (chromeTracks) sink.push(e);
+};
 const lifecycleEnabled = (): boolean => state.litLifecycleEnabled;
 const renderEnabled = (): boolean => state.litRenderEnabled;
 const renderVerboseEnabled = (): boolean => state.litRenderVerboseEnabled;
 const mouseEnabled = (): boolean => state.mouseEventEnabled;
 const keyboardEnabled = (): boolean => state.keyboardEventEnabled;
 
-// Drive Lit's debug event flag from recording × (render-layer-enabled OR
+// Drive Lit's debug event flag from capturing × (render-layer-enabled OR
 // verbose-layer-enabled) so lit-html only pays the per-render CustomEvent
 // dispatch cost while we're actually capturing one of the two render layers.
 const syncRenderDebug = (): void => {
   setRenderDebugEnabled(
-    state.recordingState &&
-      (state.litRenderEnabled || state.litRenderVerboseEnabled)
+    capturing() && (state.litRenderEnabled || state.litRenderVerboseEnabled)
   );
 };
 
@@ -60,10 +76,10 @@ const syncRenderDebug = (): void => {
 // Capture layer installation
 // ---------------------------------------------------------------------------
 
-installLifecycleLayer(emit, recording, lifecycleEnabled);
-installRenderLayer(emit, recording, renderEnabled, renderVerboseEnabled);
-installMouseLayer(emit, recording, mouseEnabled);
-installKeyboardLayer(emit, recording, keyboardEnabled);
+installLifecycleLayer(out, capturing, lifecycleEnabled);
+installRenderLayer(out, capturing, renderEnabled, renderVerboseEnabled);
+installMouseLayer(out, capturing, mouseEnabled);
+installKeyboardLayer(out, capturing, keyboardEnabled);
 
 // Flash-on-update rides the lifecycle wrappers but not the recording gate:
 // it's a page-side visual the panel toggles as a preference, so it follows the
@@ -81,6 +97,12 @@ const hot = (import.meta as {hot?: ViteHotLike}).hot;
 subscribeOverride(hot, (o) => {
   setFlashEnabled(o.flashUpdates ?? false);
   setFlashRamp(o.flashUpdatesRamp ?? false);
+  const next = o.chromeTracks ?? false;
+  if (next !== chromeTracks) {
+    chromeTracks = next;
+    if (!next) sink.reset();
+    syncRenderDebug();
+  }
 });
 
 if (hot !== undefined) {

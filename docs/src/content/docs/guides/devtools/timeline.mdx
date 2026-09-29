@@ -136,6 +136,39 @@ unaffected. Only layers you capture get a track, custom layers included.
 The **Element** picker and the regex box above the list filter the tracks too,
 so a search you typed in one view still applies when you switch to the other.
 
+## See it in Chrome's Performance panel
+
+The panel's tracks share a time axis with each other, not with the browser.
+To see Lit updates next to layout, paint, network and long tasks, mirror the
+timeline into Chrome DevTools' **Performance** panel. Turn on **chrome
+performance tracks** in the **Settings** tab, under **Timeline**, then record
+in Chrome as usual.
+
+The recording gets a **Lit** track group with a **Lifecycle** and a
+**Render** track, plus **Render (verbose)** and **Input** when those layers
+are on. Each update tick is one entry named after its element, such as
+`<hmr-counter> performUpdate`, with `willUpdate`, `update`, `updated` and the
+render nested beneath it. Traces captured with an agent through
+chrome-devtools-mcp contain the same entries, so an agent reading a trace
+sees Lit's work too.
+
+- The mirror runs whether or not the Lit panel is recording. It follows the
+  layers you picked in [Choose layers](#choose-layers), Lifecycle and Render
+  by default.
+- Chrome only keeps the entries while a Performance recording runs. Outside
+  one, each call costs well under a microsecond. With the setting off, the
+  page makes no calls at all.
+- Entries are labels only. Chrome's detail pane shows no changed properties
+  and no source link; select the same tick in the Lit panel for those.
+- Custom layers from `addTimelineEvent` stay in the Lit panel.
+- Updates that ran before the runtime installed, such as the first render on
+  page load, are not in the trace.
+
+<Aside>
+  The entries use `console.timeStamp` with its track arguments, which needs
+  Chrome 134 or newer. Older Chrome versions and other browsers ignore them.
+</Aside>
+
 ## Export a session for a bug report
 
 **Export snapshot** freezes the current session into a self-contained
