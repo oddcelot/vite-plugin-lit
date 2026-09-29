@@ -121,21 +121,26 @@ The two differ in how the server is found, not in what it can do:
   plugin logs a warning saying so at startup, naming the reason.
 
 The CLI also has `lit-devtools dev`, a standalone devframe server. Started on
-its own it shows an empty panel, because it has no page of its own. A page
-served by a Vite dev server that loads this plugin's runtime can point itself
-at it and feed it the live component tree, inspector and timeline:
+its own it shows an empty panel, because it has no page of its own. Add the
+script tag it prints at startup to any page, including one that Vite does not
+serve and one on another origin, and the page feeds it the live component tree,
+inspector and timeline:
 
-```ts
-import {connectToDevServer} from '@oddsquad/vite-plugin-lit/connect.js';
-
-await connectToDevServer('http://localhost:5180/');
+```html
+<script src="http://localhost:5180/lit-devtools.js"></script>
 ```
 
-The server asks for its one-time code unless you start it with `--no-auth`. What
-this does not do yet: put the runtime into a page that is not on a Vite dev
-server, and set up the cross-origin access and authentication a page on another
-origin needs. The dev server's `__connection.json` sends no CORS headers today,
-so from a different origin the connection is blocked by the browser.
+Put it before the scripts that define your components. The server asks for its
+one-time code unless you start it with `--no-auth`: type the code into the
+prompt the page shows, open the page once with `#devframe_otp=<code>` on its
+URL, or skip the gate on a loopback host with `--no-auth`. Pages on a loopback
+origin (any port) may connect; for any other origin, pass it to the server with
+`--allow-origin https://myapp.test:8443` (repeatable).
+
+Outside Vite the page has no build-time transforms, so HMR patching, source
+locations and open-in-editor do not work there; the tree, inspector and timeline
+do. A page that Vite serves can instead call `connectToDevServer()` from
+`@oddsquad/vite-plugin-lit/connect.js`.
 
 ## Playground
 

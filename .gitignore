@@ -3,6 +3,7 @@
 /lib/
 /types/
 /panel/
+/standalone/
 /dist/
 *.tsbuildinfo
 

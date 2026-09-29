@@ -37,12 +37,13 @@ Starts a standalone devframe server, the small framework the panel is built on.
 npx lit-devtools dev --port 5180 --host localhost --open
 ```
 
-| Flag            | Default     | Meaning                                                           |
-| --------------- | ----------- | ----------------------------------------------------------------- |
-| `--port <port>` | `5180`      | Port to listen on                                                 |
-| `--host <host>` | `localhost` | Host to bind to                                                   |
-| `--open`        | off         | Open the browser on start                                         |
-| `--no-auth`     | auth on     | Skip the one-time-code gate so a page can connect without a token |
+| Flag                      | Default       | Meaning                                                           |
+| ------------------------- | ------------- | ----------------------------------------------------------------- |
+| `--port <port>`           | `5180`        | Port to listen on                                                 |
+| `--host <host>`           | `localhost`   | Host to bind to                                                   |
+| `--open`                  | off           | Open the browser on start                                         |
+| `--no-auth`               | auth on       | Skip the one-time-code gate so a page can connect without a token |
+| `--allow-origin <origin>` | loopback only | Also let pages from this origin connect. Repeatable               |
 
 The default port is deliberately not the playground's 5179, so both can run
 against one checkout.
@@ -53,8 +54,29 @@ could otherwise drive the panel without a code.
 
 ### Feeding it a live page
 
-Started alone, the panel is empty: the server has no page. A page served by a
-Vite dev server that loads this plugin can connect to it from its own code:
+Started alone, the panel is empty: the server has no page. At startup it prints
+a script tag; add it to a page, before the scripts that define your components:
+
+```html
+<script src="http://localhost:5180/lit-devtools.js"></script>
+```
+
+The page can be anything that runs Lit, not only a Vite dev server, and it can
+be on another origin. The script starts the runtime and connects it to the
+server, so the panel, MCP tools and recording work as they do under Vite
+DevTools.
+
+- **Auth.** Without `--no-auth` the server prints a one-time code. The page
+  prompts for it, or you can open the page once with `#devframe_otp=<code>`
+  appended to its URL. The trusted token is remembered per page origin.
+- **Origins.** Pages on a loopback origin (any port) may connect. For any other
+  origin, start the server with `--allow-origin https://myapp.test:8443`; repeat
+  the flag for more than one.
+- **Limits.** Outside Vite there are no build-time transforms, so HMR patching,
+  source locations and open-in-editor are unavailable. The tree, inspector and
+  timeline work.
+
+A page served by a Vite dev server can also connect from its own code:
 
 ```ts
 import {connectToDevServer} from '@oddsquad/vite-plugin-lit/connect.js';
@@ -64,15 +86,9 @@ import {connectToDevServer} from '@oddsquad/vite-plugin-lit/connect.js';
 const disconnect = await connectToDevServer('http://localhost:5180/');
 ```
 
-The tree, inspector and timeline traffic that normally goes to the page's own
-dev server goes to this one instead; the panel, MCP tools and recording work as
-they do under Vite DevTools. Without `--no-auth` the server prints a one-time
-code that the page asks for, or you can pass `{authToken}` as the second
-argument.
-
-Not supported yet: a page that is not on a Vite dev server (the runtime is not
-injected for you), and a page on a different origin from the dev server, whose
-`__connection.json` request the browser blocks for want of CORS headers.
+Pass `{authToken}` as the second argument to skip the code prompt. From another
+origin, also pass `{connectionMeta}` (the JSON the server serves at
+`/__connection.json`), since the browser blocks the page from fetching it.
 
 ## lit-devtools mcp
 

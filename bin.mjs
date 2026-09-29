@@ -30,7 +30,10 @@
  * @see plans/roadmap/03-cli-and-stdio-mcp.md
  */
 
+import {readFile} from 'node:fs/promises';
+import {createRequire} from 'node:module';
 import process from 'node:process';
+import {pathToFileURL} from 'node:url';
 import {createStandaloneLitDevframe} from './lib/devframe/rpc-source.js';
 import {PACKAGE_VERSION} from './lib/devframe/paths.js';
 
@@ -42,6 +45,12 @@ import {PACKAGE_VERSION} from './lib/devframe/paths.js';
  * experience than a port nobody has to think about.
  */
 const DEFAULT_DEV_PORT = 5180;
+
+/** The script pages outside Vite load; built by `build:standalone`. */
+const STANDALONE_SCRIPT = new URL(
+  './dist/standalone/lit-devtools.js',
+  import.meta.url
+);
 
 /** True for a host only this machine can reach. */
 const isLoopbackHost = (host) =>
@@ -76,6 +85,12 @@ const main = async () => {
     .option('--host <host>', 'Host to bind to', {default: 'localhost'})
     .option('--open', 'Open the browser on start')
     .option(
+      '--allow-origin <origin>',
+      'Also let pages served from this origin connect, e.g. ' +
+        'https://myapp.test:8443. Loopback origins on any port are always ' +
+        'allowed. Repeatable.'
+    )
+    .option(
       '--no-auth',
       'Skip the one-time-code gate, so a page can connect without a token'
     )
@@ -95,16 +110,73 @@ const main = async () => {
       }
       const {createDevServer} = await import('devframe/adapters/dev');
       // A standalone server has no Vite, so it has no page of its own: the
-      // panel stays empty until a page dials in with `connectToDevServer()`
-      // (see `lib/runtime/rpc-transport.ts`), which carries the runtime's
-      // usual channels over devframe RPC. Injecting the runtime into a page
-      // that is not on a Vite dev server is not something this command does.
-      await createDevServer(
+      // panel stays empty until a page dials in. It gets there by loading
+      // `/lit-devtools.js` (served below), which starts the runtime and calls
+      // `connectToDevServer()` (see `lib/runtime/rpc-transport.ts`). HMR
+      // patching and source metadata need Vite's transforms and are not part
+      // of it.
+      const allowedOrigins = [flags.allowOrigin]
+        .flat()
+        .filter((origin) => origin != null)
+        .map(String);
+      let server;
+      const serveScript = async () => {
+        const headers = {
+          'content-type': 'text/javascript; charset=utf-8',
+          'cache-control': 'no-store',
+        };
+        let bundle;
+        try {
+          bundle = await readFile(STANDALONE_SCRIPT, 'utf8');
+        } catch {
+          return new Response(
+            '// lit-devtools: the standalone script is not built. ' +
+              'Run `pnpm run build` in the package and restart.\n',
+            {status: 500, headers}
+          );
+        }
+        // The descriptor `__connection.json` would answer with, inlined so the
+        // page never fetches it: that request is cross-origin from a page
+        // that is not on this server, and gets no CORS headers. Picked, not
+        // spread, so nothing else devframe puts in it rides along to any page
+        // that can load a script tag.
+        const {backend, websocket, sse} = server.connectionMeta();
+        const config = {
+          url: server.origin + '/',
+          connectionMeta: {backend, websocket, sse},
+        };
+        return new Response(
+          `globalThis.__LIT_DEVTOOLS_CONNECT__ = ${JSON.stringify(config)};\n${bundle}`,
+          {headers}
+        );
+      };
+      // devframe mounts a static catch-all that answers 404 for paths it
+      // does not know, so a route added to its app in `onReady` would never be
+      // reached. The route has to go on the app *before* devframe's, which
+      // means handing it one -- built from the copy of h3 devframe itself
+      // resolves, so the two agree on the class.
+      const devframeRequire = createRequire(
+        import.meta.resolve('devframe/adapters/dev')
+      );
+      const {H3} = await import(
+        pathToFileURL(devframeRequire.resolve('h3')).href
+      );
+      const app = new H3();
+      app.use('/lit-devtools.js', serveScript);
+      server = await createDevServer(
         createStandaloneLitDevframe({version: PACKAGE_VERSION}),
         {
           host: flags.host,
           port: Number(flags.port),
           flags: {open: Boolean(flags.open), auth: flags.auth},
+          app,
+          ...(allowedOrigins.length > 0 ? {allowedOrigins} : {}),
+          onReady({origin}) {
+            console.log(
+              `\n[lit-devtools] Add this to a page to connect it:\n\n` +
+                `  <script src="${origin}/lit-devtools.js"></script>\n`
+            );
+          },
         }
       );
     });

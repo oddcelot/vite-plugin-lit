@@ -105,8 +105,11 @@ subscribeOverride(hot, (o) => {
   }
 });
 
-if (hot !== undefined) {
-  pageChannel.useViteHot(hot);
+if (hot !== undefined) pageChannel.useViteHot(hot);
+
+// Wired whether or not Vite is present: a page outside Vite gets its carrier
+// later from `connectToDevServer()`, and these listeners move onto it then.
+{
   setHotClient(pageChannel);
 
   // Panel → app: toggle recording and per-layer flags.

@@ -20,6 +20,7 @@ import {
   RPC_PAGE_RECEIVE,
   RPC_PAGE_SEND,
 } from '../devframe/protocol.js';
+import type {ConnectionMeta} from 'devframe';
 import {pageChannel} from './page-channel.js';
 import type {PageTransport} from './page-channel.js';
 
@@ -76,6 +77,13 @@ export interface ConnectOptions {
    * started with `--no-auth`.
    */
   authToken?: string;
+  /**
+   * The server's connection descriptor (what it serves at
+   * `<url>/__connection.json`). Passing it skips that fetch, which is the
+   * step a cross-origin page cannot make: the server sends no CORS headers,
+   * and a classic script tag is exempt from them where `fetch` is not.
+   */
+  connectionMeta?: ConnectionMeta;
 }
 
 /**
@@ -100,6 +108,7 @@ export const connectToDevServer = async (
   const client = await getDevframeRpcClient({
     baseURL: url,
     authToken: options.authToken,
+    connectionMeta: options.connectionMeta,
   });
   await client.ensureTrusted();
 
