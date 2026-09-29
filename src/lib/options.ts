@@ -136,6 +136,11 @@ export interface ResolvedOptions {
 /** Env var prefix consumed at config time. */
 export const ENV_PREFIX = 'LIT_PLUGIN';
 
+const ON_INCOMPATIBLE_MODES: readonly ('reload' | 'warn')[] = [
+  'reload',
+  'warn',
+];
+
 /** Parse a boolean-ish env string; `undefined` when unset/unrecognized. */
 const envBool = (v: string | undefined): boolean | undefined =>
   v === 'true' || v === '1'
@@ -188,7 +193,11 @@ export const resolveOptions = (
     hmrObj?.reconnect ?? envBool(env[`${ENV_PREFIX}_HMR_RECONNECT`]) ?? false;
   const onIncompatible =
     hmrObj?.onIncompatible ??
-    (env[`${ENV_PREFIX}_HMR_ON_INCOMPATIBLE`] as 'reload' | 'warn') ??
+    envEnum(
+      env[`${ENV_PREFIX}_HMR_ON_INCOMPATIBLE`],
+      ON_INCOMPATIBLE_MODES,
+      `${ENV_PREFIX}_HMR_ON_INCOMPATIBLE`
+    ) ??
     'reload';
 
   const ind = hmrObj?.indicator;

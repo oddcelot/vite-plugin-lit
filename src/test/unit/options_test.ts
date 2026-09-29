@@ -118,6 +118,14 @@ describe('hmr', () => {
       ).onIncompatible
     ).toBe('reload');
   });
+  test('an unrecognized LIT_PLUGIN_HMR_ON_INCOMPATIBLE warns and falls back', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(
+      resolve({}, {LIT_PLUGIN_HMR_ON_INCOMPATIBLE: 'warning'}).onIncompatible
+    ).toBe('reload');
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0][0]).toContain('LIT_PLUGIN_HMR_ON_INCOMPATIBLE');
+  });
 });
 
 describe('indicator', () => {
