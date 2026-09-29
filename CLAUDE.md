@@ -62,3 +62,19 @@ pnpm run changelog --tag v0.4.0       # heading reads "0.4.0" (no `--`)
 That prints to stdout and writes nothing. It groups by the trailers and hands
 back each commit's body; edit it into prose and paste it into `CHANGELOG.md` —
 the file is hand-written on purpose, and `cliff.toml` explains why.
+
+## Working through beads
+
+Tasks live in beads (`bd ready`, `bd show <id>`). When you're handed several
+beads, finish them one at a time. Each one gets:
+
+1. A fresh branch off `main`, named for its kind (`feature/<slug>`,
+   `fix/<slug>`, …). Claim the bead with `bd update <id> --claim`.
+2. Atomic commits: each commit is one self-contained step that passes
+   `vp check` and `vp test` by itself (a refactor, then the behaviour built on
+   it, then docs), carrying its own body and `Changelog:` trailer.
+3. A `--no-ff` merge into `main` once checks pass, then deleting the branch
+   and running `bd close <id>`. Start the next bead from the updated `main`.
+
+Anything you find along the way that's out of scope becomes a new bead
+(`bd create`), not an extra commit.
