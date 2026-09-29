@@ -3,6 +3,35 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.8.0 — 2026-09-30
+
+The plugin is now on JSR as well as npm: every release publishes the same
+build to jsr.io/@oddsquad/vite-plugin-lit. The documentation site gets a page
+per release, the StackBlitz playground starts again, and the licence now names
+oddcelot as the copyright holder.
+
+### Added
+
+- **Also on JSR.** Releases now publish to jsr.io/@oddsquad/vite-plugin-lit
+  alongside npm, so `npx jsr add @oddsquad/vite-plugin-lit` installs the same
+  build.
+- **The docs have a page per release.** The changelog on the documentation
+  site now lists every version with its date and links to a page for each
+  one, plus a page with everything that changed since a given version.
+
+### Changed
+
+- **The licence names the right copyright holder.** The package's LICENSE,
+  author field and source headers credited Google LLC; they now credit
+  oddcelot. The licence terms (BSD-3-Clause) are unchanged.
+
+### Fixed
+
+- **The StackBlitz playground starts.** Opening the playground on StackBlitz,
+  in dev or with `npm run standalone`, no longer stops at "Cannot find native
+  binding", and the dev server prints where to open the Lit DevTools panel in
+  its own tab.
+
 ## 0.7.0 — 2026-09-29
 
 Hot-patching covers two cases it used to get wrong: components with native
