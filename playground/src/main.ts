@@ -9,6 +9,7 @@ import './hmr-lifecycle.js';
 import './hmr-custom-layer.js';
 import './hmr-siblings.js';
 import './hmr-parent.js';
+import './hmr-child-state.js';
 import './hmr-styled.js';
 import './hmr-probe.js';
 import './hmr-properties.js';

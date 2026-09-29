@@ -160,6 +160,16 @@
       </div>
 
       <div class="card">
+        <hmr-rebuild-parent></hmr-rebuild-parent>
+        <span class="problem"
+          >Editing <code>Rebuilt parent: ONE</code> re-creates both children:
+          their count and <code>#taps</code> carry over while the instance id
+          changes. With <code>hmr.childState: 'reuse'</code> the unbound child
+          keeps its instance id too.</span
+        >
+      </div>
+
+      <div class="card">
         <hmr-properties></hmr-properties>
         <span class="problem"
           ><code>@property</code>/<code>@state</code> surface: arrays, objects,
