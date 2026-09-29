@@ -23,3 +23,10 @@ export const resetClock = (): void => {
 
 /** Milliseconds since the last {@link resetClock}. */
 export const now = (): number => performance.now() - epoch;
+
+/**
+ * Convert a recording-relative time (from {@link now}) back to a
+ * `performance.now()` value, i.e. milliseconds since `performance.timeOrigin`.
+ * Chrome DevTools' `console.timeStamp` expects that timebase.
+ */
+export const toPerfTime = (t: number): number => t + epoch;
