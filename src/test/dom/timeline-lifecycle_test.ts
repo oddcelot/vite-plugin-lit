@@ -168,13 +168,11 @@ describe('installLifecycleLayer', () => {
     ).toHaveLength(1);
   });
 
-  test('instruments components defined after install', async () => {
+  test('instruments the first component defined after install', async () => {
     const base = freshBase();
     install(await load());
-    // Custom elements capture lifecycle callbacks at define(), so the first
-    // component defined after install() predates the wrapped connectedCallback;
-    // components defined once the shared base is wrapped report it.
-    define(base);
+    // Custom elements capture lifecycle callbacks at define(), so the base
+    // has to be wrapped before the first define reaches the platform.
     const {tag} = define(base);
     const el = document.createElement(tag) as FakeReactiveElement;
     document.body.append(el);
@@ -188,7 +186,6 @@ describe('installLifecycleLayer', () => {
   test('connect and disconnect emit single point events', async () => {
     const base = freshBase();
     install(await load());
-    define(base);
     const {tag} = define(base);
     const el = document.createElement(tag);
     document.body.append(el);
