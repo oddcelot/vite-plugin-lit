@@ -89,3 +89,23 @@ test('Clear leaves the empty state in view', async () => {
   expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
   expect(panel.errors).toEqual([]);
 });
+
+test('the regex filter narrows the tracks as well as the list', async () => {
+  const {page} = panel;
+  const increment = fixture.page.locator('hmr-counter #increment');
+  for (let i = 0; i < 3; i++) {
+    await increment.click();
+  }
+  await page.getByText('Tracks', {exact: true}).first().click();
+  const marks = page.locator('timeline-tracks .mark');
+  await expect.poll(() => marks.count()).toBeGreaterThan(0);
+
+  // The filter bar stays on screen in Tracks mode.
+  const regex = page.locator('timeline-view input.regex');
+  await regex.fill('^no-such-span$');
+  await expect.poll(() => marks.count()).toBe(0);
+
+  await regex.fill('');
+  await expect.poll(() => marks.count()).toBeGreaterThan(0);
+  expect(panel.errors).toEqual([]);
+});

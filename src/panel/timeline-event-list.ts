@@ -14,6 +14,7 @@ import type {TimelineEvent} from '../types/timeline.js';
 import type {TimelineSpan} from '../lib/timeline/derive.js';
 import {layerColor} from './timeline-layers.js';
 import type {LayerState} from './timeline-layers.js';
+import {compileRegex, filterSpans} from '../lib/timeline/filter.js';
 import './timeline-span-detail.js';
 
 const RAW_KEY_PREFIX = 'raw:';
@@ -83,31 +84,6 @@ export class TimelineEventList extends LitElement {
         font-size: var(--lit-devtools-text-2xs);
         color: var(--lit-devtools-text-muted);
         flex-shrink: 0;
-      }
-      .filterbar select {
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text);
-        border: 1px solid var(--lit-devtools-border-strong);
-        border-radius: var(--lit-devtools-radius-sm);
-        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-3);
-        font-size: var(--lit-devtools-text-2xs);
-        font-family: var(--lit-devtools-font-mono);
-      }
-      .filterbar input.regex {
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text);
-        border: 1px solid var(--lit-devtools-border-strong);
-        border-radius: var(--lit-devtools-radius-sm);
-        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-3);
-        font-size: var(--lit-devtools-text-2xs);
-        font-family: var(--lit-devtools-font-mono);
-        min-width: 140px;
-      }
-      .filterbar input.regex::placeholder {
-        color: var(--lit-devtools-text-muted);
-      }
-      .filterbar input.regex.invalid {
-        border-color: var(--lit-devtools-error);
       }
       .filterbar button {
         background: var(--lit-devtools-surface-elevated);
@@ -220,29 +196,24 @@ export class TimelineEventList extends LitElement {
   /** Key of the selected row. Keys survive re-derivation; the row objects
    *  themselves are rebuilt whenever the event buffer changes. */
   @property({attribute: false}) selectedKey: string | null = null;
-  /** Element id to filter the list to, or null for all elements. */
-  @state() private _elementFilter: number | null = null;
-  /** Case-insensitive regex (source text) matched against tag/title/subtitle. */
-  @state() private _regex = '';
+  /** Element id to filter the list to, or null for all elements. Owned by
+   *  `timeline-view`, which applies the same filter to the tracks. */
+  @property({attribute: false}) elementFilter: number | null = null;
+  /** Case-insensitive regex (source text) matched against tag/title/subtitle.
+   *  Owned by `timeline-view`, like `elementFilter`. */
+  @property({attribute: false}) regex = '';
   /** One row per raw event instead of one per collapsed span. */
   @state() private _raw = false;
 
   private readonly _scrollRef = createRef<HTMLDivElement>();
-  /** Distinct elements seen in `events`, recomputed only when `events` changes
-   *  (not on every render driven by selection/filter/regex state). */
-  private _elementsCache: Array<{id: number; tag: string}> = [];
-  /** Rows for the current mode, recomputed on the same terms as
-   *  `_elementsCache` — deriving in `render()` would re-pair the whole buffer
+  /** Rows for the current mode, recomputed only when the events,
+   *  spans or Raw mode change — deriving in `render()` would re-pair the whole buffer
    *  on every keystroke in the regex box. */
   private _rowsCache: TimelineSpan[] = [];
   /** `_rowsCache` after the layer/element/regex filters, recomputed only when
    *  one of those or `_rowsCache` itself changes — not on every render (e.g.
    *  selecting a row must not re-filter up to `MAX_EVENTS` rows). */
   private _visibleCache: TimelineSpan[] = [];
-  /** Whether `_regex` fails to compile, cached alongside `_visibleCache` so
-   *  render() doesn't need to re-try/catch on every keystroke it isn't the
-   *  cause of. */
-  private _regexInvalid = false;
 
   override willUpdate(changed: Map<string, unknown>) {
     if (changed.has('events') || changed.has('spans') || changed.has('_raw')) {
@@ -251,40 +222,20 @@ export class TimelineEventList extends LitElement {
       // `timeline-view` owns clearing it.
       this._rowsCache = this._raw ? this.events.map(rawRow) : this.spans;
     }
-    if (changed.has('events')) {
-      this._elementsCache = this._computeElements();
-      // Drop a stale element filter when its element is no longer in the events
-      // (e.g. after Clear), otherwise the list would silently show nothing.
-      if (
-        this._elementFilter !== null &&
-        !this.events.some((ev) => ev.meta?.elementId === this._elementFilter)
-      ) {
-        this._elementFilter = null;
-      }
-    }
     if (
       changed.has('events') ||
       changed.has('spans') ||
       changed.has('_raw') ||
       changed.has('layers') ||
-      changed.has('_elementFilter') ||
-      changed.has('_regex')
+      changed.has('elementFilter') ||
+      changed.has('regex')
     ) {
-      // Compile once per relevant change, not once per render; invalid
-      // patterns disable the filter (rather than hiding everything) and flag
-      // the input.
-      let re: RegExp | null = null;
-      this._regexInvalid = false;
-      if (this._regex !== '') {
-        try {
-          re = new RegExp(this._regex, 'i');
-        } catch {
-          this._regexInvalid = true;
-        }
-      }
-      this._visibleCache = this._rowsCache.filter(
-        (row) =>
-          this._isVisible(row) && (re === null || re.test(this._haystack(row)))
+      // Compile once per relevant change, not once per render; an invalid
+      // pattern disables the filter (rather than hiding everything).
+      this._visibleCache = filterSpans(
+        this._rowsCache.filter((row) => this._layerOn(row)),
+        this.elementFilter,
+        compileRegex(this.regex).re
       );
     }
   }
@@ -328,49 +279,12 @@ export class TimelineEventList extends LitElement {
     el[virtualizerRef]?.element(index)?.scrollIntoView({block: 'center'});
   }
 
-  private _isVisible(row: TimelineSpan): boolean {
+  private _layerOn(row: TimelineSpan): boolean {
     const l = this.layers.find((l) => l.id === row.layerId);
-    if (l && !l.enabled) return false;
-    if (
-      this._elementFilter !== null &&
-      row.meta?.elementId !== this._elementFilter
-    ) {
-      return false;
-    }
-    return true;
-  }
-
-  /** Distinct elements (by stable id) seen across the recorded events. */
-  private _computeElements(): Array<{id: number; tag: string}> {
-    const seen = new Map<number, string>();
-    for (const ev of this.events) {
-      const id = ev.meta?.elementId;
-      if (id != null && !seen.has(id)) {
-        seen.set(id, ev.meta?.tagName ?? 'unknown');
-      }
-    }
-    return [...seen].map(([id, tag]) => ({id, tag}));
-  }
-
-  private _onFilterChange(e: Event) {
-    const v = (e.target as HTMLSelectElement).value;
-    this._elementFilter = v === '' ? null : Number(v);
-  }
-
-  private _onRegexInput(e: Event) {
-    this._regex = (e.target as HTMLInputElement).value;
-  }
-
-  /** Text searched by the regex filter — element tag, name, subtitle and the
-   *  changed property keys (the reason is worth searching for by name). */
-  private _haystack(row: TimelineSpan): string {
-    return `${row.meta?.tagName ?? ''} ${row.name} ${row.subtitle ?? ''} ${(
-      row.changed ?? []
-    ).join(' ')}`;
+    return !l || l.enabled;
   }
 
   override render() {
-    const elements = this._elementsCache;
     const visible = this._visibleCache;
     const selected =
       this.selectedKey === null
@@ -381,40 +295,6 @@ export class TimelineEventList extends LitElement {
         this.events.length > 0
           ? html`
               <div class="filterbar">
-                ${
-                  elements.length > 0
-                    ? html`
-                        <span>Element:</span>
-                        <select @change=${this._onFilterChange}>
-                          <option
-                            value=""
-                            ?selected=${this._elementFilter === null}
-                          >
-                            All elements
-                          </option>
-                          ${elements.map(
-                            (el) => html`
-                              <option
-                                value=${el.id}
-                                ?selected=${this._elementFilter === el.id}
-                              >
-                                &lt;${el.tag}&gt; #${el.id}
-                              </option>
-                            `
-                          )}
-                        </select>
-                      `
-                    : nothing
-                }
-                <input
-                  class="regex ${this._regexInvalid ? 'invalid' : ''}"
-                  type="text"
-                  spellcheck="false"
-                  placeholder="filter regex…"
-                  title="Case-insensitive regex matched against element tag, title and subtitle"
-                  .value=${this._regex}
-                  @input=${this._onRegexInput}
-                />
                 <button
                   class=${this._raw ? 'on' : ''}
                   title="Show one row per recorded event instead of collapsing start/end pairs"
@@ -468,9 +348,6 @@ export class TimelineEventList extends LitElement {
           ? html`<timeline-span-detail
               filterable
               .span=${selected}
-              @element-filter=${(e: CustomEvent<{id: number}>) => {
-                this._elementFilter = e.detail.id;
-              }}
             ></timeline-span-detail>`
           : nothing
       }
