@@ -302,9 +302,8 @@ passes; `pnpm docs:build` passes.
       checks anchors too — verified by planting a bad hash).
 - [x] Every page in the site map exists and is reachable from the sidebar, in
       the site map's order.
-- [ ] Site deployed at `https://oddcelot.github.io/vite-plugin-lit/` — blocked
-      on the manual step: Settings → Pages → Source "GitHub Actions". The build
-      produces `/llms.txt`, `/llms-full.txt`, `/llms-small.txt`,
+- [x] Site deployed at `https://oddcelot.github.io/vite-plugin-lit/` — Pages
+      source is "GitHub Actions" (confirmed 2026-09-29). The build produces `/llms.txt`, `/llms-full.txt`, `/llms-small.txt`,
       `/sitemap-index.xml`, and the Pagefind search index.
 - [x] `vp check`, `pnpm test:unit`, `pnpm build` unaffected at root.
 - [x] README trimmed and pointing at the site; `docs/css-delivery.md` gone
