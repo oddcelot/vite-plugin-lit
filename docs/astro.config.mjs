@@ -27,6 +27,19 @@ export default defineConfig({
       styles: ['normal'],
       subsets: ['latin'],
     },
+    // Manrope again, for the Open Graph cards only (src/pages/og/). Satori
+    // reads neither woff2 nor variable fonts, so this entry asks for static
+    // TTF instances of the two weights a card uses. No <Font> tag renders it,
+    // so browsers never download these files.
+    {
+      name: 'Manrope',
+      cssVariable: '--font-manrope-og',
+      provider: fontProviders.fontsource(),
+      weights: [500, 800],
+      styles: ['normal'],
+      subsets: ['latin'],
+      formats: ['ttf'],
+    },
     {
       name: 'Roboto Mono',
       cssVariable: '--font-roboto-mono',
