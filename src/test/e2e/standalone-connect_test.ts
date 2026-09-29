@@ -22,7 +22,8 @@
 import {spawn, type ChildProcess} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {createServer, type Server} from 'node:http';
-import type {AddressInfo} from 'node:net';
+import {connect, createServer as createTcpServer} from 'node:net';
+import type {AddressInfo, Server as TcpServer} from 'node:net';
 import {mkdir, rm, writeFile} from 'node:fs/promises';
 import * as path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -35,6 +36,8 @@ const PACKAGE_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 let browser: Browser;
 let cli: ChildProcess;
 let appServer: Server;
+let proxy: TcpServer;
+let proxyOrigin: string;
 let workDir: string;
 let devOrigin: string;
 let appOrigin: string;
@@ -109,10 +112,11 @@ customElements.define('standalone-hello', StandaloneHello);
       res.end(appJs);
       return;
     }
+    const via = req.url?.includes('via=proxy') ? proxyOrigin : devOrigin;
     res.setHeader('content-type', 'text/html');
     res.end(
       `<!doctype html><body>
-<script src="${devOrigin}/lit-devtools.js"></script>
+<script src="${via}/lit-devtools.js"></script>
 <script src="/app.js"></script>
 <standalone-hello></standalone-hello>`
     );
@@ -121,6 +125,19 @@ customElements.define('standalone-hello', StandaloneHello);
     appServer.listen(0, '127.0.0.1', resolve)
   );
   appOrigin = `http://127.0.0.1:${(appServer.address() as AddressInfo).port}`;
+
+  // Stands in for StackBlitz's preview proxy, a tunnel or a reverse proxy: the
+  // dev server reached at an address it does not know it has. Raw TCP, so the
+  // WebSocket upgrade goes through it as well.
+  const devPort = Number(new URL(devOrigin).port);
+  proxy = createTcpServer((socket) => {
+    const upstream = connect(devPort, 'localhost');
+    socket.pipe(upstream).pipe(socket);
+    socket.on('error', () => upstream.destroy());
+    upstream.on('error', () => socket.destroy());
+  });
+  await new Promise<void>((resolve) => proxy.listen(0, '127.0.0.1', resolve));
+  proxyOrigin = `http://127.0.0.1:${(proxy.address() as AddressInfo).port}`;
 
   const executablePath = process.env['HMR_E2E_EXECUTABLE'];
   browser = await chromium.launch({
@@ -136,6 +153,9 @@ afterAll(async () => {
   cli?.kill();
   await new Promise<void>((resolve) =>
     appServer ? appServer.close(() => resolve()) : resolve()
+  );
+  await new Promise<void>((resolve) =>
+    proxy ? proxy.close(() => resolve()) : resolve()
   );
   await rm(workDir, {recursive: true, force: true});
 });
@@ -175,4 +195,22 @@ test('the panel can record the page it never served', async () => {
     .locator('timeline-event-list .row')
     .first()
     .waitFor({timeout: 15_000});
+}, 60_000);
+
+test('behind a proxy the page dials the address it loaded the script from', async () => {
+  const page = await browser.newPage();
+  const sockets: string[] = [];
+  page.on('websocket', (ws) => sockets.push(ws.url()));
+  const messages: string[] = [];
+  page.on('console', (msg) => messages.push(msg.text()));
+  await page.goto(`${appOrigin}/?via=proxy`);
+  await expect
+    .poll(() => messages.some((m) => m.includes('[lit-devtools] connected')))
+    .toBe(true);
+  // The server inlines its own origin into the script; dialing that would
+  // work here but not behind a real proxy, where it is unreachable.
+  const proxyHost = new URL(proxyOrigin).host;
+  expect(sockets.length).toBeGreaterThan(0);
+  expect(sockets.every((url) => new URL(url).host === proxyHost)).toBe(true);
+  await page.close();
 }, 60_000);
