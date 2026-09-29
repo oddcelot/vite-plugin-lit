@@ -31,6 +31,57 @@ import type {TimelineEvent} from '../types/timeline.js';
  */
 const MAX_EVENTS = 5000;
 
+/**
+ * sessionStorage key for the id of the newest event Clear (or a fresh
+ * recording) threw away. A reloaded panel is refilled from the node's
+ * `timeline-history`, which Clear does not touch (agents still read the same
+ * buffer through `recent-events`), so without this a reload would resurrect
+ * everything the developer cleared. sessionStorage, not a module variable:
+ * the point is to survive the reload. Ids are `${epoch}-${seq}` with a seq
+ * that never resets across Clear (see `devframe/definition.ts`).
+ */
+const CLEARED_THROUGH_KEY = 'lit-devtools:timeline-cleared-through';
+
+const parseEventId = (
+  id: string | undefined
+): {epoch: string; seq: number} | undefined => {
+  if (id === undefined) return undefined;
+  const cut = id.lastIndexOf('-');
+  const seq = Number(id.slice(cut + 1));
+  return cut > 0 && Number.isInteger(seq)
+    ? {epoch: id.slice(0, cut), seq}
+    : undefined;
+};
+
+const readClearedThrough = (): {epoch: string; seq: number} | undefined => {
+  try {
+    return parseEventId(
+      sessionStorage.getItem(CLEARED_THROUGH_KEY) ?? undefined
+    );
+  } catch {
+    return undefined;
+  }
+};
+
+const rememberClearedThrough = (id: string): void => {
+  try {
+    sessionStorage.setItem(CLEARED_THROUGH_KEY, id);
+  } catch {
+    // Storage blocked: a reload then brings cleared events back. Harmless.
+  }
+};
+
+/** Drops events at or before the cleared-through mark. A mark from another
+ *  epoch belongs to an earlier dev server and says nothing about these ids. */
+const withoutCleared = (batch: TimelineEvent[]): TimelineEvent[] => {
+  const mark = readClearedThrough();
+  if (mark === undefined) return batch;
+  return batch.filter((event) => {
+    const id = parseEventId(event.id);
+    return id === undefined || id.epoch !== mark.epoch || id.seq > mark.seq;
+  });
+};
+
 let events: TimelineEvent[] = [];
 let error: string | null = null;
 let started = false;
@@ -49,6 +100,8 @@ export const getTimelineError = (): string | null => error;
 
 export const clearTimelineEvents = (): void => {
   if (events.length === 0) return;
+  const newest = events[events.length - 1]!.id;
+  if (newest !== undefined) rememberClearedThrough(newest);
   events = [];
   notify();
 };
@@ -81,18 +134,37 @@ const start = async (): Promise<void> => {
       return;
     }
 
+    // Subscribe before asking for history. The stream carries only events
+    // written after this point, and the history call is processed after the
+    // subscribe on the same connection, so nothing falls between the two; an
+    // event written in between shows up in both and is dropped below by id.
     const reader = rpc.rpc.streaming.subscribe<TimelineEvent[]>(
       meta.stream.channel,
       meta.stream.id,
       {highWaterMark: 4096}
     );
 
+    // Seed with what the node already recorded, so a panel opened or
+    // reloaded mid-session is not blank. One batch, so a deep link into it
+    // resolves against the whole seed. A failed call is not fatal: the panel
+    // is then just a late one, as it was before.
+    const history = await rpc.rpc.call('timeline-history').catch(() => []);
+    const seeded = withoutCleared(history).slice(-MAX_EVENTS);
+    const seededIds = new Set(seeded.map((event) => event.id));
+    if (seeded.length > 0) {
+      events = seeded;
+      notify();
+    }
+
     // No recording check here: every capture layer in the page runtime is
     // already gated on the recording flag, so anything that reaches the
-    // stream was recorded on purpose. Gating again client-side would throw
-    // away the replayed buffer that makes a late-opened panel useful.
+    // stream was recorded on purpose.
     for await (const batch of reader) {
-      const next = [...events, ...batch];
+      const fresh = withoutCleared(batch).filter(
+        (event) => event.id === undefined || !seededIds.has(event.id)
+      );
+      if (fresh.length === 0) continue;
+      const next = [...events, ...fresh];
       events = next.length > MAX_EVENTS ? next.slice(-MAX_EVENTS) : next;
       notify();
     }

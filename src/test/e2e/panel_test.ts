@@ -140,6 +140,47 @@ test('a #event= link to an unknown id leaves nothing selected', async () => {
   expect(panel.errors).toEqual([]);
 });
 
+test('a reloaded panel lists the events recorded before it reloaded', async () => {
+  const {page} = panel;
+  const increment = fixture.page.locator('hmr-counter #increment');
+  for (let i = 0; i < 5; i++) {
+    await increment.click();
+  }
+  const rows = page.locator('timeline-event-list .row');
+  await rows.first().waitFor();
+
+  // Select a row so the hash carries a link to one of the recorded spans.
+  await rows.first().click();
+  await expect
+    .poll(() => page.evaluate(() => location.hash))
+    .toContain('event=');
+  const hash = await page.evaluate(() => location.hash);
+  const linkedText = await page
+    .locator('timeline-event-list .row.selected')
+    .textContent();
+  // The list is virtualized, so the DOM row count says little; the scroll
+  // height is the whole list's size. Let the last batch land before reading.
+  const scroller = page.locator('timeline-event-list .scroll');
+  const height = () => scroller.evaluate((el) => el.scrollHeight);
+  await page.waitForTimeout(500);
+  const before = await height();
+  expect(before).toBeGreaterThan(0);
+
+  // No clicks from here on: whatever the reloaded panel shows can only have
+  // come from the node side's history.
+  await page.reload();
+  await page.waitForSelector('timeline-event-list');
+  // Same size as before: nothing lost to the reload, nothing doubled up by
+  // the replay.
+  await expect.poll(height).toBe(before);
+
+  // The cold link resolves against the seeded events.
+  const selected = page.locator('timeline-event-list .row.selected');
+  await expect.poll(() => selected.textContent()).toBe(linkedText);
+  expect(await page.evaluate(() => location.hash)).toBe(hash);
+  expect(panel.errors).toEqual([]);
+});
+
 test('the regex filter narrows the tracks as well as the list', async () => {
   const {page} = panel;
   const increment = fixture.page.locator('hmr-counter #increment');
