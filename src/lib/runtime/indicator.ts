@@ -13,6 +13,7 @@
 import {FONT_MONO_VAR} from './fonts.js';
 import {FLAME_ICON} from '../icons.js';
 import {subscribeOverride} from './overrides.js';
+import type {ViteHotLike} from './page-channel.js';
 import {observeEdgeInsets} from './edge-panel.js';
 import {injectTokens} from '../tokens.js';
 
@@ -115,11 +116,7 @@ class LitDevtoolsIndicator extends HTMLElement {
     if (this.#initialized) return;
     this.#initialized = true;
     injectTokens();
-    const hot = (
-      import.meta as {
-        hot?: {on: (event: string, cb: (data?: unknown) => void) => void};
-      }
-    ).hot;
+    const hot = (import.meta as {hot?: ViteHotLike}).hot;
     hot?.on('vite:afterUpdate', (data) => {
       // Count only updates that actually re-render/re-execute a component;
       // a pure shared-stylesheet swap (?css-sheet / ?raw / ?url adopted sheet)

@@ -21,6 +21,8 @@
  */
 
 import {subscribeOverride} from './overrides.js';
+import {pageChannel} from './page-channel.js';
+import type {PageTransport, ViteHotLike} from './page-channel.js';
 import {
   HMR_INCOMPATIBLE_CHANNEL,
   describeHmrReason,
@@ -28,14 +30,8 @@ import {
   type HmrIncompatibilityReason,
 } from '../../types/hmr-incompatibility.js';
 
-/**
- * Minimal `import.meta.hot` shape used to receive live setting overrides and
- * to report HMR-incompatibility events.
- */
-type HotChannel = {
-  on: (event: string, cb: (data: unknown) => void) => void;
-  send: (event: string, data: unknown) => void;
-};
+/** What the patcher needs of the page channel: reporting incompatibilities. */
+type HotChannel = Pick<PageTransport, 'send'>;
 
 export interface PatchOptions {
   /**
@@ -479,7 +475,7 @@ export const install = (options: PatchOptions = {}): void => {
     }
     return;
   }
-  const hot = (import.meta as {hot?: HotChannel}).hot;
+  const hot = (import.meta as {hot?: ViteHotLike}).hot;
   const state: PatchState = {
     records: new Map(),
     generationOf: new WeakMap(),
@@ -487,7 +483,7 @@ export const install = (options: PatchOptions = {}): void => {
       reconnect: options.reconnect ?? false,
       onIncompatible: options.onIncompatible ?? 'reload',
     },
-    hot,
+    hot: hot === undefined ? undefined : pageChannel,
   };
   g[STATE_KEY] = state;
 

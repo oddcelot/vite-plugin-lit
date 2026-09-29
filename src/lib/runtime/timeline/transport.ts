@@ -7,12 +7,10 @@
 /**
  * Buffered transport for timeline events.
  *
- * Phase 0/1: forwards events over Vite's HMR WebSocket channel
- * (`import.meta.hot.send`). This avoids the need for a separate devframe
- * RPC connection in early phases and works with any Vite dev server.
- *
- * Phase 2 migration: replace `sendViaHmr` with `sendViaRpc` when the
- * devframe RPC client is available (injected by the panel's clientScript).
+ * Forwards events over the page channel (`../page-channel.ts`), which is
+ * Vite's HMR WebSocket by default and can be pointed at a standalone
+ * devframe server instead. Which carrier is in use is not this module's
+ * concern.
  *
  * Batching: we coalesce events with `queueMicrotask` so a burst of
  * commit/set-part events from a single render doesn't hammer the channel
@@ -20,10 +18,9 @@
  */
 
 import type {TimelineEvent} from '../../../types/timeline.js';
+import type {PageTransport} from '../page-channel.js';
 
-type HotClient = {
-  send: (event: string, data: unknown) => void;
-};
+type HotClient = Pick<PageTransport, 'send'>;
 
 const queue: TimelineEvent[] = [];
 let flushScheduled = false;

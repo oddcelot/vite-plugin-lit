@@ -13,6 +13,7 @@
  * events emitted here flow through the same batched HMR channel to the panel.
  */
 
+import {pageChannel} from '../page-channel.js';
 import {emit, setHotClientCallback} from './transport.js';
 import type {TimelineEvent, TimelineLayer} from '../../../types/timeline.js';
 
@@ -33,7 +34,15 @@ export const addTimelineEvent = (event: TimelineEvent): void => {
   emit(event);
 };
 
-type ViteHot = {send: (event: string, data: unknown) => void};
+const announcedLayers: TimelineLayer[] = [];
+
+// A carrier attached later (the dev server's own RPC link, say) never saw the
+// layers registered before it, so they are announced to it again.
+pageChannel.onAttach(() => {
+  for (const layer of announcedLayers) {
+    pageChannel.send('lit:timeline:custom-layer', {layer});
+  }
+});
 
 /**
  * Register a custom timeline layer and announce it to the panel.
@@ -44,9 +53,8 @@ type ViteHot = {send: (event: string, data: unknown) => void};
  */
 export const addTimelineLayer = (layer: TimelineLayer): void => {
   const send = (): void => {
-    (import.meta as {hot?: ViteHot}).hot?.send('lit:timeline:custom-layer', {
-      layer,
-    });
+    announcedLayers.push(layer);
+    pageChannel.send('lit:timeline:custom-layer', {layer});
   };
   setHotClientCallback(send);
 };

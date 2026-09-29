@@ -15,6 +15,8 @@
 
 import {createPageScriptChannel} from 'devframe/in-page-channel';
 import {elementById} from '../timeline/identity.js';
+import {pageChannel} from '../page-channel.js';
+import type {ViteHotLike} from '../page-channel.js';
 import {buildTree, collectDetails} from './collect.js';
 import {clearHighlight, highlightById} from './highlight.js';
 import {
@@ -28,12 +30,8 @@ import {
   type InspectorMessage,
 } from '../../../types/inspector.js';
 
-type ViteHot = {
-  send: (event: string, data: unknown) => void;
-  on: (event: string, handler: (data: unknown) => void) => void;
-};
-
-const hot = (import.meta as {hot?: ViteHot}).hot;
+const hot = (import.meta as {hot?: ViteHotLike}).hot;
+if (hot !== undefined) pageChannel.useViteHot(hot);
 
 // The direct panel channel, outside the `hot` gate on purpose: it is the one
 // part of the inspector that does not need a dev server, which is what lets
@@ -55,7 +53,7 @@ if (typeof window !== 'undefined') {
 if (hot !== undefined && typeof window !== 'undefined') {
   const send = (msg: InspectorMessage): void => {
     try {
-      hot.send(INSPECT_DATA_CHANNEL, msg);
+      pageChannel.send(INSPECT_DATA_CHANNEL, msg);
     } catch {
       // HMR channel temporarily unavailable; the panel can re-request.
     }
@@ -260,7 +258,7 @@ if (hot !== undefined && typeof window !== 'undefined') {
   // Command dispatch
   // -------------------------------------------------------------------------
 
-  hot.on(INSPECT_CMD_CHANNEL, (data) => {
+  pageChannel.on(INSPECT_CMD_CHANNEL, (data) => {
     const cmd = data as InspectorCommand;
     switch (cmd.type) {
       case 'tree': {
