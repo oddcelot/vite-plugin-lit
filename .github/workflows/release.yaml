@@ -10,7 +10,8 @@ name: Release
 # package settings on jsr.io/@oddsquad/vite-plugin-lit.
 #
 # Running the workflow by hand with a tag publishes only that tag to JSR, for
-# a JSR run that needs redoing or a release from before JSR support:
+# a JSR publish that failed on a real release (tags before v0.7.1 lack
+# jsr.json):
 #
 #   gh workflow run release.yaml -f tag=v0.7.0
 
@@ -89,24 +90,6 @@ jobs:
         with:
           ref: ${{ env.TAG }}
           persist-credentials: false
-      # Tags from before JSR support (v0.7.0 and older) lack jsr.json, the
-      # jsr-deps script and the `@ts-self-types` lines; take them from main.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: main
-          path: .main
-          persist-credentials: false
-      - name: Backfill JSR files on older tags
-        run: |
-          [ -f jsr.json ] || cp .main/jsr.json jsr.json
-          [ -f scripts/jsr-deps.mjs ] || cp .main/scripts/jsr-deps.mjs scripts/
-          for entry in src/index.ts:index src/lib/runtime/css.ts:css src/lib/runtime/rpc-transport.ts:rpc-transport; do
-            file=${entry%%:*}
-            grep -q '@ts-self-types' "$file" && continue
-            { printf '/* @ts-self-types="./%s.d.ts" */\n' "${entry##*:}"; cat "$file"; } > "$file.tmp"
-            mv "$file.tmp" "$file"
-          done
-          rm -rf .main
       - run: corepack enable
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
