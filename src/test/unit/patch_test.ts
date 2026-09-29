@@ -497,3 +497,45 @@ describe('hotPatch', () => {
     }
   });
 });
+
+describe('child state across a hot patch', () => {
+  const childRoot = {};
+
+  /** Hot-patches `x-parent`, then replaces one child with a fresh one. */
+  const recreate = async (): Promise<{count: number}> => {
+    // Per test: instrumentation stays on a class's prototype across installs.
+    class XChild extends FakeElement {
+      static readonly elementProperties = new Map<PropertyKey, unknown>([
+        ['count', {}],
+      ]);
+      count = 0;
+      readonly localName = 'x-child';
+      attributes: Array<{name: string; value: string}> = [];
+      getRootNode(): object {
+        return childRoot;
+      }
+    }
+    define('x-parent', class extends FakeElement {});
+    define('x-child', XChild);
+    const parent = new FakeElement();
+    connect('x-parent', parent);
+    const old = new XChild();
+    connect('x-child', old);
+    old.count = 3;
+    define('x-parent', class extends FakeElement {});
+    disconnect('x-child', old);
+    const fresh = new XChild();
+    connect('x-child', fresh);
+    await new Promise<void>((r) => queueMicrotask(r));
+    return fresh;
+  };
+
+  test("the default ('transfer') carries state onto the re-created child", async () => {
+    expect((await recreate()).count).toBe(3);
+  });
+
+  test("'reset' leaves the re-created child at its defaults", async () => {
+    installFresh({childState: 'reset'});
+    expect((await recreate()).count).toBe(0);
+  });
+});
