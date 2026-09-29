@@ -1,0 +1,42 @@
+---
+/**
+ * The short product demo from `public/demo/`. Muted autoplay on a loop, like
+ * a moving screenshot; the controls are there to pause it or turn the music
+ * on. Files in `public/` are not processed, so the paths carry the base.
+ */
+interface Props {
+  /** What the video shows, for screen readers. */
+  label: string;
+}
+
+const {label} = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+
+<figure class="demo-video">
+  <video
+    src={`${base}/demo/hmr-demo.mp4`}
+    poster={`${base}/demo/hmr-demo-poster.jpg`}
+    width="1440"
+    height="902"
+    aria-label={label}
+    autoplay
+    muted
+    loop
+    playsinline
+    controls
+    preload="metadata"></video>
+</figure>
+
+<style>
+  .demo-video {
+    margin: 1.5rem 0;
+  }
+  .demo-video video {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 0.5rem;
+  }
+</style>
