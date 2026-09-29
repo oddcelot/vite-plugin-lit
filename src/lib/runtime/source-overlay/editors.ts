@@ -6,20 +6,27 @@
 
 import type {EditorConfig} from '../../types.js';
 
+// `<scheme>://file/` already ends in the slash that starts a POSIX path, so a
+// second one would put `//Users/...` in the URL path, which VS Code-family
+// editors only resolve by accident. Drop exactly one: Windows drive paths have
+// none to drop, and a UNC `//server/share` keeps the double slash it needs.
+const filePath = (path: string) =>
+  path.startsWith('/') ? path.slice(1) : path;
+
 // Keep the keys/labels in sync with SOURCE_OVERLAY_EDITORS in
 // src/types/timeline.ts (the panel's editor-selection options).
 export const BUILTIN_EDITORS: Record<string, EditorConfig> = {
   vscode: {
     name: 'VS Code',
-    url: (path, line) => `vscode://file/${path}:${line}`,
+    url: (path, line) => `vscode://file/${filePath(path)}:${line}`,
   },
   cursor: {
     name: 'Cursor',
-    url: (path, line) => `cursor://file/${path}:${line}`,
+    url: (path, line) => `cursor://file/${filePath(path)}:${line}`,
   },
   zed: {
     name: 'Zed',
-    url: (path, line) => `zed://file/${path}:${line}`,
+    url: (path, line) => `zed://file/${filePath(path)}:${line}`,
   },
   idea: {
     name: 'IntelliJ',
@@ -28,7 +35,7 @@ export const BUILTIN_EDITORS: Record<string, EditorConfig> = {
   },
   windsurf: {
     name: 'Windsurf',
-    url: (path, line) => `windsurf://file/${path}:${line}`,
+    url: (path, line) => `windsurf://file/${filePath(path)}:${line}`,
   },
 };
 
