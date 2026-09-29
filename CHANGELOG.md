@@ -3,6 +3,21 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.6.0 — 2026-09-29
+
+A small release with one feature. The Lit timeline can now appear in Chrome
+DevTools' own Performance panel, so an update tick sits on the same time axis
+as the layout, paint and long tasks it caused.
+
+### Added
+
+- **Lit updates in Chrome's Performance panel.** Turn on **chrome performance
+  tracks** under Timeline in the Settings tab and a Chrome Performance
+  recording gets a Lit track group, with each update tick nested as
+  `<my-element> performUpdate` over its phases, next to layout, paint and
+  long tasks. It works without the Lit panel recording, and traces taken
+  through chrome-devtools-mcp include it.
+
 ## 0.5.0 — 2026-09-29
 
 The timeline gets a second view: Tracks, one lane per layer on a shared time
