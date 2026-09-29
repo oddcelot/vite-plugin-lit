@@ -1,0 +1,9 @@
+# Workflows pin actions by commit SHA, so a tag moved upstream can't change
+# what runs here. Dependabot keeps those pins, and their version comments,
+# current.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
