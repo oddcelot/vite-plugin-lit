@@ -185,6 +185,14 @@ export function createLitDevframe(
       // marks `@internal` (see plans/roadmap/02-agent-timeline-access.md).
       const recentEvents: TimelineEvent[] = replay ? [...replay.events] : [];
 
+      // Event ids: `${epoch}-${seq}`. The epoch is the session start, so a
+      // restarted dev server can never reissue an id an older snapshot holds;
+      // the seq is monotonic across Clear. Stamped here, once, because this is
+      // the only place every consumer (stream, `recent-events`, export) shares.
+      // A replayed session never reaches `pushEvents`, so its ids are kept.
+      const eventEpoch = Date.now().toString(36);
+      let eventSeq = 0;
+
       // Recent HMR-incompatibility notices, capped the same way
       // `runtime/timeline/transport.ts` caps its pending queue — a long
       // session with many failing edits must not grow this forever.
@@ -239,8 +247,12 @@ export function createLitDevframe(
           channel.start({id: TIMELINE_STREAM_ID});
 
         source.attach({
-          pushEvents(events) {
-            if (events.length === 0) return;
+          pushEvents(incoming) {
+            if (incoming.length === 0) return;
+            const events = incoming.map((event) => ({
+              ...event,
+              id: event.id ?? `${eventEpoch}-${eventSeq++}`,
+            }));
             ensureStream().write(events);
             recentEvents.push(...events);
             if (recentEvents.length > RECENT_EVENTS_BUFFER_SIZE) {
@@ -455,7 +467,15 @@ export function createLitDevframe(
               const cutoff = newest - args.sinceMs;
               filtered = filtered.filter((e) => e.time >= cutoff);
             }
-            const limit = Math.min(args.limit ?? 50, 200);
+            // A frozen session's panel reads the baked no-argument call, so
+            // the agent-friendly 50/200 window would silently cut an export to
+            // its last 25 spans -- and a link to anything older would miss.
+            const limit = replay
+              ? Math.min(
+                  args.limit ?? RECENT_EVENTS_BUFFER_SIZE,
+                  RECENT_EVENTS_BUFFER_SIZE
+                )
+              : Math.min(args.limit ?? 50, 200);
             const events = filtered.slice(-limit);
             return {
               recording,

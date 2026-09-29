@@ -18,19 +18,27 @@
  */
 
 import {afterEach, describe, expect, test} from 'vite-plus/test';
-import {fsp} from './utils.js';
+import {createServer as createHttpServer, type Server} from 'node:http';
+import {chromium, type Browser} from 'playwright-core';
+import {fsp, joinPath} from './utils.js';
 import {initDevframe} from 'devframe/initiate';
 import type {DevframeInstance} from 'devframe/initiate';
 import {createLitDevframe} from '../../lib/devframe/definition.js';
 import {createNullSource} from '../../lib/devframe/source.js';
 
 let instance: DevframeInstance | undefined;
+let server: Server | undefined;
+let browser: Browser | undefined;
 
 const TMP = './node_modules/.tmp-lit-snapshot-test';
 
 afterEach(async () => {
   await instance?.close();
   instance = undefined;
+  await browser?.close();
+  browser = undefined;
+  await new Promise((done) => (server ? server.close(done) : done(undefined)));
+  server = undefined;
   await fsp.rm(TMP, {recursive: true, force: true});
 });
 
@@ -119,5 +127,124 @@ describe('static snapshot export', () => {
     expect(shards.some((f: string) => f.includes('component-details'))).toBe(
       true
     );
+  });
+
+  test('a cold-opened snapshot selects the event named in #event=', async () => {
+    const out = `${TMP}/out-browser`;
+    await fsp.rm(TMP, {recursive: true, force: true});
+
+    // Enough spans that the target sits well below the first screen, so
+    // "selected" and "scrolled into view" are different claims.
+    const events = Array.from({length: 120}, (_, i) => [
+      {
+        id: `snap-${i}-s`,
+        layerId: 'lit-lifecycle',
+        time: i * 10,
+        data: {},
+        title: 'performUpdate:start',
+        groupId: `7:${i}`,
+        meta: {elementId: 7, tagName: 'my-widget'},
+      },
+      {
+        id: `snap-${i}-e`,
+        layerId: 'lit-lifecycle',
+        time: i * 10 + 5,
+        data: {},
+        title: 'performUpdate:end',
+        groupId: `7:${i}`,
+        meta: {elementId: 7, tagName: 'my-widget'},
+      },
+    ]).flat();
+
+    const definition = createLitDevframe({
+      source: createNullSource(),
+      version: '9.9.9',
+      features: () => null,
+      // The real built panel: the point is what a browser does with the bake.
+      clientAssets: joinPath(process.cwd(), 'dist/client'),
+      replay: {
+        capturedAt: new Date().toISOString(),
+        version: '9.9.9',
+        customLayers: [],
+        roots: [{id: 7, tagName: 'my-widget', children: []}],
+        details: [],
+        events,
+        hmrIncompatibilities: [],
+      },
+    });
+    instance = initDevframe(definition, {
+      base: '/__lit/',
+      distDir: false,
+      ws: false,
+      sse: false,
+      getStorageDir: () => `${TMP}/storage`,
+    });
+    const ctx = await instance.context;
+    await instance.ready;
+    await ctx.rpc.invokeLocal('lit:export-snapshot', {outDir: out});
+
+    // Plain static files, as someone would host the export.
+    const root = joinPath(process.cwd(), out);
+    server = createHttpServer((req, res) => {
+      const path = new URL(req.url ?? '/', 'http://x').pathname
+        .replace(/^\/__lit/, '')
+        .replace(/\/$/, '/index.html');
+      fsp
+        .readFile(joinPath(root, path))
+        .then((body: Buffer) => {
+          res.setHeader(
+            'content-type',
+            path.endsWith('.js')
+              ? 'text/javascript'
+              : path.endsWith('.css')
+                ? 'text/css'
+                : path.endsWith('.json')
+                  ? 'application/json'
+                  : 'text/html'
+          );
+          res.end(body);
+        })
+        .catch(() => {
+          res.statusCode = 404;
+          res.end();
+        });
+    });
+    await new Promise<void>((done) => server!.listen(0, '127.0.0.1', done));
+    const port = (server.address() as {port: number}).port;
+
+    const executablePath = process.env['HMR_E2E_EXECUTABLE'];
+    browser = await chromium.launch({
+      ...(executablePath !== undefined && executablePath !== ''
+        ? {executablePath}
+        : {channel: 'chrome'}),
+      headless: process.env['HMR_E2E_HEADED'] === undefined,
+    });
+    const page = await browser.newPage();
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+
+    // Ids read from the baked session, not invented: this is the export
+    // round trip keeping them.
+    const target = events[100]!.id;
+    await page.goto(
+      `http://127.0.0.1:${port}/__lit/#tab=timeline&event=${target}`
+    );
+    const selected = page.locator('timeline-event-list .row.selected');
+    await selected.waitFor();
+    expect(await selected.count()).toBe(1);
+    // Event 100 is the start of span 50, at 500ms.
+    expect(await selected.textContent()).toContain('500.0ms');
+    expect(await selected.textContent()).toContain('performUpdate');
+
+    const box = (await selected.boundingBox())!;
+    const list = (await page
+      .locator('timeline-event-list .scroll')
+      .boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(list.y - 1);
+    expect(box.y + box.height).toBeLessThanOrEqual(list.y + list.height + 1);
+    expect(await page.evaluate(() => location.hash)).toContain(
+      `event=${target}`
+    );
+    expect(errors).toEqual([]);
   });
 });

@@ -276,7 +276,16 @@ export class TimelineEventList extends LitElement {
       el.scrollTop = el.scrollHeight;
       return;
     }
-    el[virtualizerRef]?.element(index)?.scrollIntoView({block: 'center'});
+    // A list that has only just received its rows has not laid out yet, and
+    // the virtualizer throws until it has; wait for it a few frames.
+    const attempt = (left: number): void => {
+      try {
+        el[virtualizerRef]?.element(index)?.scrollIntoView({block: 'center'});
+      } catch {
+        if (left > 0) requestAnimationFrame(() => attempt(left - 1));
+      }
+    };
+    attempt(30);
   }
 
   private _layerOn(row: TimelineSpan): boolean {

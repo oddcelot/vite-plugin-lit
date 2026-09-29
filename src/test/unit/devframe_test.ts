@@ -323,8 +323,79 @@ describe('lit devframe definition', () => {
 
     result = await ctx.rpc.invokeLocal('lit:recent-events', {elementId: 1});
     expect(result.events).toEqual([
-      {layerId: 'lit-lifecycle', time: 0, data: {}, meta: {elementId: 1}},
+      {
+        id: expect.any(String),
+        layerId: 'lit-lifecycle',
+        time: 0,
+        data: {},
+        meta: {elementId: 1},
+      },
     ]);
+  });
+
+  test('stamps each event with a unique id that outlives a buffer reset', async () => {
+    const {ctx, source} = await boot();
+    source.sink!.pushEvents([
+      {layerId: 'mouse', time: 1, data: {}},
+      {layerId: 'mouse', time: 2, data: {}},
+    ]);
+    const first = (await ctx.rpc.invokeLocal('lit:recent-events')).events;
+    const ids = first.map((e) => e.id);
+    expect(ids[0]).toMatch(/^[0-9a-z]+-\d+$/);
+    expect(new Set(ids).size).toBe(2);
+
+    // A page reload empties the buffer; ids must not restart, or a link into
+    // an earlier export could resolve to a different event.
+    source.sink!.runtimeReady();
+    source.sink!.pushEvents([{layerId: 'mouse', time: 1, data: {}}]);
+    const after = (await ctx.rpc.invokeLocal('lit:recent-events')).events;
+    expect(ids).not.toContain(after[0]!.id);
+  });
+
+  test('a replayed session answers recent-events with its whole buffer', async () => {
+    const events = Array.from({length: 300}, (_, i) => ({
+      id: `old-${i}`,
+      layerId: 'mouse',
+      time: i,
+      data: {},
+    }));
+    instance = initDevframe(
+      createLitDevframe({
+        source: new FakeSource(),
+        version: '9.9.9',
+        features: () => null,
+        replay: {
+          capturedAt: new Date().toISOString(),
+          version: '9.9.9',
+          customLayers: [],
+          roots: [],
+          details: [],
+          events,
+          hmrIncompatibilities: [],
+        },
+      }),
+      {
+        base: '/__lit/',
+        distDir: false,
+        ws: false,
+        sse: false,
+        getStorageDir: () => './node_modules/.tmp-lit-devframe-test',
+      }
+    );
+    const ctx = await instance.context;
+    await instance.ready;
+    const result = await ctx.rpc.invokeLocal('lit:recent-events');
+    // The frozen panel reads this no-argument call; the live default of 50
+    // would drop everything a link could point at.
+    expect(result.events.length).toBe(300);
+    expect(result.events[0]!.id).toBe('old-0');
+  });
+
+  test('keeps an id the event already carries', async () => {
+    const {ctx, source} = await boot();
+    source.sink!.pushEvents([{id: 'x-1', layerId: 'mouse', time: 1, data: {}}]);
+    const {events} = await ctx.rpc.invokeLocal('lit:recent-events');
+    expect(events[0]!.id).toBe('x-1');
   });
 
   test('recent-events caps the ring buffer and marks truncation', async () => {

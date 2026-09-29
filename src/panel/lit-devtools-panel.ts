@@ -26,6 +26,7 @@ import './components-view.js';
 import type {ComponentsView} from './components-view.js';
 import './updates-view.js';
 import type {UpdatesView} from './updates-view.js';
+import type {TimelineView} from './timeline-view.js';
 import {onDeepLink, writeHashLink} from './deep-link.js';
 import type {DeepLinkTab} from './deep-link.js';
 import './devtools-settings.js';
@@ -131,6 +132,7 @@ export class LitDevtoolsPanel extends LitElement {
 
   @query('components-view') private _componentsView?: ComponentsView;
   @query('updates-view') private _updatesView?: UpdatesView;
+  @query('timeline-view') private _timelineView?: TimelineView;
 
   /**
    * Tab items for the strip, badging "Components" with the current
@@ -160,6 +162,17 @@ export class LitDevtoolsPanel extends LitElement {
     // params (another devframe, a command, or this plugin's own overlay pick).
     onDeepLink((link) => {
       if (link.tab !== undefined) this._tab = link.tab;
+      if (link.componentId === undefined && link.eventId !== undefined) {
+        // The timeline is always mounted, but its store fills asynchronously;
+        // `selectEvent` holds the id until the events are there.
+        this._tab = 'timeline';
+        const eventId = link.eventId;
+        void this.updateComplete.then(() => {
+          this._timelineView?.selectEvent(eventId);
+          this._syncHash();
+        });
+        return;
+      }
       if (link.componentId === undefined) {
         this._syncHash();
         return;
@@ -197,11 +210,14 @@ export class LitDevtoolsPanel extends LitElement {
       this._tab === 'updates'
         ? this._updatesView?.selectedId
         : this._componentsView?.selectedId;
+    const eventId =
+      this._tab === 'timeline' ? this._timelineView?.selectedEventId : null;
     writeHashLink({
       tab: this._tab as DeepLinkTab,
       ...(selectedId === null || selectedId === undefined
         ? {}
         : {componentId: selectedId}),
+      ...(eventId === null || eventId === undefined ? {} : {eventId}),
     });
   }
 
@@ -248,7 +264,10 @@ export class LitDevtoolsPanel extends LitElement {
         ></segmented-tabs>
       </header>
       <div class="view" @inspect-element=${this._onInspectElement}>
-        <timeline-view ?hidden=${this._tab !== 'timeline'}></timeline-view>
+        <timeline-view
+          ?hidden=${this._tab !== 'timeline'}
+          @selection-change=${this._syncHash}
+        ></timeline-view>
         <!-- Kept mounted (like the timeline) so an overlay inspect-pick can
              arrive and switch us here even while another tab is in front. -->
         <components-view

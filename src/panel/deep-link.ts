@@ -56,10 +56,19 @@ export interface DeepLink {
   /** Element to select, by stable id: a node in the Components tree, or the
    *  component row it belongs to in Updates. */
   componentId?: number;
+  /** Timeline event to select, by the id the node side stamped on it (see
+   *  `TimelineEvent.id`). Survives a snapshot export, unlike a buffer index. */
+  eventId?: string;
 }
 
+/** True when a link asks for anything at all. */
+const hasLink = (link: DeepLink): boolean =>
+  link.tab !== undefined ||
+  link.componentId !== undefined ||
+  link.eventId !== undefined;
+
 /** Parse a `DeepLink` out of hash params, ignoring anything unrecognised. */
-const fromParams = (params: URLSearchParams): DeepLink => {
+export const fromParams = (params: URLSearchParams): DeepLink => {
   const link: DeepLink = {};
   const tab = params.get('tab');
   if (isTab(tab)) {
@@ -71,6 +80,8 @@ const fromParams = (params: URLSearchParams): DeepLink => {
   if (params.get('component') !== null && Number.isInteger(id)) {
     link.componentId = id;
   }
+  const eventId = params.get('event');
+  if (eventId !== null && eventId !== '') link.eventId = eventId;
   return link;
 };
 
@@ -93,6 +104,8 @@ export const writeHashLink = (link: DeepLink): void => {
   else params.set('tab', link.tab);
   if (link.componentId === undefined) params.delete('component');
   else params.set('component', String(link.componentId));
+  if (link.eventId === undefined) params.delete('event');
+  else params.set('event', link.eventId);
   const next = params.toString();
   if (next === location.hash.replace(/^#/, '')) return;
   history.replaceState(
@@ -112,9 +125,7 @@ export const writeHashLink = (link: DeepLink): void => {
  */
 export const onDeepLink = (apply: (link: DeepLink) => void): void => {
   const hashLink = readHashLink();
-  if (hashLink.tab !== undefined || hashLink.componentId !== undefined) {
-    apply(hashLink);
-  }
+  if (hasLink(hashLink)) apply(hashLink);
   window.addEventListener('hashchange', () => apply(readHashLink()));
 
   void (async () => {
@@ -139,9 +150,11 @@ export const onDeepLink = (apply: (link: DeepLink) => void): void => {
         if (typeof id === 'number' && Number.isInteger(id)) {
           link.componentId = id;
         }
-        if (link.tab !== undefined || link.componentId !== undefined) {
-          apply(link);
+        const eventId = params['eventId'];
+        if (typeof eventId === 'string' && eventId !== '') {
+          link.eventId = eventId;
         }
+        if (hasLink(link)) apply(link);
       };
       handle(state.value());
       state.on('updated', handle);

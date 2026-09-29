@@ -66,12 +66,14 @@ componentId}}` lands in `devframe:docks:active` as
 
 ## Deliberately not done
 
-- **Linking to a timeline event.** The roadmap sketch lists "a timeline event
-  by group id". Timeline events carry no stable identity across a reload — the
-  buffer is positional — so a link to one would be valid only within the
-  session that produced it, which is the one case where you do not need a link.
-  A snapshot changes that (the events are frozen), so this is worth revisiting
-  on top of 08, with an id that actually survives the export.
+- ~~**Linking to a timeline event.**~~ Done later (bead vpl-em1). The
+  roadmap sketch listed "a timeline event by group id", but events carried no
+  stable identity across a reload, so a link would only have been valid inside
+  the session that produced it. Snapshots froze the events, which made it
+  worth doing: the node side now stamps each event with `${epoch}-${seq}`, the
+  id survives the stream, `recent-events` and the export, and
+  `#tab=timeline&event=<id>` selects the span whose events include it. An id
+  the buffer no longer holds opens the Timeline with no selection.
 - **Linking from the HMR diagnostics.** The roadmap pairs this with 01. The
   diagnostics are terminal output; there is nothing to click. The panel's own
   incompatibility list could link, but it already sits next to the tree it
