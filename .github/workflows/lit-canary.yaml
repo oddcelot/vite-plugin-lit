@@ -1,0 +1,40 @@
+name: Lit canary
+
+# Runs the unit and e2e suites against lit `main` instead of the published npm
+# versions (see `src/test/canary.ts` and docs/contributing/testing). In-place
+# patching depends on lit internals, so this is the early warning that a change
+# upstream broke it. It is not part of `ci.yaml` on purpose: a red run here
+# usually means lit moved, not that a pull request is wrong.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays, 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      LIT_CANARY: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - run: corepack enable
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The `lit` submodule is pinned to a commit and marked `update = none`,
+      # so a plain checkout skips it. `--checkout` overrides that and
+      # `--remote` moves it to the tip of lit's default branch, which is the
+      # whole point of a canary.
+      - run: git submodule update --init --checkout --remote --depth 1 lit
+      - run: pnpm run build:lit-canary
+      - run: pnpm run test:unit
+      # Still run e2e when unit fails, so one run reports both.
+      - run: pnpm run test:e2e
+        if: ${{ !cancelled() }}

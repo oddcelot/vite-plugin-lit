@@ -47,6 +47,10 @@ With `LIT_CANARY=1`, every bare `lit`, `@lit/*`, and `@lit-labs/*` import in the
 test fixtures and the unit tests is aliased into the built submodule output. The
 whole suite then runs against lit `main`.
 
+The `Lit canary` workflow does the same every Monday and on demand from the
+Actions tab. It moves the submodule to the tip of lit's default branch first, so
+a red run means something changed upstream, or in the plugin's reading of it.
+
 <Aside type="tip" title="What the canary is for">
   In-place patching depends on internals of how Lit evaluates classes and
   templates. The canary suite is the early warning when a change on lit `main`
