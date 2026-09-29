@@ -42,7 +42,7 @@ by two spaces:
 Changelog: Fixed        # or Added | Changed | Removed
   **Source links open in the editor you chose.** Clicks from the panel and
   the in-page overlay now pass the editor picked in config, env or Settings.
-Changelog: skip         # tests, docs, tooling, refactors, plan-status bumps
+Changelog: skip         # tests, docs, tooling, refactors
 ```
 
 The entry is one bullet from the user's side: a bold outcome, then the symptom
