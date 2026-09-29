@@ -1,6 +1,6 @@
 # Iterating on the vite-plugin-lit promo
 
-A 20s, silent, 1920×1080 capabilities video. The whole thing plays inside a dark
+A 20s, 1920×1080 capabilities video. The whole thing plays inside a dark
 Lit DevTools Timeline, and each capability is an event bar that opens into a demo
 as the cyan playhead passes. Output: `renders/video.mp4`.
 
@@ -14,6 +14,8 @@ as the cyan playhead passes. Output: `renders/video.mp4`.
 | `frame.md` | Hand-written dark tokens from the `lit-design` skill. The preset remix came out light and is kept at `.hyperframes/frame.blue-professional.md` |
 | `compositions/frames/NN-*.html` | One file per frame. Each frame redraws the whole stage |
 | `renders/video.mp4` | The rendered v1 (committed) |
+| `assets/bgm/brisk-feature-reveal.m4a` | Music bed "Brisk Feature Reveal", supplied by the user. The 19.84s original is padded with silence to 20.00s and re-encoded to AAC, so the assembler doesn't loop it to fill the gap |
+| `audio_meta.json` | Hand-written; points the assembler at the bed (volume left at the default 0.9 for a film with no voice-over) |
 | `assets/` | Manrope + Roboto Mono woff2 files and `flame.svg`, copied from `~/.claude/skills/lit-design` |
 
 ## The one rule that makes it work
@@ -63,11 +65,14 @@ worker writes only its own `compositions/frames/NN-*.html`.
 - A frame's own background doesn't show after the first frame. The assembler paints `frame.md` → `colors.canvas` on the root instead, so keep that key.
 - `npx hyperframes check` reports 7 `content_overlap` errors: stacked headline lines whose boxes touch because of the tight leading. The rendered frames show no overlap. Raise headline `line-height` if a clean check matters, then re-check the cuts.
 - The count in frame 04 animates up to 42, so a paused frame can read 41.
-- Not signed in to HeyGen, and the local Kokoro/MusicGen dependencies aren't installed. That's fine while the video is silent.
+- Not signed in to HeyGen, and the local Kokoro/MusicGen dependencies aren't installed. That's fine: the music is a supplied file and there is no voice-over.
+- Keep STORYBOARD `music:` set to anything other than `none`. `music: none` without a SCRIPT.md makes `audio.mjs` treat the video as silent and delete `audio_meta.json`.
+- Always pass `--audio-meta ./audio_meta.json` to `assemble-index.mjs`, or the bed is left out.
+- Beats (`npx hyperframes beats .`): the tool reports 220 bpm, a beat every 0.273s starting at 0.15s. Every feature-bar hit lands within 10–100ms of a beat. The track dips at ~4.0s and ~8.0–8.5s and fades out from 18s. The final mix measures −16.8 LUFS.
 
 ## Ideas for next versions
 
-- Add music: set `music:` in the STORYBOARD frontmatter and re-run `audio.mjs`. The big moments already sit on a 0.5s (120bpm) grid.
+- Snap hits exactly onto the beat grid in `beats/…json` (currently up to ±0.13s off), or add SFX on the bar hits.
 - Cutdowns: a 1:1 or 9:16 version needs its own STAGE SPEC geometry; the timeline chrome won't fit as-is.
 - A second film ("approach B" from the cap-demo notes): one clip per capability, with real playground footage in the stage area instead of rebuilt UI.
 - Recipe: `lit-devtools-timeline` (v1). Say *"make another lit-devtools-timeline"* or *"like last time"* and the intent layer offers it before asking anything.

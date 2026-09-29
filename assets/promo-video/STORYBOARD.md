@@ -5,7 +5,7 @@ message: "Lit HMR that keeps your state — plus the DevTools to see it"
 arc: Record → HMR keeps state → shared CSS sheets → inspector → source overlay → agents (MCP) → lockup
 audience: Lit / web-components developers using Vite
 mode: autonomous
-music: none
+music: user-supplied — assets/bgm/brisk-feature-reveal.m4a ("Brisk Feature Reveal")
 ---
 
 # vite-plugin-lit — "The video is a timeline"
