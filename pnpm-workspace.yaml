@@ -6,6 +6,9 @@ packages:
 linkWorkspacePackages: true
 # playground/package.json repeats vite and vite-plus as plain versions (npm on
 # StackBlitz cannot read `catalog:`); bump them there too.
+# It also pins rolldown to the version vite-plus-core bundles (its
+# `bundledVersions`): on WebContainer the bundled binding looks up
+# `rolldown/package.json` to pick the wasm build, and fails without it.
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.0.0
   vite-plus: 1.0.0
