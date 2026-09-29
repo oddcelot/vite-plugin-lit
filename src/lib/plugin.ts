@@ -26,6 +26,7 @@ import {
 import {litCssQueries} from './plugins/css-queries.js';
 import {litTimelineVirtual} from './plugins/timeline-virtual.js';
 import {litCssLiterals} from './plugins/css-literals.js';
+import {litPrivateFields} from './plugins/private-fields.js';
 import {resolveRuntimeModule, JS_FILE_RE} from './plugins/shared.js';
 
 export {createOpenInEditorMiddleware} from './plugins/open-in-editor.js';
@@ -300,6 +301,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
     litCssQueries(() => resolved.cssSheetBuild),
     litTimelineVirtual(() => resolved.timeline),
     litCssLiterals(),
+    litPrivateFields(() => resolved.hmrEnabled && resolved.privateFields),
     sourceOverlayPlugin,
     hmr,
   ];
