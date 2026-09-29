@@ -23,6 +23,7 @@
 import {spawn} from 'node:child_process';
 import {readFile, rm} from 'node:fs/promises';
 import {createServer} from 'node:http';
+import {createServer as createNetServer} from 'node:net';
 import {tmpdir} from 'node:os';
 import * as path from 'node:path';
 import process from 'node:process';
@@ -32,9 +33,31 @@ import {build} from 'vite';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PLAYGROUND = path.join(ROOT, 'playground');
 const OUT_DIR = path.join(tmpdir(), 'lit-devtools-standalone-demo');
-const DEV_PORT = Number(process.env['DEMO_DEV_PORT'] ?? 5180);
-const APP_PORT = Number(process.env['DEMO_APP_PORT'] ?? 5181);
 const AUTH = process.env['DEMO_AUTH'] !== undefined;
+
+/** Whether `port` can be bound on localhost right now. */
+const isFree = (port) =>
+  new Promise((resolve) => {
+    const probe = createNetServer();
+    probe.once('error', () => resolve(false));
+    probe.listen(port, 'localhost', () => probe.close(() => resolve(true)));
+  });
+
+/**
+ * The port named in `env` as given, or else the first free one from `start`
+ * up: the defaults are common enough (another project's Vite, a devframe
+ * left running) that failing on a taken one would be the usual outcome.
+ */
+const pickPort = async (env, start, skip) => {
+  if (process.env[env] !== undefined) return Number(process.env[env]);
+  for (let port = start; port < start + 50; port++) {
+    if (port !== skip && (await isFree(port))) return port;
+  }
+  throw new Error(`no free port in ${start}-${start + 49}; set ${env}`);
+};
+
+const DEV_PORT = await pickPort('DEMO_DEV_PORT', 5180);
+const APP_PORT = await pickPort('DEMO_APP_PORT', 5181, DEV_PORT);
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
