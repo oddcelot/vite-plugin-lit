@@ -7,13 +7,20 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, property, state} from 'lit/decorators.js';
 import {ref, createRef} from 'lit/directives/ref.js';
-import {virtualize} from '@lit-labs/virtualizer/virtualize.js';
+import {virtualize, virtualizerRef} from '@lit-labs/virtualizer/virtualize.js';
+import type {VirtualizerHostElement} from '@lit-labs/virtualizer/virtualize.js';
 import {tokens} from '../lib/tokens.js';
 import type {TimelineEvent} from '../types/timeline.js';
-import {toSpans} from '../lib/timeline/derive.js';
 import type {TimelineSpan} from '../lib/timeline/derive.js';
+import {layerColor} from './timeline-layers.js';
 import type {LayerState} from './timeline-layers.js';
-import {openInEditor} from './open-in-editor.js';
+import './timeline-span-detail.js';
+
+const RAW_KEY_PREFIX = 'raw:';
+
+/** Whether `key` names a Raw-mode row rather than a collapsed span. */
+export const isRawKey = (key: string): boolean =>
+  key.startsWith(RAW_KEY_PREFIX);
 
 /**
  * Adapts one raw event to the row shape for the Raw toggle. Deliberately
@@ -22,7 +29,7 @@ import {openInEditor} from './open-in-editor.js';
  */
 const rawRow = (event: TimelineEvent, index: number): TimelineSpan => ({
   layerId: event.layerId,
-  key: `raw:${index}`,
+  key: `${RAW_KEY_PREFIX}${index}`,
   name: event.title ?? event.layerId,
   start: event.time,
   subtitle: event.subtitle,
@@ -50,6 +57,11 @@ const renderDuration = (row: TimelineSpan): string => {
  * component is five to ten raw rows whose durations the reader would
  * otherwise subtract by hand. The **Raw** toggle restores the per-event view
  * for ordering questions and for custom layers the pairing rules do not model.
+ *
+ * The spans and the selection belong to `timeline-view`, which shares both
+ * with the Tracks presentation: this element reads `.spans` and
+ * `.selectedKey` and reports clicks as a `span-select` event. It still reads
+ * `.events` for Raw mode and the element picker.
  */
 @customElement('timeline-event-list')
 export class TimelineEventList extends LitElement {
@@ -198,57 +210,16 @@ export class TimelineEventList extends LitElement {
       .dur.open {
         color: var(--lit-devtools-text-muted);
       }
-      .detail {
-        border-top: 1px solid var(--lit-devtools-border);
-        background: var(--lit-devtools-surface-low);
-        padding: var(--lit-devtools-space-5) var(--lit-devtools-space-5);
-        font-size: var(--lit-devtools-text-2xs);
-        font-family: var(--lit-devtools-font-mono);
-        color: var(--lit-devtools-text-secondary);
-        flex-shrink: 0;
-        max-height: 130px;
-        overflow-y: auto;
-      }
-      table {
-        border-collapse: collapse;
-        width: 100%;
-      }
-      td {
-        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-4)
-          var(--lit-devtools-space-1) 0;
-        vertical-align: top;
-      }
-      .key {
-        color: var(--lit-devtools-text-muted);
-        white-space: nowrap;
-      }
-      .val {
-        color: var(--lit-devtools-text);
-        word-break: break-all;
-      }
-      a {
-        color: var(--lit-devtools-accent);
-        text-decoration: none;
-      }
-      a:hover {
-        text-decoration: underline;
-      }
-      .src-link {
-        cursor: pointer;
-      }
-      .filter-link {
-        cursor: pointer;
-        margin-left: var(--lit-devtools-space-4);
-        font-size: var(--lit-devtools-text-2xs);
-      }
     `,
   ];
 
   @property({type: Array}) events: TimelineEvent[] = [];
+  /** `toSpans(events)`, derived once by `timeline-view` for both views. */
+  @property({type: Array}) spans: TimelineSpan[] = [];
   @property({type: Array}) layers: LayerState[] = [];
   /** Key of the selected row. Keys survive re-derivation; the row objects
    *  themselves are rebuilt whenever the event buffer changes. */
-  @state() private _selectedKey: string | null = null;
+  @property({attribute: false}) selectedKey: string | null = null;
   /** Element id to filter the list to, or null for all elements. */
   @state() private _elementFilter: number | null = null;
   /** Case-insensitive regex (source text) matched against tag/title/subtitle. */
@@ -274,18 +245,11 @@ export class TimelineEventList extends LitElement {
   private _regexInvalid = false;
 
   override willUpdate(changed: Map<string, unknown>) {
-    if (changed.has('events') || changed.has('_raw')) {
-      this._rowsCache = this._raw
-        ? this.events.map(rawRow)
-        : toSpans(this.events);
-      // The selected row can vanish under either change: collapsing merges two
-      // rows into one, and an old event falls out of the buffer cap.
-      if (
-        this._selectedKey !== null &&
-        !this._rowsCache.some((row) => row.key === this._selectedKey)
-      ) {
-        this._selectedKey = null;
-      }
+    if (changed.has('events') || changed.has('spans') || changed.has('_raw')) {
+      // A selection that is not among these rows (a span key in Raw mode, or
+      // one that fell out of the buffer) just shows as unselected here;
+      // `timeline-view` owns clearing it.
+      this._rowsCache = this._raw ? this.events.map(rawRow) : this.spans;
     }
     if (changed.has('events')) {
       this._elementsCache = this._computeElements();
@@ -300,6 +264,7 @@ export class TimelineEventList extends LitElement {
     }
     if (
       changed.has('events') ||
+      changed.has('spans') ||
       changed.has('_raw') ||
       changed.has('layers') ||
       changed.has('_elementFilter') ||
@@ -331,10 +296,36 @@ export class TimelineEventList extends LitElement {
     }
   }
 
-  private _colorOf(layerId: string): string {
-    const l = this.layers.find((l) => l.id === layerId);
-    if (!l) return '#888';
-    return '#' + l.color.toString(16).padStart(6, '0');
+  private _select(key: string | null) {
+    this.dispatchEvent(
+      new CustomEvent<{key: string | null}>('span-select', {
+        detail: {key},
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  /**
+   * Scrolls the selected row into view, or to the newest row when nothing is
+   * selected. `timeline-view` calls this when switching back from Tracks: the
+   * list was hidden while the selection moved, so its own auto-scroll could
+   * not follow.
+   */
+  reveal(): void {
+    const el = this._scrollRef.value as
+      | (HTMLDivElement & VirtualizerHostElement)
+      | undefined;
+    if (!el) return;
+    const index =
+      this.selectedKey === null
+        ? -1
+        : this._visibleCache.findIndex((row) => row.key === this.selectedKey);
+    if (index === -1) {
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
+    el[virtualizerRef]?.element(index)?.scrollIntoView({block: 'center'});
   }
 
   private _isVisible(row: TimelineSpan): boolean {
@@ -366,17 +357,6 @@ export class TimelineEventList extends LitElement {
     this._elementFilter = v === '' ? null : Number(v);
   }
 
-  /** Ask the panel shell to open the Components tab on this element. */
-  private _inspect(id: number) {
-    this.dispatchEvent(
-      new CustomEvent('inspect-element', {
-        detail: {id},
-        bubbles: true,
-        composed: true,
-      })
-    );
-  }
-
   private _onRegexInput(e: Event) {
     this._regex = (e.target as HTMLInputElement).value;
   }
@@ -393,9 +373,9 @@ export class TimelineEventList extends LitElement {
     const elements = this._elementsCache;
     const visible = this._visibleCache;
     const selected =
-      this._selectedKey === null
+      this.selectedKey === null
         ? undefined
-        : this._rowsCache.find((row) => row.key === this._selectedKey);
+        : this._rowsCache.find((row) => row.key === this.selectedKey);
     return html`
       ${
         this.events.length > 0
@@ -440,6 +420,9 @@ export class TimelineEventList extends LitElement {
                   title="Show one row per recorded event instead of collapsing start/end pairs"
                   @click=${() => {
                     this._raw = !this._raw;
+                    // Raw and collapsed rows have different keys, so the
+                    // selection cannot carry across the switch.
+                    this._select(null);
                   }}
                 >
                   Raw
@@ -480,7 +463,17 @@ export class TimelineEventList extends LitElement {
               </div>
             `
       }
-      ${selected ? this._renderDetail(selected) : nothing}
+      ${
+        selected
+          ? html`<timeline-span-detail
+              filterable
+              .span=${selected}
+              @element-filter=${(e: CustomEvent<{id: number}>) => {
+                this._elementFilter = e.detail.id;
+              }}
+            ></timeline-span-detail>`
+          : nothing
+      }
     `;
   }
 
@@ -488,15 +481,13 @@ export class TimelineEventList extends LitElement {
   private _renderRow(row: TimelineSpan) {
     return html`
       <div
-        class="row ${this._selectedKey === row.key ? 'selected' : ''}"
-        @click=${() => {
-          this._selectedKey = row.key;
-        }}
+        class="row ${this.selectedKey === row.key ? 'selected' : ''}"
+        @click=${() => this._select(row.key)}
       >
         <span class="time">${row.start.toFixed(1)}ms</span>
         <span
           class="dot"
-          style=${'background:' + this._colorOf(row.layerId)}
+          style=${'background:' + layerColor(this.layers, row.layerId)}
         ></span>
         <span class="title">${row.name}</span>
         ${
@@ -508,93 +499,6 @@ export class TimelineEventList extends LitElement {
         <span class="dur ${row.duration === undefined ? 'open' : ''}"
           >${renderDuration(row)}</span
         >
-      </div>
-    `;
-  }
-
-  private _renderDetail(row: TimelineSpan) {
-    const {meta} = row;
-    const src = meta?.source;
-    // Raw rows carry exactly one event; a collapsed span carries its start and
-    // (once it closes) its end, whose payloads are the same minus `changed`.
-    const data = row.events[0]?.data;
-    return html`
-      <div class="detail">
-        <table>
-          <tr>
-            <td class="key">layer</td>
-            <td class="val">${row.layerId}</td>
-          </tr>
-          <tr>
-            <td class="key">time</td>
-            <td class="val">${row.start.toFixed(3)} ms</td>
-          </tr>
-          ${
-            row.duration !== undefined
-              ? html`<tr>
-                  <td class="key">duration</td>
-                  <td class="val">${row.duration.toFixed(3)} ms</td>
-                </tr>`
-              : nothing
-          }
-          ${
-            row.changed?.length
-              ? html`<tr>
-                  <td class="key">changed</td>
-                  <td class="val">${row.changed.join(', ')}</td>
-                </tr>`
-              : nothing
-          }
-          ${
-            meta?.tagName
-              ? html`<tr>
-                  <td class="key">element</td>
-                  <td class="val">
-                    &lt;${meta.tagName}&gt; #${meta.elementId}
-                    ${
-                      meta.elementId != null
-                        ? html`<a
-                              class="filter-link"
-                              @click=${() => {
-                                this._elementFilter = meta.elementId!;
-                              }}
-                              >filter</a
-                            ><a
-                              class="filter-link"
-                              title="Open this element in the Components tab"
-                              @click=${() => this._inspect(meta.elementId!)}
-                              >inspect</a
-                            >`
-                        : nothing
-                    }
-                  </td>
-                </tr>`
-              : nothing
-          }
-          ${
-            src
-              ? html`<tr>
-                  <td class="key">source</td>
-                  <td class="val">
-                    <a
-                      class="src-link"
-                      title="Open this file in your editor"
-                      @click=${() => openInEditor(src.file, src.line)}
-                      >${src.file}:${src.line}</a
-                    >
-                  </td>
-                </tr>`
-              : nothing
-          }
-          ${
-            data != null
-              ? html`<tr>
-                  <td class="key">data</td>
-                  <td class="val">${JSON.stringify(data)}</td>
-                </tr>`
-              : nothing
-          }
-        </table>
       </div>
     `;
   }
