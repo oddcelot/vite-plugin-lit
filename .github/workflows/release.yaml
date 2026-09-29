@@ -1,0 +1,75 @@
+name: Release
+
+# `git push origin main --follow-tags` is the whole release: a `v*` tag runs
+# the same gate as CI, publishes to npm, then creates the GitHub Release from
+# that version's CHANGELOG.md section.
+#
+# Publishing authenticates with npm trusted publishing (OIDC), so there is no
+# npm token to expire. It needs a one-time trusted publisher entry on npmjs.com
+# for this repository and `release.yaml`.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - run: corepack enable
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          registry-url: https://registry.npmjs.org
+      # No dependency cache: a release build shouldn't trust one.
+      - run: pnpm install --frozen-lockfile
+      - name: Check the tag matches package.json
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+      - name: Check CHANGELOG.md has a section for it
+        run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > /dev/null
+      # Same gate as ci.yaml's check job.
+      - run: pnpm run build
+      - run: pnpm --filter ./docs run sync
+      - run: pnpm --filter ./docs exec astro sync
+      - run: pnpm exec vp check
+      - run: pnpm run test:unit
+      # pnpm packs (applying `files` and rewriting `catalog:` ranges); npm
+      # publishes, because npm is what speaks trusted publishing. It runs
+      # outside the checkout, where package.json's `devEngines` would stop it.
+      - run: pnpm pack --out "$RUNNER_TEMP/package.tgz"
+      - name: Publish
+        working-directory: ${{ runner.temp }}
+        run: |
+          case "$GITHUB_REF_NAME" in
+            *-*) npm publish package.tgz --access public --tag next ;;
+            *) npm publish package.tgz --access public ;;
+          esac
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > notes.md
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=()
+          case "$GITHUB_REF_NAME" in *-*) prerelease=(--prerelease) ;; esac
+          gh release create "$GITHUB_REF_NAME" --verify-tag \
+            --title "$GITHUB_REF_NAME" --notes-file notes.md "${prerelease[@]}"
