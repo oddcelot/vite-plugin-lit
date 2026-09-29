@@ -16,6 +16,7 @@
 import {DEFAULT_LAYERS_STATE} from '../../types/timeline.js';
 import type {
   FeatureSettings,
+  OverrideBaselines,
   SettingsOverride,
   TimelineEvent,
   TimelineLayer,
@@ -306,6 +307,12 @@ declare module 'devframe' {
        * async by design.
        */
       override?: SettingsOverride;
+      /**
+       * The config value each overridden key was set against. A sibling of
+       * `override` so the runtime never sees it. Mirrors
+       * `OVERRIDE_BASELINES_LS_KEY`.
+       */
+      overrideBaselines?: OverrideBaselines;
     };
   }
 }

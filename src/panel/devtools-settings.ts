@@ -24,6 +24,7 @@ import {
   commitOverride,
   dropOverrideKey,
   onOverrideChange,
+  readBaselines,
   readOverride,
   resetOverride,
 } from './settings-override.js';
@@ -265,22 +266,26 @@ export class DevtoolsSettings extends LitElement {
 
   /**
    * Apply a settings snapshot. Both branches no-op when the value already
-   * matches, which is what stops `_adopt` -> `_push` -> store write ->
+   * matches, which is what stops `_adopt` -> `commitOverride` -> store write ->
    * `onChange` -> `_adopt` from looping.
    */
   private _adopt(all: Readonly<LitSettings>): void {
-    const {appearance, override} = all;
+    const {appearance, override, overrideBaselines} = all;
     if (appearance !== undefined && appearance !== this._colorScheme) {
       this._colorScheme = appearance;
       setColorSchemePreference(appearance);
     }
     if (
       override !== undefined &&
-      JSON.stringify(override) !== JSON.stringify(this._override)
+      (JSON.stringify(override) !== JSON.stringify(this._override) ||
+        JSON.stringify(overrideBaselines ?? {}) !==
+          JSON.stringify(readBaselines()))
     ) {
       // Mirrors to the page and `localStorage` without writing back to the
       // store the value just came from; `_override` updates via the listener.
-      adoptOverride(override);
+      // The baselines come along so a second browser judges "config changed"
+      // against what the first one recorded.
+      adoptOverride(override, overrideBaselines ?? {});
     }
   }
 
@@ -319,16 +324,19 @@ export class DevtoolsSettings extends LitElement {
     }
   }
 
-  /** Persist the merged override and push it to the app runtime. */
-  private _push(override: SettingsOverride) {
-    commitOverride(override);
-  }
-
   private _set<K extends keyof SettingsOverride>(
     key: K,
     value: SettingsOverride[K]
   ) {
-    this._push({...this._override, [key]: value});
+    // Remember the config value this override was made against, so a later
+    // change to `.env` or the plugin options can be pointed out.
+    const s = this._settings;
+    const baselines = readBaselines();
+    if (s !== null && key in this._baselines(s)) {
+      baselines[key as OverridableKey] =
+        this._baselines(s)[key as OverridableKey];
+    }
+    commitOverride({...this._override, [key]: value}, baselines);
   }
 
   /** The resolved config value of every overridable setting. */
