@@ -124,25 +124,39 @@ if (hot !== undefined && typeof window !== 'undefined') {
   // fresh tree when the component hierarchy actually changes. Off by default.
   // childList-only (no attributes), so cosmetic changes — including our own
   // highlight box toggling — don't churn; identical rebuilds are also deduped.
+  // Batches that only move text or comment nodes (most Lit re-renders) are
+  // dropped before the debounce, and only added subtrees are walked for new
+  // shadow roots, so a busy page no longer costs a full-page walk per batch.
   // -------------------------------------------------------------------------
 
   let observer: MutationObserver | null = null;
   let observeTimer: ReturnType<typeof setTimeout> | undefined;
   let lastTreeJson = '';
+  // Added elements whose subtrees still need their shadow roots observed.
+  let pendingRoots: Element[] = [];
+
+  /** Observe every shadow root at or under `root` (and `root`'s subtree). */
+  const observeShadowRoots = (
+    obs: MutationObserver,
+    root: ParentNode
+  ): void => {
+    if (root instanceof Element && root.shadowRoot !== null) {
+      obs.observe(root.shadowRoot, {childList: true, subtree: true});
+      observeShadowRoots(obs, root.shadowRoot);
+    }
+    for (const el of root.querySelectorAll('*')) {
+      if (el.shadowRoot !== null) {
+        obs.observe(el.shadowRoot, {childList: true, subtree: true});
+        observeShadowRoots(obs, el.shadowRoot);
+      }
+    }
+  };
 
   /** Re-attach the observer to the body and every shadow root in the page. */
   const syncObserverTargets = (obs: MutationObserver): void => {
     obs.disconnect();
     obs.observe(document.body, {childList: true, subtree: true});
-    const walk = (root: ParentNode): void => {
-      for (const el of root.querySelectorAll('*')) {
-        if (el.shadowRoot !== null) {
-          obs.observe(el.shadowRoot, {childList: true, subtree: true});
-          walk(el.shadowRoot);
-        }
-      }
-    };
-    walk(document);
+    observeShadowRoots(obs, document);
   };
 
   const pushTreeIfChanged = (): void => {
@@ -153,11 +167,51 @@ if (hot !== undefined && typeof window !== 'undefined') {
     send({type: 'tree', roots});
   };
 
-  const onMutation = (): void => {
+  /** Whether a subtree holds anything the tree (or observer) cares about. */
+  const mayHoldComponents = (node: Node): node is Element => {
+    if (!(node instanceof Element)) return false;
+    const matters = (el: Element): boolean =>
+      el.localName.includes('-') || el.shadowRoot !== null;
+    if (matters(node)) return true;
+    for (const el of node.querySelectorAll('*')) if (matters(el)) return true;
+    return false;
+  };
+
+  const onMutation = (records: MutationRecord[]): void => {
+    // The tree only has custom elements in it, so a batch that adds or
+    // removes none (text, comments, plain markup) can't change it.
+    let relevant = false;
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (mayHoldComponents(node)) {
+          pendingRoots.push(node);
+          relevant = true;
+        }
+      }
+      if (!relevant) {
+        for (const node of record.removedNodes) {
+          if (mayHoldComponents(node)) {
+            relevant = true;
+            break;
+          }
+        }
+      }
+    }
+    if (!relevant) return;
     if (observeTimer !== undefined) clearTimeout(observeTimer);
     observeTimer = setTimeout(() => {
       observeTimer = undefined;
-      if (observer !== null) syncObserverTargets(observer);
+      // Walk added subtrees now rather than on arrival: a custom element
+      // attaches its shadow root when it upgrades, which can be after insert.
+      // Removed roots need no bookkeeping; a detached shadow root just stops
+      // producing records.
+      const roots = pendingRoots;
+      pendingRoots = [];
+      if (observer !== null) {
+        for (const root of roots) {
+          if (root.isConnected) observeShadowRoots(observer, root);
+        }
+      }
       pushTreeIfChanged();
     }, 100);
   };
@@ -171,6 +225,7 @@ if (hot !== undefined && typeof window !== 'undefined') {
     } else if (observer !== null) {
       observer.disconnect();
       observer = null;
+      pendingRoots = [];
       if (observeTimer !== undefined) {
         clearTimeout(observeTimer);
         observeTimer = undefined;
