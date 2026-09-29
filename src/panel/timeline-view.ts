@@ -347,7 +347,11 @@ export class TimelineView extends LitElement {
   override updated(changed: Map<string, unknown>) {
     if (this._revealSelection) {
       this._revealSelection = false;
-      void this.updateComplete.then(() => this._listRef.value?.reveal());
+      // After the *list's* update, not ours: it pins itself to the newest row
+      // whenever its events change, which is exactly when a cold link lands.
+      void this.updateComplete
+        .then(() => this._listRef.value?.updateComplete)
+        .then(() => this._listRef.value?.reveal());
     }
     if (changed.has('_selectedKey') || this._pendingSettled) {
       this._pendingSettled = false;
