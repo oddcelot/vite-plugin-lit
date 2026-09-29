@@ -14,11 +14,14 @@
  * {@link connectToDevServer} then attaches the RPC carrier they announce
  * themselves through.
  *
- * Config comes from `globalThis.__LIT_DEVTOOLS_CONNECT__`, which the server
- * prepends to the script: its own origin, and its connection descriptor, so
- * this page never has to `fetch` `__connection.json` (a cross-origin fetch the
- * server does not answer with CORS headers). Loaded some other way, the origin
- * falls back to where this script came from.
+ * The server is wherever this script came from: behind a proxy or tunnel
+ * (StackBlitz, Codespaces, ngrok) that is the public address the browser used,
+ * not the one the server sees itself on. `globalThis.__LIT_DEVTOOLS_CONNECT__`,
+ * which the server prepends to the script, carries its connection descriptor,
+ * so this page never has to `fetch` `__connection.json` (a cross-origin fetch
+ * the server does not answer with CORS headers). The descriptor holds paths
+ * only, so it resolves against either address. Its `url` is the fallback for
+ * when the script's own address is unknown.
  */
 
 import './timeline/install.js';
@@ -37,10 +40,9 @@ const config =
 
 const script = document.currentScript;
 const url =
-  config.url ??
-  (script instanceof HTMLScriptElement && script.src !== ''
+  script instanceof HTMLScriptElement && script.src !== ''
     ? new URL('.', script.src).href
-    : undefined);
+    : config.url;
 
 if (url === undefined) {
   console.error(
