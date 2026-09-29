@@ -52,6 +52,7 @@ test('lifecycle layer reports update phases over the timeline source', async () 
     recordingState: true,
     litLifecycleEnabled: true,
     litRenderEnabled: true,
+    litRenderVerboseEnabled: false,
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
   });

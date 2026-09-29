@@ -240,6 +240,7 @@ export const LAYER_FLAGS: Readonly<Record<string, keyof TimelineLayersState>> =
   {
     'lit-lifecycle': 'litLifecycleEnabled',
     'lit-render': 'litRenderEnabled',
+    'lit-render-verbose': 'litRenderVerboseEnabled',
     mouse: 'mouseEventEnabled',
     keyboard: 'keyboardEventEnabled',
   };
