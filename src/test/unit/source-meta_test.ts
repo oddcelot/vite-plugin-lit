@@ -246,3 +246,50 @@ describe('injectSourceMeta scope', () => {
     );
   });
 });
+
+describe('injectSourceMeta class heritage', () => {
+  // The body's `{` is the first one at the top level of the class heading,
+  // not the first one after `class`: type arguments and mixin calls in
+  // `extends`/`implements` carry braces of their own. Taking one of those as
+  // the body put the assignment inside the class signature (a parse error, so
+  // the dev server 500s on the module).
+  test.each([
+    [
+      'a type literal in a generic argument',
+      `export class HelpWidget extends Dialog<{ displaySupportButton: boolean } | undefined, void> {\n` +
+        `  render() { return html\`<p>\${this.x}</p>\`; }\n` +
+        `}`,
+    ],
+    [
+      'an arrow type in a generic argument',
+      `export class HelpWidget extends Store<(s: State) => {ok: boolean}> {\n` +
+        `  x = 1;\n` +
+        `}`,
+    ],
+    [
+      'an options object passed to a mixin',
+      `export class HelpWidget extends Mixin(LitElement, {shadow: true}) {\n` +
+        `  x = 1;\n` +
+        `}`,
+    ],
+    [
+      'a type literal in implements',
+      `export class HelpWidget\n` +
+        `  extends LitElement\n` +
+        `  implements Opens<{modal: boolean}>, Closes {\n` +
+        `  x = 1;\n` +
+        `}`,
+    ],
+  ])('skips %s', (_name, classSource) => {
+    const code = `@customElement('help-widget')\n${classSource}\nexport const AFTER = 1;\n`;
+    const {changed, out} = run(code);
+    expect(changed).toBe(true);
+    const prefix = `@customElement('help-widget')\n${classSource}`;
+    expect(out.startsWith(prefix)).toBe(true);
+    expect(out.slice(prefix.length)).toMatch(
+      new RegExp(
+        `^\\nHelpWidget\\[${SOURCE_META_SYM.replace(/[()'.]/g, '\\$&')}\\]=`
+      )
+    );
+  });
+});
