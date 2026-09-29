@@ -3,6 +3,9 @@ import starlight from '@astrojs/starlight';
 import sitemap from '@astrojs/sitemap';
 import starlightLinksValidator from 'starlight-links-validator';
 import starlightLlmsTxt from 'starlight-llms-txt';
+import starlightChangelogs, {
+  makeChangelogsSidebarLinks,
+} from 'starlight-changelogs';
 // GitHub Pages project path. Astro does not rewrite hrefs written in
 // Markdown, and Astro 7's Markdown processor has no rehype hook to do it
 // for us, so internal links in content are written with this prefix. The
@@ -110,32 +113,44 @@ export default defineConfig({
           ],
         },
         {label: 'Concepts', items: [{autogenerate: {directory: 'concepts'}}]},
-        {label: 'Reference', items: [{autogenerate: {directory: 'reference'}}]},
+        {
+          label: 'Reference',
+          items: [
+            {autogenerate: {directory: 'reference'}},
+            ...makeChangelogsSidebarLinks([
+              {type: 'all', base: 'reference/changelog', label: 'Changelog'},
+            ]),
+          ],
+        },
         {
           label: 'Contributing',
           items: [{autogenerate: {directory: 'contributing'}}],
         },
       ],
       plugins: [
-        starlightLinksValidator(),
+        starlightLinksValidator({
+          // The changelog pages come from starlight-changelogs, outside the
+          // docs collection the validator checks against.
+          exclude: [
+            '/vite-plugin-lit/reference/changelog/',
+            '/vite-plugin-lit/reference/changelog/**/*',
+          ],
+        }),
+        starlightChangelogs(),
         // llms.txt and friends, for coding agents working in a project that
         // uses the plugin. The package name is what an agent has to install,
         // so it heads the file. Setup comes first and the contributor pages
         // last; llms-small drops what a user of the plugin never needs
-        // (contributing, the changelog, benchmarks, the tutorial's
-        // step-by-step and the explanation pages).
+        // (contributing, benchmarks, the tutorial's step-by-step and the
+        // explanation pages). The changelog is not a docs page, so it is in
+        // neither.
         starlightLlmsTxt({
           projectName: '@oddsquad/vite-plugin-lit',
           promote: ['index*', 'start/installation*', 'reference/options*'],
-          demote: [
-            'contributing/**',
-            'reference/changelog*',
-            'reference/benchmarks*',
-          ],
+          demote: ['contributing/**', 'reference/benchmarks*'],
           exclude: [
             'contributing/**',
             'concepts/**',
-            'reference/changelog',
             'reference/benchmarks',
             'start/first-component',
           ],

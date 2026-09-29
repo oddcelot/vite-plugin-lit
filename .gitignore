@@ -15,7 +15,7 @@ docs/.astro/
 
 # Dependencies
 node_modules/
-docs/src/content/docs/reference/changelog.md
+docs/.generated/
 /lit-devtools-snapshot/
 
 # Local env files (the playground's own .gitignore covers its directory)
