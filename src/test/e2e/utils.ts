@@ -22,6 +22,12 @@ export interface Fixture {
   browser: Browser;
   page: Page;
   root: string;
+  /**
+   * The `$HOME` this fixture's dev server runs under. Devframe keeps the
+   * panel's per-user settings in `<home>/.vite/devtools`, so this is where
+   * they land instead of the developer's real one.
+   */
+  home: string;
   /** Origin of the dev server, no trailing slash. */
   origin: string;
   /**
@@ -53,6 +59,12 @@ export interface StartFixtureOptions {
    * look at the panel and shouldn't pay for the hub. Requires `pnpm build`.
    */
   panel?: boolean;
+  /**
+   * Pre-populates the panel's per-user settings (the devframe global store
+   * for the `lit` namespace: `override`, `overrideBaselines`, `appearance`)
+   * before the server starts, which reads them once at boot.
+   */
+  seedSettings?: Record<string, unknown>;
   /** `false` disables the plugin entirely (baseline runs). */
   plugin?: false | LitPluginOptions;
 }
@@ -75,6 +87,23 @@ export const startFixture = async (
     '.npmrc',
     'node_modules',
   ]);
+  // Devframe resolves its per-user global store from `os.homedir()` with no
+  // option to redirect it under Vite DevTools, and Node's `homedir()` reads
+  // `$HOME` on every call. Point it at a throwaway dir for the fixture's
+  // lifetime so panel settings never touch the developer's own. Chromium is
+  // launched with the real value (below) so the browser isn't affected.
+  const realHome = process.env['HOME'];
+  const home = `${root}-home`;
+  await mkdir(home, {recursive: true});
+  process.env['HOME'] = home;
+  if (options.seedSettings !== undefined) {
+    const dir = path.join(home, '.vite', 'devtools', 'settings');
+    await mkdir(dir, {recursive: true});
+    await writeFile(
+      path.join(dir, 'lit.json'),
+      JSON.stringify(options.seedSettings)
+    );
+  }
   await cp(PLAYGROUND_DIR, root, {
     recursive: true,
     filter: (src) => {
@@ -120,6 +149,7 @@ export const startFixture = async (
 
   const executablePath = process.env['HMR_E2E_EXECUTABLE'];
   const browser = await chromium.launch({
+    env: {...process.env, ...(realHome === undefined ? {} : {HOME: realHome})},
     ...(executablePath !== undefined && executablePath !== ''
       ? {executablePath}
       : {channel: 'chrome'}),
@@ -143,6 +173,7 @@ export const startFixture = async (
     browser,
     page,
     root,
+    home,
     origin,
     openPanel: async () => {
       if (options.panel !== true) {
@@ -173,7 +204,10 @@ export const startFixture = async (
     close: async () => {
       await browser.close();
       await server.close();
+      if (realHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = realHome;
       await rm(root, {recursive: true, force: true});
+      await rm(home, {recursive: true, force: true});
     },
   };
 };
