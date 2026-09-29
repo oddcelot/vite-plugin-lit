@@ -622,14 +622,24 @@ form. What works:
 
 What is still deferred (tracked in a follow-up bead):
 
-- Getting the runtime into a page that is not on a Vite dev server, for
-  instance a served script tag or snippet.
-- Cross-origin access: the standalone server sends no CORS headers on
-  `__connection.json`, and the auth handshake for a page on another origin has
-  not been designed. `connectToDevServer()` is only known to work where the
-  page can already reach the server (verified over a real WebSocket in Node
-  with a stubbed `location`, not from a second browser origin).
 - A server-side pick does not raise a dock, since standalone has no hub.
+
+### Update: pages outside Vite can connect (branch feature/standalone-connect)
+
+The two other deferred items are done. `lit-devtools dev` serves
+`/lit-devtools.js`, a classic IIFE built by `build:standalone` from
+`src/lib/runtime/standalone.ts` (`dist/standalone/`). It is prefixed with
+`globalThis.__LIT_DEVTOOLS_CONNECT__ = {url, connectionMeta}`, the meta taken
+from the started server's `connectionMeta()`, so a page on another origin never
+fetches the CORS-less `__connection.json`; `connectToDevServer()` gained a
+`connectionMeta` option for that. devframe's static catch-all 404s unknown
+paths, so the route lives on an H3 app the CLI passes in rather than being
+added in `onReady`. `--allow-origin` feeds devframe's WebSocket origin gate
+(loopback stays allowed). The timeline and inspector installs now register
+their channel listeners without `import.meta.hot`. It is verified from a second
+origin by `src/test/e2e/standalone-connect_test.ts` and, over a real socket in
+Node, by `src/test/unit/connect-server_test.ts`. Still out: HMR patching,
+source metadata and open-in-editor, which need Vite's transforms.
 
 ## Verification
 

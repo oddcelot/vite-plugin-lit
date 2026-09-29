@@ -26,9 +26,10 @@ On its own it is served by the dev server at `<origin>/__lit/`. Same panel, same
 data, its own browser tab.
 
 From the command line, `lit-devtools dev` starts the panel with no page behind
-it, so it is empty until a page connects. A page that loads this plugin's
-runtime can call `connectToDevServer()` (see the
-[CLI reference](/vite-plugin-lit/reference/cli/)) and its tree, inspector and timeline data then
+it, so it is empty until a page connects. Any page can load the script tag the
+server prints, and a page that already loads this plugin's runtime can call
+`connectToDevServer()` (see the
+[CLI reference](/vite-plugin-lit/reference/cli/)); its tree, inspector and timeline data then
 flow to that server over devframe RPC instead of the page's own Vite socket.
 For everyday debugging, run your Vite dev server with DevTools enabled; the
 standalone server is for a panel that outlives the app's dev server, and the
