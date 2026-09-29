@@ -66,6 +66,8 @@ export default defineConfig({
         baseUrl: 'https://github.com/oddcelot/vite-plugin-lit/edit/main/docs/',
       },
       lastUpdated: true,
+      // Adds each page's generated Open Graph image to its head.
+      routeMiddleware: './src/routeData.ts',
       customCss: ['./src/styles/custom.css'],
       components: {
         // Adds the font tags; see the file for why this override exists.
