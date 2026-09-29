@@ -43,6 +43,13 @@ import {PACKAGE_VERSION} from './lib/devframe/paths.js';
  */
 const DEFAULT_DEV_PORT = 5180;
 
+/** True for a host only this machine can reach. */
+const isLoopbackHost = (host) =>
+  host === 'localhost' ||
+  host === '::1' ||
+  host === '[::1]' ||
+  /^127\.\d+\.\d+\.\d+$/.test(host);
+
 /** Fail with a readable message instead of a module-resolution stack trace. */
 const requirePeer = async (specifier, hint) => {
   try {
@@ -73,6 +80,19 @@ const main = async () => {
       'Skip the one-time-code gate, so a page can connect without a token'
     )
     .action(async (flags) => {
+      // Without the code gate, anything that can reach the port drives the
+      // panel's RPC: it can read the session and open project files in the
+      // developer's editor. On loopback that is this machine; on any other
+      // host it is the network.
+      if (flags.auth === false && !isLoopbackHost(String(flags.host))) {
+        console.error(
+          `[lit-devtools] --no-auth needs a loopback host, and ` +
+            `${flags.host} is reachable from other machines. Drop ` +
+            `--no-auth (pages then ask for the one-time code) or bind to ` +
+            `localhost.`
+        );
+        process.exit(1);
+      }
       const {createDevServer} = await import('devframe/adapters/dev');
       // A standalone server has no Vite, so it has no page of its own: the
       // panel stays empty until a page dials in with `connectToDevServer()`
