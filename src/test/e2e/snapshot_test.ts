@@ -129,6 +129,50 @@ describe('static snapshot export', () => {
     );
   });
 
+  test('export-snapshot only replaces an earlier snapshot inside the cwd', async () => {
+    // The build deletes `outDir` recursively before writing, and `outDir`
+    // comes from whoever calls the RPC. Outside the cwd, the cwd itself, or
+    // an existing directory that isn't a snapshot must all be refused before
+    // anything is removed.
+    const assets = `${TMP}/assets`;
+    const keep = `${TMP}/not-a-snapshot`;
+    await fsp.rm(TMP, {recursive: true, force: true});
+    await fsp.mkdir(assets, {recursive: true});
+    await fsp.mkdir(keep, {recursive: true});
+    await fsp.writeFile(`${assets}/index.html`, '<!doctype html>panel');
+    await fsp.writeFile(`${keep}/keep.txt`, 'mine');
+
+    instance = initDevframe(
+      createLitDevframe({
+        source: createNullSource(),
+        version: '9.9.9',
+        features: () => null,
+        clientAssets: assets,
+      }),
+      {
+        base: '/__lit/',
+        distDir: false,
+        ws: false,
+        sse: false,
+        getStorageDir: () => `${TMP}/storage`,
+      }
+    );
+    const ctx = await instance.context;
+    await instance.ready;
+    const exportTo = (outDir: string) =>
+      ctx.rpc.invokeLocal('lit:export-snapshot', {outDir});
+
+    for (const outDir of ['.', '..', joinPath(process.cwd(), '..', 'x')]) {
+      await expect(exportTo(outDir)).rejects.toThrow(/must be inside/);
+    }
+    await expect(exportTo(keep)).rejects.toThrow(/not a snapshot/);
+    expect(await fsp.readFile(`${keep}/keep.txt`, 'utf8')).toBe('mine');
+
+    // Exporting over an earlier export is the normal case.
+    await exportTo(`${TMP}/out`);
+    await expect(exportTo(`${TMP}/out`)).resolves.toMatchObject({events: 0});
+  });
+
   test('a cold-opened snapshot selects the event named in #event=', async () => {
     const out = `${TMP}/out-browser`;
     await fsp.rm(TMP, {recursive: true, force: true});

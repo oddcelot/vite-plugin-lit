@@ -36,7 +36,8 @@ const countNodes = (nodes: SessionSnapshot['roots']): number =>
   nodes.reduce((total, node) => total + 1 + countNodes(node.children), 0);
 
 /**
- * Write `snapshot` to `outDir` as a self-contained static panel.
+ * Write `snapshot` to `outDir` as a self-contained static panel, replacing an
+ * earlier snapshot there. Any other existing directory is refused.
  *
  * The build adapter is imported dynamically: it reaches for `node:fs`, and
  * `definition.ts` is deliberately framework- and environment-neutral, so a
@@ -52,6 +53,21 @@ export const buildSnapshot = async (
   }
 ): Promise<SnapshotBuildResult> => {
   const {createBuild} = await import('devframe/adapters/build');
+  // `createBuild` deletes `outDir` recursively before writing. Replacing an
+  // earlier export is the point, but a typo'd `outDir` that names the project
+  // (or `src`) must not cost the developer their tree: only a directory that
+  // already holds a snapshot may be replaced.
+  const {existsSync} = await import('node:fs');
+  const {join} = await import('node:path');
+  if (
+    existsSync(options.outDir) &&
+    !existsSync(join(options.outDir, '__connection.json'))
+  ) {
+    throw new Error(
+      `[lit-devtools] ${options.outDir} exists and is not a snapshot; ` +
+        'refusing to replace it'
+    );
+  }
   const definition = createLitDevframe({
     // Nothing to attach to: the page this session describes is gone, and
     // every answer the frozen panel needs is already in `replay`.
