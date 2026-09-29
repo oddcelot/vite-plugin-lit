@@ -59,10 +59,26 @@ class FakeSource implements TimelineSource {
   }
 }
 
+// `open-source` only opens files that exist beneath an allowed root, so the
+// tests that exercise it point at real directories of this repo: `src/lib`
+// plays the Vite root, `src/test/fixtures` a sibling package vite serves
+// through `server.fs.allow`, and the repo's `package.json` sits outside both.
+// (No `node:` imports here: the pre-commit hook's single-file check can't
+// type them under `src/test/`.)
+const repoPath = (relative: string) =>
+  decodeURIComponent(new URL(relative, import.meta.url).pathname);
+const appRoot = repoPath('../../lib');
+const pkgRoot = repoPath('../fixtures');
+const outsideFile = repoPath('../../../package.json');
+
 let instance: DevframeInstance | undefined;
 
 const boot = async (
-  options: {sourceRoot?: string; configuredEditor?: string} = {}
+  options: {
+    sourceRoot?: string;
+    allowedRoots?: string[];
+    configuredEditor?: string;
+  } = {}
 ) => {
   const source = new FakeSource();
   const def = createLitDevframe({
@@ -70,6 +86,7 @@ const boot = async (
     version: '9.9.9',
     features: () => null,
     sourceRoot: () => options.sourceRoot,
+    allowedRoots: () => options.allowedRoots ?? [],
     configuredEditor: () => options.configuredEditor,
   });
   instance = initDevframe(def, {
@@ -151,7 +168,7 @@ describe('lit devframe definition', () => {
     // workspace (a monorepo playground, say), and `launchEditor` silently
     // does nothing for a path that doesn't exist, so the mismatch shows up as
     // a source link that just doesn't respond.
-    const {ctx} = await boot({sourceRoot: '/workspace/app'});
+    const {ctx} = await boot({sourceRoot: appRoot, allowedRoots: [pkgRoot]});
     const opened: Array<{path: string; line?: number}> = [];
     ctx.services.provide('@devframes/service-open', {
       openInEditor: async (input) => {
@@ -162,16 +179,43 @@ describe('lit devframe definition', () => {
 
     expect(
       await ctx.rpc.invokeLocal('lit:open-source', {
-        file: 'src/app.ts',
+        file: 'confine.ts',
         line: 12,
       })
     ).toEqual({opened: true});
-    expect(opened).toEqual([{path: '/workspace/app/src/app.ts', line: 12}]);
+    expect(opened).toEqual([{path: `${appRoot}/confine.ts`, line: 12}]);
 
     // A component outside the Vite root is injected with an absolute path,
-    // which has to survive untouched.
-    await ctx.rpc.invokeLocal('lit:open-source', {file: '/pkg/lib/x.ts'});
-    expect(opened[1]?.path).toBe('/pkg/lib/x.ts');
+    // which has to survive untouched when an allowed root covers it.
+    const sibling = `${pkgRoot}/client-types/consumer.ts`;
+    await ctx.rpc.invokeLocal('lit:open-source', {file: sibling});
+    expect(opened[1]?.path).toBe(sibling);
+  });
+
+  test('open-source refuses files outside the allowed roots', async () => {
+    // Whatever reaches this RPC -- the panel, or any client of a standalone
+    // server started with `--no-auth` -- could otherwise have the editor open
+    // any file on disk. Same boundary as `/__lit-open-in-editor`.
+    const {ctx} = await boot({sourceRoot: appRoot, allowedRoots: [pkgRoot]});
+    const opened: string[] = [];
+    ctx.services.provide('@devframes/service-open', {
+      openInEditor: async (input) => {
+        opened.push(input.path);
+      },
+      openInFinder: async () => {},
+    });
+
+    for (const file of [
+      outsideFile,
+      '../../package.json',
+      `${appRoot}-evil/confine.ts`,
+      'missing.ts',
+    ]) {
+      expect(await ctx.rpc.invokeLocal('lit:open-source', {file})).toEqual({
+        opened: false,
+      });
+    }
+    expect(opened).toEqual([]);
   });
 
   test('open-source passes the chosen editor to the open service', async () => {
@@ -180,7 +224,7 @@ describe('lit devframe definition', () => {
     // it auto-detect. Config picks the editor, the panel's stored override
     // beats it, and a developer who never chose keeps auto-detection.
     const {ctx} = await boot({
-      sourceRoot: '/workspace/app',
+      sourceRoot: appRoot,
       configuredEditor: 'cursor',
     });
     const editors: Array<string | undefined> = [];
@@ -191,7 +235,7 @@ describe('lit devframe definition', () => {
       openInFinder: async () => {},
     });
     const open = () =>
-      ctx.rpc.invokeLocal('lit:open-source', {file: 'src/app.ts', line: 1});
+      ctx.rpc.invokeLocal('lit:open-source', {file: 'confine.ts', line: 1});
     const settings = ctx.scope('lit').settings.global;
 
     await open();
@@ -207,7 +251,7 @@ describe('lit devframe definition', () => {
   });
 
   test('open-source auto-detects when no editor was chosen', async () => {
-    const {ctx} = await boot({sourceRoot: '/workspace/app'});
+    const {ctx} = await boot({sourceRoot: appRoot});
     let editor: string | undefined = 'unset';
     ctx.services.provide('@devframes/service-open', {
       openInEditor: async (input) => {
@@ -215,16 +259,16 @@ describe('lit devframe definition', () => {
       },
       openInFinder: async () => {},
     });
-    await ctx.rpc.invokeLocal('lit:open-source', {file: 'src/app.ts'});
+    await ctx.rpc.invokeLocal('lit:open-source', {file: 'confine.ts'});
     expect(editor).toBeUndefined();
   });
 
   test('open-source reports back when no open service is installed', async () => {
     // `opened: false` rather than a throw: it is the panel's cue to fall back
     // to `/__lit-open-in-editor` (see `panel/open-in-editor.ts`).
-    const {ctx} = await boot({sourceRoot: '/workspace/app'});
+    const {ctx} = await boot({sourceRoot: appRoot});
     expect(
-      await ctx.rpc.invokeLocal('lit:open-source', {file: 'src/app.ts'})
+      await ctx.rpc.invokeLocal('lit:open-source', {file: 'confine.ts'})
     ).toEqual({opened: false});
   });
 

@@ -106,7 +106,9 @@ export interface OpenSourceArgs {
 export interface OpenSourceResult {
   /**
    * False when no open service is installed on the host, which is the
-   * panel's cue to fall back to `/__lit-open-in-editor`.
+   * panel's cue to fall back to `/__lit-open-in-editor`. Also false when the
+   * file is missing or outside the allowed roots; the endpoint refuses those
+   * paths too.
    */
   opened: boolean;
 }

@@ -344,6 +344,7 @@ export function createLitDevframePlugin(
   // Only known once `setup()` has the dev server, which is after the
   // definition is built -- hence the getter.
   let viteRoot: string | undefined;
+  let fsAllow: readonly string[] = [];
   const definition = createLitDevframe({
     source,
     version: options.version,
@@ -351,6 +352,7 @@ export function createLitDevframePlugin(
     configuredEditor: options.configuredEditor,
     clientAssets: options.clientAssets,
     sourceRoot: () => viteRoot,
+    allowedRoots: () => fsAllow,
   });
 
   return {
@@ -366,6 +368,7 @@ export function createLitDevframePlugin(
         // available on the context by now.
         if (ctx.viteServer) source.bind(ctx.viteServer, ctx);
         viteRoot = ctx.viteServer?.config.root;
+        fsAllow = ctx.viteServer?.config.server.fs?.allow ?? [];
         await ctx.install(definition);
 
         // The overlay picker as a palette command with a managed shortcut.

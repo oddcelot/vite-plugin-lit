@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import {existsSync} from 'node:fs';
-import {resolve as resolvePath, sep} from 'node:path';
+import {resolve as resolvePath} from 'node:path';
+import {confineToRoots} from '../confine.js';
 import {toLaunchEditor} from '../devframe/launch-editor.js';
 import {isTrustedRequest, type TrustHeaders} from '../http.js';
 
@@ -46,25 +46,17 @@ export const createOpenInEditorMiddleware = (
       res.end('missing file parameter');
       return;
     }
-    // Confine the open to the allowed roots: resolve the requested path and
-    // reject anything that escapes all of them (path traversal, absolute
-    // paths to arbitrary files). `launch-editor` spawns the user's editor on
-    // this path, so an unvalidated `file` is a local-file-open /
-    // arg-injection vector.
-    const resolved = resolvePath(roots[0] ?? process.cwd(), file);
-    const allowed = roots.some(
-      (root) => resolved === root || resolved.startsWith(root + sep)
-    );
-    if (!allowed) {
-      res.statusCode = 403;
-      res.end('file outside allowed roots');
+    // Confine the open to the allowed roots: `launch-editor` spawns the
+    // user's editor on this path, so an unvalidated `file` is a
+    // local-file-open / arg-injection vector.
+    const confined = confineToRoots(roots, file);
+    if ('failure' in confined) {
+      const outside = confined.failure === 'outside';
+      res.statusCode = outside ? 403 : 404;
+      res.end(outside ? 'file outside allowed roots' : 'file not found');
       return;
     }
-    if (!existsSync(resolved)) {
-      res.statusCode = 404;
-      res.end('file not found');
-      return;
-    }
+    const resolved = confined.path;
     // Coerce to integers so a crafted `line`/`column` can't smuggle extra
     // shell-visible content through the `file:line:column` ref.
     const line = String(
