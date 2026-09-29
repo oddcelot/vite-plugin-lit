@@ -395,6 +395,7 @@ export class DevtoolsSettings extends LitElement {
             ...this._baselines(s),
             flashUpdates: false,
             flashUpdatesRamp: false,
+            chromeTracks: false,
           } satisfies SettingsOverride)
     );
   }
@@ -728,6 +729,35 @@ export class DevtoolsSettings extends LitElement {
     `;
   }
 
+  /**
+   * Timeline preferences. Pure preference, no config-time baseline, so an
+   * unset value means off.
+   */
+  private _renderTimelinePrefs() {
+    const chrome = this._override.chromeTracks ?? false;
+    return html`
+      <table>
+        <tr>
+          <td class="key">chrome performance tracks</td>
+          <td class="val">
+            <label class="toggle">
+              <input
+                type="checkbox"
+                .checked=${chrome}
+                @change=${(e: Event) =>
+                  this._set(
+                    'chromeTracks',
+                    (e.target as HTMLInputElement).checked
+                  )}
+              />
+              ${chrome ? 'on' : 'off'}
+            </label>
+          </td>
+        </tr>
+      </table>
+    `;
+  }
+
   override render() {
     if (!this._loaded) {
       return html`<p class="loading">Loading settings…</p>`;
@@ -805,6 +835,7 @@ export class DevtoolsSettings extends LitElement {
         <p class="empty">
           Layers and recording are controlled in the Timeline tab.
         </p>
+        ${s.timeline ? this._renderTimelinePrefs() : nothing}
       </section>
     `;
   }
