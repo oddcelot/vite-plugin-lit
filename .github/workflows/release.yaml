@@ -79,9 +79,14 @@ jobs:
           node-version: 26
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
+      # JSR maps bare imports through package.json, and can't read the
+      # `catalog:` devDependency on vite, so `import 'vite'` would ship
+      # unresolved. Without it, JSR falls back to the peer range. That edits
+      # the checkout, hence --allow-dirty.
+      - run: node -e "const p=require('./package.json');delete p.devDependencies.vite;require('fs').writeFileSync('package.json',JSON.stringify(p,null,2))"
       # jsr.json carries no version on purpose: package.json stays the one
       # place a release bumps it.
-      - run: pnpm dlx jsr@0.14.3 publish --set-version "${GITHUB_REF_NAME#v}"
+      - run: pnpm dlx jsr@0.14.3 publish --allow-dirty --set-version "${GITHUB_REF_NAME#v}"
 
   github-release:
     needs: publish
