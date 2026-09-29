@@ -3,6 +3,54 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.4.0 — 2026-09-29
+
+A maintenance release. The timeline panel stays fast with a full buffer, the
+live inspector stops walking the whole page, and several failures that used to
+pass silently now say so. Releases are published from CI now.
+
+### Added
+
+- **Verbose render layer.** lit-html's per-part debug events (template
+  instantiation, `set part`, each binding commit) go to a new "Lit Render
+  (verbose)" layer. It is off by default, because it fires once per binding on
+  every render. Values are summarized as strings (`string:"…"`, `node:<li>`,
+  `template`, `function:onClick`) and never passed through.
+- **Releases from a version tag.** Pushing a `v*` tag runs the CI gate, checks
+  the tag against `package.json` and `CHANGELOG.md`, publishes to npm over
+  trusted publishing (OIDC), and creates the GitHub Release from the changelog
+  section. Prereleases go to the `next` dist-tag.
+
+### Changed
+
+- **The timeline list renders only the visible rows**, through
+  `@lit-labs/virtualizer`. A 2500-event recording keeps about 75 rows in the
+  DOM instead of one per event. Filtering reruns only when the events or
+  filters change.
+- **Live inspector mode no longer re-walks the page on every mutation.**
+  Batches with no custom element or shadow root in them are dropped, and
+  relevant batches walk only the subtrees they added.
+- **The docs site was rewritten** in plain language, with a tutorial, task-sized
+  DevTools guides, a troubleshooting page, screenshots in both themes, and the
+  Lit Design System's colours and type.
+
+### Fixed
+
+- The source overlay's default hotkey is Ctrl+Shift+S, as documented. The
+  runtime used to fall back to `e`, which also collided with the DevTools pick
+  command.
+- The source overlay removes its HMR listeners when it disconnects. Moving the
+  element used to register the toggle twice, so the Vite DevTools overlay
+  command did nothing, and a removed overlay kept reacting.
+- `urlSheet()` and `?css-sheet` warn when a stylesheet fails to load, and treat
+  non-ok responses as failures. A 404 used to hand Vite's fallback page to the
+  sheet as CSS, with a clean console. The sheet keeps its last good CSS.
+- An unknown `LIT_PLUGIN_HMR_ON_INCOMPATIBLE` value logs a warning and falls
+  back to the default, instead of quietly acting as `reload`.
+- The Lightning CSS pass over `css` literals finds them by parsing the module,
+  so `css`-tagged text inside a string, a comment, or another template literal
+  is no longer rewritten.
+
 ## 0.3.0 — 2026-09-17
 
 The DevTools half of the plugin was rebuilt on
