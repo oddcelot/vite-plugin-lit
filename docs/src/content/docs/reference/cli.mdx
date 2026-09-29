@@ -47,6 +47,10 @@ npx lit-devtools dev --port 5180 --host localhost --open
 The default port is deliberately not the playground's 5179, so both can run
 against one checkout.
 
+`--no-auth` only combines with a loopback host (`localhost`, `127.x.x.x`,
+`::1`). Bound anywhere else, the command refuses to start: other machines
+could otherwise drive the panel without a code.
+
 ### Feeding it a live page
 
 Started alone, the panel is empty: the server has no page. A page served by a
