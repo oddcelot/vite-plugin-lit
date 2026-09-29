@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * "Flash on update": a short, non-interactive outline over every Lit element
  * that just finished an update cycle, so re-render churn is visible on the
  * page itself rather than only in the Updates tab.

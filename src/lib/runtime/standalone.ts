@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Entry of the script `lit-devtools dev` serves at `/lit-devtools.js`.
  *
  * Bundled as a classic IIFE (see `src/standalone/vite.config.ts`) so a page

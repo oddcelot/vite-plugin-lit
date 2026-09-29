@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Entry module of the panel SPA. `index.html` loads this; Vite bundles it into
  * `dist/client`, which the devframe host serves as the dock's iframe.
  *

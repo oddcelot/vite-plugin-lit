@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Carries the page channel over devframe RPC to a standalone
  * `lit-devtools dev` server, so a page that is not served by a DevTools-enabled
  * Vite dev server can still feed the panel. The server half is

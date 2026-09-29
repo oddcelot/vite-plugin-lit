@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Freezing a live session into a static panel someone else can open.
  *
  * Capture needs no transport: by the time a developer wants to export, the

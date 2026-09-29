@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Recording-relative clock for the timeline.
  *
  * Built-in capture layers timestamp events with {@link now} rather than raw

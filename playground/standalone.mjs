@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * The playground in standalone mode: built to plain static files and served
  * without Vite, feeding the panel of a `lit-devtools dev` process on another
  * port through nothing but the script tag.

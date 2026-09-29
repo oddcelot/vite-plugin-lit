@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * The panel's single connection to the node side.
  *
  * The panel is served by the devframe host as a static SPA, so

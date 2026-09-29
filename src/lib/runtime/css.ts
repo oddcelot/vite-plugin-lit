@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Browser helpers for referencing CSS files from shadow roots via Vite's
  * `?url` imports.
  *

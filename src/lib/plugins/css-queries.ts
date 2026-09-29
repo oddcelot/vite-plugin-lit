@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import type {Plugin} from 'vite';
 import type {CssSheetBuild} from '../options.js';
 import {resolveRuntimeModule} from './shared.js';

@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 Oddsquad
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {defineConfig} from 'vite-plus';
 import {canarySettings} from './src/test/canary.js';
 

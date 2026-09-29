@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {LitElement, html} from 'lit';
 import {customElement} from 'lit/decorators.js';
 import {devCacheBust} from '@oddsquad/vite-plugin-lit/css.js';

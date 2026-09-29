@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Compact, depth- and breadth-limited previews of arbitrary property values
  * for the inspector details pane. Values cross the transport as plain strings,
  * so this never needs to round-trip — it only has to be readable and safe

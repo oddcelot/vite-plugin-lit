@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 

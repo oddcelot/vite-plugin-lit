@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 Oddsquad
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 // Type-checks the `client.d.ts` consumer fixture.
 //
 // `client.d.ts` ships the ambient declaration for

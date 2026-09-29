@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {afterEach, describe, expect, test, vi} from 'vite-plus/test';
 import {toFeatureSettings} from '../../lib/options.js';
 import {resolveOptions, type LitPluginOptions} from '../../lib/plugin.js';

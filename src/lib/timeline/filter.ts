@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * The Timeline's element and regex filters, as pure functions.
  *
  * Both presentations (the list and the tracks) answer "show me only this

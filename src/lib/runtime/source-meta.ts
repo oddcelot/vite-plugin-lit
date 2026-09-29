@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 /** Runtime accessor for injected component source metadata. */
 export const SOURCE_META_KEY = Symbol.for('@lit-labs/vite-plugin-lit#source');
 

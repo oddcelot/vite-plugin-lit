@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Flash-on-update, end to end: the lifecycle wrapper's update hook, the
  * settings override read at boot, and the overlay drawn over the real element.
  * The interesting failures — the hook never firing when the timeline is not

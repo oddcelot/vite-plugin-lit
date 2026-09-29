@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * The framework-neutral Lit devframe: RPC functions, shared state, and the
  * timeline stream. Talks to the page runtime only through the injected
  * {@link TimelineSource} port, so it runs unchanged under `createDevServer()`,

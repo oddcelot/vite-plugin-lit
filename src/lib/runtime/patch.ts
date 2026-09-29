@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * In-place custom element class patching.
  *
  * Vite HMR re-executes an edited component module, which calls

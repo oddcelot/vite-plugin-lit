@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Walks the page to build the component render tree and to snapshot a single
  * element's reactive state for the inspector panel. Runs entirely in the page;
  * the results are sent over the transport as plain JSON.

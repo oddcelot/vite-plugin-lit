@@ -220,15 +220,9 @@ into this plan — it changes runtime behavior, this plan changes types only.
 
 ### `client.d.ts` — the file this plan edits
 
-`client.d.ts:1-22` (full file):
+`client.d.ts:1-16` (full file):
 
 ```ts
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 /**
  * Ambient types for the import queries provided by the Lit Vite plugin.
  *

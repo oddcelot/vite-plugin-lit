@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Public timeline API — re-exported by the `virtual:lit-plugin/timeline`
  * virtual module so app code and other plugins can contribute events and
  * custom layers without reaching into plugin internals.

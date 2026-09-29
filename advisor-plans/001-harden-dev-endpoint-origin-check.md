@@ -110,17 +110,8 @@ comment). Its four call sites are at `src/lib/timeline-plugin.ts:223`
 
 Repo conventions to match:
 
-- Every source file starts with the license header block used by its
-  neighbours. New files under `src/lib/` use the same header as
-  `src/lib/source-meta.ts:1-5`:
-  ```ts
-  /**
-   * @license
-   * Copyright 2026 oddcelot
-   * SPDX-License-Identifier: BSD-3-Clause
-   */
-  ```
-  Copy it verbatim into any new file — do not invent a different copyright line.
+- Source files carry no license header; the root `LICENSE` covers them.
+  Don't add one to new files.
 - Arrow-function consts, not `function` declarations, for module-level helpers
   (see every helper in `src/lib/plugin.ts`).
 - Formatting is enforced: single quotes, no bracket spacing, 80-column print

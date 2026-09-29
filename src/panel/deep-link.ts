@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Addressing a specific view inside the panel.
  *
  * Two arrival paths, because the panel runs in two quite different places:

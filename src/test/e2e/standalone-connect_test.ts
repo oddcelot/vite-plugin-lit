@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * A page that Vite does not serve, on another origin, feeds the panel of a
  * `lit-devtools dev` process through nothing but the script tag the server
  * prints at startup.

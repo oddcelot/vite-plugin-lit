@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * The playground's Vite dev server for StackBlitz, started through Vite's
  * JavaScript API rather than `vp dev`.
  *

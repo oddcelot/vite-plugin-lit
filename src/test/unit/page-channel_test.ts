@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {describe, expect, test, vi} from 'vite-plus/test';
 
 // The module keeps its channel on `globalThis`, so each test loads a fresh copy

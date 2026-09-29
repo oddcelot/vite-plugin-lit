@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Timeline runtime install entry point.
  *
  * Injected by the plugin into the host page via `transformIndexHtml` when

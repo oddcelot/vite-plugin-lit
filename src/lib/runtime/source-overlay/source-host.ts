@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {SOURCE_META_KEY, type LitSourceMeta} from '../source-meta.js';
 import type {ElementInfo} from '../../types.js';
 

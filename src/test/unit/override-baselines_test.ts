@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {beforeEach, expect, test, vi} from 'vite-plus/test';
 import {baselineChanged} from '../../lib/override-baselines.js';
 import {

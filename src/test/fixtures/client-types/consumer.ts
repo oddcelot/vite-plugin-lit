@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 Oddsquad
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Compile-time fixture for `client.d.ts`'s `virtual:lit-plugin/timeline`
  * declaration, checked by `src/test/unit/client-types_test.ts` against the
  * sibling `tsconfig.json`, which pulls `client.d.ts` in the way a consumer's

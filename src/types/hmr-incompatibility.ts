@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Shared types and channel constant for HMR-incompatibility reporting.
  *
  * When the browser runtime can't hot-patch a component in place it logs one

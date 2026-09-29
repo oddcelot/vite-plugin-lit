@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Panel color-scheme preference, persisted in `localStorage`.
  *
  * `auto` is the default and needs no JavaScript: the token values injected by

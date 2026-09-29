@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Keeps our on-page dev UI (HMR indicator, source-overlay tooltip) clear of the
  * Vite DevTools edge panel so they don't sit on top of it.
  *

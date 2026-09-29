@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * The `TimelineSource` port: the abstraction over "where page-runtime
  * traffic comes from". The framework-neutral definition
  * ({@link ../definition.ts}) only ever talks to this interface, so it can run

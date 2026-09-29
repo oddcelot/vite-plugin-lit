@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * The page runtime's one seam to whatever carries its traffic to the DevTools
  * server. Every `lit:*` message the runtime sends or receives (timeline
  * events, inspector data and commands, settings overrides, HMR-incompatibility

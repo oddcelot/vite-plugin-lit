@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * The panel's single recorded-event buffer.
  *
  * More than one view reads the recording — the Timeline lists it, the Updates

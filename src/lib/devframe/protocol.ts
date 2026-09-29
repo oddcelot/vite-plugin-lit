@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Shared wire contract between the Lit devframe's node-side definition
  * ({@link ../definition.ts}) and its panel: shared-state / streaming /
  * RPC-function names, their payload shapes, and the `devframe` registry

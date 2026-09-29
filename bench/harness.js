@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Browser-side bench harness. Mounts N shadow-DOM components that deliver the
  * same utility stylesheet four ways, isolating the platform primitive Lit uses
  * under the hood (vanilla custom elements — no Lit or plugin in the

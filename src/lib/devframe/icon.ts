@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 // The official Lit logo mark (Iconify `logos:lit-icon`). Its native viewBox is
 // 256×320 — taller than wide — so when the DevTools dock sizes an icon to its
 // width it overflowed the square slot and looked bigger than the other icons.

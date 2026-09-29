@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * CSS-delivery benchmark runner.
  *
  * Serves the harness over HTTP (generating the synthetic utility sheet on the

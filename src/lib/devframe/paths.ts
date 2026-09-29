@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Package-root resolution for the devframe.
  *
  * `tsc` flattens `src/lib/devframe/*.ts` to `lib/devframe/*.js`, so a path

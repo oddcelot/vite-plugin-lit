@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {describe, expect, test} from 'vite-plus/test';
 import {resolveAllowedOrigins} from '../../lib/devframe/allowed-origins.js';
 import type {WsOriginRegistry} from 'devframe/rpc/transports/ws-server';

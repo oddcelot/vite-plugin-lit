@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Fake content API with latency, in its own non-component module (component
  * edits never re-execute it). Every call is counted on `window.__fakeFetches`
  * so the playground HUD-style assertions (and the e2e) can prove that a hot

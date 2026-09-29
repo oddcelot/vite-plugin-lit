@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Regression coverage for the Components inspector's opt-in "Live" tree mode
  * (`{type: 'observe', enabled: true}` in `src/lib/runtime/inspector/install.ts`).
  *

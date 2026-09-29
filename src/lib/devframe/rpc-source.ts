@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * A {@link TimelineSource} for a page that is *not* on this process's Vite
  * dev server: the page dials the devframe host over devframe's own RPC
  * connection and carries the runtime's channel messages as two RPC events,

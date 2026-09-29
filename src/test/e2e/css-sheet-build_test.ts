@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 import {randomUUID} from 'node:crypto';
 import {mkdir, readFile, readdir, rm, writeFile} from 'node:fs/promises';
 import * as path from 'node:path';

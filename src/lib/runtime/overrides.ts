@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Browser-runtime side of the panel's live setting overrides. Reads the
  * persisted override (written by the panel; same origin) and subscribes to the
  * page channel the server rebroadcasts panel changes on.

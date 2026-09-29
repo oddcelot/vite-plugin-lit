@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Mirrors timeline events into Chrome DevTools' Performance panel as custom
  * tracks, via `console.timeStamp(label, start, end, track, group, color)`.
  *

@@ -1,10 +1,4 @@
 /**
- * @license
- * Copyright 2026 oddcelot
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-/**
  * Components inspector runtime.
  *
  * Injected into the host page (alongside the timeline runtime) when the

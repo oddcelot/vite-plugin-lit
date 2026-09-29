@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2026 Oddsquad
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 // Pretty-prints the emitted JS so the published tarball is readable.
 //
 // The build output is gitignored, and `vp fmt` prunes any glob that descends
