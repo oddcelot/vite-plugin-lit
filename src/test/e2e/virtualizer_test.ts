@@ -54,6 +54,18 @@ const listState = (): Promise<ListState | null> =>
     })
     .catch(() => null);
 
+// The virtualizer grows the scroller's height as it measures rows, so a
+// single `scrollTop = n` can clamp to a smaller value and stay there. Set it
+// on every poll tick and read back where the list actually landed.
+const scrollListTo = (top: number): Promise<ListState | null> =>
+  fixture.page
+    .evaluate((top) => {
+      document
+        .querySelector('hmr-virtualizer')!
+        .shadowRoot!.querySelector('#list')!.scrollTop = top;
+    }, top)
+    .then(listState);
+
 test('virtualizer keeps scroll position and element identity across patches', async () => {
   const {page, edit} = fixture;
 
@@ -71,15 +83,12 @@ test('virtualizer keeps scroll position and element identity across patches', as
   expect(initial.childCount).toBeLessThan(200);
   expect(initial.firstVisibleIndex).toBe(0);
 
-  // Scroll deep into the list.
-  await page.evaluate(() => {
-    const list = document
-      .querySelector('hmr-virtualizer')!
-      .shadowRoot!.querySelector('#list')!;
-    list.scrollTop = 5000;
-  });
+  // Scroll deep into the list, and wait until the offset holds.
   await expect
-    .poll(async () => (await listState())?.firstVisibleIndex ?? -1)
+    .poll(async () => {
+      const state = await scrollListTo(5000);
+      return state?.scrollTop === 5000 ? state.firstVisibleIndex : -1;
+    })
     .toBeGreaterThan(50);
   const scrolled = (await listState())!;
   await keepShadow(page, 'list', 'hmr-virtualizer >> #list');
@@ -118,13 +127,7 @@ test('virtualizer keeps scroll position and element identity across patches', as
   expect(afterRowEdit.firstVisibleIndex).toBe(scrolled.firstVisibleIndex);
 
   // Still a live virtualizer: scrolling further changes the window.
-  await page.evaluate(() => {
-    const list = document
-      .querySelector('hmr-virtualizer')!
-      .shadowRoot!.querySelector('#list')!;
-    list.scrollTop = 10_000;
-  });
   await expect
-    .poll(async () => (await listState())?.firstVisibleIndex ?? -1)
+    .poll(async () => (await scrollListTo(10_000))?.firstVisibleIndex ?? -1)
     .toBeGreaterThan(afterRowEdit.firstVisibleIndex);
 });
