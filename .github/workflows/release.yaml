@@ -100,8 +100,9 @@ jobs:
       # the peer ranges over. It edits the checkout, hence --allow-dirty.
       - run: node scripts/jsr-deps.mjs
       # jsr.json carries no version on purpose: package.json stays the one
-      # place a release bumps it.
-      - run: pnpm exec jsr publish --allow-dirty --set-version "${TAG#v}"
+      # place a release bumps it. Not `pnpm exec`: its pre-run install check
+      # fails on the rewritten package.json.
+      - run: ./node_modules/.bin/jsr publish --allow-dirty --set-version "${TAG#v}"
 
   github-release:
     needs: publish

@@ -39,12 +39,14 @@ jobs:
       # Catches a jsr.json that no longer matches the build before a tag does.
       # The dry run resolves imports from node_modules, so an import JSR can't
       # map through package.json only shows up as an "Ignoring failed to
-      # resolve" line; fail on it. jsr-deps.mjs mirrors release.yaml.
+      # resolve" line; fail on it. jsr-deps.mjs mirrors release.yaml. The
+      # binary runs directly: `pnpm exec` would see the rewritten package.json
+      # out of step with the lockfile and fail its frozen pre-run install.
       - name: JSR dry run
         run: |
           set -o pipefail
           node scripts/jsr-deps.mjs
-          pnpm exec jsr publish --dry-run --allow-dirty --set-version "$(node -p "require('./package.json').version")" 2>&1 | tee jsr.log
+          ./node_modules/.bin/jsr publish --dry-run --allow-dirty --set-version "$(node -p "require('./package.json').version")" 2>&1 | tee jsr.log
           if grep -q 'Ignoring failed to resolve' jsr.log; then
             echo "::error::JSR could not map an import through package.json"
             exit 1
