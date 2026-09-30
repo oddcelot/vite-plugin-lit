@@ -4,6 +4,14 @@
   "description": "Vite plugin providing true HMR for Lit components, plus CSS helpers and a DevTools panel",
   "license": "BSD-3-Clause",
   "author": "oddcelot",
+  "keywords": [
+    "vite-plugin",
+    "vite",
+    "lit",
+    "hmr",
+    "web-components",
+    "devtools"
+  ],
   "type": "module",
   "main": "index.js",
   "module": "index.js",

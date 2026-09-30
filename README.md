@@ -192,6 +192,7 @@ pnpm docs:dev        # the documentation site
 More in
 [Development](https://oddcelot.github.io/vite-plugin-lit/contributing/development/)
 and [Testing](https://oddcelot.github.io/vite-plugin-lit/contributing/testing/).
+Issues and pull requests are welcome; see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
