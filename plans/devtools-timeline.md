@@ -32,6 +32,12 @@ forward to node, display in the panel. How the panel is hosted is in
   Every phase's start and end shares it, so a consumer can pair them into a
   duration without heuristics. Render events use the lit-debug `id`. `commit`
   and `set part` events are high volume and stay out of the default set.
+- **Only the outermost wrapper of a phase emits.** `update` is wrapped on its
+  effective owner so the timed call is the one that runs `render()`; when that
+  owner is an app subclass calling `super.update()`, the base's wrapper runs
+  nested inside it with the same groupId and phase, which broke the
+  one-phase-per-tick pairing in `derive.ts`. A per-element in-flight set in
+  `lifecycle.ts` lets the inner call pass through.
 - **Identity.** Elements get a monotonic id from a `WeakMap`, never a property
   on the element, so ids survive HMR because patching keeps the same instance.
   The source location comes from the

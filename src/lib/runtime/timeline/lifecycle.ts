@@ -69,6 +69,14 @@ const ticks = new WeakMap<object, number>();
 
 const tickOf = (el: object): number => ticks.get(el) ?? 0;
 
+/**
+ * Phases currently executing per element. A subclass that overrides a phase
+ * and calls `super` runs two wrappers for one phase (its own prototype's and
+ * the shared base's), so only the outermost emits; the inner call passes
+ * through. Keeps `derive.ts`'s invariant that a phase occurs once per tick.
+ */
+const inFlight = new WeakMap<object, Set<string>>();
+
 type AnyFn = (...args: unknown[]) => unknown;
 type Proto = Record<string | symbol, AnyFn | undefined>;
 
@@ -107,6 +115,9 @@ const wrap = (
       notifyUpdated(this, first);
       return result;
     }
+    const running = inFlight.get(this) ?? new Set<string>();
+    if (running.has(name)) return orig?.apply(this, args);
+
     const first = isUpdate && isFirstUpdate(this);
 
     // Bump the per-instance tick at the *start* of each performUpdate, before
@@ -140,9 +151,12 @@ const wrap = (
     }
 
     let result: unknown;
+    running.add(name);
+    inFlight.set(this, running);
     try {
       result = orig?.apply(this, args);
     } finally {
+      running.delete(name);
       if (!isPoint) {
         emit({
           layerId: 'lit-lifecycle',

@@ -85,6 +85,43 @@ afterEach(() => {
 });
 
 describe('installLifecycleLayer', () => {
+  test('a subclass that overrides update and calls super emits one bracket', async () => {
+    // Reproduces the double wrap: the base is wrapped from a live sample at
+    // install, then define() wraps the subclass's own `update` too.
+    const base = freshBase();
+    const {tag: plainTag} = define(base);
+    document.body.append(document.createElement(plainTag));
+    install(await load());
+    class Sub extends base {
+      update() {
+        calls.push('sub-update');
+        super.update();
+      }
+    }
+    const tag = `x-life-${counter++}`;
+    customElements.define(tag, Sub);
+    const el = document.createElement(tag) as FakeReactiveElement;
+    document.body.append(el);
+    events.length = 0;
+
+    el.performUpdate();
+
+    const titles = events.map((e) => e.title);
+    expect(titles.filter((t) => t === 'update:start')).toHaveLength(1);
+    expect(titles.filter((t) => t === 'update:end')).toHaveLength(1);
+    expect(titles).toEqual([
+      'performUpdate:start',
+      'willUpdate:start',
+      'willUpdate:end',
+      'update:start',
+      'update:end',
+      'updated:start',
+      'updated:end',
+      'performUpdate:end',
+    ]);
+    expect(calls).toContain('sub-update');
+  });
+
   test('wraps the base prototype found on a live element', async () => {
     const {tag} = define();
     const el = document.createElement(tag) as FakeReactiveElement;
