@@ -194,6 +194,7 @@ describe('TimelineChannelCodec outbound', () => {
           litLifecycleEnabled: DEFAULT_LAYERS_STATE.litLifecycleEnabled,
           litRenderEnabled: false,
           litRenderVerboseEnabled: DEFAULT_LAYERS_STATE.litRenderVerboseEnabled,
+          litChangedValuesEnabled: DEFAULT_LAYERS_STATE.litChangedValuesEnabled,
           mouseEventEnabled: DEFAULT_LAYERS_STATE.mouseEventEnabled,
           keyboardEventEnabled: DEFAULT_LAYERS_STATE.keyboardEventEnabled,
         },

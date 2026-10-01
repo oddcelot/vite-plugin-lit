@@ -41,13 +41,14 @@ old clock would sit in the list on a different time origin.
 A strip of coloured pills under the toolbar turns each layer on or off. A layer
 is one category of recorded timeline events, with its own colour and toggle.
 
-| Layer                | What it captures                                                                                                                                                      | Default |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| Lit Lifecycle        | `connectedCallback`, `performUpdate`, `willUpdate`, `update`, `updated`, `firstUpdated`, `disconnectedCallback`, with per-phase durations and changed-property keys   | on      |
-| Lit Render           | `begin render` and `end render`, from Lit's built-in `lit-debug` events                                                                                               | on      |
-| Lit Render (verbose) | Per-binding `lit-debug` events (`template updating`, `set part`, `commit text`/`node`/`attribute`/`property`/…) — one per part on _every_ render, so it's high volume | off     |
-| Mouse                | `mousedown`, `mouseup`, `click`, `dblclick`                                                                                                                           | off     |
-| Keyboard             | `keydown`, `keyup`                                                                                                                                                    | off     |
+| Layer                | What it captures                                                                                                                                                             | Default |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| Lit Lifecycle        | `connectedCallback`, `performUpdate`, `willUpdate`, `update`, `updated`, `firstUpdated`, `disconnectedCallback`, with per-phase durations and changed-property keys          | on      |
+| Lit Render           | `begin render` and `end render`, from Lit's built-in `lit-debug` events                                                                                                      | on      |
+| Lit Render (verbose) | Per-binding `lit-debug` events (`template updating`, `set part`, `commit text`/`node`/`attribute`/`property`/…) — one per part on _every_ render, so it's high volume        | off     |
+| Changed values       | Adds the old and new value of each changed property to the update events. No events of its own, so it has no track; see [Updates](/vite-plugin-lit/guides/devtools/updates/) | off     |
+| Mouse                | `mousedown`, `mouseup`, `click`, `dblclick`                                                                                                                                  | off     |
+| Keyboard             | `keydown`, `keyup`                                                                                                                                                           | off     |
 
 Your toggles are remembered between sessions in `localStorage`.
 

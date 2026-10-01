@@ -44,7 +44,7 @@ const capture = createCaptureController({
 // ---------------------------------------------------------------------------
 
 const {out, capturing, enabled} = capture;
-installLifecycleLayer(out, capturing, enabled.lifecycle);
+installLifecycleLayer(out, capturing, enabled.lifecycle, enabled.changedValues);
 installRenderLayer(out, capturing, enabled.render, enabled.renderVerbose);
 installMouseLayer(out, capturing, enabled.mouse);
 installKeyboardLayer(out, capturing, enabled.keyboard);

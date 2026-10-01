@@ -63,6 +63,7 @@ test('lit-render-verbose stays silent when only lit-render is enabled', async ()
     litLifecycleEnabled: false,
     litRenderEnabled: true,
     litRenderVerboseEnabled: false,
+    litChangedValuesEnabled: false,
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
   });
@@ -103,6 +104,7 @@ test('lit-render-verbose reports serializable per-part events when enabled', asy
     litLifecycleEnabled: false,
     litRenderEnabled: false,
     litRenderVerboseEnabled: true,
+    litChangedValuesEnabled: false,
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
   });

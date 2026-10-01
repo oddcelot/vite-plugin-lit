@@ -31,6 +31,22 @@ export interface TimelineEvent<TData = unknown> {
   };
 }
 
+/** One changed reactive property of an update, with before/after previews. */
+export interface ChangedValue {
+  key: string;
+  /** `serialize()` preview of the old value (from the PropertyValues Map). */
+  prev: string;
+  /** `serialize()` preview of the current value, read off the element. */
+  next: string;
+  /** `Object.is(prev, next)` on the raw values. */
+  sameRef: boolean;
+  /**
+   * Different references with deep-equal contents (a bounded check on the raw
+   * values, not the previews). False when the budget runs out.
+   */
+  equal: boolean;
+}
+
 export interface TimelineLayersState {
   recordingState: boolean;
   litLifecycleEnabled: boolean;
@@ -42,6 +58,12 @@ export interface TimelineLayersState {
    * begin/end render pair already covers the common case.
    */
   litRenderVerboseEnabled: boolean;
+  /**
+   * Old/new value previews on update events. Costs a `serialize` per changed
+   * key per update, so off by default. Emits no events of its own: it only
+   * adds data to the `lit-lifecycle` update events.
+   */
+  litChangedValuesEnabled: boolean;
   mouseEventEnabled: boolean;
   keyboardEventEnabled: boolean;
 }
@@ -50,6 +72,7 @@ export const TIMELINE_LAYERS: readonly TimelineLayer[] = [
   {id: 'lit-lifecycle', label: 'Lit Lifecycle', color: 0x4d63ff},
   {id: 'lit-render', label: 'Lit Render', color: 0x325cff},
   {id: 'lit-render-verbose', label: 'Lit Render (verbose)', color: 0x99aeff},
+  {id: 'lit-changed-values', label: 'Changed values', color: 0x6b7bff},
   {id: 'mouse', label: 'Mouse', color: 0xa451af},
   {id: 'keyboard', label: 'Keyboard', color: 0x8151af},
 ];
@@ -59,6 +82,7 @@ export const DEFAULT_LAYERS_STATE: TimelineLayersState = {
   litLifecycleEnabled: true,
   litRenderEnabled: true,
   litRenderVerboseEnabled: false,
+  litChangedValuesEnabled: false,
   mouseEventEnabled: false,
   keyboardEventEnabled: false,
 };

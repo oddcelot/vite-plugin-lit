@@ -77,6 +77,32 @@ shown, and its message is in the tooltip. The component table counts such
 updates under ⚠, and `lit_update-summary` returns `errors` per component and
 `error` per cycle, so an agent sees them too.
 
+## See the old and new values
+
+Turn on the **Changed values** layer in the Timeline tab before you record.
+Each update then lists `prev → next` for every property that changed, under its
+row. The previews use the same limits as the
+[Components tab](/vite-plugin-lit/guides/devtools/components/): two levels
+deep, eight items, 120 characters.
+
+A badge reads _new reference, same value_ when the property was assigned a
+different object, array or date with equal contents. That is the usual cause of
+a pointless re-render: an inline `[]` or `{}` in a template, or a list that is
+re-mapped on every change. _Same reference_ means the property was not
+reassigned, for example a `requestUpdate('items')` after mutating in place. The
+component table marks a row with ≡ and a count when any of its updates
+reassigned an equal value, and the tooltip names the properties.
+
+The layer is off by default because it serializes values on every update. At
+most 16 properties are recorded per update. Only the `update` phase is read, so
+a component that overrides `update()` without calling `super` reports nothing.
+Equality is checked on plain objects, arrays and dates, to six levels and 200
+values. Anything else, such as a `Map` or a class instance, counts as
+different, and so does a value that exceeds the budget.
+
+The same data is in `lit_update-summary`: `changedDetail` on each cycle and
+`redundantChanges` on each component.
+
 In the playground fixture below, clicking the provider's button bumps the
 marked `counter`. Both the provider and its consumer show a tick, and both name
 `counter` under Reasons.

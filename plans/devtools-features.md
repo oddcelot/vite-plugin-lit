@@ -132,6 +132,23 @@ too much", using data the capture layer already produced: `groupId` pairing and
   the cycle (innermost phase wins, since `performUpdate` rethrows what `update`
   threw) and a per-component `errors` count. Not built here: attributing
   `window.onerror` to a host.
+- **Old and new values are a layer flag, not a new RPC.** Changed values is a
+  boolean on `TimelineLayersState` plus a pseudo-layer id, mirroring
+  `litRenderVerboseEnabled`. That reuses the pill strip and `toggle-layer`, and
+  adds no wire surface. The layer emits no events, only data on the
+  `lit-lifecycle` update events, so the Timeline gives it a pill but no lane.
+  It is off by default because each key costs a `serialize`.
+- **Values are captured on `update`, not `willUpdate`.** A component overriding
+  `willUpdate` without `super` shadows our wrapper, while `update` is wrapped on
+  its effective owner, and the values are final by then. One capture per tick.
+- **Equality is computed on the raw values, with a budget.** Comparing the
+  previews would stop at depth two and call `{a: {b: {c: 1}}}` equal to
+  `{a: {b: {c: 2}}}`. `budgetedDeepEqual` visits at most 200 values to depth six
+  and never invokes a getter, and gives up as "not equal". Capture is capped at
+  16 keys per update; `changed` still lists them all.
+- **Not wasted-render detection.** "New reference, same value" is a fact about
+  the assigned value. Whether the DOM then changed is still unknown, so the
+  panel reports the assignment and leaves the conclusion to the reader.
 - **Not built: a flamechart or scrubber.** Lit update ticks are sub-millisecond
   and sparse, so it would be mostly whitespace, and Chrome's Performance panel
   already does it better. The value here is attribution and frequency, which is

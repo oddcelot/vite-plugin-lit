@@ -31,13 +31,14 @@ const makeBase = () =>
       calls.push('disconnected');
     }
     performUpdate() {
-      this.willUpdate(new Map([['count', 0]]));
-      this.update();
+      const changed = new Map([['count', 0]]);
+      this.willUpdate(changed);
+      this.update(changed);
       this.hasUpdated = true;
       this.updated();
     }
     willUpdate(_changed: Map<string, unknown>) {}
-    update() {}
+    update(_changed?: Map<string, unknown>) {}
     updated() {}
     firstUpdated() {}
   };
@@ -55,11 +56,12 @@ const load = async (): Promise<Lifecycle> => {
 let events: TimelineEvent[];
 let recording: boolean;
 const emit = (e: TimelineEvent) => events.push(e);
-const install = (m: Lifecycle) =>
+const install = (m: Lifecycle, changedValues = () => false) =>
   m.installLifecycleLayer(
     emit,
     () => recording,
-    () => true
+    () => true,
+    changedValues
   );
 
 const define = (base = freshBase()) => {
@@ -149,6 +151,62 @@ describe('installLifecycleLayer', () => {
       meta: {tagName: tag, source: {file: '/comp.ts', line: 4}},
     });
     expect(events[1]!.data).toMatchObject({changed: ['count']});
+  });
+
+  test('records old and new values on update:start when the layer is on', async () => {
+    const {tag} = define();
+    const el = document.createElement(tag) as FakeReactiveElement & {
+      count: number;
+    };
+    el.count = 5;
+    document.body.append(el);
+    install(await load(), () => true);
+    events.length = 0;
+
+    el.performUpdate();
+
+    const detailed = events.filter(
+      (e) => (e.data as {changedDetail?: unknown}).changedDetail !== undefined
+    );
+    expect(detailed.map((e) => e.title)).toEqual(['update:start']);
+    expect(detailed[0]!.data).toMatchObject({
+      changedDetail: [
+        {key: 'count', prev: '0', next: '5', sameRef: false, equal: false},
+      ],
+    });
+  });
+
+  test('records no values by default', async () => {
+    const {tag} = define();
+    const el = document.createElement(tag) as FakeReactiveElement;
+    document.body.append(el);
+    install(await load());
+    events.length = 0;
+
+    el.performUpdate();
+
+    expect(events.length).toBeGreaterThan(0);
+    for (const e of events) expect(e.data).not.toHaveProperty('changedDetail');
+  });
+
+  test('a throwing getter does not break the update', async () => {
+    const {tag} = define();
+    const el = document.createElement(tag) as FakeReactiveElement;
+    Object.defineProperty(el, 'count', {
+      get() {
+        throw new Error('nope');
+      },
+    });
+    document.body.append(el);
+    install(await load(), () => true);
+    events.length = 0;
+
+    el.performUpdate();
+
+    expect(events.at(-1)!.title).toBe('performUpdate:end');
+    expect(events.find((e) => e.title === 'update:start')!.data).toMatchObject({
+      changedDetail: [{key: 'count', next: '[getter threw]'}],
+    });
   });
 
   test('a whole update cycle shares one groupId, the next cycle another', async () => {

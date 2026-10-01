@@ -129,6 +129,37 @@ export class UpdatesView extends LitElement {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .changes {
+        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5)
+          var(--lit-devtools-space-2) calc(var(--lit-devtools-space-5) + 72px);
+        font-size: var(--lit-devtools-text-2xs);
+        font-family: var(--lit-devtools-font-mono);
+        color: var(--lit-devtools-text-secondary);
+        border-bottom: 1px solid var(--lit-devtools-border);
+      }
+      .change {
+        display: flex;
+        gap: var(--lit-devtools-space-3);
+        align-items: baseline;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      .change .value {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .change .key {
+        color: var(--lit-devtools-text);
+        flex-shrink: 0;
+      }
+      .change .badge {
+        color: var(--lit-devtools-accent);
+        flex-shrink: 0;
+      }
+      .redundant {
+        color: var(--lit-devtools-accent);
+        flex-shrink: 0;
+      }
       .time {
         color: var(--lit-devtools-text-muted);
         flex-shrink: 0;
@@ -312,6 +343,17 @@ export class UpdatesView extends LitElement {
         <span class="reasons"
           >${entry.reasons.map((r) => r.key).join(', ')}</span
         >
+        ${
+          entry.redundantChanges
+            ? html`<span
+                class="redundant"
+                title=${`Changed to a new reference with equal content in these updates: ${entry.redundantChanges
+                  .map((c) => `${c.key} ×${c.count}`)
+                  .join(', ')}`}
+                >≡ ${entry.redundantChanges.length}</span
+              >`
+            : nothing
+        }
         <span class="num" title="Updates recorded">${entry.updates}×</span>
         ${
           entry.errors > 0
@@ -393,6 +435,29 @@ export class UpdatesView extends LitElement {
                   >#${cycle.elementId}</a
                 >
               </div>
+              ${
+                cycle.changedDetail
+                  ? html`<div class="changes">
+                      ${cycle.changedDetail.map(
+                        (c) => html`<div class="change">
+                          <span class="key">${c.key}</span>
+                          <span class="value" title=${c.prev}>${c.prev}</span>
+                          <span>→</span>
+                          <span class="value" title=${c.next}>${c.next}</span>
+                          ${
+                            c.sameRef
+                              ? html`<span class="badge">same reference</span>`
+                              : c.equal
+                                ? html`<span class="badge"
+                                    >new reference, same value</span
+                                  >`
+                                : nothing
+                          }
+                        </div>`
+                      )}
+                    </div>`
+                  : nothing
+              }
             `
           )}
         </div>

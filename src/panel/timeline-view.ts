@@ -29,6 +29,10 @@ import type {SessionState} from '../lib/devframe/protocol.js';
 type ViewMode = 'list' | 'tracks';
 
 /** localStorage key remembering List vs Tracks. */
+/** Layers that only gate extra data on other layers' events: they get a pill
+ *  to toggle but never a lane. */
+const EVENTLESS_LAYERS = new Set(['lit-changed-values']);
+
 const MODE_LS_KEY = 'lit-devtools-timeline-mode';
 /** localStorage key remembering which tracks the user hid. Stored as the
  *  hidden set, not the shown one, so a layer seen for the first time (a
@@ -239,7 +243,12 @@ export class TimelineView extends LitElement {
   override willUpdate(changed: Map<string, unknown>) {
     if (changed.has('_layers') || changed.has('_hiddenTracks')) {
       this._visibleTracks = this._layers
-        .filter((l) => l.enabled && !this._hiddenTracks.has(l.id))
+        .filter(
+          (l) =>
+            l.enabled &&
+            !this._hiddenTracks.has(l.id) &&
+            !EVENTLESS_LAYERS.has(l.id)
+        )
         .map((l) => l.id);
     }
     if (this._model.setEvents(this._events)) this._revealSelection = true;
@@ -456,7 +465,9 @@ export class TimelineView extends LitElement {
     }
     const tracks = this._mode === 'tracks';
     // Only captured layers can have events to draw.
-    const captured = this._layers.filter((l) => l.enabled);
+    const captured = this._layers.filter(
+      (l) => l.enabled && !EVENTLESS_LAYERS.has(l.id)
+    );
     const model = this._model;
     const {filter} = model;
     return html`
