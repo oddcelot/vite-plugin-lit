@@ -11,6 +11,7 @@ import '@awesome.me/webawesome/dist/components/switch/switch.js';
 import type WaSelect from '@awesome.me/webawesome/dist/components/select/select.js';
 import type WaSwitch from '@awesome.me/webawesome/dist/components/switch/switch.js';
 import {tokens} from '../lib/tokens.js';
+import {waSquare} from './wa-square.js';
 import type {ColorSchemePreference} from '../lib/color-scheme.js';
 import {
   SOURCE_OVERLAY_EDITORS,
@@ -39,6 +40,7 @@ type LitSettings = Awaited<ReturnType<LitClient['settings']['global']['all']>>;
 export class DevtoolsSettings extends LitElement {
   static override styles = [
     tokens,
+    waSquare,
     css`
       :host {
         display: block;

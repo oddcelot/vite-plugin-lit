@@ -5,6 +5,7 @@ import {virtualize, virtualizerRef} from '@lit-labs/virtualizer/virtualize.js';
 import type {VirtualizerHostElement} from '@lit-labs/virtualizer/virtualize.js';
 import '@awesome.me/webawesome/dist/components/switch/switch.js';
 import {tokens} from '../lib/tokens.js';
+import {waSquare} from './wa-square.js';
 import type {TimelineEvent} from '../types/timeline.js';
 import type {TimelineSpan} from '../lib/timeline/derive.js';
 import {layerColor} from './timeline-layers.js';
@@ -45,6 +46,7 @@ const renderDuration = (row: TimelineSpan): string => {
 export class TimelineEventList extends LitElement {
   static override styles = [
     tokens,
+    waSquare,
     css`
       :host {
         display: flex;
@@ -113,7 +115,7 @@ export class TimelineEventList extends LitElement {
       .dot {
         width: 8px;
         height: 8px;
-        border-radius: 50%;
+        border-radius: 0;
         flex-shrink: 0;
         margin-top: 2px;
       }

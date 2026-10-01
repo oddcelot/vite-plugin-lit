@@ -132,7 +132,7 @@ export class TimelineTracks extends LitElement {
       .dot {
         width: 8px;
         height: 8px;
-        border-radius: 50%;
+        border-radius: 0;
         flex-shrink: 0;
       }
       .plot {
@@ -150,7 +150,7 @@ export class TimelineTracks extends LitElement {
         box-sizing: border-box;
         height: ${ROW_PX - 3}px;
         margin-top: 1px;
-        border-radius: 2px;
+        border-radius: 0;
         opacity: 0.85;
         overflow: hidden;
         white-space: nowrap;

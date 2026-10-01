@@ -53,7 +53,7 @@ export class TimelineLayers extends LitElement {
       .dot {
         width: 8px;
         height: 8px;
-        border-radius: 50%;
+        border-radius: 0;
         flex-shrink: 0;
         opacity: 0.4;
       }

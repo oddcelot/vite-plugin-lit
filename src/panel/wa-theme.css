@@ -1,9 +1,9 @@
 /*
- * Web Awesome theme for the panel: WA's default theme owns radii, spacing and
- * form controls; this file swaps in what makes it Lit DevTools — the brand
- * ramp built from the Lit blues, and the panel's own surfaces and text
- * (`--lit-devtools-*`, see src/lib/tokens.ts), so WA controls and the custom
- * views sit on the same backgrounds in both schemes.
+ * Web Awesome theme for the panel: WA's default theme owns spacing and form
+ * controls; this file swaps in what makes it Lit DevTools — the brand ramp
+ * built from the Lit blues, square corners everywhere, and the panel's own
+ * surfaces and text (`--lit-devtools-*`, see src/lib/tokens.ts), so WA
+ * controls and the custom views sit on the same backgrounds in both schemes.
  *
  * Only the panel document loads this. The in-page UI (src/lib/runtime) never
  * does: registering `wa-*` or WA's `:root` tokens in the user's app would
@@ -43,16 +43,24 @@
     --wa-font-family-code: var(--lit-devtools-font-mono);
     /* 13px body (WA's `m`), 12px `s` for small controls — DevTools density. */
     --wa-font-size-scale: 0.8125;
+
+    /* No rounded corners anywhere: buttons, inputs, cards, pills, switches. */
+    --wa-border-radius-scale: 0;
+    --wa-border-radius-pill: 0;
+    --wa-border-radius-circle: 0;
   }
 }
 
 /*
- * The custom views (tree, tables, timeline) follow WA's radii. `:root:root`
+ * The custom views (tree, tables, timeline) are square too. `:root:root`
  * outranks the `:root` block injectTokens() appends later. Spacing needs no
  * mapping: WA's 2/4/8/12/16/24/32px scale already matches ours.
  */
 :root:root {
-  --lit-devtools-radius-xs: var(--wa-border-radius-s);
-  --lit-devtools-radius-sm: var(--wa-border-radius-m);
-  --lit-devtools-radius-md: var(--wa-border-radius-l);
+  --lit-devtools-radius-xs: 0;
+  --lit-devtools-radius-sm: 0;
+  --lit-devtools-radius-md: 0;
+  --lit-devtools-radius-lg: 0;
+  --lit-devtools-radius-xl: 0;
+  --lit-devtools-radius-pill: 0;
 }
