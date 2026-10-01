@@ -8,7 +8,15 @@ export default defineConfig({
   // `clientAuth: false` skips the per-browser approval DevTools asks for in
   // the terminal, which nobody can answer on StackBlitz. Fine for a throwaway
   // demo; don't copy it into a server reachable from other machines.
-  devtools: {enabled: true, apply: 'serve', clientAuth: false},
+  //
+  // `dockPreferences` starts the dock as a toolbar along the bottom edge.
+  // Only a default: a browser that has moved the dock keeps its own layout.
+  devtools: {
+    enabled: true,
+    apply: 'serve',
+    clientAuth: false,
+    dockPreferences: {defaultMode: 'edge', defaultPosition: 'bottom'},
+  },
   plugins: [
     litPlugin({
       // HMR is on by default: edit `src/lit-flame.ts` while the page is open

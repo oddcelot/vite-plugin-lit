@@ -42,6 +42,12 @@ export default defineConfig(async ({mode}) => {
       // off to the DevTools bundle analyzer, which keeps the process alive.
       apply: 'serve' as const,
       clientAuth: false,
+      // Start the dock as a toolbar along the bottom edge. Only a default: a
+      // browser that has moved the dock keeps its own layout.
+      dockPreferences: {
+        defaultMode: 'edge' as const,
+        defaultPosition: 'bottom' as const,
+      },
     },
     css: {
       // Process all CSS with Lightning CSS instead of PostCSS — applies to
