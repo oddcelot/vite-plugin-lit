@@ -5,7 +5,7 @@ import {
   toSpans,
   toUpdateCycles,
 } from '../../lib/timeline/derive.js';
-import type {TimelineEvent} from '../../types/timeline.js';
+import type {ChangedValue, TimelineEvent} from '../../types/timeline.js';
 
 /**
  * Builds one lifecycle phase-boundary event exactly as
@@ -22,6 +22,8 @@ const phase = (
     tag?: string;
     tick?: number;
     changed?: string[];
+    /** Carried by the `update` start event only, as the runtime does. */
+    changedDetail?: ChangedValue[];
     error?: {name: string; message: string};
   } = {}
 ): TimelineEvent => {
@@ -38,7 +40,13 @@ const phase = (
     ...(error === undefined ? {} : {logType: 'error' as const}),
     data:
       edge === 'start' && options.changed !== undefined
-        ? {phase: name, changed: options.changed}
+        ? options.changedDetail !== undefined && name === 'update'
+          ? {
+              phase: name,
+              changed: options.changed,
+              changedDetail: options.changedDetail,
+            }
+          : {phase: name, changed: options.changed}
         : error === undefined
           ? {phase: name}
           : {phase: name, error},
@@ -58,6 +66,7 @@ const tick = (
     tag?: string;
     tick?: number;
     changed?: string[];
+    changedDetail?: ChangedValue[];
     duration?: number;
     /** Thrown from `update`, so both it and `performUpdate` end in error. */
     error?: {name: string; message: string};
@@ -325,5 +334,68 @@ describe('attributeInput', () => {
     const events = tick(10);
     const cycles = attributeInput(toUpdateCycles(toSpans(events)), events);
     expect(cycles[0]!.cause).toBeUndefined();
+  });
+});
+
+describe('changed value detail', () => {
+  const redundant: ChangedValue = {
+    key: 'items',
+    prev: '[1, 2]',
+    next: '[1, 2]',
+    sameRef: false,
+    equal: true,
+  };
+
+  test('a cycle carries the detail, and omits it when absent', () => {
+    const [withDetail] = toUpdateCycles(
+      toSpans(tick(0, {changed: ['items'], changedDetail: [redundant]}))
+    );
+    expect(withDetail!.changedDetail).toEqual([redundant]);
+
+    const [without] = toUpdateCycles(toSpans(tick(0, {changed: ['items']})));
+    expect(without).not.toHaveProperty('changedDetail');
+  });
+
+  test('rollup counts new references holding equal content', () => {
+    const events = [
+      ...tick(0, {tick: 1, changed: ['items'], changedDetail: [redundant]}),
+      ...tick(10, {tick: 2, changed: ['items'], changedDetail: [redundant]}),
+    ];
+    const [entry] = rollup(toUpdateCycles(toSpans(events)));
+    expect(entry!.redundantChanges).toEqual([{key: 'items', count: 2}]);
+  });
+
+  test('rollup ignores same-reference and unequal changes', () => {
+    const events = [
+      ...tick(0, {
+        tick: 1,
+        changed: ['items'],
+        changedDetail: [{...redundant, sameRef: true, equal: false}],
+      }),
+      ...tick(10, {
+        tick: 2,
+        changed: ['items'],
+        changedDetail: [{...redundant, equal: false}],
+      }),
+    ];
+    const [entry] = rollup(toUpdateCycles(toSpans(events)));
+    expect(entry).not.toHaveProperty('redundantChanges');
+  });
+
+  test('ignores malformed entries', () => {
+    const [event] = tick(0, {changed: ['items'], changedDetail: [redundant]});
+    const update = tick(0, {
+      changed: ['items'],
+      changedDetail: [redundant],
+    }).find((e) => e.title === 'update:start')!;
+    update.data = {
+      phase: 'update',
+      changed: ['items'],
+      changedDetail: [{key: 'items'}, null, 'x', {...redundant, equal: 'yes'}],
+    };
+    const spans = toSpans([event!, update]);
+    expect(
+      spans.find((s) => s.name === 'update')!.changedDetail
+    ).toBeUndefined();
   });
 });

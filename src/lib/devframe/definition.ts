@@ -551,7 +551,7 @@ export function createLitDevframe(
           snapshot: true,
           agent: {
             description:
-              'Explain component updates: which components re-rendered, how often, how long they took, and which reactive properties changed to cause each update. Prefer this over lit:recent-events for "why did this re-render" and "what is re-rendering too much" — it answers from the same recording without the caller having to pair start/end events itself. Filter to one component with tagName. Check the `recording` field — if false, no events are being captured; call lit:set-recording first.',
+              'Explain component updates: which components re-rendered, how often, how long they took, and which reactive properties changed to cause each update. Prefer this over lit:recent-events for "why did this re-render" and "what is re-rendering too much" — it answers from the same recording without the caller having to pair start/end events itself. Filter to one component with tagName. If the Changed values layer is on, cycles also carry changedDetail (old/new previews per key) and components carry redundantChanges (keys that changed to a new reference with equal content). Check the `recording` field — if false, no events are being captured; call lit:set-recording first.',
           },
           // `args` is genuinely absent when an agent calls the tool with no
           // filters — the most common call — so it must default.

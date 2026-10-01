@@ -7,7 +7,8 @@
  * hand. Everything needed to do better is already on the events — `groupId`
  * pairs a start with its end, `data.changed` names the reactive properties
  * that caused the update — so this module turns a flat event list into the
- * three shapes the panel and agents actually ask for:
+ * three shapes the panel and agents actually ask for (when the Changed values
+ * layer was on, `data.changedDetail` adds old/new previews to each):
  *
  * - {@link TimelineSpan} — a start/end pair collapsed into one entry with a
  *   duration ("`update` took 1.8ms").
@@ -23,7 +24,7 @@
  * server-side over the ring buffer for the agent-facing summary.
  */
 
-import type {TimelineEvent} from '../../types/timeline.js';
+import type {ChangedValue, TimelineEvent} from '../../types/timeline.js';
 
 /** Layer whose events describe Lit update ticks. */
 const LIFECYCLE_LAYER_ID = 'lit-lifecycle';
@@ -60,6 +61,8 @@ export interface TimelineSpan {
   duration?: number;
   /** Reactive property keys that caused this update, where the phase has them. */
   changed?: string[];
+  /** Old/new value previews; present only when the Changed values layer was on. */
+  changedDetail?: ChangedValue[];
   subtitle?: string;
   logType?: TimelineEvent['logType'];
   /** Set when the phase threw; from the end event. */
@@ -81,6 +84,8 @@ export interface UpdateCycle {
   duration?: number;
   /** Union of the changed reactive property keys across the tick's phases. */
   changed: string[];
+  /** Old/new previews per changed key; omitted when none were recorded. */
+  changedDetail?: ChangedValue[];
   phases: TimelineSpan[];
   /** The input event this update followed, if any. See {@link attributeInput}. */
   cause?: {layerId: string; type: string; detail?: string; time: number};
@@ -99,6 +104,11 @@ export interface ComponentRollup {
   maxMs: number;
   /** Changed-key frequency across the cycles, most frequent first. */
   reasons: Array<{key: string; count: number}>;
+  /**
+   * Keys that changed to a new reference with equal content, by cycles, most
+   * frequent first. Omitted when none were seen.
+   */
+  redundantChanges?: Array<{key: string; count: number}>;
   /** Cycles in which a phase threw. */
   errors: number;
   source?: {file: string; line: number};
@@ -112,6 +122,25 @@ const changedOf = (event: TimelineEvent): string[] | undefined => {
   if (!Array.isArray(changed)) return undefined;
   const keys = changed.filter((key): key is string => typeof key === 'string');
   return keys.length > 0 ? keys : undefined;
+};
+
+/** Reads `data.changedDetail` defensively, keeping only well-formed entries. */
+const changedDetailOf = (event: TimelineEvent): ChangedValue[] | undefined => {
+  const data = event.data;
+  if (data === null || typeof data !== 'object') return undefined;
+  const detail = (data as {changedDetail?: unknown}).changedDetail;
+  if (!Array.isArray(detail)) return undefined;
+  const entries = detail.filter(
+    (entry): entry is ChangedValue =>
+      entry !== null &&
+      typeof entry === 'object' &&
+      typeof (entry as ChangedValue).key === 'string' &&
+      typeof (entry as ChangedValue).prev === 'string' &&
+      typeof (entry as ChangedValue).next === 'string' &&
+      typeof (entry as ChangedValue).sameRef === 'boolean' &&
+      typeof (entry as ChangedValue).equal === 'boolean'
+  );
+  return entries.length > 0 ? entries : undefined;
 };
 
 /** Reads `data.error` defensively — `data` is `unknown` on the wire. */
@@ -135,6 +164,7 @@ const pointSpan = (event: TimelineEvent, index: number): TimelineSpan => ({
   name: event.title ?? event.layerId,
   start: event.time,
   changed: changedOf(event),
+  changedDetail: changedDetailOf(event),
   subtitle: event.subtitle,
   logType: event.logType,
   error: errorOf(event),
@@ -184,6 +214,7 @@ export const toSpans = (events: readonly TimelineEvent[]): TimelineSpan[] => {
         groupId: event.groupId,
         start: event.time,
         changed: changedOf(event),
+        changedDetail: changedDetailOf(event),
         subtitle: event.subtitle,
         logType: event.logType,
         meta: event.meta,
@@ -270,6 +301,12 @@ export const toUpdateCycles = (
     for (const changedKey of span.changed ?? []) {
       if (!cycle.changed.includes(changedKey)) cycle.changed.push(changedKey);
     }
+    for (const detail of span.changedDetail ?? []) {
+      cycle.changedDetail ??= [];
+      if (!cycle.changedDetail.some((d) => d.key === detail.key)) {
+        cycle.changedDetail.push(detail);
+      }
+    }
     if (span.error !== undefined) {
       // performUpdate rethrows what update threw; keep the innermost phase.
       if (cycle.error === undefined || span.name !== ROOT_PHASE) {
@@ -292,7 +329,11 @@ export const toUpdateCycles = (
 export const rollup = (cycles: readonly UpdateCycle[]): ComponentRollup[] => {
   const byTag = new Map<
     string,
-    {entry: ComponentRollup; reasons: Map<string, number>}
+    {
+      entry: ComponentRollup;
+      reasons: Map<string, number>;
+      redundant: Map<string, number>;
+    }
   >();
 
   for (const cycle of cycles) {
@@ -310,11 +351,12 @@ export const rollup = (cycles: readonly UpdateCycle[]): ComponentRollup[] => {
           source: cycle.source,
         },
         reasons: new Map(),
+        redundant: new Map(),
       };
       byTag.set(cycle.tagName, record);
     }
 
-    const {entry, reasons} = record;
+    const {entry, reasons, redundant} = record;
     entry.updates++;
     if (cycle.error !== undefined) entry.errors++;
     if (!entry.elementIds.includes(cycle.elementId)) {
@@ -330,13 +372,27 @@ export const rollup = (cycles: readonly UpdateCycle[]): ComponentRollup[] => {
     for (const key of cycle.changed) {
       reasons.set(key, (reasons.get(key) ?? 0) + 1);
     }
+    for (const detail of cycle.changedDetail ?? []) {
+      if (!detail.sameRef && detail.equal) {
+        redundant.set(detail.key, (redundant.get(detail.key) ?? 0) + 1);
+      }
+    }
   }
 
   const entries: ComponentRollup[] = [];
-  for (const {entry, reasons} of byTag.values()) {
+  const byCount = (
+    a: {key: string; count: number},
+    b: {key: string; count: number}
+  ): number => b.count - a.count || a.key.localeCompare(b.key);
+  for (const {entry, reasons, redundant} of byTag.values()) {
     entry.reasons = [...reasons]
       .map(([key, count]) => ({key, count}))
-      .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+      .sort(byCount);
+    if (redundant.size > 0) {
+      entry.redundantChanges = [...redundant]
+        .map(([key, count]) => ({key, count}))
+        .sort(byCount);
+    }
     entries.push(entry);
   }
 
