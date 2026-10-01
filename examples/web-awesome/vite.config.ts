@@ -25,7 +25,9 @@ export default defineConfig({
       // The Lit panel in the dock.
       timeline: true,
       // Pick an element on the page (Ctrl/⌘+Shift+S, or Pick in the panel).
-      sourceOverlay: true,
+      // `hosts: 'lit'` lets it pick the <wa-*> elements as well as your own
+      // components; ↑ and ↓ step out to the element around the outlined one.
+      sourceOverlay: {hosts: 'lit'},
     }),
   ],
 });

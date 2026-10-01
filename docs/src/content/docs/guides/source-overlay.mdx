@@ -52,10 +52,13 @@ LIT_PLUGIN_SOURCE_OVERLAY_EDITOR=zed
      alt="The source overlay outlining a component, with a tooltip showing its tag name and source file."
    />
 
-3. Hold **Ctrl** (or **⌘**) and click the element to open that file in your
+3. Press **↑** to outline the element around it instead, and **↓** to go
+   back in. The tooltip names where each key goes.
+
+4. Hold **Ctrl** (or **⌘**) and click the element to open that file in your
    editor at that line. The tooltip's own **open** button does the same.
 
-4. Press the same keys again to put the picker away without opening anything.
+5. Press the same keys again to put the picker away without opening anything.
 
 </Steps>
 
@@ -124,6 +127,7 @@ export default defineConfig({
       sourceOverlay: {
         key: 'i',
         throttleMs: 50,
+        hosts: 'lit',
         workspaceRoot: '/Users/me/projects/app',
         exclude: (el) => el.tagName.startsWith('MY-INTERNAL-'),
         onSelect: (info) => console.log(info.tagName, info.source.filePath),
@@ -139,6 +143,9 @@ export default defineConfig({
 - `throttleMs` throttles pointer-move hit testing. Defaults to `50`.
 - `workspaceRoot` prefixes source paths, for when your editor needs absolute
   ones. Unset by default.
+- `hosts` is `'source'` (the default) to pick only your own components, or
+  `'lit'` to pick any Lit element, a component library's included. Those have
+  no source, so a click selects them in the DevTools Components tab.
 - `exclude` returns `true` for elements the picker should skip.
 - `onSelect` fires with the picked element's info. The default action still
   runs after it.
