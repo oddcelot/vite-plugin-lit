@@ -6,7 +6,7 @@
 
 import {FONT_MONO_VAR} from './fonts.js';
 import {FLAME_ICON} from '../icons.js';
-import {subscribeOverride} from './overrides.js';
+import {subscribeOverrideKeys} from './overrides.js';
 import type {ViteHotLike} from './page-channel.js';
 import {observeEdgeInsets} from './edge-panel.js';
 import {injectTokens} from '../tokens.js';
@@ -126,13 +126,9 @@ class LitDevtoolsIndicator extends HTMLElement {
     });
     // Let the DevTools panel hide/show the indicator and its count live (and
     // across reloads).
-    subscribeOverride(hot, (o) => {
-      if (o.hmrIndicatorVisible !== undefined) {
-        this.style.display = o.hmrIndicatorVisible ? '' : 'none';
-      }
-      if (o.hmrIndicatorCount !== undefined) {
-        this.#setCount(o.hmrIndicatorCount);
-      }
+    subscribeOverrideKeys(hot, {
+      hmrIndicatorVisible: (v) => (this.style.display = v ? '' : 'none'),
+      hmrIndicatorCount: (v) => this.#setCount(v),
     });
     // Stay clear of the Vite DevTools edge panel.
     observeEdgeInsets((insets) => {

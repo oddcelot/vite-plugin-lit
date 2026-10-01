@@ -54,3 +54,26 @@ export const subscribeOverride = (
   apply(o.get());
   o.subscribe(apply);
 };
+
+/** One handler per override key a consumer owns. */
+export type OverrideHandlers = {
+  [K in keyof SettingsOverride]?: (
+    value: NonNullable<SettingsOverride[K]>
+  ) => void;
+};
+
+/**
+ * {@link subscribeOverride} for consumers that own a few keys: each handler
+ * runs with its key's value whenever the override carries one, and is
+ * skipped while the key is unset (the config-time default stands).
+ */
+export const subscribeOverrideKeys = (
+  hot: Hot,
+  handlers: OverrideHandlers
+): void =>
+  subscribeOverride(hot, (o) => {
+    for (const [key, handle] of Object.entries(handlers)) {
+      const value = o[key as keyof SettingsOverride];
+      if (value !== undefined) (handle as (v: unknown) => void)(value);
+    }
+  });

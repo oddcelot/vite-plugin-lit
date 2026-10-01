@@ -1,5 +1,11 @@
 import {afterAll, beforeAll, expect, test} from 'vite-plus/test';
-import {type Fixture, type PanelHandle, startFixture} from './utils.js';
+import {
+  type Fixture,
+  type PanelHandle,
+  fsp,
+  joinPath,
+  startFixture,
+} from './utils.js';
 
 /**
  * The Settings tab's "config changed since you overrode this" nudge, against
@@ -20,6 +26,7 @@ beforeAll(async () => {
     seedSettings: {
       override: {hmrReconnect: true},
       overrideBaselines: {hmrReconnect: true},
+      appearance: 'dark',
     },
   });
   panel = await fixture.openPanel();
@@ -44,4 +51,28 @@ test('an override whose config value moved shows the nudge, and Keep hides it', 
   // Keep re-stamps the baseline; the override itself stays.
   expect(await page.getByText('(overridden)').count()).toBe(1);
   expect(panel.errors).toEqual([]);
+});
+
+test('the color scheme is adopted from the store and written back to it', async () => {
+  const {page} = panel;
+  const rootClass = () =>
+    page.evaluate(() => document.documentElement.className);
+  // Seeded `dark` in the store, never set in this browser.
+  await expect.poll(rootClass).toContain('color-scheme-dark');
+
+  await page
+    .locator('devtools-settings select')
+    .filter({has: page.locator('option[value="light"]')})
+    .selectOption('light');
+  await expect.poll(rootClass).toContain('color-scheme-light');
+  const store = joinPath(
+    fixture.home,
+    '.vite',
+    'devtools',
+    'settings',
+    'lit.json'
+  );
+  await expect
+    .poll(async () => JSON.parse(await fsp.readFile(store, 'utf8')).appearance)
+    .toBe('light');
 });

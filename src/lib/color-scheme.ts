@@ -8,21 +8,26 @@
  * Vite DevTools shell (the iframe inherits it). An explicit `light`/`dark`
  * preference pins the matching `.color-scheme-light` / `.color-scheme-dark`
  * class on the document root, overriding the media query.
+ *
+ * Storing and adopting the preference is the settings override module's
+ * (`settings-override.ts`); this file is the DOM half, plus the synchronous
+ * read the panel does before its first paint.
  */
-export type ColorSchemePreference = 'auto' | 'dark' | 'light';
+import {
+  COLOR_SCHEME_LS_KEY,
+  parseColorScheme,
+  type ColorSchemePreference,
+} from './settings-override.js';
 
-/** localStorage key for the panel UI color-scheme preference. */
-export const COLOR_SCHEME_LS_KEY = 'lit-devtools-color-scheme';
+export type {ColorSchemePreference} from './settings-override.js';
 
 /** Read the saved preference, defaulting to `auto`. */
 export const readColorSchemePreference = (): ColorSchemePreference => {
   try {
-    const raw = localStorage.getItem(COLOR_SCHEME_LS_KEY);
-    if (raw === 'auto' || raw === 'dark' || raw === 'light') return raw;
+    return parseColorScheme(localStorage.getItem(COLOR_SCHEME_LS_KEY));
   } catch {
-    // ignore
+    return 'auto';
   }
-  return 'auto';
 };
 
 /**
@@ -34,14 +39,4 @@ export const applyColorScheme = (pref: ColorSchemePreference): void => {
   const root = document.documentElement;
   root.classList.remove('color-scheme-light', 'color-scheme-dark');
   if (pref !== 'auto') root.classList.add('color-scheme-' + pref);
-};
-
-/** Persist a preference and apply it immediately. */
-export const setColorSchemePreference = (pref: ColorSchemePreference): void => {
-  try {
-    localStorage.setItem(COLOR_SCHEME_LS_KEY, pref);
-  } catch {
-    // ignore
-  }
-  applyColorScheme(pref);
 };

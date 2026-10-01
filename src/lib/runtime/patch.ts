@@ -19,7 +19,7 @@ import {
   type ChildState,
   type ChildStateMode,
 } from './child-state.js';
-import {subscribeOverride} from './overrides.js';
+import {subscribeOverrideKeys} from './overrides.js';
 import {pageChannel} from './page-channel.js';
 import type {PageTransport, ViteHotLike} from './page-channel.js';
 import {
@@ -514,16 +514,12 @@ export const install = (options: PatchOptions = {}): void => {
 
   // Let the DevTools panel override these behaviours live (and persist across
   // reloads) on top of the config-time defaults above.
-  subscribeOverride(hot, (o) => {
-    if (o.hmrReconnect !== undefined) state.options.reconnect = o.hmrReconnect;
-    if (o.hmrOnIncompatible !== undefined) {
-      state.options.onIncompatible = o.hmrOnIncompatible;
-    }
+  subscribeOverrideKeys(hot, {
+    hmrReconnect: (v) => (state.options.reconnect = v),
+    hmrOnIncompatible: (v) => (state.options.onIncompatible = v),
     // Read on every patch (see createChildState's `mode`), so it applies from
     // the next edit on.
-    if (o.hmrChildState !== undefined) {
-      state.options.childState = o.hmrChildState;
-    }
+    hmrChildState: (v) => (state.options.childState = v),
   });
 
   // Captured to re-invoke below as nativeDefine.call(this, ...).
