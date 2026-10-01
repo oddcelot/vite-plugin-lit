@@ -40,19 +40,82 @@ const declaredNames = (cls: Node): Node[] => {
   return out;
 };
 
+/** Every node below `node`, depth first. */
+function* walk(node: unknown): Generator<Node> {
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      yield* walk(item);
+    }
+  } else if (isNode(node)) {
+    yield node;
+    for (const key in node) {
+      if (key !== 'parent') {
+        yield* walk(node[key]);
+      }
+    }
+  }
+}
+
+/**
+ * Top-level `slot = new WeakMap()` / `new WeakSet()` assignments that back
+ * private members esbuild lowered, recognised by the slot being passed to
+ * its `__privateAdd` helper.
+ */
+const loweredSlots = (
+  ast: Node
+): {name: string; ctor: string; node: Node}[] => {
+  const added = new Set<string>();
+  for (const node of walk(ast)) {
+    const callee = node.callee as Node | undefined;
+    const slot = (node.arguments as Node[] | undefined)?.[1];
+    if (
+      node.type === 'CallExpression' &&
+      callee?.type === 'Identifier' &&
+      (callee as unknown as {name: string}).name === '__privateAdd' &&
+      slot?.type === 'Identifier'
+    ) {
+      added.add((slot as unknown as {name: string}).name);
+    }
+  }
+  const out: {name: string; ctor: string; node: Node}[] = [];
+  for (const stmt of (ast.body as Node[] | undefined) ?? []) {
+    const expr = stmt.expression as Node | undefined;
+    if (stmt.type !== 'ExpressionStatement' || !expr) {
+      continue;
+    }
+    const left = expr.left as {type?: string; name?: string} | undefined;
+    const right = expr.right as Node | undefined;
+    const ctor = (right?.callee as {type?: string; name?: string} | undefined)
+      ?.name;
+    if (
+      expr.type === 'AssignmentExpression' &&
+      expr.operator === '=' &&
+      left?.type === 'Identifier' &&
+      added.has(left.name!) &&
+      right?.type === 'NewExpression' &&
+      (ctor === 'WeakMap' || ctor === 'WeakSet') &&
+      (right.arguments as unknown[]).length === 0
+    ) {
+      out.push({name: left.name!, ctor, node: right});
+    }
+  }
+  return out;
+};
+
 /**
  * Rewrites native `#private` class members into computed keys backed by
  * `Symbol.for(...)`. The key is stable across re-evaluations of the module,
  * so instances built by an earlier evaluation of a class and methods copied
  * from a later one agree on where private state lives. That is what lets HMR
- * patch a class in place. Returns `null` when there is nothing to rewrite or
- * the module can't be handled safely.
+ * patch a class in place. Private members esbuild already lowered get the
+ * same treatment through their slots. Returns `null` when there is nothing to
+ * rewrite or the module can't be handled safely.
  */
 export const rewritePrivateNames = (
   code: string,
   id: string
 ): {code: string; map: ReturnType<MagicString['generateMap']>} | null => {
-  if (!code.includes('#')) {
+  if (!code.includes('#') && !code.includes('__privateAdd')) {
     return null;
   }
   const [file] = id.split('?', 1);
@@ -256,7 +319,32 @@ export const rewritePrivateNames = (
     member.key.type === 'PrivateIdentifier';
 
   visit(ast, [], undefined);
-  if (failed || decls.length === 0) {
+  if (failed) {
+    return null;
+  }
+
+  // esbuild (Vite 7's TS step) lowers `#private` members to module-level
+  // WeakMap/WeakSet slots when it also lowers the class's fields, as it does
+  // with `useDefineForClassFields: false`. Each evaluation would make fresh
+  // slots that earlier instances aren't in, so fetch them from a registry
+  // keyed by the slot's binding instead.
+  const slots = loweredSlots(ast);
+  if (slots.length > 0) {
+    const registry = `${prefix}Slot`;
+    decls.push(
+      `const ${registry} = (k, C) => { const m = globalThis[Symbol.for("@oddsquad/vite-plugin-lit#private")] ??= new Map(); let s = m.get(k); if (!s) m.set(k, (s = new C())); return s; };`
+    );
+    for (const {name, ctor, node} of slots) {
+      magic.overwrite(
+        node.start,
+        node.end,
+        `${registry}(${JSON.stringify(
+          `@oddsquad/vite-plugin-lit#private:${file}:${name}`
+        )}, ${ctor})`
+      );
+    }
+  }
+  if (decls.length === 0) {
     return null;
   }
 
