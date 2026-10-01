@@ -54,6 +54,7 @@ import {
   TIMELINE_STREAM_ID,
   TIMELINE_STREAM_NAME,
   type ComponentDetailsArgs,
+  type ComponentDetailsByTagResult,
   type LitGetMetaResult,
   type RecentEventsArgs,
   type RecentEventsResult,
@@ -69,7 +70,7 @@ import {
 } from './protocol.js';
 import {resolveLaunchEditor} from './launch-editor.js';
 import {createInspectorRequester} from './inspector-request.js';
-import {createRecordingSession} from './session.js';
+import {createRecordingSession, findByTag} from './session.js';
 import {createNullSource, type TimelineSource} from './source.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
 
@@ -203,6 +204,24 @@ export function createLitDevframe(
       const live = ctx.mode === 'dev' && replay === undefined;
       const inspectorTimeout =
         options.inspectorTimeoutMs ?? DEFAULT_INSPECTOR_TIMEOUT_MS;
+
+      // The cache only holds what the panel last asked for; an agent with no
+      // panel open would otherwise read an empty tree from a live page.
+      const currentRoots = async (): Promise<InspectorTreeNode[]> => {
+        if (!live) return recording.roots();
+        const roots = await requester.tree(inspectorTimeout);
+        return roots ?? recording.roots();
+      };
+
+      // `null` is the page saying the element is gone; silence falls back to
+      // the cache.
+      const currentDetails = async (
+        id: number
+      ): Promise<InspectorDetails | null> => {
+        if (!live) return recording.details(id);
+        const fresh = await requester.details(id, inspectorTimeout);
+        return fresh === undefined ? recording.details(id) : fresh;
+      };
 
       // Terminal echo for an audience that only sees dev-server stdout (an
       // agent, or a CI log) and not the browser console or the panel.
@@ -423,14 +442,7 @@ export function createLitDevframe(
             description:
               'List the live Lit component tree of the inspected page, read from the page on each call. Call this before asking about a specific element to find its id.',
           },
-          handler: async (): Promise<InspectorTreeNode[]> => {
-            if (!live) return recording.roots();
-            // The cache only holds what the panel last asked for; an agent
-            // with no panel open would otherwise read an empty tree from a
-            // live page.
-            const roots = await requester.tree(inspectorTimeout);
-            return roots ?? recording.roots();
-          },
+          handler: currentRoots,
         })
       );
 
@@ -458,16 +470,25 @@ export function createLitDevframe(
           jsonSerializable: true,
           agent: {
             description:
-              'Get reactive properties, attributes, and internal state for one component by id, read from the page on each call. Returns null if the element has left the page. Call list-components first to find the id.',
+              'Get reactive properties, attributes, and internal state for components, read from the page on each call. Pass id for one element (find it with list-components); that form returns null if the element has left the page. Or pass tagName (for example "todo-item", case-insensitive) for every element of that tag, in tree order, at most limit (default 20, ceiling 50): it returns {details, missing, truncated}, where missing lists matching element ids whose details could not be read and truncated means more elements matched than limit. A tag with no elements returns empty lists, so several elements of one tag are all returned, not just the first.',
           },
           handler: async (
             args: ComponentDetailsArgs
-          ): Promise<InspectorDetails | null> => {
-            if (!live) return recording.details(args.id);
-            const fresh = await requester.details(args.id, inspectorTimeout);
-            // `null` is the page saying the element is gone; `undefined` is
-            // silence.
-            return fresh === undefined ? recording.details(args.id) : fresh;
+          ): Promise<InspectorDetails | null | ComponentDetailsByTagResult> => {
+            if (!('tagName' in args)) return currentDetails(args.id);
+            const {ids, truncated} = findByTag(
+              await currentRoots(),
+              args.tagName,
+              args.limit
+            );
+            // Concurrent: each live read waits up to the timeout on its own.
+            const all = await Promise.all(ids.map(currentDetails));
+            const details: InspectorDetails[] = [];
+            const missing: number[] = [];
+            all.forEach((d, i) =>
+              d ? details.push(d) : missing.push(ids[i]!)
+            );
+            return {details, missing, truncated};
           },
         })
       );

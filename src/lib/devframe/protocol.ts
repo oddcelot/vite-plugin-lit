@@ -200,9 +200,30 @@ export interface LitGetMetaResult {
   activePageId?: string;
 }
 
-/** Argument of the `component-details` query. */
-export interface ComponentDetailsArgs {
-  id: number;
+/**
+ * Argument of the `component-details` query: one element, or every element
+ * of a tag.
+ */
+export type ComponentDetailsArgs =
+  | {id: number}
+  | {
+      /** Case-insensitive tag name, e.g. `todo-item`. */
+      tagName: string;
+      /** Most matches returned. Default 20, hard ceiling 50. */
+      limit?: number;
+    };
+
+/** Result of `component-details` when called with `tagName`. */
+export interface ComponentDetailsByTagResult {
+  /** Details of matching elements, in tree (depth-first) order. */
+  details: InspectorDetails[];
+  /**
+   * Ids of matching elements whose details could not be read: the page
+   * reported them gone, or nothing answered and none were cached.
+   */
+  missing: number[];
+  /** True if more elements matched than `limit` allowed. */
+  truncated: boolean;
 }
 
 /** Argument of the `recent-events` query. */
@@ -294,7 +315,7 @@ declare module 'devframe' {
     'lit:list-components': () => Promise<InspectorTreeNode[]>;
     'lit:component-details': (
       args: ComponentDetailsArgs
-    ) => Promise<InspectorDetails | null>;
+    ) => Promise<InspectorDetails | null | ComponentDetailsByTagResult>;
     'lit:recent-events': (
       args?: RecentEventsArgs
     ) => Promise<RecentEventsResult>;

@@ -2,11 +2,13 @@ import {describe, expect, test} from 'vite-plus/test';
 import {
   capTail,
   createRecordingSession,
+  findByTag,
   sinceWindow,
 } from '../../lib/devframe/session.js';
 import {RECENT_EVENTS_BUFFER_SIZE} from '../../lib/devframe/protocol.js';
 import {MAX_HMR_INCOMPATIBILITIES} from '../../types/hmr-incompatibility.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
+import type {InspectorTreeNode} from '../../types/inspector.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
 import type {TimelineEvent} from '../../types/timeline.js';
 
@@ -193,6 +195,49 @@ describe('query', () => {
     expect(s.query({limit: 10_000}, false).events.length).toBeLessThanOrEqual(
       RECENT_EVENTS_BUFFER_SIZE
     );
+  });
+});
+
+describe('findByTag', () => {
+  const node = (
+    id: number,
+    tagName: string,
+    children: InspectorTreeNode[] = []
+  ): InspectorTreeNode => ({id, tagName, children});
+  const tree = [
+    node(1, 'x-app', [
+      node(2, 'x-item', [node(3, 'x-other'), node(4, 'x-item')]),
+      node(5, 'x-list', [node(6, 'x-ITEM')]),
+    ]),
+    node(7, 'x-item'),
+  ];
+
+  test('walks depth-first and matches case-insensitively', () => {
+    expect(findByTag(tree, 'X-Item')).toEqual({
+      ids: [2, 4, 6, 7],
+      truncated: false,
+    });
+  });
+
+  test('an unknown tag matches nothing', () => {
+    expect(findByTag(tree, 'x-none')).toEqual({ids: [], truncated: false});
+  });
+
+  test('limit cuts the matches and flags truncation', () => {
+    expect(findByTag(tree, 'x-item', 2)).toEqual({
+      ids: [2, 4],
+      truncated: true,
+    });
+    expect(findByTag(tree, 'x-item', 4).truncated).toBe(false);
+  });
+
+  test('limit defaults to 20 and is capped at 50', () => {
+    const many = Array.from({length: 60}, (_, i) => node(i, 'x-row'));
+    expect(findByTag(many, 'x-row').ids).toHaveLength(20);
+    expect(findByTag(many, 'x-row', 1000)).toMatchObject({truncated: true});
+    expect(findByTag(many, 'x-row', 1000).ids).toHaveLength(50);
+    expect(findByTag(many, 'x-row', Number.NaN).ids).toHaveLength(20);
+    expect(findByTag(many, 'x-row', 0).ids).toHaveLength(20);
   });
 });
 
