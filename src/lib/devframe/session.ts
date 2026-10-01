@@ -63,6 +63,23 @@ export interface RecordingSession {
   applyInspector(message: InspectorMessage): void;
   roots(): InspectorTreeNode[];
   details(id: number): InspectorDetails | null;
+  /**
+   * The page whose traffic the session accepts. `undefined` until a runtime
+   * announces itself with an id; a runtime without one (older plugin
+   * version) leaves it undefined and is never filtered.
+   */
+  activePageId(): string | undefined;
+  /**
+   * Fold a runtime `ready`. Returns what happened so the caller can clear,
+   * replay and notify: `'same'` (a reconnect of the active page -- keep the
+   * buffer), `'first'` (no page was active), `'switched'` (a different page
+   * took over) or `'legacy'` (no id -- behave as before).
+   */
+  pageReady(
+    pageId: string | undefined
+  ): 'same' | 'first' | 'switched' | 'legacy';
+  /** Whether a message stamped `pageId` belongs to the active page. */
+  accepts(pageId: string | undefined): boolean;
   /** Everything a frozen panel needs, as of now. */
   capture(meta: {
     capturedAt: string;
@@ -103,6 +120,7 @@ export function createRecordingSession(
   const epoch = options.epoch ?? Date.now().toString(36);
   let seq = 0;
   let wasRecording = options.recording ?? false;
+  let activePage: string | undefined;
 
   // A plain array, not devframe's internal per-stream replay buffer, which
   // devframe marks `@internal` (see plans/devtools-features.md).
@@ -195,6 +213,19 @@ export function createRecordingSession(
     },
     roots: () => roots,
     details: (id) => details.get(id) ?? null,
+    activePageId: () => activePage,
+    pageReady(pageId) {
+      if (pageId === undefined) return 'legacy';
+      if (pageId === activePage) return 'same';
+      const outcome = activePage === undefined ? 'first' : 'switched';
+      activePage = pageId;
+      return outcome;
+    },
+    // Unstamped traffic is an older runtime, and stamped traffic that beats
+    // its page's `ready` to the node has no active page to be compared
+    // with; both are let through rather than guessed at.
+    accepts: (pageId) =>
+      pageId === undefined || activePage === undefined || pageId === activePage,
     capture: (meta) => ({
       capturedAt: meta.capturedAt,
       version: meta.version,

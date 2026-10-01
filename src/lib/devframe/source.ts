@@ -22,17 +22,18 @@ import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 
 /** The definition's sink for events arriving from the page runtime. */
 export interface TimelineSink {
-  pushEvents(events: TimelineEvent[]): void;
+  pushEvents(events: TimelineEvent[], pageId?: string): void;
   addLayer(layer: TimelineLayer): void;
-  inspectorMessage(msg: InspectorMessage): void;
+  inspectorMessage(msg: InspectorMessage, pageId?: string): void;
   hmrIncompatible(event: HmrIncompatibilityEvent): void;
   /**
    * A page runtime just connected (first load, reload, or HMR reconnect). It
    * starts from the compiled-in defaults, so whatever recording/layer state
    * this session already holds has to be replayed to it — otherwise a page
-   * loaded while recording is on silently captures nothing.
+   * loaded while recording is on silently captures nothing. `pageId`
+   * identifies the document; runtimes older than the field omit it.
    */
-  runtimeReady(): void;
+  runtimeReady(pageId?: string): void;
 }
 
 /** Where the definition sends/receives page-runtime traffic. */

@@ -58,6 +58,10 @@ export interface TimelineChannelCodecOptions {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
+/** The id of the document a runtime message came from; absent on old runtimes. */
+const pageIdOf = (data: Record<string, unknown>): string | undefined =>
+  typeof data.pageId === 'string' ? data.pageId : undefined;
+
 /**
  * A {@link TimelineSource} over a {@link PageCarrier}. Inbound messages are
  * untrusted in shape, so each is checked before it reaches the sink;
@@ -82,7 +86,8 @@ export class TimelineChannelCodec implements TimelineSource {
     carrier.on(CHANNEL_PUSH_EVENT, (data) => {
       const events = isRecord(data) ? data.events : undefined;
       this.#sink?.pushEvents(
-        Array.isArray(events) ? (events as TimelineEvent[]) : []
+        Array.isArray(events) ? (events as TimelineEvent[]) : [],
+        isRecord(data) ? pageIdOf(data) : undefined
       );
     });
     carrier.on(CHANNEL_CUSTOM_LAYER, (data) => {
@@ -94,7 +99,13 @@ export class TimelineChannelCodec implements TimelineSource {
       if (data.type === 'pick' && typeof data.id === 'number') {
         this.#onPick?.(data.id);
       }
-      this.#sink?.inspectorMessage(data as unknown as InspectorMessage);
+      // The page id is transport metadata; the sink gets it beside the
+      // message, not inside it.
+      const {pageId, ...message} = data;
+      this.#sink?.inspectorMessage(
+        message as unknown as InspectorMessage,
+        typeof pageId === 'string' ? pageId : undefined
+      );
     });
     carrier.on(HMR_INCOMPATIBLE_CHANNEL, (data) => {
       if (isRecord(data))
@@ -102,8 +113,8 @@ export class TimelineChannelCodec implements TimelineSource {
     });
     // The runtime announces itself on every connect and boots from the
     // compiled-in defaults, so the sink replays the session's state to it.
-    carrier.on(CHANNEL_RUNTIME_READY, () => {
-      this.#sink?.runtimeReady();
+    carrier.on(CHANNEL_RUNTIME_READY, (data) => {
+      this.#sink?.runtimeReady(isRecord(data) ? pageIdOf(data) : undefined);
     });
   }
 

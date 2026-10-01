@@ -23,20 +23,25 @@ import type {TimelineSink} from '../../lib/devframe/source.js';
 
 class RecordingSink implements TimelineSink {
   readonly calls: Array<[string, unknown]> = [];
-  pushEvents(events: TimelineEvent[]) {
+  /** The page id each call carried, in call order (undefined when absent). */
+  readonly pageIds: Array<string | undefined> = [];
+  pushEvents(events: TimelineEvent[], pageId?: string) {
     this.calls.push(['pushEvents', events]);
+    this.pageIds.push(pageId);
   }
   addLayer(layer: TimelineLayer) {
     this.calls.push(['addLayer', layer]);
   }
-  inspectorMessage(msg: InspectorMessage) {
+  inspectorMessage(msg: InspectorMessage, pageId?: string) {
     this.calls.push(['inspectorMessage', msg]);
+    this.pageIds.push(pageId);
   }
   hmrIncompatible(event: HmrIncompatibilityEvent) {
     this.calls.push(['hmrIncompatible', event]);
   }
-  runtimeReady() {
+  runtimeReady(pageId?: string) {
     this.calls.push(['runtimeReady', undefined]);
+    this.pageIds.push(pageId);
   }
 }
 
@@ -94,6 +99,37 @@ describe('TimelineChannelCodec inbound', () => {
     expect(sink.calls).toEqual([
       ['pushEvents', []],
       ['pushEvents', []],
+    ]);
+  });
+
+  test('hands the page id to the sink beside the payload', () => {
+    const {sink, deliver} = setup();
+    const events = [{id: 1}] as unknown as TimelineEvent[];
+    deliver(CHANNEL_PUSH_EVENT, {events, pageId: 'a'});
+    deliver(CHANNEL_RUNTIME_READY, {pageId: 'a'});
+    deliver(INSPECT_DATA_CHANNEL, {type: 'tree', roots: [], pageId: 'b'});
+    expect(sink.pageIds).toEqual(['a', 'a', 'b']);
+  });
+
+  test('strips the page id off the inspector message', () => {
+    const {sink, deliver} = setup();
+    deliver(INSPECT_DATA_CHANNEL, {type: 'ready', pageId: 'a'});
+    expect(sink.calls).toEqual([['inspectorMessage', {type: 'ready'}]]);
+  });
+
+  test('reads a missing or non-string page id as absent', () => {
+    const {sink, deliver} = setup();
+    deliver(CHANNEL_PUSH_EVENT, {events: []});
+    deliver(CHANNEL_PUSH_EVENT, {events: [], pageId: 3});
+    deliver(CHANNEL_RUNTIME_READY, {});
+    deliver(CHANNEL_RUNTIME_READY, null);
+    deliver(INSPECT_DATA_CHANNEL, {type: 'ready', pageId: 3});
+    expect(sink.pageIds).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
     ]);
   });
 
