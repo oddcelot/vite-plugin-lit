@@ -5,6 +5,7 @@
  */
 
 import {idOf} from '../timeline/identity.js';
+import {collectExtras} from './extras.js';
 import {serialize, typeTag} from './serialize.js';
 import type {
   ElementSource,
@@ -151,6 +152,7 @@ export const collectDetails = (el: Element): InspectorDetails => {
     value: a.value,
   }));
 
+  const extras = collectExtras(el);
   const meta = metaOf(el);
   return {
     id: idOf(el),
@@ -164,5 +166,6 @@ export const collectDetails = (el: Element): InspectorDetails => {
       isUpdatePending: re.isUpdatePending === true,
       hasShadowRoot: el.shadowRoot !== null,
     },
+    ...(extras.length > 0 ? {extras} : {}),
   };
 };

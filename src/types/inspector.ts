@@ -48,6 +48,28 @@ export interface InspectorProp {
   state: boolean;
 }
 
+/**
+ * One piece of non-reactive instance state: a reactive controller, a
+ * `@lit/task`, a signal, or a plain class field.
+ */
+export interface InspectorExtra {
+  kind: 'controller' | 'task' | 'signal' | 'field';
+  /**
+   * The own-field name when the controller or signal is stored in one, else
+   * its constructor name.
+   */
+  name: string;
+  /**
+   * Serialized preview of the value: a task's value or error, a signal's
+   * value, a field's value.
+   */
+  value: string;
+  /** A short type tag, or the constructor name for a controller. */
+  type: string;
+  /** A task's status (`initial`, `pending`, `complete`, `error`). */
+  status?: string;
+}
+
 /** Full detail snapshot for a single inspected element. */
 export interface InspectorDetails {
   id: number;
@@ -61,6 +83,11 @@ export interface InspectorDetails {
     isUpdatePending: boolean;
     hasShadowRoot: boolean;
   };
+  /**
+   * Non-reactive instance state: controllers, tasks, signals, plain fields.
+   * Absent when there is none.
+   */
+  extras?: InspectorExtra[];
 }
 
 /** App runtime → panel messages, carried on SSE `event: inspect`. */
