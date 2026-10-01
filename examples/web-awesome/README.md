@@ -57,7 +57,10 @@ plugin's Lit panel in it:
 - **Components** lists `<packing-list>` with its state and the line it is
   defined on. Web Awesome is built on Lit, so the `<wa-*>` elements inside it
   are listed too, with their properties, but without a source line: they are
-  not your code.
+  not your code. Press **⌖ Pick**, or Ctrl/⌘+Shift+S on the page, and click a
+  checkbox to select it: `vite.config.ts` sets `sourceOverlay.hosts` to
+  `'lit'`, so library elements can be picked. Press **↑** before clicking to
+  pick the element around it instead, up to `<packing-list>`.
 - **Timeline** records each update once you press **Record**: tick an item and
   watch `<packing-list>` update, then the checkbox, badge and progress bar it
   re-renders.
