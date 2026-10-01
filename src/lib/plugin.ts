@@ -1,18 +1,12 @@
-import {resolve as resolvePath} from 'node:path';
-import {loadEnv, type Plugin} from 'vite';
+import type {Plugin} from 'vite';
 import MagicString from 'magic-string';
 import {injectSourceMeta} from './source-meta.js';
 import {INSTALL_ID, VIRTUAL_PREFIX, transformLitModule} from './transform.js';
 import {WRAP_TABLE} from './wrap-table.js';
 import {createLitDevframePlugin} from './devframe/vite.js';
 import {PACKAGE_VERSION} from './devframe/paths.js';
-import {
-  ENV_PREFIX,
-  type LitPluginOptions,
-  type ResolvedOptions,
-  resolveOptions,
-  toFeatureSettings,
-} from './options.js';
+import {type LitPluginOptions, toFeatureSettings} from './options.js';
+import {createOptionsContext} from './plugins/context.js';
 import {
   OPEN_IN_EDITOR_PATH,
   createOpenInEditorMiddleware,
@@ -21,7 +15,7 @@ import {litCssQueries} from './plugins/css-queries.js';
 import {litTimelineVirtual} from './plugins/timeline-virtual.js';
 import {litCssLiterals} from './plugins/css-literals.js';
 import {litPrivateFields} from './plugins/private-fields.js';
-import {resolveRuntimeModule, JS_FILE_RE} from './plugins/shared.js';
+import {resolveRuntimeModule} from './plugins/shared.js';
 
 export {createOpenInEditorMiddleware} from './plugins/open-in-editor.js';
 export {litCssQueries} from './plugins/css-queries.js';
@@ -40,31 +34,10 @@ export {resolveOptions} from './options.js';
  * for Lit projects.
  */
 export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
-  // Resolved from explicit options first, env vars second, defaults last. The
-  // `lit-plugin-options` `config` hook below re-resolves with the loaded env
-  // once Vite hands us the mode; this initial pass covers code paths that run
-  // before (or without) it.
-  let resolved: ResolvedOptions = resolveOptions(options, {});
-  let root = '';
-  // Env resolution lives in its own always-applied plugin: `?css-sheet` is a
-  // build-time feature too, and the HMR plugin (`apply: 'serve'`) never gets a
-  // `config` hook under `vite build`. `enforce: 'pre'` and first position put
-  // it ahead of every other hook that reads `resolved`.
-  const optionsPlugin: Plugin = {
-    name: 'lit-plugin-options',
-    enforce: 'pre',
-    config(viteConfig, {mode}) {
-      // `loadEnv` reads `.env*` files from the env dir (root by default) and
-      // merges in matching `process.env` keys, filtered to the `LIT_PLUGIN`
-      // prefix. Explicit options still win (handled in resolveOptions).
-      const envDir = viteConfig.envDir
-        ? resolvePath(viteConfig.envDir)
-        : viteConfig.root
-          ? resolvePath(viteConfig.root)
-          : process.cwd();
-      resolved = resolveOptions(options, loadEnv(mode, envDir, ENV_PREFIX));
-    },
-  };
+  // Explicit options first, env vars second, defaults last. The context
+  // resolves against the loaded env in its `config` hook; every hook below
+  // reads `ctx.get()` at call time.
+  const ctx = createOptionsContext(options);
   const sourceOverlayPlugin: Plugin = {
     name: 'lit-source-overlay',
     apply: 'serve',
@@ -72,17 +45,8 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
     // measured against the author's raw source (and the `@customElement … class`
     // forms are still intact), not against transpiled output.
     enforce: 'pre',
-    configResolved(config) {
-      root = config.root;
-    },
-    resolveId(id) {
-      if (id === '@oddsquad/vite-plugin-lit/source-overlay.js') {
-        return resolveRuntimeModule('source-overlay');
-      }
-      return null;
-    },
     configureServer(server) {
-      if (!resolved.sourceOverlay) return;
+      if (!ctx.get().sourceOverlay) return;
       // Allow opens from everything vite itself is willing to serve
       // (`server.fs.allow` defaults to the workspace root), not just
       // `config.root` — in monorepos, component sources regularly live in
@@ -90,44 +54,32 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       const fsAllow = server.config.server.fs?.allow ?? [];
       server.middlewares.use(
         OPEN_IN_EDITOR_PATH,
-        createOpenInEditorMiddleware([root, ...fsAllow])
+        createOpenInEditorMiddleware([ctx.root(), ...fsAllow])
       );
     },
     transform(code, id, transformOptions) {
-      if (!resolved.sourceOverlay) return null;
-      if (transformOptions?.ssr) return null;
-      if (
-        id.startsWith('\0') ||
-        id.includes('__x00__') ||
-        id.includes('lit-plugin:') ||
-        id.includes('/node_modules/')
-      ) {
-        return null;
-      }
-      const [file] = id.split('?', 2);
-      if (!JS_FILE_RE.test(file) && !id.includes('?html-proxy')) {
-        return null;
-      }
+      if (!ctx.get().sourceOverlay) return null;
+      if (!ctx.shouldTransform(id, transformOptions)) return null;
       if (!code.includes('customElement') && !code.includes('customElements')) {
         return null;
       }
       const ms = new MagicString(code);
-      const relativeFile = file.startsWith(root + '/')
-        ? file.slice(root.length + 1)
-        : file;
+      const [file] = id.split('?', 1);
+      const relativeFile = ctx.relativeToRoot(file);
       if (!injectSourceMeta(code, relativeFile, ms)) {
         return null;
       }
       return {code: ms.toString(), map: ms.generateMap({hires: true})};
     },
     transformIndexHtml() {
-      if (!resolved.sourceOverlay) return;
+      const {sourceOverlay} = ctx.get();
+      if (!sourceOverlay) return;
       const overlayUrl = `/@fs/${resolveRuntimeModule('source-overlay')}`;
       const {
         exclude: _exclude,
         onSelect: _onSelect,
         ...overlayInit
-      } = resolved.sourceOverlay;
+      } = sourceOverlay;
       const initConfig = {
         ...overlayInit,
         openInEditorPath: OPEN_IN_EDITOR_PATH,
@@ -148,7 +100,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
     config: () => {
       // Options are already resolved against the loaded env by
       // `lit-plugin-options`, which runs first.
-      if (!resolved.hmrEnabled) {
+      if (!ctx.get().hmrEnabled) {
         return;
       }
       // The injected runtime imports are invisible to the dep scanner. The
@@ -176,21 +128,21 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       if (id === '@oddsquad/vite-plugin-lit/source-overlay.js') {
         return resolveRuntimeModule('source-overlay');
       }
-      if (resolved.hmrEnabled && id.startsWith(VIRTUAL_PREFIX)) {
+      if (ctx.get().hmrEnabled && id.startsWith(VIRTUAL_PREFIX)) {
         return id;
       }
       return null;
     },
     load(id) {
-      if (!resolved.hmrEnabled || !id.startsWith(VIRTUAL_PREFIX)) {
+      if (!ctx.get().hmrEnabled || !id.startsWith(VIRTUAL_PREFIX)) {
         return null;
       }
       if (id === INSTALL_ID) {
         const patchPath = resolveRuntimeModule('patch');
         const runtimeOptions = {
-          reconnect: resolved.reconnect,
-          onIncompatible: resolved.onIncompatible,
-          childState: resolved.childState,
+          reconnect: ctx.get().reconnect,
+          onIncompatible: ctx.get().onIncompatible,
+          childState: ctx.get().childState,
         };
         return {
           code:
@@ -223,18 +175,10 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
       return {code: lines.join('\n') + '\n', moduleType: 'js'};
     },
     async transform(code, id, transformOptions) {
-      if (!resolved.hmrEnabled) {
+      if (!ctx.get().hmrEnabled) {
         return null;
       }
-      if (transformOptions?.ssr) {
-        return null;
-      }
-      if (id.startsWith('\0') || id.includes('/node_modules/')) {
-        return null;
-      }
-      const [file] = id.split('?', 2);
-      // Allow inline scripts extracted from HTML (`?html-proxy`).
-      if (!JS_FILE_RE.test(file) && !id.includes('?html-proxy')) {
+      if (!ctx.shouldTransform(id, transformOptions)) {
         return null;
       }
       return transformLitModule(code);
@@ -247,7 +191,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
         injectTo: 'body';
       }[] = [];
 
-      const indicator = resolved.indicator;
+      const indicator = ctx.get().indicator;
       if (indicator) {
         const indicatorUrl = `/@fs/` + resolveRuntimeModule('indicator');
         tags.push(
@@ -265,7 +209,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
         );
       }
 
-      if (resolved.timeline) {
+      if (ctx.get().timeline) {
         const installUrl = `/@fs/` + resolveRuntimeModule('timeline/install');
         tags.push({
           tag: 'script',
@@ -290,13 +234,11 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
   // feature is disabled (which env may decide), so inclusion can't be gated
   // on the synchronously-known options here.
   const plugins: Plugin[] = [
-    optionsPlugin,
-    // Getter, not a snapshot: `resolved` is re-resolved against the loaded env
-    // in `optionsPlugin`'s `config` hook, which runs after this array is built.
-    litCssQueries(() => resolved.cssSheetBuild),
-    litTimelineVirtual(() => resolved.timeline),
+    ctx.plugin,
+    litCssQueries(() => ctx.get().cssSheetBuild),
+    litTimelineVirtual(() => ctx.get().timeline),
     litCssLiterals(),
-    litPrivateFields(() => resolved.hmrEnabled && resolved.privateFields),
+    litPrivateFields(ctx),
     sourceOverlayPlugin,
     hmr,
   ];
@@ -309,12 +251,12 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
     plugins.push(
       createLitDevframePlugin({
         version: PACKAGE_VERSION,
-        enabled: () => resolved.timeline,
-        features: () => toFeatureSettings(resolved),
+        enabled: () => ctx.get().timeline,
+        features: () => toFeatureSettings(ctx.get()),
         // Only a named editor counts: `toFeatureSettings` reports `vscode`
         // for "never chose", which must not turn into a forced `code`.
         configuredEditor: () => {
-          const so = resolved.sourceOverlay;
+          const so = ctx.get().sourceOverlay;
           return so !== false && typeof so.editor === 'string'
             ? so.editor
             : undefined;

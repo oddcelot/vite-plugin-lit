@@ -1,7 +1,7 @@
 import type {Plugin} from 'vite';
 import {parseAst} from 'vite';
 import MagicString from 'magic-string';
-import {JS_FILE_RE} from './shared.js';
+import type {OptionsContext} from './context.js';
 
 type Node = Record<string, unknown> & {
   type: string;
@@ -276,21 +276,18 @@ export const rewritePrivateNames = (
 /**
  * Dev-only transform that swaps native `#private` class members for stable
  * symbol keys so HMR's in-place class patching keeps working. See
- * {@link rewritePrivateNames}. `enabled` is read lazily because options are
- * re-resolved against the loaded env after the plugin array is built.
+ * {@link rewritePrivateNames}. Gates itself on the context's options, which
+ * are only resolved against the loaded env after the plugin array is built.
  */
-export const litPrivateFields = (enabled: () => boolean): Plugin => ({
+export const litPrivateFields = (ctx: OptionsContext): Plugin => ({
   name: 'lit-private-fields',
   apply: 'serve',
   transform(code, id, options) {
-    if (options?.ssr || !enabled()) {
+    const {hmrEnabled, privateFields} = ctx.get();
+    if (!hmrEnabled || !privateFields) {
       return null;
     }
-    if (id.startsWith('\0') || id.includes('/node_modules/')) {
-      return null;
-    }
-    const [file, query] = id.split('?', 2);
-    if (!JS_FILE_RE.test(file) && !query?.includes('html-proxy')) {
+    if (!ctx.shouldTransform(id, options)) {
       return null;
     }
     return rewritePrivateNames(code, id);
