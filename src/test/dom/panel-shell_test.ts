@@ -174,7 +174,12 @@ test('the hub activating the dock with params is a link too', async () => {
   expect(view<ComponentsView>('components-view')!.selectedId).toBe(1);
 });
 
-const pageChanged = {previousPageId: 'a', pageId: 'b', at: Date.now()};
+const pageChanged = {
+  previousPageId: 'a',
+  pageId: 'b',
+  reload: false,
+  at: Date.now(),
+};
 
 test('says so when the followed page changes, until dismissed', async () => {
   setEvents(events);
@@ -188,6 +193,15 @@ test('says so when the followed page changes, until dismissed', async () => {
   expect(getTimelineEvents()).toEqual([]);
   root.querySelector<HTMLButtonElement>('.page-changed button')!.click();
   await flush(el);
+  expect(root.querySelector('.page-changed')).toBeNull();
+});
+
+test('a reload clears the timeline without a banner', async () => {
+  setEvents(events);
+  const {el, root} = await mount();
+  push('page-changed', {...pageChanged, reload: true});
+  await flush(el);
+  expect(getTimelineEvents()).toEqual([]);
   expect(root.querySelector('.page-changed')).toBeNull();
 });
 

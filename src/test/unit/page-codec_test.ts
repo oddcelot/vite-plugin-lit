@@ -39,9 +39,11 @@ class RecordingSink implements TimelineSink {
   hmrIncompatible(event: HmrIncompatibilityEvent) {
     this.calls.push(['hmrIncompatible', event]);
   }
-  runtimeReady(pageId?: string) {
+  readonly tabIds: Array<string | undefined> = [];
+  runtimeReady(pageId?: string, tabId?: string) {
     this.calls.push(['runtimeReady', undefined]);
     this.pageIds.push(pageId);
+    this.tabIds.push(tabId);
   }
 }
 
@@ -109,6 +111,14 @@ describe('TimelineChannelCodec inbound', () => {
     deliver(CHANNEL_RUNTIME_READY, {pageId: 'a'});
     deliver(INSPECT_DATA_CHANNEL, {type: 'tree', roots: [], pageId: 'b'});
     expect(sink.pageIds).toEqual(['a', 'a', 'b']);
+  });
+
+  test('hands the tab id of a ready to the sink', () => {
+    const {sink, deliver} = setup();
+    deliver(CHANNEL_RUNTIME_READY, {pageId: 'a', tabId: 't'});
+    deliver(CHANNEL_RUNTIME_READY, {pageId: 'a', tabId: 3});
+    deliver(CHANNEL_RUNTIME_READY, {});
+    expect(sink.tabIds).toEqual(['t', undefined, undefined]);
   });
 
   test('strips the page id off the inspector message', () => {

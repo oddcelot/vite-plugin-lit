@@ -32,8 +32,10 @@ export interface TimelineSink {
    * this session already holds has to be replayed to it — otherwise a page
    * loaded while recording is on silently captures nothing. `pageId`
    * identifies the document; runtimes older than the field omit it.
+   * `tabId` survives a reload of the same tab, so a reload can be told from
+   * another tab opening.
    */
-  runtimeReady(pageId?: string): void;
+  runtimeReady(pageId?: string, tabId?: string): void;
 }
 
 /** Where the definition sends/receives page-runtime traffic. */

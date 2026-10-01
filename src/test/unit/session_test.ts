@@ -229,6 +229,16 @@ describe('pageReady', () => {
     expect(s.activePageId()).toBe('b');
   });
 
+  test('tracks the tab of the followed page', () => {
+    const s = createRecordingSession();
+    s.pageReady('a', 't1');
+    expect(s.activeTabId()).toBe('t1');
+    s.pageReady('b', 't1');
+    expect(s.activeTabId()).toBe('t1');
+    s.pageReady('c', 't2');
+    expect(s.activeTabId()).toBe('t2');
+  });
+
   test('accepts only the active page, plus unstamped traffic', () => {
     const s = createRecordingSession();
     // No page followed yet: nothing to compare against.

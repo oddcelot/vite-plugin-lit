@@ -336,7 +336,12 @@ Two arrival paths, one `DeepLink` shape (`src/panel/deep-link.ts`).
   `ready` arrived last. A `ready` with the same id is a socket reconnect and
   keeps the buffer, since the runtime clock re-zeroes only on the recording
   rising edge. A new id clears and broadcasts `page-changed`, which the panel
-  shows as a dismissable banner.
+  shows as a dismissable banner. The `ready` also carries a `tabId` kept in
+  `sessionStorage`, so a reload (new document, same tab) is flagged
+  `reload: true`: it still clears, but the panel shows no banner for what the
+  developer did themselves. Without storage the tab id falls back to the page
+  id and a reload reads as another page; a duplicated tab shares its source's
+  id and reads as a reload.
 - **Foreign traffic is dropped, not namespaced.** Element ids and clocks would
   otherwise need a second axis in every view. The guard sits above the inspector
   requester so an agent query cannot be answered with another tab's tree.

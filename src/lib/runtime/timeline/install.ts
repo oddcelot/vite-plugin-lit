@@ -21,7 +21,7 @@ import {flashUpdate, setFlashEnabled, setFlashRamp} from './flash.js';
 import {subscribeOverride} from '../overrides.js';
 import {preferences} from '../../settings-override.js';
 import {pageChannel} from '../page-channel.js';
-import {PAGE_ID} from '../page-id.js';
+import {PAGE_ID, TAB_ID} from '../page-id.js';
 import type {ViteHotLike} from '../page-channel.js';
 import {
   CHANNEL_LAYERS_CHANGED,
@@ -86,9 +86,9 @@ if (hot !== undefined) pageChannel.useViteHot(hot);
   });
 
   // Announce readiness so the panel can detect the runtime.
-  pageChannel.send(CHANNEL_RUNTIME_READY, {pageId: PAGE_ID});
+  pageChannel.send(CHANNEL_RUNTIME_READY, {pageId: PAGE_ID, tabId: TAB_ID});
   // A carrier attached later starts with no idea a runtime exists.
   pageChannel.onAttach(() =>
-    pageChannel.send(CHANNEL_RUNTIME_READY, {pageId: PAGE_ID})
+    pageChannel.send(CHANNEL_RUNTIME_READY, {pageId: PAGE_ID, tabId: TAB_ID})
   );
 }

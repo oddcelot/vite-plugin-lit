@@ -191,6 +191,25 @@ describe('lit devframe definition', () => {
     expect((await ctx.rpc.invokeLocal('lit:get-meta')).activePageId).toBe('b');
   });
 
+  test('a new page in the same tab is a reload: cleared, flagged, same tab', async () => {
+    const {source, ctx} = await boot();
+    const spy = vi.spyOn(ctx.rpc, 'broadcast');
+    const notices = () =>
+      spy.mock.calls
+        .filter(([call]) => call.method === 'lit:page-changed')
+        .map(([call]) => call.args![0]);
+    source.sink!.runtimeReady('a', 'tab-1');
+    source.sink!.pushEvents([pageEvent(1)], 'a');
+    source.sink!.runtimeReady('b', 'tab-1');
+    expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toEqual([]);
+    expect(notices()).toMatchObject([
+      {previousPageId: 'a', pageId: 'b', reload: true},
+    ]);
+
+    source.sink!.runtimeReady('c', 'tab-2');
+    expect(notices()[1]).toMatchObject({pageId: 'c', reload: false});
+  });
+
   test('drops events and inspector messages from a page that is not followed', async () => {
     const {source, ctx} = await boot();
     source.sink!.runtimeReady('a');

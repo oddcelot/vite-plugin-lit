@@ -69,6 +69,8 @@ export interface RecordingSession {
    * version) leaves it undefined and is never filtered.
    */
   activePageId(): string | undefined;
+  /** The tab the followed page runs in, when its runtime reported one. */
+  activeTabId(): string | undefined;
   /**
    * Fold a runtime `ready`. Returns what happened so the caller can clear,
    * replay and notify: `'same'` (a reconnect of the active page -- keep the
@@ -76,7 +78,8 @@ export interface RecordingSession {
    * took over) or `'legacy'` (no id -- behave as before).
    */
   pageReady(
-    pageId: string | undefined
+    pageId: string | undefined,
+    tabId?: string
   ): 'same' | 'first' | 'switched' | 'legacy';
   /** Whether a message stamped `pageId` belongs to the active page. */
   accepts(pageId: string | undefined): boolean;
@@ -121,6 +124,7 @@ export function createRecordingSession(
   let seq = 0;
   let wasRecording = options.recording ?? false;
   let activePage: string | undefined;
+  let activeTab: string | undefined;
 
   // A plain array, not devframe's internal per-stream replay buffer, which
   // devframe marks `@internal` (see plans/devtools-features.md).
@@ -214,9 +218,11 @@ export function createRecordingSession(
     roots: () => roots,
     details: (id) => details.get(id) ?? null,
     activePageId: () => activePage,
-    pageReady(pageId) {
+    activeTabId: () => activeTab,
+    pageReady(pageId, tabId) {
       if (pageId === undefined) return 'legacy';
       if (pageId === activePage) return 'same';
+      activeTab = tabId;
       const outcome = activePage === undefined ? 'first' : 'switched';
       activePage = pageId;
       return outcome;

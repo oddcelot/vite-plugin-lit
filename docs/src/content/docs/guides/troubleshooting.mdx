@@ -366,7 +366,8 @@ were reading is gone. A banner reads "Another page connected".
 **Cause.** The panel follows one page at a time. Opening the app in a second
 tab, an iframe reload or a Cmd-click on a link starts a new page, and the panel
 switches to it and clears the recording. Traffic from the page it left is
-ignored.
+ignored. Reloading the tab you are inspecting clears the recording too, but
+shows no banner.
 
 **Fix.** Close the other tab, or reload the one you want to inspect, to switch
 back. Dismiss the banner with the close button.

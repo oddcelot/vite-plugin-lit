@@ -145,6 +145,8 @@ export const RPC_PAGE_CHANGED = 'page-changed';
 export interface PageChangedEvent {
   previousPageId: string;
   pageId: string;
+  /** The same tab reloaded, rather than another tab or frame opening. */
+  reload: boolean;
   /** Wall-clock ms on the node side; for display only. */
   at: number;
 }

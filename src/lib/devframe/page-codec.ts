@@ -114,7 +114,12 @@ export class TimelineChannelCodec implements TimelineSource {
     // The runtime announces itself on every connect and boots from the
     // compiled-in defaults, so the sink replays the session's state to it.
     carrier.on(CHANNEL_RUNTIME_READY, (data) => {
-      this.#sink?.runtimeReady(isRecord(data) ? pageIdOf(data) : undefined);
+      this.#sink?.runtimeReady(
+        isRecord(data) ? pageIdOf(data) : undefined,
+        isRecord(data) && typeof data.tabId === 'string'
+          ? data.tabId
+          : undefined
+      );
     });
   }
 

@@ -284,9 +284,10 @@ export function createLitDevframe(
               optional: true,
             });
           },
-          runtimeReady(pageId) {
+          runtimeReady(pageId, tabId) {
             const previous = recording.activePageId();
-            const outcome = recording.pageReady(pageId);
+            const previousTab = recording.activeTabId();
+            const outcome = recording.pageReady(pageId, tabId);
 
             // A new page means a new timeline clock: the runtime re-zeroes on
             // the rising edge below, so events kept from the previous document
@@ -303,7 +304,14 @@ export function createLitDevframe(
             ) {
               void ctx.rpc.broadcast({
                 method: `${LIT_DEVFRAME_ID}:${RPC_PAGE_CHANGED}`,
-                args: [{previousPageId: previous, pageId, at: Date.now()}],
+                args: [
+                  {
+                    previousPageId: previous,
+                    pageId,
+                    reload: tabId !== undefined && tabId === previousTab,
+                    at: Date.now(),
+                  },
+                ],
                 optional: true,
               });
             }
