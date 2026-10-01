@@ -2,15 +2,19 @@
  * Keeps our on-page dev UI (HMR indicator, source-overlay tooltip) clear of the
  * Vite DevTools edge panel so they don't sit on top of it.
  *
- * The panel is `#vite-devtools-edge-panel` inside the open shadow root of the
- * `<vite-devtools-dock-embedded>` host, and only exists while the dock is
- * docked to an edge (it can be moved/resized). We report the inset, in px, that
- * the panel occupies on each viewport edge it touches — plus a small gap — so
- * callers can offset themselves.
+ * The panel is `#devframes-edge-panel` inside the open shadow root of the
+ * `<devframes-dock-embedded>` host (`#vite-devtools-edge-panel` in
+ * `<vite-devtools-dock-embedded>` before Vite DevTools moved onto devframes),
+ * and only exists while the dock is docked to an edge (it can be
+ * moved/resized). We report the inset, in px, that the panel occupies on each
+ * viewport edge it touches — plus a small gap — so callers can offset
+ * themselves.
  */
 
-const HOST_TAG = 'vite-devtools-dock-embedded';
-const PANEL_ID = 'vite-devtools-edge-panel';
+/** The dock host, current name first. */
+const HOST_SELECTOR = 'devframes-dock-embedded, vite-devtools-dock-embedded';
+/** The edge panel's id inside the host's shadow root, current name first. */
+const PANEL_IDS = ['devframes-edge-panel', 'vite-devtools-edge-panel'];
 /** Gap to leave between our UI and the devtools panel. */
 const GAP = 12;
 /** Tolerance (px) for treating the panel as touching a viewport edge. */
@@ -25,10 +29,21 @@ export interface EdgeInsets {
 
 const ZERO: EdgeInsets = {top: 0, right: 0, bottom: 0, left: 0};
 
+const hostRoot = (): ShadowRoot | null =>
+  (
+    document.querySelector(HOST_SELECTOR) as {
+      shadowRoot?: ShadowRoot | null;
+    } | null
+  )?.shadowRoot ?? null;
+
 const findPanel = (): HTMLElement | null => {
-  const host = document.querySelector(HOST_TAG);
-  const root = (host as {shadowRoot?: ShadowRoot | null} | null)?.shadowRoot;
-  return (root?.getElementById(PANEL_ID) as HTMLElement | null) ?? null;
+  const root = hostRoot();
+  if (root === null) return null;
+  for (const id of PANEL_IDS) {
+    const panel = root.getElementById(id);
+    if (panel !== null) return panel;
+  }
+  return null;
 };
 
 /**
@@ -94,8 +109,7 @@ export const observeEdgeInsets = (
   const mo = new MutationObserver(() => attach());
 
   const attach = () => {
-    const host = document.querySelector(HOST_TAG);
-    const root = (host as {shadowRoot?: ShadowRoot | null} | null)?.shadowRoot;
+    const root = hostRoot();
     if (root && !observingRoot) {
       observingRoot = true;
       mo.observe(root, {
