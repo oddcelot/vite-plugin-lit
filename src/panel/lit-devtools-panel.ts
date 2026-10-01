@@ -6,6 +6,8 @@ import {
   readColorSchemePreference,
 } from '../lib/color-scheme.js';
 import './timeline-view.js';
+import {isSnapshot, litRpc} from './client.js';
+import type {PageChangedEvent} from '../lib/devframe/protocol.js';
 
 // Install the shared design tokens on the panel iframe's :root before the
 // views render. Panel components inherit the semantic aliases from :root.
@@ -110,6 +112,31 @@ export class LitDevtoolsPanel extends LitElement {
       .brand svg {
         display: block;
       }
+      .page-changed {
+        display: flex;
+        align-items: center;
+        gap: var(--lit-devtools-space-3);
+        flex-shrink: 0;
+        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
+        border-bottom: 1px solid var(--lit-devtools-border);
+        background: var(--lit-devtools-warning-soft);
+        color: var(--lit-devtools-warning);
+        font-size: var(--lit-devtools-text-xs);
+        font-weight: var(--lit-devtools-weight-semibold);
+      }
+      .page-changed span {
+        flex: 1;
+      }
+      .page-changed button {
+        border: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      .page-changed button:hover {
+        background: var(--lit-devtools-surface-hover);
+      }
       .view {
         display: flex;
         flex-direction: column;
@@ -124,9 +151,37 @@ export class LitDevtoolsPanel extends LitElement {
   /** Mirrors `ComponentsView.hmrIncompatibilityCount`; see `_onHmrCountChange`. */
   @state() private _hmrCount = 0;
 
+  /** The latest `page-changed` notice, until dismissed. */
+  @state() private _pageChange: PageChangedEvent | null = null;
+
   @query('components-view') private _componentsView?: ComponentsView;
   @query('updates-view') private _updatesView?: UpdatesView;
   @query('timeline-view') private _timelineView?: TimelineView;
+
+  override connectedCallback() {
+    super.connectedCallback();
+    void this._listenForPageChange();
+  }
+
+  /**
+   * The node side follows one page at a time and says so when another takes
+   * over. A frozen session has no page to follow, so nothing to listen for.
+   */
+  private async _listenForPageChange(): Promise<void> {
+    if (isSnapshot()) return;
+    try {
+      const rpc = await litRpc();
+      rpc.rpc.register({
+        name: 'page-changed',
+        type: 'event',
+        handler: (event: PageChangedEvent) => {
+          this._pageChange = event;
+        },
+      });
+    } catch {
+      // No client, no notice; the views report their own connection errors.
+    }
+  }
 
   /**
    * Tab items for the strip, badging "Components" with the current
@@ -257,6 +312,23 @@ export class LitDevtoolsPanel extends LitElement {
           @change=${this._onTabChange}
         ></segmented-tabs>
       </header>
+      ${
+        this._pageChange === null
+          ? nothing
+          : html`<div class="page-changed" role="status">
+              <span
+                >Another page connected at
+                ${new Date(this._pageChange.at).toLocaleTimeString()} — the
+                panel now follows it. The earlier recording was cleared.</span
+              >
+              <button
+                aria-label="Dismiss"
+                @click=${() => (this._pageChange = null)}
+              >
+                ✕
+              </button>
+            </div>`
+      }
       <div class="view" @inspect-element=${this._onInspectElement}>
         <timeline-view
           ?hidden=${this._tab !== 'timeline'}
