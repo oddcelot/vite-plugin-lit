@@ -3,6 +3,53 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.9.0 — 2026-10-01
+
+Pick now works on pages connected to the standalone `lit-devtools dev` server,
+and `#private` state survives hot-patching on Vite 7 as it already did on Vite 8. One change needs action: runtime globals moved to the package's own
+`Symbol.for` prefix. The rest are fixes to panel settings that didn't stick,
+a Pick button with no picker behind it, and the HMR indicator sitting on the
+DevTools toolbar.
+
+### Added
+
+- **Pick works on pages connected to `lit-devtools dev`.** Pick in the
+  Components tab, or Ctrl/⌘+Shift+S on the page, picks any Lit element; the
+  panel selects it and a panel tab comes forward on it. If you opened the
+  panel yourself, the first pick opens a second panel tab and later picks
+  reuse it.
+
+### Changed
+
+- **Runtime globals are keyed `@oddsquad/vite-plugin-lit#…`.** Code that read
+  component source metadata (or any other plugin global) through
+  `Symbol.for('@lit-labs/vite-plugin-lit#source')` needs the new prefix.
+
+### Fixed
+
+- **`#private` state survives HMR on Vite 7 too.** Editing a method that
+  touches a private field of a decorated component no longer throws "Cannot
+  read from private field" after esbuild has lowered it.
+- **Panel settings survive a page reload in standalone mode and on
+  StackBlitz.** After reloading the app, overrides such as flash updates or
+  the HMR indicator reverted to the config defaults until a setting was
+  changed again.
+- **A setting changed right after opening the panel is kept.** The first
+  toggle in a fresh panel session (for example Flash on the Components tab)
+  could be silently wiped from the saved settings, so it was gone after a
+  reload. Seen with `lit-devtools dev`; the Vite DevTools panel runs the same
+  code.
+- **The Components tab no longer shows a Pick button that does nothing.**
+  Without the source overlay (off by default, and unavailable to pages
+  connected to `lit-devtools dev`) the button lit up and no picker appeared.
+  It now only appears when there is a picker to start.
+- **The HMR indicator no longer covers the DevTools toolbar.** With the Vite
+  DevTools dock on an edge, the indicator and the source-overlay tooltip sat
+  on top of it instead of moving aside.
+- **A `#event=` link scrolls to its row on a slow first load.** Opening the
+  panel or a snapshot through a timeline link selected the event but could
+  leave its row out of view when the list's layout code loaded slowly.
+
 ## 0.8.1 — 2026-10-01
 
 A one-fix patch: turning the timeline on with `LIT_PLUGIN_TIMELINE=true` now
