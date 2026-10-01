@@ -52,10 +52,12 @@ const mount = async (picker = false, roots: InspectorTreeNode[] = tree) => {
 };
 
 const LIVE_LS_KEY = 'lit-devtools-components-live';
+const WIDTH_LS_KEY = 'lit-devtools-components-details-width';
 
 afterEach(() => {
   document.body.replaceChildren();
   localStorage.removeItem(LIVE_LS_KEY);
+  localStorage.removeItem(WIDTH_LS_KEY);
   resetClient();
 });
 
@@ -311,4 +313,36 @@ test('a patch does not count toward the HMR issue badge', async () => {
   push('hmr-patched', patched);
   await flush(el);
   expect(el.hmrIncompatibilityCount).toBe(0);
+});
+
+const splitOf = (root: ShadowRoot) =>
+  root.querySelector<HTMLElement>('wa-split-panel')!;
+
+test('the details pane starts at 340px and keeps its width on resize', async () => {
+  const {root} = await mount();
+  const split = splitOf(root);
+  expect(split.getAttribute('position-in-pixels')).toBe('340');
+  expect(split.getAttribute('primary')).toBe('end');
+  expect(split.querySelector('[slot="end"]')!.classList).toContain('details');
+});
+
+test('restores a remembered details width and ignores a bad one', async () => {
+  localStorage.setItem(WIDTH_LS_KEY, '412');
+  const {root} = await mount();
+  expect(splitOf(root).getAttribute('position-in-pixels')).toBe('412');
+  document.body.replaceChildren();
+  for (const bad of ['nope', '12', '-5', '']) {
+    localStorage.setItem(WIDTH_LS_KEY, bad);
+    const {root: r} = await mount();
+    expect(splitOf(r).getAttribute('position-in-pixels')).toBe('340');
+    document.body.replaceChildren();
+  }
+});
+
+test('remembers the details width after a drag', async () => {
+  const {root} = await mount();
+  const split = splitOf(root) as HTMLElement & {positionInPixels: number};
+  split.positionInPixels = 275;
+  split.dispatchEvent(new Event('wa-reposition'));
+  expect(localStorage.getItem(WIDTH_LS_KEY)).toBe('275');
 });

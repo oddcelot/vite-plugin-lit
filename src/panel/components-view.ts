@@ -4,6 +4,8 @@ import '@awesome.me/webawesome/dist/components/badge/badge.js';
 import '@awesome.me/webawesome/dist/components/button/button.js';
 import '@awesome.me/webawesome/dist/components/details/details.js';
 import '@awesome.me/webawesome/dist/components/icon/icon.js';
+import '@awesome.me/webawesome/dist/components/split-panel/split-panel.js';
+import type WaSplitPanel from '@awesome.me/webawesome/dist/components/split-panel/split-panel.js';
 import {tokens} from '../lib/tokens.js';
 import {
   type InspectorCommand,
@@ -33,6 +35,22 @@ import {overrides} from './settings-override.js';
 
 /** localStorage key remembering the opt-in live-tree toggle. */
 const LIVE_LS_KEY = 'lit-devtools-components-live';
+
+/** localStorage key remembering the details pane's width in pixels. */
+const DETAILS_WIDTH_LS_KEY = 'lit-devtools-components-details-width';
+const DETAILS_WIDTH_DEFAULT = 340;
+const DETAILS_WIDTH_MIN = 220;
+
+const readDetailsWidth = (): number => {
+  try {
+    const n = Number(localStorage.getItem(DETAILS_WIDTH_LS_KEY));
+    return Number.isFinite(n) && n >= DETAILS_WIDTH_MIN
+      ? Math.round(n)
+      : DETAILS_WIDTH_DEFAULT;
+  } catch {
+    return DETAILS_WIDTH_DEFAULT;
+  }
+};
 
 /**
  * The Components view: a hierarchical tree of the page's Lit elements (left)
@@ -79,13 +97,14 @@ export class ComponentsView extends LitElement {
       .spacer {
         flex: 1;
       }
-      .body {
-        display: flex;
+      wa-split-panel {
         flex: 1;
-        overflow: hidden;
+        min-height: 0;
+        --min: ${DETAILS_WIDTH_MIN}px;
+        --max: calc(100% - 200px);
       }
       .tree {
-        flex: 1;
+        height: 100%;
         overflow: auto;
         padding: var(--lit-devtools-space-2) 0;
         min-width: 0;
@@ -132,9 +151,8 @@ export class ComponentsView extends LitElement {
         color: var(--lit-devtools-text-muted);
       }
       .details {
-        width: 340px;
-        flex-shrink: 0;
-        border-left: 1px solid var(--lit-devtools-border);
+        height: 100%;
+        box-sizing: border-box;
         overflow: auto;
         padding: var(--lit-devtools-space-5) var(--lit-devtools-space-5);
         font-size: var(--lit-devtools-text-xs);
@@ -284,6 +302,9 @@ export class ComponentsView extends LitElement {
   @state() private _hmrIncompatibilities: HmrIncompatibilityEvent[] = [];
   /** Collapse state of the banner; the events themselves are never cleared. */
   @state() private _hmrExpanded = true;
+  /** Details pane width in pixels, restored once; the split panel owns it
+   *  after that and `_saveDetailsWidth` persists each drag. */
+  private readonly _detailsWidth = readDetailsWidth();
   /** The most recent HMR patch that landed. Not an issue, so it never counts
    *  toward the tab badge. */
   @state() private _lastPatch: HmrPatchEvent | null = null;
@@ -613,6 +634,16 @@ export class ComponentsView extends LitElement {
       return;
     }
     this._call({type: 'highlight', id});
+  }
+
+  private _saveDetailsWidth(e: Event): void {
+    const width = Math.round((e.target as WaSplitPanel).positionInPixels);
+    if (!(width >= DETAILS_WIDTH_MIN)) return;
+    try {
+      localStorage.setItem(DETAILS_WIDTH_LS_KEY, String(width));
+    } catch {
+      // Storage unavailable: the width just won't be remembered.
+    }
   }
 
   private _onHmrToggle(e: Event): void {
@@ -963,8 +994,16 @@ export class ComponentsView extends LitElement {
         </wa-button>
       </div>
       ${this._renderHmrBanner()}${this._renderLastPatch()}
-      <div class="body">
-        <div class="tree" @mouseleave=${() => this._highlight(null)}>
+      <wa-split-panel
+        primary="end"
+        position-in-pixels=${this._detailsWidth}
+        @wa-reposition=${this._saveDetailsWidth}
+      >
+        <div
+          slot="start"
+          class="tree"
+          @mouseleave=${() => this._highlight(null)}
+        >
           ${
             this._error !== null
               ? html`<div class="empty">${this._error}</div>`
@@ -973,8 +1012,8 @@ export class ComponentsView extends LitElement {
                 : this._roots.map((n) => this._renderNode(n, 0))
           }
         </div>
-        <div class="details">${this._renderDetails()}</div>
-      </div>
+        <div slot="end" class="details">${this._renderDetails()}</div>
+      </wa-split-panel>
     `;
   }
 }
