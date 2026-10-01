@@ -168,6 +168,23 @@ const warnDiscoveryUnavailable = (reason: string): void => {
 };
 
 /**
+ * One warning per process, like the one above. The timeline option also
+ * injects the page runtime, so a missing `DevTools()` leaves the page loading
+ * a runtime nothing listens to, with no panel and no hint in the terminal.
+ */
+let warnedDevToolsMissing = false;
+
+const warnDevToolsMissing = (): void => {
+  if (warnedDevToolsMissing) return;
+  warnedDevToolsMissing = true;
+  console.warn(
+    `[lit-plugin] timeline is on, but Vite DevTools never mounted the Lit ` +
+      `panel. Add DevTools() from @vitejs/devtools to \`plugins\` to get ` +
+      `it, or set \`timeline: false\` to stop injecting the page runtime.`
+  );
+};
+
+/**
  * Publish this devframe in devframe's global instance registry
  * (`~/.devframe/instances/`), so stdio MCP connectors — `devframe connect`,
  * this package's own `lit-devtools mcp` — find the running dev server
@@ -298,12 +315,14 @@ function registerInstanceWhenListening(
 /**
  * The Vite plugin that mounts the Lit devframe on the DevTools hub. A no-op
  * when DevTools is not active: without it nothing calls `devtools.setup()`,
- * so the definition is never installed and the panel simply isn't there.
+ * so the definition is never installed and the panel simply isn't there; the
+ * dev server warns once about that instead of staying silent.
  */
 export function createLitDevframePlugin(
   options: CreateLitDevframePluginOptions
 ): Plugin {
   const source = new HotTimelineSource();
+  let setupRan = false;
   const definition = createLitDevframe({
     source,
     version: options.version,
@@ -315,12 +334,23 @@ export function createLitDevframePlugin(
 
   return {
     name: `devframe:${LIT_DEVFRAME_ID}`,
+    configureServer() {
+      // Returned callbacks run after every plugin's `configureServer` has been
+      // awaited, and DevTools mounts devframes from inside its own, so by then
+      // `setup()` has run if it is going to.
+      return () => {
+        if (setupRan) return;
+        if (options.enabled && !options.enabled()) return;
+        warnDevToolsMissing();
+      };
+    },
     devtools: {
       // The panel reflects a running page, so there is nothing to mount
       // during `vite build`. A static snapshot goes through
       // `devframe/adapters/build` instead.
       capabilities: {dev: true, build: false},
       async setup(ctx) {
+        setupRan = true;
         if (options.enabled && !options.enabled()) return;
         // Bind before installing: `install()` runs the definition's `setup()`,
         // which attaches to this source, and the dev server is already
