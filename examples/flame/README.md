@@ -39,6 +39,19 @@ None of these reloads the page. The counter in the corner shows how many
 updates were applied in place. Without the plugin, each save would be a full
 reload and you would start again from a lit, unstoked, blue flame.
 
+## Look inside with DevTools
+
+The button in the bottom-left corner opens the Vite DevTools dock, with the
+plugin's Lit panel in it:
+
+- **Components** lists `<lit-flame>` with its state (`hue`, `burning`) and the
+  line it is defined on. Press **⌖ Pick**, or Ctrl/⌘+Shift+S on the page, and
+  click the flame to select it from the page. `#stokes` is not listed: Lit
+  does not track private fields, so the inspector cannot see them.
+- **Timeline** records each update once you press **Record**: move the hue
+  slider and watch one update per step.
+- **Updates** sums them up per component and says which property changed.
+
 ## In this repository
 
 The example is a workspace package and links the plugin built from this
@@ -54,7 +67,9 @@ pnpm dev
 On StackBlitz it installs the published plugin and plain Vite with npm, and
 starts with `npm run stackblitz`: the `vite` command does not start in a
 WebContainer, so `stackblitz.mjs` starts the same server through Vite's
-JavaScript API, as the playground does.
+JavaScript API, as the playground does. It also lets StackBlitz's preview
+origin connect to DevTools and lets the dock mount in the editor's preview
+frame.
 
 Private-field updates need Vite 8: on Vite 7 the TypeScript step rewrites
 `#private` before the plugin can, and the third edit above fails.

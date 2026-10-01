@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@oddsquad/vite-plugin-lit": "*",
+    "@vitejs/devtools": "^0.7.6",
     "vite": "^8.3.2"
   },
   "stackblitz": {
