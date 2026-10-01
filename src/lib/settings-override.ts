@@ -12,6 +12,10 @@
  * Adding an overridable setting means adding one line to {@link CONFIG_KEYS}
  * (plus its field on `SettingsOverride`). A pure preference with no config
  * baseline goes in {@link PREFERENCE_DEFAULTS} instead.
+ *
+ * The panel's color scheme rides along: it is not part of the override (the
+ * page never sees it), but it is stored, persisted and adopted the same way,
+ * so it goes through the same loop guard.
  */
 
 import {
@@ -68,14 +72,28 @@ export const configValues = (
   return out as Required<Pick<SettingsOverride, OverridableKey>>;
 };
 
-/** The pure preferences of an override, `false` when unset. */
+type PreferenceKey = keyof typeof PREFERENCE_DEFAULTS;
+
+/** The pure preferences of an override, each its default when unset. */
 export const preferences = (
   o: SettingsOverride
-): Record<keyof typeof PREFERENCE_DEFAULTS, boolean> => ({
-  flashUpdates: o.flashUpdates ?? PREFERENCE_DEFAULTS.flashUpdates,
-  flashUpdatesRamp: o.flashUpdatesRamp ?? PREFERENCE_DEFAULTS.flashUpdatesRamp,
-  chromeTracks: o.chromeTracks ?? PREFERENCE_DEFAULTS.chromeTracks,
-});
+): Record<PreferenceKey, boolean> => {
+  const out = {...PREFERENCE_DEFAULTS} as Record<PreferenceKey, boolean>;
+  for (const key of Object.keys(out) as PreferenceKey[]) {
+    out[key] = o[key] ?? out[key];
+  }
+  return out;
+};
+
+/** The panel's color scheme; `auto` follows the host. */
+export type ColorSchemePreference = 'auto' | 'dark' | 'light';
+
+/** localStorage key for the {@link ColorSchemePreference}. */
+export const COLOR_SCHEME_LS_KEY = 'lit-devtools-color-scheme';
+
+/** A stored color scheme, or `auto` for anything unrecognised. */
+export const parseColorScheme = (raw: unknown): ColorSchemePreference =>
+  raw === 'dark' || raw === 'light' ? raw : 'auto';
 
 /** The slice of `Storage` the module needs; `localStorage` satisfies it. */
 export type OverrideStorage = Pick<
@@ -97,6 +115,7 @@ export interface LivePort {
 export interface DurablePort {
   set(key: 'override', value: SettingsOverride): void;
   set(key: 'overrideBaselines', value: OverrideBaselines): void;
+  set(key: 'appearance', value: ColorSchemePreference): void;
   delete(key: 'override' | 'overrideBaselines'): void;
 }
 
@@ -104,12 +123,15 @@ export interface OverridePorts {
   storage: OverrideStorage;
   live?: LivePort;
   durable?: DurablePort;
+  /** Applies a color scheme to the panel; the page has none to apply. */
+  readonly applyAppearance?: (scheme: ColorSchemePreference) => void;
 }
 
 /** A snapshot from the durable store, as `adopt` receives it. */
 export interface DurableSnapshot {
   override?: SettingsOverride;
   overrideBaselines?: OverrideBaselines;
+  appearance?: ColorSchemePreference;
 }
 
 export interface SettingsOverrides {
@@ -136,10 +158,15 @@ export interface SettingsOverrides {
   resetKey(key: OverridableKey, config: FeatureSettings): void;
   /** Re-stamp one key's baseline to the config value it has now ("Keep"). */
   keep(key: OverridableKey, config: FeatureSettings): void;
+  /** The panel's color scheme; `auto` when unset. */
+  appearance(): ColorSchemePreference;
+  /** Change the color scheme: local and durable copies, then apply it. */
+  setAppearance(scheme: ColorSchemePreference): void;
   /**
-   * A snapshot that arrived from the durable store: mirror it locally and live
-   * without writing it back. A no-op (returns `false`) when it already matches,
-   * which is what stops adopt -> store write -> onChange -> adopt looping.
+   * A snapshot that arrived from the durable store: mirror it locally (and the
+   * override live) without writing it back. A no-op (returns `false`) when it
+   * already matches, which is what stops adopt -> store write -> onChange ->
+   * adopt looping.
    */
   adopt(snapshot: DurableSnapshot): boolean;
   /**
@@ -159,7 +186,7 @@ const isEmpty = (o: object | undefined): boolean =>
 export const createSettingsOverrides = (
   ports: OverridePorts
 ): SettingsOverrides => {
-  const {storage, live, durable} = ports;
+  const {storage, live, durable, applyAppearance} = ports;
   const listeners = new Set<(override: SettingsOverride) => void>();
 
   const notify = (override: SettingsOverride): void => {
@@ -202,6 +229,22 @@ export const createSettingsOverrides = (
   const persistBaselines = (b: OverrideBaselines | undefined): void => {
     if (b === undefined || isEmpty(b)) durable?.delete('overrideBaselines');
     else durable?.set('overrideBaselines', b);
+  };
+
+  const appearance = (): ColorSchemePreference => {
+    try {
+      return parseColorScheme(storage.getItem(COLOR_SCHEME_LS_KEY));
+    } catch {
+      return 'auto';
+    }
+  };
+  const writeAppearance = (scheme: ColorSchemePreference): void => {
+    try {
+      storage.setItem(COLOR_SCHEME_LS_KEY, scheme);
+    } catch {
+      // ignore (private mode / storage unavailable)
+    }
+    applyAppearance?.(scheme);
   };
 
   live?.listen?.((o) => notify(o ?? {}));
@@ -259,11 +302,23 @@ export const createSettingsOverrides = (
       notify(get());
     },
 
-    adopt({override, overrideBaselines}) {
-      if (override === undefined) return false;
+    appearance,
+
+    setAppearance(scheme) {
+      writeAppearance(scheme);
+      durable?.set('appearance', scheme);
+    },
+
+    adopt({override, overrideBaselines, appearance: scheme}) {
+      let changed = false;
+      if (scheme !== undefined && scheme !== appearance()) {
+        writeAppearance(scheme);
+        changed = true;
+      }
+      if (override === undefined) return changed;
       const recorded = overrideBaselines ?? {};
       if (sameJson(override, get()) && sameJson(recorded, baselines())) {
-        return false;
+        return changed;
       }
       writeOverride(override);
       writeBaselines(recorded);

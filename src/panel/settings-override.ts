@@ -10,6 +10,7 @@
  * showing the same preference re-renders.
  */
 
+import {applyColorScheme} from '../lib/color-scheme.js';
 import {createSettingsOverrides} from '../lib/settings-override.js';
 import {litRpc, litSettingsRpc} from './client.js';
 
@@ -30,11 +31,12 @@ export const overrides = createSettingsOverrides({
       quiet(litRpc().then((rpc) => rpc.rpc.call('set-settings-override', o))),
   },
   durable: {
-    set: (key: 'override' | 'overrideBaselines', value: never) =>
+    set: (key: 'override' | 'overrideBaselines' | 'appearance', value: never) =>
       quiet(
         litSettingsRpc().then((rpc) => rpc.settings.global.set(key, value))
       ),
     delete: (key) =>
       quiet(litSettingsRpc().then((rpc) => rpc.settings.global.delete(key))),
   },
+  applyAppearance: applyColorScheme,
 });

@@ -5,6 +5,8 @@ import {
   configValues,
   createSettingsOverrides,
   preferences,
+  COLOR_SCHEME_LS_KEY,
+  type ColorSchemePreference,
   type DurablePort,
   type LivePort,
 } from '../../lib/settings-override.js';
@@ -47,7 +49,13 @@ const setup = (seed: Record<string, string> = {}) => {
     set: (k: string, v: unknown) => void store.set(k, v),
     delete: (k) => void store.delete(k),
   } as DurablePort;
-  const overrides = createSettingsOverrides({storage, live, durable});
+  const applied: ColorSchemePreference[] = [];
+  const overrides = createSettingsOverrides({
+    storage,
+    live,
+    durable,
+    applyAppearance: (scheme) => void applied.push(scheme),
+  });
   const stored = (key: string) => {
     const raw = data.get(key);
     return raw === undefined ? undefined : JSON.parse(raw);
@@ -59,6 +67,7 @@ const setup = (seed: Record<string, string> = {}) => {
     overrides,
     stored,
     inbound: (o: SettingsOverride) => inbound?.(o),
+    applied,
   };
 };
 
@@ -357,6 +366,52 @@ describe('subscribe', () => {
 test('every config key resolves a value from the config', () => {
   expect(Object.keys(configValues(config)).sort()).toEqual(
     Object.keys(CONFIG_KEYS).sort()
+  );
+});
+
+describe('appearance', () => {
+  test('auto when unset or unrecognised', () => {
+    expect(setup().overrides.appearance()).toBe('auto');
+    expect(setup({[COLOR_SCHEME_LS_KEY]: 'sepia'}).overrides.appearance()).toBe(
+      'auto'
+    );
+  });
+
+  test('setAppearance stores locally and durably, and applies it', () => {
+    const {overrides, data, store, applied, pushed} = setup();
+    overrides.setAppearance('dark');
+    expect(data.get(COLOR_SCHEME_LS_KEY)).toBe('dark');
+    expect(store.get('appearance')).toBe('dark');
+    expect(applied).toEqual(['dark']);
+    // The page has no use for it.
+    expect(pushed).toEqual([]);
+  });
+
+  test('adopt applies a new scheme without writing it back', () => {
+    const {overrides, data, store, applied} = setup();
+    expect(overrides.adopt({appearance: 'light'})).toBe(true);
+    expect(data.get(COLOR_SCHEME_LS_KEY)).toBe('light');
+    expect(applied).toEqual(['light']);
+    expect(store.has('appearance')).toBe(false);
+  });
+
+  test('adopting the scheme already in place is a no-op', () => {
+    const {overrides, applied} = setup({[COLOR_SCHEME_LS_KEY]: 'dark'});
+    expect(overrides.adopt({appearance: 'dark'})).toBe(false);
+    expect(applied).toEqual([]);
+  });
+
+  test('adopts the scheme and the override from one snapshot', () => {
+    const {overrides, applied, pushed} = setup();
+    overrides.adopt({appearance: 'dark', override: {flashUpdates: true}});
+    expect(applied).toEqual(['dark']);
+    expect(pushed).toEqual([{flashUpdates: true}]);
+  });
+});
+
+test('preferences cover every default', () => {
+  expect(Object.keys(preferences({})).sort()).toEqual(
+    Object.keys(PREFERENCE_DEFAULTS).sort()
   );
 });
 

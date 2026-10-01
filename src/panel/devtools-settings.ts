@@ -1,11 +1,7 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 import {tokens} from '../lib/tokens.js';
-import {
-  readColorSchemePreference,
-  setColorSchemePreference,
-  type ColorSchemePreference,
-} from '../lib/color-scheme.js';
+import type {ColorSchemePreference} from '../lib/color-scheme.js';
 import {
   SOURCE_OVERLAY_EDITORS,
   type FeatureSettings,
@@ -231,7 +227,7 @@ export class DevtoolsSettings extends LitElement {
       this._override = o;
       this._recorded = overrides.baselines();
     });
-    this._colorScheme = readColorSchemePreference();
+    this._colorScheme = overrides.appearance();
     void this._fetch();
     void this._hydrate();
   }
@@ -275,41 +271,21 @@ export class DevtoolsSettings extends LitElement {
   /** Apply a settings snapshot from the durable store. */
   private _adopt(all: Readonly<LitSettings>): void {
     const {appearance, override, overrideBaselines} = all;
-    if (appearance !== undefined && appearance !== this._colorScheme) {
-      this._colorScheme = appearance;
-      setColorSchemePreference(appearance);
-    }
     // Mirrors to the page and `localStorage` without writing back to the
     // store the value just came from; `_override` updates via the listener.
     // The baselines come along so a second browser judges "config changed"
     // against what the first one recorded. A snapshot that already matches is
     // a no-op, which is what stops the adopt -> store write -> `onChange` ->
     // adopt loop.
-    overrides.adopt({override, overrideBaselines});
-  }
-
-  /** Write one preference through to the durable store, best-effort. */
-  private _persist<K extends keyof LitSettings>(
-    key: K,
-    value: LitSettings[K] | undefined
-  ): void {
-    litSettingsRpc()
-      .then((rpc) =>
-        value === undefined
-          ? rpc.settings.global.delete(key)
-          : rpc.settings.global.set(key, value)
-      )
-      .catch(() => {
-        // dev tool — ignore connection/call errors
-      });
+    overrides.adopt({override, overrideBaselines, appearance});
+    this._colorScheme = overrides.appearance();
   }
 
   private _setColorScheme(scheme: ColorSchemePreference): void {
     this._colorScheme = scheme;
     // `localStorage` first and synchronously: it applies the class right
     // away, and is what the panel reads before its first paint next time.
-    setColorSchemePreference(scheme);
-    this._persist('appearance', scheme);
+    overrides.setAppearance(scheme);
   }
 
   private async _fetch() {

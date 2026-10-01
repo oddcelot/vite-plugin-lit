@@ -9,7 +9,7 @@ import {
 import {buildSpotlightClipPath} from './mask-path.js';
 import {OVERLAY_HTML} from './template.js';
 import {observeEdgeInsets} from '../edge-panel.js';
-import {subscribeOverride} from '../overrides.js';
+import {subscribeOverrideKeys} from '../overrides.js';
 import {pageChannel} from '../page-channel.js';
 import {injectTokens} from '../../tokens.js';
 import {idOf} from '../timeline/identity.js';
@@ -120,11 +120,11 @@ class LitSourceOverlay extends HTMLElement {
     // configured options (key, throttle, …) survive.
     if (!this.#overrideSubscribed) {
       this.#overrideSubscribed = true;
-      subscribeOverride(hot, (o) => {
-        if (o.sourceOverlayEditor !== undefined) {
-          this.#options = {...this.#options, editor: o.sourceOverlayEditor};
-          this.#editor = resolveEditor(o.sourceOverlayEditor);
-        }
+      subscribeOverrideKeys(hot, {
+        sourceOverlayEditor: (editor) => {
+          this.#options = {...this.#options, editor};
+          this.#editor = resolveEditor(editor);
+        },
       });
     }
   }
