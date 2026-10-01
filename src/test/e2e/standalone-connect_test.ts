@@ -33,6 +33,7 @@ let appServer: Server;
 let proxy: TcpServer;
 let proxyOrigin: string;
 let workDir: string;
+let cliHome: string;
 let devOrigin: string;
 let appOrigin: string;
 
@@ -66,6 +67,12 @@ beforeAll(async () => {
     `standalone-${randomUUID().slice(0, 8)}`
   );
   await mkdir(workDir, {recursive: true});
+  // The CLI keeps the panel's per-user settings in `<home>/.lit/devframe` and
+  // registers itself under `<home>/.devframe/instances` (devframe reads
+  // `$HOME` on each call), so give it a throwaway home rather than the
+  // developer's. Chromium below keeps the real one.
+  cliHome = `${workDir}-home`;
+  await mkdir(cliHome, {recursive: true});
   const entry = path.join(workDir, 'app.js');
   await writeFile(
     entry,
@@ -93,7 +100,7 @@ customElements.define('standalone-hello', StandaloneHello);
   cli = spawn(
     process.execPath,
     [path.join(PACKAGE_ROOT, 'bin.mjs'), 'dev', '--no-auth', '--port', '0'],
-    {cwd: PACKAGE_ROOT}
+    {cwd: PACKAGE_ROOT, env: {...process.env, HOME: cliHome}}
   );
   devOrigin = await readScriptOrigin(cli);
 
@@ -152,6 +159,7 @@ afterAll(async () => {
     proxy ? proxy.close(() => resolve()) : resolve()
   );
   await rm(workDir, {recursive: true, force: true});
+  await rm(cliHome, {recursive: true, force: true});
 });
 
 let app: Page;
