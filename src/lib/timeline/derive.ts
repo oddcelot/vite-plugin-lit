@@ -62,6 +62,8 @@ export interface TimelineSpan {
   changed?: string[];
   subtitle?: string;
   logType?: TimelineEvent['logType'];
+  /** Set when the phase threw; from the end event. */
+  error?: {name: string; message: string};
   meta?: TimelineEvent['meta'];
   /** The events this span was built from, for the detail pane. */
   events: TimelineEvent[];
@@ -82,6 +84,8 @@ export interface UpdateCycle {
   phases: TimelineSpan[];
   /** The input event this update followed, if any. See {@link attributeInput}. */
   cause?: {layerId: string; type: string; detail?: string; time: number};
+  /** The first phase in this tick that threw, if any. */
+  error?: {phase: string; name: string; message: string};
 }
 
 /** Per-component totals over a set of update cycles. */
@@ -95,6 +99,8 @@ export interface ComponentRollup {
   maxMs: number;
   /** Changed-key frequency across the cycles, most frequent first. */
   reasons: Array<{key: string; count: number}>;
+  /** Cycles in which a phase threw. */
+  errors: number;
   source?: {file: string; line: number};
 }
 
@@ -108,6 +114,21 @@ const changedOf = (event: TimelineEvent): string[] | undefined => {
   return keys.length > 0 ? keys : undefined;
 };
 
+/** Reads `data.error` defensively — `data` is `unknown` on the wire. */
+const errorOf = (
+  event: TimelineEvent
+): {name: string; message: string} | undefined => {
+  if (event.logType !== 'error') return undefined;
+  const data = event.data;
+  if (data === null || typeof data !== 'object') return undefined;
+  const error = (data as {error?: unknown}).error;
+  if (error === null || typeof error !== 'object') return undefined;
+  const {name, message} = error as {name?: unknown; message?: unknown};
+  return typeof message === 'string'
+    ? {name: typeof name === 'string' ? name : 'Error', message}
+    : undefined;
+};
+
 const pointSpan = (event: TimelineEvent, index: number): TimelineSpan => ({
   layerId: event.layerId,
   key: `${event.layerId}:point:${index}`,
@@ -116,6 +137,7 @@ const pointSpan = (event: TimelineEvent, index: number): TimelineSpan => ({
   changed: changedOf(event),
   subtitle: event.subtitle,
   logType: event.logType,
+  error: errorOf(event),
   meta: event.meta,
   events: [event],
 });
@@ -189,6 +211,11 @@ export const toSpans = (events: readonly TimelineEvent[]): TimelineSpan[] => {
       span.duration = event.time - span.start;
     }
     span.changed ??= changedOf(event);
+    // The error is only known when the phase ends, so the end event owns it.
+    if (event.logType === 'error') {
+      span.logType = 'error';
+      span.error = errorOf(event);
+    }
   });
 
   return spans.sort((a, b) => a.start - b.start);
@@ -243,6 +270,12 @@ export const toUpdateCycles = (
     for (const changedKey of span.changed ?? []) {
       if (!cycle.changed.includes(changedKey)) cycle.changed.push(changedKey);
     }
+    if (span.error !== undefined) {
+      // performUpdate rethrows what update threw; keep the innermost phase.
+      if (cycle.error === undefined || span.name !== ROOT_PHASE) {
+        cycle.error = {phase: span.name, ...span.error};
+      }
+    }
   }
 
   return [...byGroup.values()].sort((a, b) => a.start - b.start);
@@ -273,6 +306,7 @@ export const rollup = (cycles: readonly UpdateCycle[]): ComponentRollup[] => {
           totalMs: 0,
           maxMs: 0,
           reasons: [],
+          errors: 0,
           source: cycle.source,
         },
         reasons: new Map(),
@@ -282,6 +316,7 @@ export const rollup = (cycles: readonly UpdateCycle[]): ComponentRollup[] => {
 
     const {entry, reasons} = record;
     entry.updates++;
+    if (cycle.error !== undefined) entry.errors++;
     if (!entry.elementIds.includes(cycle.elementId)) {
       entry.elementIds.push(cycle.elementId);
     }

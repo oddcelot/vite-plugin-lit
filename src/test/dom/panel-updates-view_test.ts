@@ -127,3 +127,36 @@ test('an instance link asks the shell to open it in Components', async () => {
   root.querySelector<HTMLElement>('.cycles .row a.link')!.click();
   expect(inspected).toEqual([1]);
 });
+
+test('flags a component and an update in which a phase threw', async () => {
+  const {el, root, settle} = await mount();
+  const error = {name: 'TypeError', message: 'render exploded'};
+  // As the runtime emits it: update and performUpdate both end in error.
+  const failing: TimelineEvent[] = [
+    ...tick(1, 'x-counter', 1, 0),
+    ...(['start', 'end'] as const).flatMap((edge, i) =>
+      ['performUpdate', 'update'].map((name) => ({
+        layerId: 'lit-lifecycle',
+        time: 10 + i * 2,
+        groupId: '1:2',
+        title: `${name}:${edge}`,
+        data:
+          edge === 'end'
+            ? {phase: name, error}
+            : {phase: name, changed: ['count']},
+        ...(edge === 'end' ? {logType: 'error' as const} : {}),
+        meta: {elementId: 1, tagName: 'x-counter'},
+      }))
+    ),
+  ];
+  setEvents(failing);
+  await settle();
+  expect(root.querySelector('.components .errors')?.textContent).toContain(
+    '⚠ 1'
+  );
+  el.selectById(1);
+  await settle();
+  expect(root.querySelector('.cycles .row .threw')?.textContent).toMatch(
+    /threw in update:\s+TypeError/
+  );
+});

@@ -294,4 +294,43 @@ describe('installLifecycleLayer', () => {
     expect(events.map((e) => e.title)).toContain('performUpdate:end');
     expect(hook).not.toHaveBeenCalled();
   });
+
+  test('a throwing phase marks its end events, rethrows, and frees the guard', async () => {
+    const base = freshBase();
+    let explode = true;
+    // On the base, before install, so the layer wraps the throwing method.
+    base.prototype.update = function () {
+      if (explode) throw new TypeError('render exploded');
+    };
+    const m = await load();
+    install(m);
+    const {tag} = define(base);
+    const el = document.createElement(tag) as FakeReactiveElement;
+    document.body.append(el);
+    events.length = 0;
+
+    expect(() => el.performUpdate()).toThrow('render exploded');
+
+    const ends = events.filter(
+      (e) => e.title === 'update:end' || e.title === 'performUpdate:end'
+    );
+    expect(ends).toHaveLength(2);
+    for (const end of ends) {
+      expect(end.logType).toBe('error');
+      expect(end.data).toMatchObject({
+        error: {name: 'TypeError', message: 'render exploded'},
+      });
+    }
+    // Phases that completed before the throw are untouched.
+    const willEnd = events.find((e) => e.title === 'willUpdate:end');
+    expect(willEnd?.logType).toBeUndefined();
+
+    // The in-flight flag was released: the next update still emits.
+    explode = false;
+    events.length = 0;
+    el.performUpdate();
+    const next = events.filter((e) => e.title === 'performUpdate:end');
+    expect(next).toHaveLength(1);
+    expect(next[0].logType).toBeUndefined();
+  });
 });

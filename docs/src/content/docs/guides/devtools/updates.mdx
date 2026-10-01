@@ -72,6 +72,11 @@ The changed-property keys are the actual answer to "why did this re-render".
 They come from Lit's own `changedProperties` map, so they are what the element
 reacted to, not an inference.
 
+A row marked _threw in update_ means that phase threw. The error's name is
+shown, and its message is in the tooltip. The component table counts such
+updates under ⚠, and `lit_update-summary` returns `errors` per component and
+`error` per cycle, so an agent sees them too.
+
 In the playground fixture below, clicking the provider's button bumps the
 marked `counter`. Both the provider and its consumer show a tick, and both name
 `counter` under Reasons.
