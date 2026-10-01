@@ -1,6 +1,5 @@
 import {LitElement, css, html, svg} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
-import {styleMap} from 'lit/directives/style-map.js';
 
 /**
  * The Lit flame, and three ways to play with it. Keep the page open and edit
@@ -126,7 +125,7 @@ export class LitFlame extends LitElement {
     return html`
       <div
         class="scene ${this.burning ? 'burning' : 'out'}"
-        style=${styleMap({'--shift': `${this.hue}deg`, '--size': size})}
+        style="--shift: ${this.hue}deg; --size: ${size}"
       >
         ${flame}
         <div class="controls">
