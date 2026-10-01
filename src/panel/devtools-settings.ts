@@ -1,5 +1,10 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
+import '@awesome.me/webawesome/dist/components/option/option.js';
+import '@awesome.me/webawesome/dist/components/select/select.js';
+import '@awesome.me/webawesome/dist/components/switch/switch.js';
+import type WaSelect from '@awesome.me/webawesome/dist/components/select/select.js';
+import type WaSwitch from '@awesome.me/webawesome/dist/components/switch/switch.js';
 import {tokens} from '../lib/tokens.js';
 import type {ColorSchemePreference} from '../lib/color-scheme.js';
 import {
@@ -169,26 +174,14 @@ export class DevtoolsSettings extends LitElement {
       .nudge button:hover {
         background: var(--lit-devtools-surface-hover);
       }
-      label.toggle {
-        display: inline-flex;
-        align-items: center;
-        gap: var(--lit-devtools-space-3);
-        cursor: pointer;
+      wa-switch,
+      wa-select {
         vertical-align: middle;
       }
-      input,
-      select {
-        accent-color: var(--lit-devtools-accent);
-        font: inherit;
+      wa-select {
+        display: inline-block;
+        min-width: 9em;
         font-family: var(--lit-devtools-font-mono);
-        vertical-align: middle;
-      }
-      select {
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text);
-        border: 1px solid var(--lit-devtools-border-strong);
-        border-radius: var(--lit-devtools-radius-sm);
-        padding: 1px var(--lit-devtools-space-2);
       }
       .row-disabled {
         opacity: 0.5;
@@ -408,11 +401,12 @@ export class DevtoolsSettings extends LitElement {
           <tr>
             <td class="key">color scheme</td>
             <td class="val">
-              <select
+              <wa-select
+                size="small"
+                .value=${this._colorScheme}
                 @change=${(e: Event) =>
                   this._setColorScheme(
-                    (e.target as HTMLSelectElement)
-                      .value as ColorSchemePreference
+                    (e.target as WaSelect).value as ColorSchemePreference
                   )}
               >
                 ${(
@@ -423,14 +417,9 @@ export class DevtoolsSettings extends LitElement {
                   ] as Array<[ColorSchemePreference, string]>
                 ).map(
                   ([value, label]) =>
-                    html`<option
-                      value=${value}
-                      ?selected=${this._colorScheme === value}
-                    >
-                      ${label}
-                    </option>`
+                    html`<wa-option value=${value}>${label}</wa-option>`
                 )}
-              </select>
+              </wa-select>
             </td>
           </tr>
         </table>
@@ -457,18 +446,14 @@ export class DevtoolsSettings extends LitElement {
         <tr>
           <td class="key">reconnect</td>
           <td class="val">
-            <label class="toggle">
-              <input
-                type="checkbox"
-                .checked=${reconnect}
-                @change=${(e: Event) =>
-                  this._set(
-                    'hmrReconnect',
-                    (e.target as HTMLInputElement).checked
-                  )}
-              />
+            <wa-switch
+              size="small"
+              .checked=${reconnect}
+              @change=${(e: Event) =>
+                this._set('hmrReconnect', (e.target as WaSwitch).checked)}
+            >
               ${reconnect ? 'on' : 'off'}
-            </label>
+            </wa-switch>
             ${this._ovrSource(
               'hmrReconnect',
               s.hmr.reconnect ? 'on' : 'off',
@@ -479,58 +464,54 @@ export class DevtoolsSettings extends LitElement {
         <tr>
           <td class="key">on incompatible</td>
           <td class="val">
-            <select
+            <wa-select
+              size="small"
+              .value=${onIncompatible}
               @change=${(e: Event) =>
                 this._set(
                   'hmrOnIncompatible',
-                  (e.target as HTMLSelectElement).value as 'reload' | 'warn'
+                  (e.target as WaSelect).value as 'reload' | 'warn'
                 )}
             >
-              <option value="reload" ?selected=${onIncompatible === 'reload'}>
-                reload
-              </option>
-              <option value="warn" ?selected=${onIncompatible === 'warn'}>
-                warn
-              </option>
-            </select>
+              <wa-option value="reload">reload</wa-option>
+              <wa-option value="warn">warn</wa-option>
+            </wa-select>
             ${this._ovrSource('hmrOnIncompatible', s.hmr.onIncompatible)}
           </td>
         </tr>
         <tr>
           <td class="key">child state</td>
           <td class="val">
-            <select
+            <wa-select
+              size="small"
+              .value=${childState}
               @change=${(e: Event) =>
                 this._set(
                   'hmrChildState',
-                  (e.target as HTMLSelectElement)
+                  (e.target as WaSelect)
                     .value as FeatureSettings['hmr']['childState']
                 )}
             >
               ${(['transfer', 'reuse', 'reset'] as const).map(
-                (mode) =>
-                  html`<option value=${mode} ?selected=${childState === mode}>
-                    ${mode}
-                  </option>`
+                (mode) => html`<wa-option value=${mode}>${mode}</wa-option>`
               )}
-            </select>
+            </wa-select>
             ${this._ovrSource('hmrChildState', s.hmr.childState)}
           </td>
         </tr>
         <tr class=${s.hmr.indicatorEnabled ? '' : 'row-disabled'}>
           <td class="key">indicator</td>
           <td class="val">
-            <label class="toggle">
-              <input
-                type="checkbox"
-                .checked=${indicatorVisible}
-                ?disabled=${!s.hmr.indicatorEnabled}
-                @change=${(e: Event) =>
-                  this._set(
-                    'hmrIndicatorVisible',
-                    (e.target as HTMLInputElement).checked
-                  )}
-              />
+            <wa-switch
+              size="small"
+              .checked=${indicatorVisible}
+              ?disabled=${!s.hmr.indicatorEnabled}
+              @change=${(e: Event) =>
+                this._set(
+                  'hmrIndicatorVisible',
+                  (e.target as WaSwitch).checked
+                )}
+            >
               ${
                 s.hmr.indicatorEnabled
                   ? indicatorVisible
@@ -538,7 +519,7 @@ export class DevtoolsSettings extends LitElement {
                     : 'hidden'
                   : 'off (config)'
               }
-            </label>
+            </wa-switch>
             ${this._ovrSource(
               'hmrIndicatorVisible',
               s.hmr.indicatorEnabled ? 'shown' : 'off (config)',
@@ -549,19 +530,15 @@ export class DevtoolsSettings extends LitElement {
         <tr class=${s.hmr.indicatorEnabled ? '' : 'row-disabled'}>
           <td class="key">indicator count</td>
           <td class="val">
-            <label class="toggle">
-              <input
-                type="checkbox"
-                .checked=${indicatorCount}
-                ?disabled=${!s.hmr.indicatorEnabled}
-                @change=${(e: Event) =>
-                  this._set(
-                    'hmrIndicatorCount',
-                    (e.target as HTMLInputElement).checked
-                  )}
-              />
+            <wa-switch
+              size="small"
+              .checked=${indicatorCount}
+              ?disabled=${!s.hmr.indicatorEnabled}
+              @change=${(e: Event) =>
+                this._set('hmrIndicatorCount', (e.target as WaSwitch).checked)}
+            >
               ${indicatorCount ? 'shown' : 'hidden'}
-            </label>
+            </wa-switch>
             ${this._ovrSource(
               'hmrIndicatorCount',
               s.hmr.indicatorCount ? 'shown' : 'hidden',
@@ -590,28 +567,25 @@ export class DevtoolsSettings extends LitElement {
       <tr>
         <td class="key">editor</td>
         <td class="val">
-          <select
+          <wa-select
+            size="small"
             ?disabled=${custom}
+            .value=${custom ? 'custom' : current}
             @change=${(e: Event) =>
               this._set(
                 'sourceOverlayEditor',
-                (e.target as HTMLSelectElement).value
+                String((e.target as WaSelect).value)
               )}
           >
             ${
               custom
-                ? html`<option value="custom" selected>Custom</option>`
+                ? html`<wa-option value="custom" disabled>Custom</wa-option>`
                 : SOURCE_OVERLAY_EDITORS.map(
                     (ed) =>
-                      html`<option
-                        value=${ed.value}
-                        ?selected=${ed.value === current}
-                      >
-                        ${ed.label}
-                      </option>`
+                      html`<wa-option value=${ed.value}>${ed.label}</wa-option>`
                   )
             }
-          </select>
+          </wa-select>
           ${this._ovrSource('sourceOverlayEditor', label, (v) =>
             editorLabel(String(v))
           )}
@@ -634,36 +608,28 @@ export class DevtoolsSettings extends LitElement {
         <tr>
           <td class="key">flash updates</td>
           <td class="val">
-            <label class="toggle">
-              <input
-                type="checkbox"
-                .checked=${flash}
-                @change=${(e: Event) =>
-                  this._set(
-                    'flashUpdates',
-                    (e.target as HTMLInputElement).checked
-                  )}
-              />
+            <wa-switch
+              size="small"
+              .checked=${flash}
+              @change=${(e: Event) =>
+                this._set('flashUpdates', (e.target as WaSwitch).checked)}
+            >
               ${flash ? 'on' : 'off'}
-            </label>
+            </wa-switch>
           </td>
         </tr>
         <tr class=${flash ? '' : 'row-disabled'}>
           <td class="key">colour by frequency</td>
           <td class="val">
-            <label class="toggle">
-              <input
-                type="checkbox"
-                .checked=${ramp}
-                ?disabled=${!flash}
-                @change=${(e: Event) =>
-                  this._set(
-                    'flashUpdatesRamp',
-                    (e.target as HTMLInputElement).checked
-                  )}
-              />
+            <wa-switch
+              size="small"
+              .checked=${ramp}
+              ?disabled=${!flash}
+              @change=${(e: Event) =>
+                this._set('flashUpdatesRamp', (e.target as WaSwitch).checked)}
+            >
               ${ramp ? 'calm → hot' : 'single colour'}
-            </label>
+            </wa-switch>
           </td>
         </tr>
       </table>
@@ -681,18 +647,14 @@ export class DevtoolsSettings extends LitElement {
         <tr>
           <td class="key">chrome performance tracks</td>
           <td class="val">
-            <label class="toggle">
-              <input
-                type="checkbox"
-                .checked=${chrome}
-                @change=${(e: Event) =>
-                  this._set(
-                    'chromeTracks',
-                    (e.target as HTMLInputElement).checked
-                  )}
-              />
+            <wa-switch
+              size="small"
+              .checked=${chrome}
+              @change=${(e: Event) =>
+                this._set('chromeTracks', (e.target as WaSwitch).checked)}
+            >
               ${chrome ? 'on' : 'off'}
-            </label>
+            </wa-switch>
           </td>
         </tr>
       </table>
