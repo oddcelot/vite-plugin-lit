@@ -1,5 +1,6 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
+import {classMap} from 'lit/directives/class-map.js';
 import {repeat} from 'lit/directives/repeat.js';
 import {tokens} from '../lib/tokens.js';
 import {summarizeUpdates} from '../lib/timeline/model.js';
@@ -107,6 +108,21 @@ export class UpdatesView extends LitElement {
       }
       .cause {
         color: var(--lit-devtools-text-muted);
+        flex-shrink: 0;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .errors {
+        color: var(--lit-devtools-error);
+        flex-shrink: 0;
+      }
+      .row.failed {
+        background: var(--lit-devtools-error-soft);
+      }
+      .row .threw {
+        color: var(--lit-devtools-error);
         flex-shrink: 0;
         max-width: 200px;
         overflow: hidden;
@@ -297,6 +313,13 @@ export class UpdatesView extends LitElement {
           >${entry.reasons.map((r) => r.key).join(', ')}</span
         >
         <span class="num" title="Updates recorded">${entry.updates}×</span>
+        ${
+          entry.errors > 0
+            ? html`<span class="errors" title="Updates in which a phase threw"
+                >⚠ ${entry.errors}</span
+              >`
+            : nothing
+        }
         <span class="num" title="Total time in performUpdate"
           >${formatMs(entry.totalMs)}</span
         >
@@ -344,7 +367,7 @@ export class UpdatesView extends LitElement {
             cycles,
             (cycle) => cycle.key,
             (cycle) => html`
-              <div class="row">
+              <div class=${classMap({row: true, failed: !!cycle.error})}>
                 <span class="time">${cycle.start.toFixed(1)}ms</span>
                 <span class="num">${formatMs(cycle.duration)}</span>
                 <span class="tag"
@@ -355,6 +378,14 @@ export class UpdatesView extends LitElement {
                   }</span
                 >
                 <span class="cause">${renderCause(cycle)}</span>
+                ${
+                  cycle.error
+                    ? html`<span class="threw" title=${cycle.error.message}
+                        >threw in ${cycle.error.phase}:
+                        ${cycle.error.name}</span
+                      >`
+                    : nothing
+                }
                 <a
                   class="link"
                   title="Open this instance in the Components tab"
