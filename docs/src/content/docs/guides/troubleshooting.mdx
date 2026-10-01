@@ -348,7 +348,8 @@ neither jsdom nor Node provides one.
 `[lit-plugin] timeline is on, but Vite DevTools never mounted the Lit panel.`
 warning.
 
-**Fix.** Add `DevTools()` to `plugins`, or work through
+**Fix.** Add `DevTools()` to `plugins` (under Vite+, a `devtools:` key in the
+config does the same; use one, not both), or work through
 [Set up the DevTools panel](/vite-plugin-lit/guides/devtools/).
 
 ### Vite errors with DTK0034

@@ -179,8 +179,9 @@ const warnDevToolsMissing = (): void => {
   warnedDevToolsMissing = true;
   console.warn(
     `[lit-plugin] timeline is on, but Vite DevTools never mounted the Lit ` +
-      `panel. Add DevTools() from @vitejs/devtools to \`plugins\` to get ` +
-      `it, or set \`timeline: false\` to stop injecting the page runtime.`
+      `panel. Add DevTools() from @vitejs/devtools to \`plugins\` (or a ` +
+      `\`devtools:\` key under Vite+) to get it, or set \`timeline: false\` ` +
+      `to stop injecting the page runtime.`
   );
 };
 
