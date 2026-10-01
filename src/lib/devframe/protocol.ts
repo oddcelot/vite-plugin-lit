@@ -179,6 +179,8 @@ export interface LitGetMetaResult {
   /** Built-in layers followed by any runtime-announced custom ones. */
   layers: TimelineLayer[];
   features: FeatureSettings | null;
+  /** Whether the page can pick an element for the Components tab. */
+  picker: boolean;
   /** Channel and id to pass to `rpc.streaming.subscribe()`. */
   stream: {channel: string; id: string};
 }

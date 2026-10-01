@@ -81,9 +81,14 @@ let snapshot = false;
 export const setSnapshot = (next: boolean): void => {
   snapshot = next;
 };
-export const meta: {layers: TimelineLayer[]; features: unknown} = {
+export const meta: {
+  layers: TimelineLayer[];
+  features: unknown;
+  picker: boolean;
+} = {
   layers: [],
   features: null,
+  picker: false,
 };
 
 export const litRpc = async () => client;
@@ -100,5 +105,6 @@ export const resetClient = (): void => {
   states.clear();
   meta.layers = [];
   meta.features = null;
+  meta.picker = false;
   snapshot = false;
 };

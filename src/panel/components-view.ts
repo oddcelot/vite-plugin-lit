@@ -305,11 +305,10 @@ export class ComponentsView extends LitElement {
   @state() private _expanded = new Set<number>();
   @state() private _picking = false;
   /**
-   * Whether the page has a picker to toggle. The picker is the source
-   * overlay, which only the Vite plugin injects and only with
-   * `sourceOverlay` on: a page fed by `lit-devtools dev` (no build-time
-   * source metadata) or a frozen snapshot has none, and a Pick button there
-   * would light up and do nothing.
+   * Whether the page has a picker to toggle, as `get-meta` reports it: the
+   * source overlay under Vite (only with `sourceOverlay` on), the standalone
+   * script's own under `lit-devtools dev`. A frozen snapshot has no page, and
+   * a Pick button with no picker behind it would light up and do nothing.
    */
   @state() private _canPick = false;
   /** Opt-in live tree (MutationObserver in the page); persisted, default off. */
@@ -393,8 +392,7 @@ export class ComponentsView extends LitElement {
       });
       void getMeta().then(
         (meta) => {
-          this._canPick =
-            !isSnapshot() && meta.features?.sourceOverlay.enabled === true;
+          this._canPick = !isSnapshot() && meta.picker;
         },
         () => {
           // No meta, no picker to offer.

@@ -79,6 +79,12 @@ export interface CreateLitDevframeOptions {
   /** Resolved feature settings, surfaced by `get-meta`. */
   features?: () => FeatureSettings | null;
   /**
+   * Whether the page has an element picker for the panel's Pick button.
+   * Defaults to the source overlay being enabled, which is the Vite host's
+   * picker; the standalone host ships one of its own.
+   */
+  picker?: () => boolean;
+  /**
    * Directory holding the built panel SPA. Defaults to the package's own
    * `dist/client`; the dev-time panel build points it elsewhere.
    */
@@ -117,6 +123,8 @@ export function createLitDevframe(
 ): DevframeDefinition {
   const {source, version, features, replay, sourceLocator, configuredEditor} =
     options;
+  const picker =
+    options.picker ?? (() => features?.()?.sourceOverlay.enabled === true);
 
   return defineDevframe({
     id: LIT_DEVFRAME_ID,
@@ -347,6 +355,7 @@ export function createLitDevframe(
             // get a plain, mutable `TimelineLayer[]`.
             layers: [...TIMELINE_LAYERS, ...session.value().customLayers],
             features: features ? features() : null,
+            picker: picker(),
             stream: {
               channel: `${LIT_DEVFRAME_ID}:${TIMELINE_STREAM_NAME}`,
               id: TIMELINE_STREAM_ID,

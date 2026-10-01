@@ -8,6 +8,7 @@ import type {SessionState} from '../../lib/devframe/protocol.js';
 import type {TimelineSink, TimelineSource} from '../../lib/devframe/source.js';
 import type {InspectorCommand} from '../../types/inspector.js';
 import type {
+  FeatureSettings,
   SettingsOverride,
   TimelineLayersState,
 } from '../../types/timeline.js';
@@ -330,6 +331,29 @@ describe('lit devframe definition', () => {
     ]);
     expect(meta.stream).toEqual({channel: 'lit:timeline', id: 'live'});
     expect(meta.features).toBeNull();
+    // No overlay, no picker.
+    expect(meta.picker).toBe(false);
+  });
+
+  test('get-meta reports a picker when the source overlay is on', async () => {
+    instance = initDevframe(
+      createLitDevframe({
+        source: new FakeSource(),
+        version: '9.9.9',
+        features: () =>
+          ({sourceOverlay: {enabled: true}}) as unknown as FeatureSettings,
+      }),
+      {
+        base: '/__lit/',
+        distDir: false,
+        ws: false,
+        sse: false,
+        getStorageDir: () => './node_modules/.tmp-lit-devframe-test',
+      }
+    );
+    const ctx = await instance.context;
+    await instance.ready;
+    expect((await ctx.rpc.invokeLocal('lit:get-meta')).picker).toBe(true);
   });
 
   test('actions mutate the session and reach the page runtime', async () => {

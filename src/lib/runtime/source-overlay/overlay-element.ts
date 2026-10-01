@@ -4,7 +4,9 @@ import {
   defaultResolver,
   findSourceAtPoint,
   findSourceHost,
-  type ElementResolver,
+  hasSourceMeta,
+  isLitElement,
+  type HostTest,
 } from './source-host.js';
 import {buildSpotlightClipPath} from './mask-path.js';
 import {OVERLAY_HTML} from './template.js';
@@ -26,21 +28,34 @@ export interface SourceOverlayInitOptions {
   exclude?: (el: Element) => boolean;
   onSelect?: (info: ElementInfo) => void;
   openInEditorPath?: string;
+  /**
+   * What can be picked. `source` (the default) is components the source-meta
+   * transform stamped, which have a file to open. `lit` is any Lit element,
+   * for pages with no transform (`lit-devtools dev`): those pick into the
+   * panel but have no source to show, open or copy.
+   */
+  hosts?: 'source' | 'lit';
+  /** Called with the picked element's id after the panel is told. */
+  onPick?: (id: number) => void;
 }
+
+/** What the tooltip shows for the element under the pointer. */
+type PickInfo = Omit<ElementInfo, 'source'> & {source?: ElementInfo['source']};
 
 class LitSourceOverlay extends HTMLElement {
   #active = false;
-  #hot: typeof pageChannel | undefined;
   #options: SourceOverlayInitOptions = {};
   #editor: EditorConfig = BUILTIN_EDITORS.vscode;
-  #resolver: ElementResolver = defaultResolver;
+  #isHost: HostTest = hasSourceMeta;
   #dialog: HTMLDialogElement;
   #mask: HTMLElement;
   #highlight: HTMLElement;
   #tooltip: HTMLElement;
   #tag: HTMLElement;
   #path: HTMLElement;
-  #info: ElementInfo | null = null;
+  #open: HTMLElement;
+  #copy: HTMLElement;
+  #info: PickInfo | null = null;
   #targetEl: Element | null = null;
   #throttleTimer: ReturnType<typeof setTimeout> | undefined;
   #scrollTimer: ReturnType<typeof setTimeout> | undefined;
@@ -66,14 +81,17 @@ class LitSourceOverlay extends HTMLElement {
     this.#tooltip = root.getElementById('tooltip')!;
     this.#tag = root.getElementById('tag')!;
     this.#path = root.getElementById('path')!;
-    root.getElementById('open')!.addEventListener('click', (e) => {
+    this.#open = root.getElementById('open')!;
+    this.#copy = root.getElementById('copy')!;
+    this.#open.addEventListener('click', (e) => {
       e.stopPropagation();
       if (this.#info !== null) this.#select(this.#info, true);
     });
-    root.getElementById('copy')!.addEventListener('click', (e) => {
+    this.#copy.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (this.#info === null) return;
-      const text = `${this.#normalizePath(this.#info.source.filePath)}:${this.#info.source.lineNumber}`;
+      const source = this.#info?.source;
+      if (source === undefined) return;
+      const text = `${this.#normalizePath(source.filePath)}:${source.lineNumber}`;
       void navigator.clipboard?.writeText(text);
     });
     this.#dialog.addEventListener('cancel', (e) => e.preventDefault());
@@ -93,22 +111,26 @@ class LitSourceOverlay extends HTMLElement {
       }
     ).hot;
     if (hot !== undefined) pageChannel.useViteHot(hot);
-    this.#hot = hot === undefined ? undefined : pageChannel;
-    if (hot !== undefined && this.#hotOff === undefined) {
+    if (this.#hotOff === undefined) {
       // Removed again in disconnectedCallback, so a re-attached overlay
       // doesn't stack duplicates and a detached one stops reacting.
-      const handlers: Array<[string, (data?: unknown) => void]> = [
-        ['vite:beforeFullReload', () => this.deactivate()],
-        ['vite:ws:disconnect', () => (this.#connected = false)],
-        ['vite:ws:connect', () => (this.#connected = true)],
-      ];
-      for (const [event, cb] of handlers) hot.on(event, cb);
-      // Toggle from the Vite DevTools command/shortcut (handler runs server-side).
+      const handlers: Array<[string, (data?: unknown) => void]> =
+        hot === undefined
+          ? []
+          : [
+              ['vite:beforeFullReload', () => this.deactivate()],
+              ['vite:ws:disconnect', () => (this.#connected = false)],
+              ['vite:ws:connect', () => (this.#connected = true)],
+            ];
+      for (const [event, cb] of handlers) hot?.on(event, cb);
+      // Toggle from the panel's Pick button or the Vite DevTools command
+      // (handled server-side). The page channel carries it under Vite and,
+      // once `connectToDevServer()` attaches its carrier, without.
       const offToggle = pageChannel.on(INSPECT_OVERLAY_TOGGLE_CHANNEL, () =>
         this.toggle()
       );
       this.#hotOff = () => {
-        for (const [event, cb] of handlers) hot.off(event, cb);
+        for (const [event, cb] of handlers) hot?.off(event, cb);
         offToggle();
       };
     }
@@ -142,6 +164,7 @@ class LitSourceOverlay extends HTMLElement {
   configure(options: SourceOverlayInitOptions) {
     this.#options = options;
     this.#editor = resolveEditor(options.editor);
+    this.#isHost = options.hosts === 'lit' ? isLitElement : hasSourceMeta;
   }
 
   activate() {
@@ -249,8 +272,18 @@ class LitSourceOverlay extends HTMLElement {
 
   #showTooltip() {
     if (this.#info === null) return;
+    const {source} = this.#info;
     this.#tag.textContent = `<${this.#info.tagName}>`;
-    this.#path.textContent = `${this.#normalizePath(this.#info.source.filePath)}:${this.#info.source.lineNumber}`;
+    // Without a source there is nothing to show, open or copy; the tooltip
+    // still names what a click will pick.
+    this.#path.textContent =
+      source === undefined
+        ? ''
+        : `${this.#normalizePath(source.filePath)}:${source.lineNumber}`;
+    const sourceDisplay = source === undefined ? 'none' : '';
+    this.#path.style.display = sourceDisplay;
+    this.#open.style.display = sourceDisplay;
+    this.#copy.style.display = sourceDisplay;
     this.#tooltip.style.display = 'flex';
   }
 
@@ -285,12 +318,12 @@ class LitSourceOverlay extends HTMLElement {
   async #resolveAt(x: number, y: number) {
     this.#lastMouseX = x;
     this.#lastMouseY = y;
-    const el = findSourceAtPoint(x, y, this.#dialog);
+    const el = findSourceAtPoint(x, y, this.#dialog, this.#isHost);
     if (el === null || this.#shouldSkip(el)) {
       this.#clearTarget();
       return;
     }
-    const host = findSourceHost(el);
+    const host = findSourceHost(el, this.#isHost);
     if (host === null) {
       this.#clearTarget();
       return;
@@ -308,7 +341,13 @@ class LitSourceOverlay extends HTMLElement {
       this.#resizeObserver.disconnect();
     }
     this.#resizeObserver.observe(host);
-    const resolved = await this.#resolver.resolveElementInfo(el);
+    const resolved: PickInfo | null =
+      this.#options.hosts === 'lit'
+        ? {
+            tagName: host.tagName.toLowerCase(),
+            componentName: host.constructor.name || undefined,
+          }
+        : await defaultResolver.resolveElementInfo(el);
     if (resolved === null) {
       this.#clearTarget();
       return;
@@ -359,22 +398,25 @@ class LitSourceOverlay extends HTMLElement {
     }, throttleMs);
   };
 
-  #select(info: ElementInfo, openInEditor = false) {
+  #select(info: PickInfo, openInEditor = false) {
     const target = this.#targetEl;
     // Cancel the whole selection mode on any deliberate pick, before acting —
     // the editor may open via a URL scheme that doesn't navigate this tab away,
     // so we can't rely on the open outcome to dismiss the inspector.
     this.deactivate();
-    this.#options.onSelect?.(info);
-    if (openInEditor) {
-      void this.#openInEditor(info.source.filePath, info.source.lineNumber);
+    const {source} = info;
+    if (source !== undefined) this.#options.onSelect?.({...info, source});
+    if (openInEditor && source !== undefined) {
+      void this.#openInEditor(source.filePath, source.lineNumber);
       return;
     }
     // Report the picked element to the DevTools panel, which selects it in the
     // Components tree. Identity matches the inspector runtime via idOf().
     if (target !== null) {
-      this.#hot?.send(INSPECT_DATA_CHANNEL, {type: 'pick', id: idOf(target)});
+      const id = idOf(target);
+      pageChannel.send(INSPECT_DATA_CHANNEL, {type: 'pick', id});
       this.#openDevtoolsPanel();
+      this.#options.onPick?.(id);
     }
   }
 
