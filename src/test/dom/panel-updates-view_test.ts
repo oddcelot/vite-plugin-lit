@@ -124,7 +124,7 @@ test('an instance link asks the shell to open it in Components', async () => {
   document.body.addEventListener('inspect-element', (e) =>
     inspected.push((e as CustomEvent<{id: number}>).detail.id)
   );
-  root.querySelector<HTMLElement>('.cycles .row a.link')!.click();
+  root.querySelector<HTMLElement>('.cycles .row .link')!.click();
   expect(inspected).toEqual([1]);
 });
 
@@ -151,8 +151,8 @@ test('flags a component and an update in which a phase threw', async () => {
   ];
   setEvents(failing);
   await settle();
-  expect(root.querySelector('.components .errors')?.textContent).toContain(
-    '⚠ 1'
+  expect(root.querySelector('.components .errors')?.textContent).toMatch(
+    /\s1\s*$/
   );
   el.selectById(1);
   await settle();

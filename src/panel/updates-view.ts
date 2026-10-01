@@ -11,6 +11,9 @@ import {
   getTimelineEvents,
   subscribeTimeline,
 } from './timeline-store.js';
+import '@awesome.me/webawesome/dist/components/badge/badge.js';
+import '@awesome.me/webawesome/dist/components/button/button.js';
+import '@awesome.me/webawesome/dist/components/icon/icon.js';
 import {openInEditor} from './open-in-editor.js';
 
 /**
@@ -115,14 +118,12 @@ export class UpdatesView extends LitElement {
         white-space: nowrap;
       }
       .errors {
-        color: var(--lit-devtools-error);
         flex-shrink: 0;
       }
       .row.failed {
         background: var(--lit-devtools-error-soft);
       }
       .row .threw {
-        color: var(--lit-devtools-error);
         flex-shrink: 0;
         max-width: 200px;
         overflow: hidden;
@@ -153,11 +154,9 @@ export class UpdatesView extends LitElement {
         flex-shrink: 0;
       }
       .change .badge {
-        color: var(--lit-devtools-accent);
         flex-shrink: 0;
       }
       .redundant {
-        color: var(--lit-devtools-accent);
         flex-shrink: 0;
       }
       .time {
@@ -186,14 +185,6 @@ export class UpdatesView extends LitElement {
         padding: var(--lit-devtools-space-5);
         color: var(--lit-devtools-error);
         font-size: var(--lit-devtools-text-xs);
-      }
-      a {
-        color: var(--lit-devtools-accent);
-        text-decoration: none;
-        cursor: pointer;
-      }
-      a:hover {
-        text-decoration: underline;
       }
       .link {
         flex-shrink: 0;
@@ -345,28 +336,44 @@ export class UpdatesView extends LitElement {
         >
         ${
           entry.redundantChanges
-            ? html`<span
+            ? html`<wa-badge
                 class="redundant"
+                variant="warning"
                 title=${`Changed to a new reference with equal content in these updates: ${entry.redundantChanges
                   .map((c) => `${c.key} ×${c.count}`)
                   .join(', ')}`}
-                >≡ ${entry.redundantChanges.length}</span
-              >`
+                
+                <wa-icon name="equals"></wa-icon>
+                ${entry.redundantChanges.length}
+              </wa-badge>`
             : nothing
         }
-        <span class="num" title="Updates recorded">${entry.updates}×</span>
+        <span class="num" title="Updates recorded"
+          ><wa-badge appearance="outlined" variant="neutral"
+            >${entry.updates}×</wa-badge
+          ></span
+        >
         ${
           entry.errors > 0
-            ? html`<span class="errors" title="Updates in which a phase threw"
-                >⚠ ${entry.errors}</span
-              >`
+            ? html`<wa-badge
+                class="errors"
+                variant="danger"
+                title="Updates in which a phase threw"
+              >
+                <wa-icon name="triangle-exclamation"></wa-icon>
+                ${entry.errors}
+              </wa-badge>`
             : nothing
         }
         <span class="num" title="Total time in performUpdate"
-          >${formatMs(entry.totalMs)}</span
+          ><wa-badge appearance="outlined" variant="neutral"
+            >${formatMs(entry.totalMs)}</wa-badge
+          ></span
         >
         <span class="num" title="Slowest single update"
-          >${formatMs(entry.maxMs)}</span
+          ><wa-badge appearance="outlined" variant="neutral"
+            >${formatMs(entry.maxMs)}</wa-badge
+          ></span
         >
       </div>
     `;
@@ -394,12 +401,19 @@ export class UpdatesView extends LitElement {
           <span>&lt;${this._selectedTag}&gt; updates</span>
           ${
             source
-              ? html`<a
+              ? html`<wa-button
                   class="link"
+                  appearance="plain"
+                  size="small"
                   title="Open this file in your editor"
                   @click=${() => openInEditor(source.file, source.line)}
-                  >${source.file}:${source.line}</a
-                >`
+                >
+                  ${source.file}:${source.line}
+                  <wa-icon
+                    slot="end"
+                    name="arrow-up-right-from-square"
+                  ></wa-icon>
+                </wa-button>`
               : nothing
           }
           <span class="count">${cycles.length}</span>
@@ -422,17 +436,22 @@ export class UpdatesView extends LitElement {
                 <span class="cause">${renderCause(cycle)}</span>
                 ${
                   cycle.error
-                    ? html`<span class="threw" title=${cycle.error.message}
+                    ? html`<wa-badge
+                        class="threw"
+                        variant="danger"
+                        title=${cycle.error.message}
                         >threw in ${cycle.error.phase}:
-                        ${cycle.error.name}</span
+                        ${cycle.error.name}</wa-badge
                       >`
                     : nothing
                 }
-                <a
+                <wa-button
                   class="link"
+                  appearance="plain"
+                  size="small"
                   title="Open this instance in the Components tab"
                   @click=${() => this._inspect(cycle.elementId)}
-                  >#${cycle.elementId}</a
+                  >#${cycle.elementId}</wa-button
                 >
               </div>
               ${
@@ -446,10 +465,18 @@ export class UpdatesView extends LitElement {
                           <span class="value" title=${c.next}>${c.next}</span>
                           ${
                             c.sameRef
-                              ? html`<span class="badge">same reference</span>`
+                              ? html`<wa-badge
+                                  class="badge"
+                                  appearance="outlined"
+                                  variant="neutral"
+                                  >same reference</wa-badge
+                                >`
                               : c.equal
-                                ? html`<span class="badge"
-                                    >new reference, same value</span
+                                ? html`<wa-badge
+                                    class="badge"
+                                    appearance="outlined"
+                                    variant="neutral"
+                                    >new reference, same value</wa-badge
                                   >`
                                 : nothing
                           }
