@@ -197,6 +197,32 @@ describe('lit devframe definition', () => {
     ).toEqual({details: [], missing: [], truncated: false});
   });
 
+  test('list-components bounds the tree with maxDepth', async () => {
+    const {source, ctx} = await boot({inspectorTimeoutMs: 20});
+    const full: InspectorTreeNode[] = [
+      {
+        id: 1,
+        tagName: 'x-app',
+        children: [
+          {
+            id: 2,
+            tagName: 'x-a',
+            children: [{id: 3, tagName: 'x-b', children: []}],
+          },
+        ],
+      },
+    ];
+    source.sink!.inspectorMessage({type: 'tree', roots: full});
+    expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual(full);
+    expect(
+      await ctx.rpc.invokeLocal('lit:list-components', {maxDepth: 1})
+    ).toEqual([{id: 1, tagName: 'x-app', children: [], hiddenChildren: 1}]);
+    // Not a usable depth: the whole tree, as if omitted.
+    expect(
+      await ctx.rpc.invokeLocal('lit:list-components', {maxDepth: 0})
+    ).toEqual(full);
+  });
+
   test('list-components falls back to the cache when nothing answers', async () => {
     const {source, ctx} = await boot({inspectorTimeoutMs: 20});
     source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]});

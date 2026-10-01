@@ -3,6 +3,7 @@ import {
   capTail,
   createRecordingSession,
   findByTag,
+  pruneTree,
   sinceWindow,
 } from '../../lib/devframe/session.js';
 import {RECENT_EVENTS_BUFFER_SIZE} from '../../lib/devframe/protocol.js';
@@ -238,6 +239,48 @@ describe('findByTag', () => {
     expect(findByTag(many, 'x-row', 1000).ids).toHaveLength(50);
     expect(findByTag(many, 'x-row', Number.NaN).ids).toHaveLength(20);
     expect(findByTag(many, 'x-row', 0).ids).toHaveLength(20);
+  });
+});
+
+describe('pruneTree', () => {
+  const tree = (): InspectorTreeNode[] => [
+    {
+      id: 1,
+      tagName: 'x-app',
+      children: [
+        {
+          id: 2,
+          tagName: 'x-a',
+          children: [{id: 3, tagName: 'x-leaf', children: []}],
+        },
+        {id: 4, tagName: 'x-b', children: []},
+      ],
+    },
+  ];
+
+  test('depth 1 keeps the roots and counts what it dropped', () => {
+    expect(pruneTree(tree(), 1)).toEqual([
+      {id: 1, tagName: 'x-app', children: [], hiddenChildren: 2},
+    ]);
+  });
+
+  test('depth 2 leaves childless nodes without hiddenChildren', () => {
+    const [app] = pruneTree(tree(), 2);
+    expect(app!.hiddenChildren).toBeUndefined();
+    expect(app!.children).toEqual([
+      {id: 2, tagName: 'x-a', children: [], hiddenChildren: 1},
+      {id: 4, tagName: 'x-b', children: []},
+    ]);
+  });
+
+  test('a depth past the tree returns an equal copy', () => {
+    expect(pruneTree(tree(), 9)).toEqual(tree());
+  });
+
+  test('never mutates its input', () => {
+    const input = tree();
+    pruneTree(input, 1);
+    expect(input).toEqual(tree());
   });
 });
 

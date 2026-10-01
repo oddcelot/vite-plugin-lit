@@ -116,6 +116,21 @@ export const sinceWindow = <T extends TimelineEvent>(
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
+/** Copy of `nodes` cut off below `maxDepth` levels (1 = roots only). */
+export const pruneTree = (
+  nodes: readonly InspectorTreeNode[],
+  maxDepth: number
+): InspectorTreeNode[] =>
+  nodes.map((node) => {
+    if (maxDepth > 1) {
+      return {...node, children: pruneTree(node.children, maxDepth - 1)};
+    }
+    const {children} = node;
+    return children.length > 0
+      ? {...node, children: [], hiddenChildren: children.length}
+      : {...node, children: []};
+  });
+
 const DEFAULT_TAG_MATCHES = 20;
 const MAX_TAG_MATCHES = 50;
 

@@ -200,6 +200,15 @@ export interface LitGetMetaResult {
   activePageId?: string;
 }
 
+/** Argument of the `list-components` query. */
+export interface ListComponentsArgs {
+  /**
+   * Levels of the tree to return: 1 is the roots only. Nodes cut off by the
+   * limit carry `hiddenChildren`. Omit for the whole tree.
+   */
+  maxDepth?: number;
+}
+
 /**
  * Argument of the `component-details` query: one element, or every element
  * of a tag.
@@ -312,7 +321,9 @@ export const LAYER_FLAGS: Readonly<Record<string, keyof TimelineLayersState>> =
 declare module 'devframe' {
   interface DevframeRpcServerFunctions {
     'lit:get-meta': () => Promise<LitGetMetaResult>;
-    'lit:list-components': () => Promise<InspectorTreeNode[]>;
+    'lit:list-components': (
+      args?: ListComponentsArgs
+    ) => Promise<InspectorTreeNode[]>;
     'lit:component-details': (
       args: ComponentDetailsArgs
     ) => Promise<InspectorDetails | null | ComponentDetailsByTagResult>;

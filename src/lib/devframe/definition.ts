@@ -55,6 +55,7 @@ import {
   TIMELINE_STREAM_NAME,
   type ComponentDetailsArgs,
   type ComponentDetailsByTagResult,
+  type ListComponentsArgs,
   type LitGetMetaResult,
   type RecentEventsArgs,
   type RecentEventsResult,
@@ -70,7 +71,7 @@ import {
 } from './protocol.js';
 import {resolveLaunchEditor} from './launch-editor.js';
 import {createInspectorRequester} from './inspector-request.js';
-import {createRecordingSession, findByTag} from './session.js';
+import {createRecordingSession, findByTag, pruneTree} from './session.js';
 import {createNullSource, type TimelineSource} from './source.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
 
@@ -440,9 +441,19 @@ export function createLitDevframe(
           snapshot: true,
           agent: {
             description:
-              'List the live Lit component tree of the inspected page, read from the page on each call. Call this before asking about a specific element to find its id.',
+              'List the live Lit component tree of the inspected page, read from the page on each call. Call this to find an element id, or to see how components nest. Pass maxDepth (1 = top-level components only) to bound a large tree: nodes cut off by it have empty children and carry hiddenChildren, the number of children dropped; omit it for the whole tree. If you already know the tag name, skip this and pass tagName to lit:component-details or lit:recent-events.',
           },
-          handler: currentRoots,
+          // `args` is absent when called with no filters (the baked
+          // snapshot call too), so it must default.
+          handler: async (
+            args: ListComponentsArgs = {}
+          ): Promise<InspectorTreeNode[]> => {
+            const roots = await currentRoots();
+            const depth = args.maxDepth;
+            return depth !== undefined && Number.isFinite(depth) && depth >= 1
+              ? pruneTree(roots, Math.floor(depth))
+              : roots;
+          },
         })
       );
 
