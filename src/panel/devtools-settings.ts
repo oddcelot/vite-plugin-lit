@@ -73,7 +73,9 @@ export class DevtoolsSettings extends LitElement {
         font-size: var(--lit-devtools-text-xs);
       }
       .reset {
-        margin-left: auto;
+        display: block;
+        width: fit-content;
+        margin-top: var(--wa-space-xs);
       }
       table {
         width: 100%;
