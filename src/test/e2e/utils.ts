@@ -45,6 +45,13 @@ export interface Fixture {
    * silently vacuous.
    */
   edit(rel: string, transform: (code: string) => string): Promise<void>;
+  /**
+   * Names the layer a poll on the last `edit` stalled at, for the failure
+   * message of a timed-out wait: the watcher never saw the write, the page
+   * never applied an HMR update, or an update landed but the DOM didn't
+   * change. Diagnostic only; call it from a catch.
+   */
+  stalledLayer(): Promise<string>;
   close(): Promise<void>;
 }
 
@@ -141,6 +148,12 @@ export const startFixture = async (
         ? [litCssQueries(), litTimelineVirtual()]
         : [litPlugin(options.plugin ?? {})],
   });
+  // Every watcher `change` since boot, so a timed-out wait after `edit` can
+  // say whether the write ever reached Vite (see `stalledLayer`).
+  const watcherChanges: {file: string; at: number}[] = [];
+  server.watcher.on('change', (file) =>
+    watcherChanges.push({file, at: Date.now()})
+  );
   await server.listen();
   const address = server.httpServer!.address();
   if (address === null || typeof address !== 'object') {
@@ -169,6 +182,14 @@ export const startFixture = async (
   // (clicks, focus) immune to it.
   await page.reload();
   await ready();
+
+  let lastEdit: {file: string; at: number; updates: number | null} | undefined;
+  const pageUpdates = () =>
+    page
+      .evaluate(
+        () => (window as unknown as {__hmr: {updates: number}}).__hmr.updates
+      )
+      .catch(() => null);
 
   return {
     server,
@@ -201,7 +222,25 @@ export const startFixture = async (
       if (next === code) {
         throw new Error(`edit produced no change: ${rel}`);
       }
+      lastEdit = {file, at: Date.now(), updates: await pageUpdates()};
       await writeFile(file, next);
+    },
+    stalledLayer: async () => {
+      if (lastEdit === undefined) {
+        return 'stalled layer unknown: no edit was made';
+      }
+      const {file, at, updates} = lastEdit;
+      const seen = watcherChanges.filter((c) => c.file === file && c.at >= at);
+      const now = await pageUpdates();
+      const since = Date.now() - at;
+      if (seen.length === 0) {
+        return `stalled at the watcher: no change event for ${file} in ${since}ms after the write (${watcherChanges.length} events since boot)`;
+      }
+      const lag = seen[0]!.at - at;
+      if (updates === null || now === null || now <= updates) {
+        return `stalled at HMR: watcher saw ${file} after ${lag}ms (${seen.length} events) but the page applied no update (vite:afterUpdate count ${updates} -> ${now})`;
+      }
+      return `stalled at the DOM: watcher saw ${file} after ${lag}ms and the page applied ${now - updates} update(s), but the expected change never showed`;
     },
     close: async () => {
       await browser.close();
