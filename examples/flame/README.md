@@ -42,12 +42,13 @@ reload and you would start again from a lit, unstoked, blue flame.
 ## In this repository
 
 The example is a workspace package and links the plugin built from this
-checkout. From the repository root:
+checkout:
 
 ```sh
-pnpm install
-pnpm build
-vp dev examples/flame
+pnpm install      # from the repository root
+pnpm build        # builds the plugin the example links
+cd examples/flame
+pnpm dev
 ```
 
 On StackBlitz it installs the published plugin and plain Vite with npm.
