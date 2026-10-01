@@ -1,6 +1,6 @@
 import {afterEach, beforeAll, expect, test, vi} from 'vite-plus/test';
 import type {ComponentsView} from '../../panel/components-view.js';
-import type {InspectorTreeNode} from '../../types/inspector.js';
+import type {InspectorExtra, InspectorTreeNode} from '../../types/inspector.js';
 import {
   answers,
   calls,
@@ -146,4 +146,51 @@ test('never arms Live in a snapshot', async () => {
   localStorage.setItem(LIVE_LS_KEY, 'true');
   const {inspects} = await mount();
   expect(inspects()).toEqual([]);
+});
+
+const detailsFor = (extras?: InspectorExtra[]) => ({
+  id: 2,
+  tagName: 'x-button',
+  attributes: [],
+  properties: [],
+  flags: {hasUpdated: true, isUpdatePending: false, hasShadowRoot: false},
+  ...(extras === undefined ? {} : {extras}),
+});
+
+test('lists instance state below the other tables', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: detailsFor([
+      {
+        kind: 'task',
+        name: 'userTask',
+        value: '[1, 2]',
+        type: 'Task',
+        status: 'complete',
+      },
+      {kind: 'signal', name: 'count', value: '7', type: 'Signal.State'},
+    ]),
+  });
+  await flush(el);
+  const details = root.querySelector('.details')!;
+  const labels = [...details.querySelectorAll('.label')].map(
+    (l) => l.textContent
+  );
+  expect(labels).toEqual(['Instance']);
+  const rows = [...details.querySelectorAll('tr')].map((r) =>
+    r.textContent!.replace(/\s+/g, ' ').trim()
+  );
+  // The badges sit flush against the name, so the cell text runs together.
+  expect(rows).toEqual(['userTasktaskcomplete [1, 2]', 'countsignal 7']);
+});
+
+test('shows no Instance section without extras', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: detailsFor()});
+  await flush(el);
+  expect(root.querySelector('.details h2')!.textContent).toBe('<x-button>');
+  expect(root.querySelector('.details .label')).toBeNull();
 });
