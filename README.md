@@ -18,6 +18,10 @@ The playground with HMR and the Vite DevTools dock: click the counter, edit
 [Standalone mode](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?file=package.json&startScript=standalone)
 runs the same page as static files, without Vite, next to the DevTools panel
 on its own port.
+For the short version, the
+[Lit flame example](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/examples/flame?file=src/lit-flame.ts)
+is one component: turn its colours, stoke it and blow it out, then edit it and
+watch its state, `#private` field and colours survive.
 
 Started life in a fork of the [lit monorepo](https://github.com/lit/lit) as a
 proposed `@lit-labs/vite-hmr` package, and now lives here on its own. Lit is

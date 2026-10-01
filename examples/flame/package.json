@@ -1,0 +1,23 @@
+{
+  "name": "vite-plugin-lit-flame-example",
+  "description": "A minimal Lit app for @oddsquad/vite-plugin-lit: one component, hot-reloaded with its state, private fields and colors intact. Opens on StackBlitz straight from the repo URL.",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lit": "^3.3.3"
+  },
+  "devDependencies": {
+    "@oddsquad/vite-plugin-lit": "*",
+    "vite": "^8.3.2"
+  },
+  "stackblitz": {
+    "installDependencies": true,
+    "startCommand": "npm run dev"
+  }
+}
