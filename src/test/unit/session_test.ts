@@ -215,6 +215,42 @@ describe('hmr incompatibilities', () => {
   });
 });
 
+describe('pageReady', () => {
+  test('folds a ready into first, same, switched or legacy', () => {
+    const s = createRecordingSession();
+    expect(s.pageReady(undefined)).toBe('legacy');
+    expect(s.activePageId()).toBeUndefined();
+    expect(s.pageReady('a')).toBe('first');
+    expect(s.pageReady('a')).toBe('same');
+    expect(s.pageReady('b')).toBe('switched');
+    expect(s.activePageId()).toBe('b');
+    // An older runtime reporting in does not unseat the followed page.
+    expect(s.pageReady(undefined)).toBe('legacy');
+    expect(s.activePageId()).toBe('b');
+  });
+
+  test('tracks the tab of the followed page', () => {
+    const s = createRecordingSession();
+    s.pageReady('a', 't1');
+    expect(s.activeTabId()).toBe('t1');
+    s.pageReady('b', 't1');
+    expect(s.activeTabId()).toBe('t1');
+    s.pageReady('c', 't2');
+    expect(s.activeTabId()).toBe('t2');
+  });
+
+  test('accepts only the active page, plus unstamped traffic', () => {
+    const s = createRecordingSession();
+    // No page followed yet: nothing to compare against.
+    expect(s.accepts('a')).toBe(true);
+    s.pageReady('a');
+    s.pageReady('b');
+    expect(s.accepts('a')).toBe(false);
+    expect(s.accepts('b')).toBe(true);
+    expect(s.accepts(undefined)).toBe(true);
+  });
+});
+
 describe('inspector caches and capture', () => {
   test('tree replaces, details accumulate and gone evicts', () => {
     const s = createRecordingSession();

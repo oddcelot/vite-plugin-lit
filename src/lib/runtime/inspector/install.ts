@@ -10,6 +10,7 @@
 import {createPageScriptChannel} from 'devframe/in-page-channel';
 import {elementById} from '../timeline/identity.js';
 import {pageChannel} from '../page-channel.js';
+import {PAGE_ID} from '../page-id.js';
 import type {ViteHotLike} from '../page-channel.js';
 import {buildTree, collectDetails} from './collect.js';
 import {clearHighlight, highlightById} from './highlight.js';
@@ -47,7 +48,7 @@ if (typeof window !== 'undefined') {
 if (typeof window !== 'undefined') {
   const send = (msg: InspectorMessage): void => {
     try {
-      pageChannel.send(INSPECT_DATA_CHANNEL, msg);
+      pageChannel.send(INSPECT_DATA_CHANNEL, {...msg, pageId: PAGE_ID});
     } catch {
       // HMR channel temporarily unavailable; the panel can re-request.
     }

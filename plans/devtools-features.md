@@ -332,3 +332,30 @@ Two arrival paths, one `DeepLink` shape (`src/panel/deep-link.ts`).
   inside it costs more than an unrequested benefit is worth.
 - **The color scheme has its own `localStorage` key** and applies only to the
   panel iframe, never to the inspected page.
+
+## One page per session
+
+- **The HMR channel is a broadcast.** `server.hot.send` reaches every page and
+  `server.hot.on` hears all of them, so a second tab used to wipe the recording
+  and swap the cached tree.
+- **The runtime stamps a `pageId` on everything it sends** (`ready`, event
+  batches, inspector messages), minted once per document and shared through
+  `globalThis` like the page channel. The session follows the page whose
+  `ready` arrived last. A `ready` with the same id is a socket reconnect and
+  keeps the buffer, since the runtime clock re-zeroes only on the recording
+  rising edge. A new id clears and broadcasts `page-changed`, which the panel
+  shows as a dismissable banner. The `ready` also carries a `tabId` kept in
+  `sessionStorage`, so a reload (new document, same tab) is flagged
+  `reload: true`: it still clears, but the panel shows no banner for what the
+  developer did themselves. Without storage the tab id falls back to the page
+  id and a reload reads as another page; a duplicated tab shares its source's
+  id and reads as a reload.
+- **Foreign traffic is dropped, not namespaced.** Element ids and clocks would
+  otherwise need a second axis in every view. The guard sits above the inspector
+  requester so an agent query cannot be answered with another tab's tree.
+- **Unstamped traffic always passes.** Runtimes older than the field, the
+  overlay's `pick`, custom layer announcements and the HMR-incompatibility
+  notices (`patch.ts` stays untouched) carry no id. Stamped traffic that beats
+  its page's `ready` also passes, since no page is followed yet.
+- **Outbound commands still broadcast.** Pages that are not followed answer and
+  are dropped.

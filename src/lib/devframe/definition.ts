@@ -36,6 +36,7 @@ import {
   LIT_DEVFRAME_ID,
   RPC_COMPONENT_DETAILS,
   RPC_GET_META,
+  RPC_PAGE_CHANGED,
   RPC_HMR_INCOMPATIBILITIES,
   RPC_HMR_INCOMPATIBLE,
   RPC_INSPECT,
@@ -254,7 +255,8 @@ export function createLitDevframe(
           channel.start({id: TIMELINE_STREAM_ID});
 
         source.attach({
-          pushEvents(incoming) {
+          pushEvents(incoming, pageId) {
+            if (!recording.accepts(pageId)) return;
             if (incoming.length === 0) return;
             ensureStream().write(recording.push(incoming));
           },
@@ -267,7 +269,10 @@ export function createLitDevframe(
               }
             });
           },
-          inspectorMessage(message) {
+          inspectorMessage(message, pageId) {
+            // Before the requester: an agent query must not be answered with
+            // another tab's tree.
+            if (!recording.accepts(pageId)) return;
             requester.resolve(message);
             recording.applyInspector(message);
             void ctx.rpc.broadcast({
@@ -279,13 +284,37 @@ export function createLitDevframe(
               optional: true,
             });
           },
-          runtimeReady() {
+          runtimeReady(pageId, tabId) {
+            const previous = recording.activePageId();
+            const previousTab = recording.activeTabId();
+            const outcome = recording.pageReady(pageId, tabId);
+
             // A new page means a new timeline clock: the runtime re-zeroes on
             // the rising edge below, so events kept from the previous document
             // would sit in the same buffer on a different time origin and make
             // `recent-events`' `sinceMs` window meaningless. They also describe
-            // a page that no longer exists.
-            recording.clear();
+            // a page that no longer exists. A `ready` from the page already
+            // followed is only its socket reconnecting: its clock did not
+            // restart, so its buffer stays.
+            if (outcome !== 'same') recording.clear();
+            if (
+              outcome === 'switched' &&
+              previous !== undefined &&
+              pageId !== undefined
+            ) {
+              void ctx.rpc.broadcast({
+                method: `${LIT_DEVFRAME_ID}:${RPC_PAGE_CHANGED}`,
+                args: [
+                  {
+                    previousPageId: previous,
+                    pageId,
+                    reload: tabId !== undefined && tabId === previousTab,
+                    at: Date.now(),
+                  },
+                ],
+                optional: true,
+              });
+            }
 
             // Replay current state to a runtime that just booted from its
             // defaults. Unconditional: `setRecording(false)` on a fresh page
@@ -377,6 +406,7 @@ export function createLitDevframe(
               channel: `${LIT_DEVFRAME_ID}:${TIMELINE_STREAM_NAME}`,
               id: TIMELINE_STREAM_ID,
             },
+            activePageId: recording.activePageId(),
           }),
         })
       );

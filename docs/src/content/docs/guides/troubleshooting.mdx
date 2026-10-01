@@ -358,6 +358,20 @@ neither jsdom nor Node provides one.
 **Fix.** Keep one of the two. See
 [Set up the DevTools panel](/vite-plugin-lit/guides/devtools/).
 
+### The tree shows a different page, or the recording vanished
+
+**Symptom.** The Components tree changes to another page's, or a recording you
+were reading is gone. A banner reads "Another page connected".
+
+**Cause.** The panel follows one page at a time. Opening the app in a second
+tab, an iframe reload or a Cmd-click on a link starts a new page, and the panel
+switches to it and clears the recording. Traffic from the page it left is
+ignored. Reloading the tab you are inspecting clears the recording too, but
+shows no banner.
+
+**Fix.** Close the other tab, or reload the one you want to inspect, to switch
+back. Dismiss the banner with the close button.
+
 ### The timeline is empty
 
 **Symptom.** You interact with the page and no rows arrive.

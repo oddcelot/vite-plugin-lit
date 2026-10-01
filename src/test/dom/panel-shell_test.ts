@@ -3,8 +3,18 @@ import type {ComponentsView} from '../../panel/components-view.js';
 import type {TimelineView} from '../../panel/timeline-view.js';
 import type {UpdatesView} from '../../panel/updates-view.js';
 import type {TimelineEvent} from '../../types/timeline.js';
-import {answers, resetClient, updateSharedState} from './fakes/client.js';
-import {resetStore, setEvents} from './fakes/timeline-store.js';
+import {
+  answers,
+  push,
+  resetClient,
+  setSnapshot,
+  updateSharedState,
+} from './fakes/client.js';
+import {
+  getTimelineEvents,
+  resetStore,
+  setEvents,
+} from './fakes/timeline-store.js';
 
 vi.mock('../../panel/client.js', () => import('./fakes/client.js'));
 vi.mock(
@@ -162,4 +172,43 @@ test('the hub activating the dock with params is a link too', async () => {
   });
   await flush(el);
   expect(view<ComponentsView>('components-view')!.selectedId).toBe(1);
+});
+
+const pageChanged = {
+  previousPageId: 'a',
+  pageId: 'b',
+  reload: false,
+  at: Date.now(),
+};
+
+test('says so when the followed page changes, until dismissed', async () => {
+  setEvents(events);
+  const {el, root} = await mount();
+  expect(root.querySelector('.page-changed')).toBeNull();
+  push('page-changed', pageChanged);
+  await flush(el);
+  expect(root.querySelector('.page-changed')?.textContent).toContain(
+    'Another page connected'
+  );
+  expect(getTimelineEvents()).toEqual([]);
+  root.querySelector<HTMLButtonElement>('.page-changed button')!.click();
+  await flush(el);
+  expect(root.querySelector('.page-changed')).toBeNull();
+});
+
+test('a reload clears the timeline without a banner', async () => {
+  setEvents(events);
+  const {el, root} = await mount();
+  push('page-changed', {...pageChanged, reload: true});
+  await flush(el);
+  expect(getTimelineEvents()).toEqual([]);
+  expect(root.querySelector('.page-changed')).toBeNull();
+});
+
+test('a frozen session has no page to follow', async () => {
+  setSnapshot(true);
+  const {el, root} = await mount();
+  push('page-changed', pageChanged);
+  await flush(el);
+  expect(root.querySelector('.page-changed')).toBeNull();
 });
