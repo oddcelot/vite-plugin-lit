@@ -300,13 +300,16 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
     sourceOverlayPlugin,
     hmr,
   ];
-  if (resolved.timeline) {
-    // `features` is a getter, not a snapshot: `resolved` is re-resolved
-    // against the loaded env in `optionsPlugin`'s `config` hook, which runs
-    // after this array is built.
+  // Only an explicit `timeline: false` is final this early: env may still
+  // turn the timeline on in `optionsPlugin`'s `config` hook, so otherwise the
+  // devframe plugin is included and skips mounting when it stays off.
+  if (options.timeline !== false) {
+    // `enabled` and `features` are getters, not snapshots, for the same
+    // reason.
     plugins.push(
       createLitDevframePlugin({
         version: PACKAGE_VERSION,
+        enabled: () => resolved.timeline,
         features: () => toFeatureSettings(resolved),
         // Only a named editor counts: `toFeatureSettings` reports `vscode`
         // for "never chose", which must not turn into a forced `code`.

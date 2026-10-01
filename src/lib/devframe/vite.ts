@@ -83,6 +83,11 @@ declare module 'vite' {
 
 export interface CreateLitDevframePluginOptions {
   version: string;
+  /**
+   * Read in `devtools.setup()`; when it returns false the panel is not
+   * mounted. Defaults to always on.
+   */
+  enabled?: () => boolean;
   features?: () => FeatureSettings | null;
   /** See {@link CreateLitDevframeOptions.configuredEditor}. */
   configuredEditor?: () => string | undefined;
@@ -357,6 +362,7 @@ export function createLitDevframePlugin(
       // `devframe/adapters/build` instead.
       capabilities: {dev: true, build: false},
       async setup(ctx) {
+        if (options.enabled && !options.enabled()) return;
         // Bind before installing: `install()` runs the definition's `setup()`,
         // which attaches to this source, and the dev server is already
         // available on the context by now.
