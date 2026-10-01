@@ -13,6 +13,8 @@ import {
   MAX_HMR_INCOMPATIBILITIES,
   type HmrIncompatibilityEvent,
 } from '../types/hmr-incompatibility.js';
+import type {HmrPatchEvent} from '../types/hmr-patch.js';
+import type {HmrHistoryEntry} from '../lib/devframe/protocol.js';
 import {
   describeError,
   getMeta,
@@ -289,6 +291,13 @@ export class ComponentsView extends LitElement {
         min-width: 0;
         color: var(--lit-devtools-text);
       }
+      .hmr-last-patch {
+        flex-shrink: 0;
+        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
+        border-bottom: 1px solid var(--lit-devtools-border);
+        color: var(--lit-devtools-text-muted);
+        font-size: var(--lit-devtools-text-2xs);
+      }
       .hmr-outcome,
       .hmr-time {
         flex-shrink: 0;
@@ -323,6 +332,9 @@ export class ComponentsView extends LitElement {
   @state() private _hmrIncompatibilities: HmrIncompatibilityEvent[] = [];
   /** Collapse state of the banner; the events themselves are never cleared. */
   @state() private _hmrExpanded = true;
+  /** The most recent HMR patch that landed. Not an issue, so it never counts
+   *  toward the tab badge. */
+  @state() private _lastPatch: HmrPatchEvent | null = null;
 
   private _rpc: LitClient | null = null;
   private _unsubscribeOverride: (() => void) | null = null;
@@ -391,6 +403,11 @@ export class ComponentsView extends LitElement {
         type: 'event',
         handler: this._onHmrIncompatible,
       });
+      rpc.rpc.register({
+        name: 'hmr-patched',
+        type: 'event',
+        handler: this._onHmrPatched,
+      });
       void getMeta().then(
         (meta) => {
           this._canPick = !isSnapshot() && meta.picker;
@@ -401,6 +418,13 @@ export class ComponentsView extends LitElement {
       );
       this._roots = await rpc.rpc.call('list-components');
       this._hmrIncompatibilities = await rpc.rpc.call('hmr-incompatibilities');
+      try {
+        const history = await rpc.rpc.call('hmr-history');
+        this._lastPatch = lastPatchOf(history.entries);
+      } catch {
+        // A session dumped by an earlier version has no history baked in; the
+        // line simply stays hidden.
+      }
       // The baked tree above is all a frozen session has; asking the page for
       // a fresh one would reject (`inspect` is an action, so it is not in the
       // dump) and surface as an unhandled rejection in the console.
@@ -487,6 +511,10 @@ export class ComponentsView extends LitElement {
     this._hmrIncompatibilities = [...this._hmrIncompatibilities, event].slice(
       -MAX_HMR_INCOMPATIBILITIES
     );
+  };
+
+  private _onHmrPatched = (event: HmrPatchEvent): void => {
+    this._lastPatch = event;
   };
 
   // ---------------------------------------------------------------------------
@@ -771,6 +799,17 @@ export class ComponentsView extends LitElement {
     `;
   }
 
+  /** One line for the latest patch that landed; hidden until there is one. */
+  private _renderLastPatch(): TemplateResult | typeof nothing {
+    const p = this._lastPatch;
+    if (p === null) return nothing;
+    return html`<div class="hmr-last-patch">
+      Patched &lt;${p.tagName}&gt; ×${p.instances} in ${p.durationMs} ms
+      (childState: ${p.childState})
+      <span class="hmr-time">${formatRelativeTime(p.at)}</span>
+    </div>`;
+  }
+
   /**
    * Collapsible banner listing components that couldn't be hot-patched in
    * place, most recent first. Rendered only when there's at least one —
@@ -862,7 +901,7 @@ export class ComponentsView extends LitElement {
         </button>
         <button @click=${this._refresh} ?disabled=${this._live}>Refresh</button>
       </div>
-      ${this._renderHmrBanner()}
+      ${this._renderHmrBanner()}${this._renderLastPatch()}
       <div class="body">
         <div class="tree" @mouseleave=${() => this._highlight(null)}>
           ${
@@ -880,6 +919,15 @@ export class ComponentsView extends LitElement {
     `;
   }
 }
+
+/** The newest patch among `entries` (oldest first), skipping failures. */
+const lastPatchOf = (entries: HmrHistoryEntry[]): HmrPatchEvent | null => {
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i]!;
+    if (entry.kind === 'patched') return entry.patch;
+  }
+  return null;
+};
 
 /**
  * Coarse relative time for an {@link HmrIncompatibilityEvent}'s `Date.now()`

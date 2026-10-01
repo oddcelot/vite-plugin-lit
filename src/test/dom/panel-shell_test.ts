@@ -78,6 +78,7 @@ const mount = async (hash = '') => {
   history.replaceState(null, '', hash === '' ? location.pathname : hash);
   answers.set('list-components', [{id: 1, tagName: 'x-app', children: []}]);
   answers.set('hmr-incompatibilities', []);
+  answers.set('hmr-history', {entries: []});
   // The hub always holds an activation slot, empty until a dock is raised.
   updateSharedState('devframe:docks:active', {activation: null});
   updateSharedState('session', {
