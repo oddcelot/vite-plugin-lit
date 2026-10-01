@@ -1,11 +1,17 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
+import '@awesome.me/webawesome/dist/components/badge/badge.js';
+import '@awesome.me/webawesome/dist/components/icon/icon.js';
+import '@awesome.me/webawesome/dist/components/tab/tab.js';
+import '@awesome.me/webawesome/dist/components/tab-group/tab-group.js';
+import type {WaTabShowEvent} from '@awesome.me/webawesome/dist/events/tab-show.js';
 import {tokens} from '../lib/tokens.js';
+import type {IconName} from './wa-icons.js';
 
 export interface TabItem {
   id: string;
   label: string;
-  icon?: string;
+  icon?: IconName;
   /** Optional count pill trailing the label. Hidden when absent or zero. */
   badge?: number;
 }
@@ -13,10 +19,12 @@ export interface TabItem {
 export type SegTabSize = 'sm' | 'md';
 
 /**
- * Inline segmented tab control. Renders a horizontal row of text-only tabs
- * with the active one highlighted by the accent color.
+ * A row of tabs over a Web Awesome `wa-tab-group`, with the panels left out:
+ * callers keep their views mounted and toggle them themselves (the Timeline
+ * has to keep recording while another tab is in front), so this only picks.
  *
- * Matches the SegmentedTabs spec from the Lit Design System devtools kit.
+ * Fires `change` with `detail.value` when the user picks a tab; setting
+ * `value` from outside moves the selection without firing it.
  */
 @customElement('segmented-tabs')
 export class SegmentedTabs extends LitElement {
@@ -25,65 +33,44 @@ export class SegmentedTabs extends LitElement {
     css`
       :host {
         display: flex;
-        gap: var(--lit-devtools-space-1);
         align-self: stretch;
       }
-      button {
-        appearance: none;
+      wa-tab-group {
+        --indicator-color: var(--wa-color-brand-fill-loud);
+        --track-color: transparent;
+        --track-width: 2px;
+        height: 100%;
+      }
+      wa-tab-group::part(base),
+      wa-tab-group::part(tabs) {
+        height: 100%;
+      }
+      /* Lets the unnamed .nav wrapper inside stretch to the full height, so
+         the indicator sits on the header's bottom edge. */
+      wa-tab-group::part(nav) {
         display: flex;
-        align-items: center;
-        gap: var(--lit-devtools-space-2);
-        border: 0;
-        background: none;
-        font: inherit;
-        color: var(--lit-devtools-text-muted);
-        padding: 0 var(--lit-devtools-space-5);
-        cursor: pointer;
-        border-bottom: 2px solid transparent;
+        height: 100%;
+      }
+      wa-tab {
+        height: 100%;
+      }
+      wa-tab-group::part(body) {
+        display: none;
+      }
+      wa-tab::part(base) {
+        height: 100%;
+        gap: var(--wa-space-2xs);
+        padding-block: 0;
+        padding-inline: var(--wa-space-s);
+        font-size: var(--wa-font-size-m);
         white-space: nowrap;
-        transition:
-          color var(--lit-devtools-dur-fast) var(--lit-devtools-ease-standard),
-          border-color var(--lit-devtools-dur-fast)
-            var(--lit-devtools-ease-standard),
-          background var(--lit-devtools-dur-fast)
-            var(--lit-devtools-ease-standard);
       }
-      button:hover {
-        color: var(--lit-devtools-text);
-        background: var(--lit-devtools-surface-hover);
+      :host([size='sm']) wa-tab::part(base) {
+        padding-inline: var(--wa-space-xs);
+        font-size: var(--wa-font-size-s);
       }
-      button.active {
-        color: var(--lit-devtools-accent);
-        border-bottom-color: var(--lit-devtools-accent);
-      }
-      button:focus-visible {
-        outline: 2px solid var(--lit-devtools-accent-ring);
-        outline-offset: -2px;
-      }
-      button svg {
-        width: 18px;
-        height: 18px;
-        flex-shrink: 0;
-      }
-      .badge {
-        flex-shrink: 0;
-        min-width: 16px;
-        padding: 0 var(--lit-devtools-space-1);
-        border-radius: var(--lit-devtools-radius-pill);
-        background: var(--lit-devtools-error-soft);
-        color: var(--lit-devtools-error);
-        font-size: var(--lit-devtools-text-xs);
-        line-height: 16px;
-        text-align: center;
-      }
-      :host([size='sm']) button {
-        font-size: var(--lit-devtools-text-xs);
-        padding: 0 var(--lit-devtools-space-4);
-      }
-      :host([size='md']) button,
-      :host(:not([size])) button {
-        font-size: var(--lit-devtools-text-sm);
-        padding: 0 var(--lit-devtools-space-5);
+      wa-icon {
+        font-size: 1.15em;
       }
     `,
   ];
@@ -92,7 +79,7 @@ export class SegmentedTabs extends LitElement {
 
   @property() declare value: string;
 
-  @property() declare size: SegTabSize;
+  @property({reflect: true}) declare size: SegTabSize;
 
   constructor() {
     super();
@@ -101,7 +88,12 @@ export class SegmentedTabs extends LitElement {
     this.size = 'md';
   }
 
-  private _select(id: string): void {
+  private _onTabShow(e: WaTabShowEvent): void {
+    // The group also announces selections made through `value`; only a pick
+    // that differs from it is the user's.
+    e.stopPropagation();
+    const id = e.detail.name;
+    if (id === this.value) return;
     this.value = id;
     this.dispatchEvent(
       new CustomEvent('change', {
@@ -114,34 +106,27 @@ export class SegmentedTabs extends LitElement {
 
   override render() {
     return html`
-      ${this.items.map(
-        (item) => html`
-          <button
-            role="tab"
-            aria-selected=${item.id === this.value}
-            class=${item.id === this.value ? 'active' : ''}
-            @click=${() => this._select(item.id)}
-          >
-            ${
-              item.icon
-                ? html`<svg
-                    viewBox="0 0 256 256"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path d=${item.icon} />
-                  </svg>`
-                : nothing
-            }
-            ${item.label}
-            ${
-              item.badge
-                ? html`<span class="badge">${item.badge}</span>`
-                : nothing
-            }
-          </button>
-        `
-      )}
+      <wa-tab-group .active=${this.value} @wa-tab-show=${this._onTabShow}>
+        ${this.items.map(
+          (item) => html`
+            <wa-tab slot="nav" panel=${item.id}>
+              ${
+                item.icon
+                  ? html`<wa-icon name=${item.icon}></wa-icon>`
+                  : nothing
+              }
+              ${item.label}
+              ${
+                item.badge
+                  ? html`<wa-badge variant="danger" pill
+                      >${item.badge}</wa-badge
+                    >`
+                  : nothing
+              }
+            </wa-tab>
+          `
+        )}
+      </wa-tab-group>
     `;
   }
 }

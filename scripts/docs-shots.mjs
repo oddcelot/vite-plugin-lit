@@ -284,7 +284,7 @@ const SHOTS = [
     capture: async (ctx) => {
       const {panel} = await recordSession(ctx);
       await timelineView(panel)
-        .locator('css=segmented-tabs button', {hasText: 'Tracks'})
+        .locator('css=segmented-tabs wa-tab', {hasText: 'Tracks'})
         .click();
       const tracks = timelineView(panel).locator('css=timeline-tracks');
       // Zoom in on the start of the recording, anchored at the left edge,

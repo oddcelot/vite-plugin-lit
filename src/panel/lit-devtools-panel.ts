@@ -29,22 +29,16 @@ import type {DeepLinkTab} from './deep-link.js';
 import './devtools-settings.js';
 import './segmented-tabs.js';
 import type {TabItem} from './segmented-tabs.js';
-import {
-  CUBE_ICON,
-  CLOCK_ICON,
-  GEAR_ICON,
-  NOTIFICATION_ICON,
-} from '../lib/icons.js';
 
 /**
  * Tabs hosted by the panel. The Timeline is the first; this list is the
  * extension point for future Lit DevTools views.
  */
 const TABS: readonly TabItem[] = [
-  {id: 'components', label: 'Components', icon: CUBE_ICON},
-  {id: 'updates', label: 'Updates', icon: NOTIFICATION_ICON},
-  {id: 'timeline', label: 'Timeline', icon: CLOCK_ICON},
-  {id: 'settings', label: 'Settings', icon: GEAR_ICON},
+  {id: 'components', label: 'Components', icon: 'cube'},
+  {id: 'updates', label: 'Updates', icon: 'bell'},
+  {id: 'timeline', label: 'Timeline', icon: 'clock'},
+  {id: 'settings', label: 'Settings', icon: 'gear'},
 ];
 
 /** Inline Lit logo mark. */
