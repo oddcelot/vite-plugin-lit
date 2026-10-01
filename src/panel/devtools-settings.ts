@@ -14,7 +14,7 @@ import {
   type SettingsOverride,
 } from '../types/timeline.js';
 import {baselineChanged} from '../lib/override-baselines.js';
-import {getMeta, litRpc, type LitClient} from './client.js';
+import {getMeta, litSettingsRpc, type LitClient} from './client.js';
 import {configValues, type OverridableKey} from '../lib/settings-override.js';
 import {overrides} from './settings-override.js';
 
@@ -264,7 +264,7 @@ export class DevtoolsSettings extends LitElement {
    */
   private async _hydrate(): Promise<void> {
     try {
-      const {settings} = await litRpc();
+      const {settings} = await litSettingsRpc();
       await settings.global.onChange((all) => this._adopt(all));
       this._adopt(await settings.global.all());
     } catch {
@@ -293,7 +293,7 @@ export class DevtoolsSettings extends LitElement {
     key: K,
     value: LitSettings[K] | undefined
   ): void {
-    litRpc()
+    litSettingsRpc()
       .then((rpc) =>
         value === undefined
           ? rpc.settings.global.delete(key)

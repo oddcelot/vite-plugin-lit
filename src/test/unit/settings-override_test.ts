@@ -13,8 +13,8 @@ const rpc = vi.hoisted(() => ({
   del: undefined as unknown as (...args: unknown[]) => unknown,
 }));
 
-vi.mock('../../panel/client.js', () => ({
-  litRpc: async () => ({
+vi.mock('../../panel/client.js', () => {
+  const client = async () => ({
     rpc: {call: (...a: unknown[]) => rpc.call(...a)},
     settings: {
       global: {
@@ -22,8 +22,9 @@ vi.mock('../../panel/client.js', () => ({
         delete: (...a: unknown[]) => rpc.del(...a),
       },
     },
-  }),
-}));
+  });
+  return {litRpc: client, litSettingsRpc: client};
+});
 
 const flush = async () => {
   for (let i = 0; i < 10; i++) await Promise.resolve();

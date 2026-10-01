@@ -226,14 +226,6 @@ test('a panel setting survives a reload of the page it never served', async () =
   const panel = await browser.newPage();
   await panel.goto(`${devOrigin}/`);
   await panel.waitForSelector('lit-devtools-panel');
-  // Opening Settings syncs the panel's settings mirror with the server's
-  // store (it isn't a deep-link tab, and in standalone mode it has no
-  // controls of its own). A write that lands before that sync is overwritten
-  // by it, so let it settle, then use the Components tab's Flash button.
-  await panel.getByText('Settings', {exact: true}).first().click();
-  await panel.getByText('color scheme').waitFor();
-  await new Promise((resolve) => setTimeout(resolve, 1_000));
-  await panel.getByText('Components', {exact: true}).first().click();
   const flash = panel.getByRole('button', {name: /Flash/});
   await flash.click();
   await expect.poll(() => flash.getAttribute('class')).toContain('active');
