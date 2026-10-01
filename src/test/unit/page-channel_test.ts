@@ -5,7 +5,7 @@ import {describe, expect, test, vi} from 'vite-plus/test';
 const freshChannel = async () => {
   vi.resetModules();
   const g = globalThis as unknown as Record<symbol, unknown>;
-  delete g[Symbol.for('@lit-labs/vite-plugin-lit#page-channel')];
+  delete g[Symbol.for('@oddsquad/vite-plugin-lit#page-channel')];
   return import('../../lib/runtime/page-channel.js');
 };
 

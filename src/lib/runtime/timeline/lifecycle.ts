@@ -62,7 +62,7 @@ const UPDATE_PHASES = [
 /** Point-in-time lifecycle events (no end bracket). */
 const POINT_PHASES = ['connectedCallback', 'disconnectedCallback'] as const;
 
-const BRAND = Symbol.for('@lit-labs/vite-plugin-lit#timeline-lifecycle');
+const BRAND = Symbol.for('@oddsquad/vite-plugin-lit#timeline-lifecycle');
 
 /** Per-instance update tick counter (bumped inside performUpdate wrapper). */
 const ticks = new WeakMap<object, number>();

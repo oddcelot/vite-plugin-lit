@@ -25,7 +25,7 @@ interface InternState {
 
 // Exactly one intern state per page, even if this module is loaded twice
 // (e.g. via both an optimized and a raw URL).
-const STATE_KEY = Symbol.for('@lit-labs/vite-plugin-lit#intern');
+const STATE_KEY = Symbol.for('@oddsquad/vite-plugin-lit#intern');
 
 const getState = (): InternState => {
   const g = globalThis as unknown as Record<symbol, InternState | undefined>;

@@ -12,8 +12,7 @@ import type {
   InspectorProp,
   InspectorTreeNode,
 } from '../../../types/inspector.js';
-
-const SOURCE_META_KEY = Symbol.for('@lit-labs/vite-plugin-lit#source');
+import {SOURCE_META_KEY} from '../source-meta.js';
 
 interface LitSourceMeta {
   filePath: string;

@@ -111,7 +111,7 @@ const createPageChannel = (): PageChannel => {
 
 // One channel per page even if this module is loaded twice (for instance once
 // through Vite's dependency optimizer and once directly), like the patch state.
-const CHANNEL_KEY = Symbol.for('@lit-labs/vite-plugin-lit#page-channel');
+const CHANNEL_KEY = Symbol.for('@oddsquad/vite-plugin-lit#page-channel');
 
 const shared = globalThis as unknown as Record<symbol, PageChannel | undefined>;
 

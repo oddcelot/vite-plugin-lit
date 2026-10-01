@@ -5,7 +5,7 @@ import {
   isInspectable,
 } from '../../lib/runtime/inspector/collect.js';
 
-const SOURCE_META_KEY = Symbol.for('@lit-labs/vite-plugin-lit#source');
+const SOURCE_META_KEY = Symbol.for('@oddsquad/vite-plugin-lit#source');
 
 let counter = 0;
 const uniqueTag = (prefix: string) => `${prefix}-${counter++}`;
