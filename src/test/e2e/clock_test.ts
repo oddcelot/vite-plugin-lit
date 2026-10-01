@@ -30,6 +30,16 @@ const secondHandTransform = () =>
     )
     .catch(() => null);
 
+/** Runs a poll; if it times out, prefixes the error with the stalled layer. */
+const explainStall = async (poll: () => Promise<unknown>): Promise<void> => {
+  try {
+    await poll();
+  } catch (error) {
+    const layer = await fixture.stalledLayer();
+    throw new Error(`${layer}\n${(error as Error).message}`, {cause: error});
+  }
+};
+
 const secondHandStroke = () =>
   fixture.page
     .evaluate(() => {
@@ -57,9 +67,9 @@ test('signal-driven clock keeps ticking through hot patches', async () => {
   // Patch 1: css-only edit (second hand color). No template changed, so no
   // DOM is rebuilt anywhere — pure restyle while the clock runs.
   await edit('src/hmr-clock.ts', (code) => code.replace('#e63946', '#00c853'));
-  await expect
-    .poll(secondHandStroke, {timeout: 10_000})
-    .toBe('rgb(0, 200, 83)');
+  await explainStall(() =>
+    expect.poll(secondHandStroke, {timeout: 10_000}).toBe('rgb(0, 200, 83)')
+  );
   expect(await sameAsKept(page, 'face', 'hmr-clock >> #face')).toBe(true);
   expect(
     await sameAsKept(page, 'second-hand', 'hmr-clock >> #second-hand')
@@ -73,21 +83,23 @@ test('signal-driven clock keeps ticking through hot patches', async () => {
       'x1="50" y1="54" x2="50" y2="14"'
     )
   );
-  await expect
-    .poll(
-      () =>
-        page
-          .evaluate(
-            () =>
-              document
-                .querySelector('hmr-clock')
-                ?.shadowRoot?.querySelector('#second-hand')
-                ?.getAttribute('y2') ?? null
-          )
-          .catch(() => null),
-      {timeout: 10_000}
-    )
-    .toBe('14');
+  await explainStall(() =>
+    expect
+      .poll(
+        () =>
+          page
+            .evaluate(
+              () =>
+                document
+                  .querySelector('hmr-clock')
+                  ?.shadowRoot?.querySelector('#second-hand')
+                  ?.getAttribute('y2') ?? null
+            )
+            .catch(() => null),
+        {timeout: 10_000}
+      )
+      .toBe('14')
+  );
   expect(await sameAsKept(page, 'face', 'hmr-clock >> #face')).toBe(true);
   expect(
     await sameAsKept(page, 'second-hand', 'hmr-clock >> #second-hand')
