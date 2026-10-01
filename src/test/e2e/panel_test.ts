@@ -215,8 +215,8 @@ test('a filter that hides the selected mark keeps its detail in Tracks', async (
 test('Pick is not offered when the source overlay is off', async () => {
   const {page} = panel;
   await page.goto(`${fixture.origin}/__lit/#tab=components`);
-  await page.locator('components-view button.live').waitFor();
+  await page.locator('components-view wa-button.live').waitFor();
   // `get-meta` arrives after the toolbar first renders; give it the time.
   await page.waitForTimeout(500);
-  expect(await page.locator('components-view button.pick').count()).toBe(0);
+  expect(await page.locator('components-view wa-button.pick').count()).toBe(0);
 });

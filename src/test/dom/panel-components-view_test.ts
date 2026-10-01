@@ -44,7 +44,7 @@ const mount = async (picker = false, roots: InspectorTreeNode[] = tree) => {
   return {
     el,
     root,
-    pick: () => root.querySelector<HTMLButtonElement>('button.pick'),
+    pick: () => root.querySelector<HTMLElement>('wa-button.pick'),
     rows: () => [...root.querySelectorAll<HTMLElement>('.row')],
     inspects: () =>
       calls.filter((c) => c.name === 'inspect').map((c) => c.args[0]),

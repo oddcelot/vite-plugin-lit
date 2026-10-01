@@ -81,5 +81,5 @@ test('the color scheme is adopted from the store and written back to it', async 
 test('Pick is offered when the source overlay is on', async () => {
   const {page} = panel;
   await page.getByText('Components', {exact: true}).first().click();
-  await page.locator('components-view button.pick').waitFor();
+  await page.locator('components-view wa-button.pick').waitFor();
 });

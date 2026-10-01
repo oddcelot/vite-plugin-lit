@@ -1,5 +1,9 @@
 import {LitElement, html, css, nothing, type TemplateResult} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
+import '@awesome.me/webawesome/dist/components/badge/badge.js';
+import '@awesome.me/webawesome/dist/components/button/button.js';
+import '@awesome.me/webawesome/dist/components/details/details.js';
+import '@awesome.me/webawesome/dist/components/icon/icon.js';
 import {tokens} from '../lib/tokens.js';
 import {
   type InspectorCommand,
@@ -75,30 +79,6 @@ export class ComponentsView extends LitElement {
       .spacer {
         flex: 1;
       }
-      button {
-        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
-        border-radius: var(--lit-devtools-radius-sm);
-        border: 1px solid var(--lit-devtools-border);
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text);
-        font-size: var(--lit-devtools-text-2xs);
-        cursor: pointer;
-      }
-      button:hover {
-        background: var(--lit-devtools-surface-hover);
-        border-color: var(--lit-devtools-border-strong);
-      }
-      button.pick.active,
-      button.live.active,
-      button.flash.active {
-        border-color: var(--lit-devtools-accent);
-        background: var(--lit-devtools-accent-soft);
-        color: var(--lit-devtools-accent);
-      }
-      button:disabled {
-        opacity: 0.4;
-        cursor: default;
-      }
       .body {
         display: flex;
         flex: 1;
@@ -137,12 +117,13 @@ export class ComponentsView extends LitElement {
       }
       .twisty {
         width: 12px;
-        text-align: center;
+        display: inline-flex;
+        justify-content: center;
         color: var(--lit-devtools-text-muted);
         flex-shrink: 0;
       }
-      .twisty.leaf {
-        visibility: hidden;
+      .twisty wa-icon {
+        font-size: 0.8em;
       }
       .tag {
         color: var(--lit-devtools-accent);
@@ -165,14 +146,13 @@ export class ComponentsView extends LitElement {
         margin: 0 0 var(--lit-devtools-space-1);
       }
       .src {
-        background: none;
-        border: 0;
-        padding: 0;
-        color: var(--lit-devtools-text-link);
-        font-size: var(--lit-devtools-text-2xs);
-        cursor: pointer;
-        text-decoration: underline;
+        max-width: 100%;
+      }
+      .src::part(base) {
+        padding-inline: 0;
+        font-family: var(--lit-devtools-font-mono);
         word-break: break-all;
+        white-space: normal;
         text-align: left;
       }
       section {
@@ -204,30 +184,13 @@ export class ComponentsView extends LitElement {
         width: 100%;
       }
       .badge {
-        display: inline-block;
         margin-left: var(--lit-devtools-space-2);
-        padding: 0 var(--lit-devtools-space-2);
-        border-radius: var(--lit-devtools-radius-xs);
-        font-size: 9px;
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text-secondary);
         vertical-align: middle;
       }
       .flags {
         display: flex;
         gap: var(--lit-devtools-space-4);
         flex-wrap: wrap;
-      }
-      .flag {
-        padding: 1px var(--lit-devtools-space-4);
-        border-radius: var(--lit-devtools-radius-xs);
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text-secondary);
-        font-size: var(--lit-devtools-text-2xs);
-      }
-      .flag.on {
-        background: var(--lit-devtools-accent-soft);
-        color: var(--lit-devtools-accent);
       }
       .placeholder {
         color: var(--lit-devtools-text-muted);
@@ -236,41 +199,21 @@ export class ComponentsView extends LitElement {
       }
       .hmr-banner {
         flex-shrink: 0;
-        border-bottom: 1px solid var(--lit-devtools-border);
         background: var(--lit-devtools-error-soft);
       }
-      .hmr-toggle {
+      wa-details.hmr-banner {
+        --spacing: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
+        border: 0;
+        border-radius: 0;
+        border-bottom: 1px solid var(--lit-devtools-border);
+        color: var(--lit-devtools-error);
+        font-size: var(--lit-devtools-text-xs);
+      }
+      .hmr-banner [slot='summary'] {
         display: flex;
         align-items: center;
         gap: var(--lit-devtools-space-3);
-        width: 100%;
-        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
-        border: 0;
-        background: none;
-        color: var(--lit-devtools-error);
-        font-size: var(--lit-devtools-text-xs);
         font-weight: var(--lit-devtools-weight-semibold);
-        text-align: left;
-        cursor: pointer;
-      }
-      .hmr-toggle:hover {
-        background: var(--lit-devtools-surface-hover);
-      }
-      .hmr-count {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 16px;
-        padding: 0 var(--lit-devtools-space-2);
-        border-radius: var(--lit-devtools-radius-pill);
-        background: var(--lit-devtools-error);
-        color: var(--lit-devtools-bg);
-        font-size: var(--lit-devtools-text-2xs);
-        font-weight: var(--lit-devtools-weight-bold);
-      }
-      .hmr-chevron {
-        margin-left: auto;
-        color: var(--lit-devtools-error);
       }
       .hmr-list {
         list-style: none;
@@ -672,8 +615,10 @@ export class ComponentsView extends LitElement {
     this._call({type: 'highlight', id});
   }
 
-  private _toggleHmrExpanded(): void {
-    this._hmrExpanded = !this._hmrExpanded;
+  private _onHmrToggle(e: Event): void {
+    // wa-show/wa-hide also bubble from nested wa-details; only ours counts.
+    if (e.target !== e.currentTarget) return;
+    this._hmrExpanded = (e.target as HTMLElement).hasAttribute('open');
   }
 
   private _openSource(): void {
@@ -697,12 +642,18 @@ export class ComponentsView extends LitElement {
         @mouseenter=${() => this._highlight(node.id)}
       >
         <span
-          class="twisty ${hasChildren ? '' : 'leaf'}"
+          class="twisty"
           @click=${(e: Event) => {
             e.stopPropagation();
             this._toggleExpand(node.id);
           }}
-          >${hasChildren ? (expanded ? '▾' : '▸') : '•'}</span
+          >${
+            hasChildren
+              ? html`<wa-icon
+                  name=${expanded ? 'chevron-down' : 'chevron-right'}
+                ></wa-icon>`
+              : nothing
+          }</span
         >
         <span class="tag"
           ><span class="punct">&lt;</span>${node.tagName}<span class="punct"
@@ -729,10 +680,14 @@ export class ComponentsView extends LitElement {
               <td class="name">
                 ${p.name}${
                   p.reflects
-                    ? html`<span class="badge" title="reflects to attribute"
+                    ? html`<wa-badge
+                        class="badge"
+                        variant="neutral"
+                        appearance="outlined"
+                        title="reflects to attribute"
                         >${
                           typeof p.attribute === 'string' ? p.attribute : 'attr'
-                        }</span
+                        }</wa-badge
                       >`
                     : nothing
                 }
@@ -752,9 +707,19 @@ export class ComponentsView extends LitElement {
           (e) => html`
             <tr>
               <td class="name" title=${e.type}>
-                ${e.name}<span class="badge">${e.kind}</span>${
+                ${e.name}<wa-badge
+                  class="badge"
+                  variant="neutral"
+                  appearance="outlined"
+                  >${e.kind}</wa-badge
+                >${
                   e.status !== undefined
-                    ? html`<span class="badge">${e.status}</span>`
+                    ? html`<wa-badge
+                        class="badge"
+                        variant="neutral"
+                        appearance="outlined"
+                        >${e.status}</wa-badge
+                      >`
                     : nothing
                 }
               </td>
@@ -764,6 +729,15 @@ export class ComponentsView extends LitElement {
         )}
       </table>
     `;
+  }
+
+  private _renderFlag(label: string, on: boolean): TemplateResult {
+    return html`<wa-badge
+      class="flag ${on ? 'on' : ''}"
+      variant=${on ? 'brand' : 'neutral'}
+      appearance=${on ? 'filled' : 'outlined'}
+      >${label}</wa-badge
+    >`;
   }
 
   private _renderDetails(): TemplateResult {
@@ -786,20 +760,22 @@ export class ComponentsView extends LitElement {
       <h2>&lt;${d.tagName}&gt;</h2>
       ${
         d.source !== undefined
-          ? html`<button class="src" @click=${this._openSource}>
+          ? html`<wa-button
+              class="src"
+              appearance="plain"
+              size="small"
+              @click=${this._openSource}
+            >
               ${d.source.file}:${d.source.line}
-            </button>`
+              <wa-icon slot="end" name="arrow-up-right-from-square"></wa-icon>
+            </wa-button>`
           : nothing
       }
       <section>
         <div class="flags">
-          <span class="flag ${d.flags.hasUpdated ? 'on' : ''}">updated</span>
-          <span class="flag ${d.flags.isUpdatePending ? 'on' : ''}"
-            >update pending</span
-          >
-          <span class="flag ${d.flags.hasShadowRoot ? 'on' : ''}"
-            >shadow root</span
-          >
+          ${this._renderFlag('updated', d.flags.hasUpdated)}
+          ${this._renderFlag('update pending', d.flags.isUpdatePending)}
+          ${this._renderFlag('shadow root', d.flags.hasShadowRoot)}
         </div>
       </section>
       ${
@@ -865,16 +841,21 @@ export class ComponentsView extends LitElement {
   private _renderHmrBanner(): TemplateResult | typeof nothing {
     if (this._hmrIncompatibilities.length === 0) return nothing;
     return html`
-      <section class="hmr-banner">
-        <button
-          class="hmr-toggle"
-          aria-expanded=${this._hmrExpanded}
-          @click=${this._toggleHmrExpanded}
-        >
+      <wa-details
+        class="hmr-banner"
+        appearance="plain"
+        ?open=${this._hmrExpanded}
+        @wa-show=${this._onHmrToggle}
+        @wa-hide=${this._onHmrToggle}
+      >
+        <span slot="summary">
           <span class="hmr-title">HMR issues</span>
-          <span class="hmr-count">${this._hmrIncompatibilities.length}</span>
-          <span class="hmr-chevron">${this._hmrExpanded ? '▾' : '▸'}</span>
-        </button>
+          <wa-badge class="hmr-count" variant="danger" pill
+            >${this._hmrIncompatibilities.length}</wa-badge
+          >
+        </span>
+        <wa-icon slot="expand-icon" name="chevron-right"></wa-icon>
+        <wa-icon slot="collapse-icon" name="chevron-down"></wa-icon>
         ${
           this._hmrExpanded
             ? html`
@@ -912,8 +893,28 @@ export class ComponentsView extends LitElement {
               `
             : nothing
         }
-      </section>
+      </wa-details>
     `;
+  }
+
+  private _renderToggle(
+    kind: string,
+    on: boolean,
+    title: string,
+    onClick: () => void,
+    icon: TemplateResult,
+    label: string
+  ): TemplateResult {
+    return html`<wa-button
+      class="${kind} ${on ? 'active' : ''}"
+      size="small"
+      variant=${on ? 'brand' : 'neutral'}
+      appearance=${on ? 'filled' : 'outlined'}
+      title=${title}
+      @click=${onClick}
+    >
+      ${icon} ${label}
+    </wa-button>`;
   }
 
   override render() {
@@ -921,31 +922,45 @@ export class ComponentsView extends LitElement {
       <div class="toolbar">
         ${
           this._canPick
-            ? html`<button
-                class="pick ${this._picking ? 'active' : ''}"
-                title="Pick an element on the page (Meta+Shift+E)"
-                @click=${this._togglePick}
-              >
-                ⌖ Pick
-              </button>`
+            ? this._renderToggle(
+                'pick',
+                this._picking,
+                'Pick an element on the page (Meta+Shift+E)',
+                this._togglePick,
+                html`<wa-icon slot="start" name="crosshairs"></wa-icon>`,
+                'Pick'
+              )
             : nothing
         }
         <span class="spacer"></span>
-        <button
-          class="live ${this._live ? 'active' : ''}"
-          title="Update the tree automatically as the page changes"
-          @click=${this._toggleLive}
+        ${this._renderToggle(
+          'live',
+          this._live,
+          'Update the tree automatically as the page changes',
+          this._toggleLive,
+          html`<wa-icon
+            slot="start"
+            name=${this._live ? 'circle' : 'circle-regular'}
+          ></wa-icon>`,
+          'Live'
+        )}
+        ${this._renderToggle(
+          'flash',
+          this._flash,
+          'Flash elements on the page when they update',
+          this._toggleFlash,
+          html`<wa-icon slot="start" name="bolt"></wa-icon>`,
+          'Flash'
+        )}
+        <wa-button
+          size="small"
+          appearance="outlined"
+          @click=${this._refresh}
+          ?disabled=${this._live}
         >
-          ${this._live ? '● Live' : '○ Live'}
-        </button>
-        <button
-          class="flash ${this._flash ? 'active' : ''}"
-          title="Flash elements on the page when they update"
-          @click=${this._toggleFlash}
-        >
-          ⚡ Flash
-        </button>
-        <button @click=${this._refresh} ?disabled=${this._live}>Refresh</button>
+          <wa-icon slot="start" name="rotate-right"></wa-icon>
+          Refresh
+        </wa-button>
       </div>
       ${this._renderHmrBanner()}${this._renderLastPatch()}
       <div class="body">
