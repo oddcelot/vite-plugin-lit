@@ -1,5 +1,6 @@
 # @oddsquad/vite-plugin-lit
 
+[![CI](https://github.com/oddcelot/vite-plugin-lit/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/oddcelot/vite-plugin-lit/actions/workflows/ci.yaml?query=branch%3Amain)
 [![npm](https://img.shields.io/npm/v/@oddsquad/vite-plugin-lit)](https://www.npmjs.com/package/@oddsquad/vite-plugin-lit)
 [![JSR](https://jsr.io/badges/@oddsquad/vite-plugin-lit)](https://jsr.io/@oddsquad/vite-plugin-lit)
 [![JSR score](https://jsr.io/badges/@oddsquad/vite-plugin-lit/score)](https://jsr.io/@oddsquad/vite-plugin-lit/score)
