@@ -37,7 +37,7 @@ const mount = async (props: {span?: TimelineSpan; filterable?: boolean}) => {
       ?.textContent?.replace(/\s+/g, ' ')
       .trim();
   const link = (text: string) =>
-    [...root.querySelectorAll<HTMLElement>('a')].find(
+    [...root.querySelectorAll<HTMLElement>('wa-button')].find(
       (a) => a.textContent?.trim() === text
     );
   return {el, root, value, link};

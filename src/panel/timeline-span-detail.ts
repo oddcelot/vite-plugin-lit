@@ -1,5 +1,7 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
+import '@awesome.me/webawesome/dist/components/badge/badge.js';
+import '@awesome.me/webawesome/dist/components/button/button.js';
 import {tokens} from '../lib/tokens.js';
 import type {TimelineSpan} from '../lib/timeline/derive.js';
 import {openInEditor} from './open-in-editor.js';
@@ -48,21 +50,11 @@ export class TimelineSpanDetail extends LitElement {
         color: var(--lit-devtools-text);
         word-break: break-all;
       }
-      a {
-        color: var(--lit-devtools-accent);
-        text-decoration: none;
-        cursor: pointer;
-      }
-      a:hover {
-        text-decoration: underline;
-      }
-      .badge {
-        color: var(--lit-devtools-accent);
-        margin-left: var(--lit-devtools-space-4);
-      }
       .filter-link {
         margin-left: var(--lit-devtools-space-4);
-        font-size: var(--lit-devtools-text-2xs);
+      }
+      .badge {
+        margin-left: var(--lit-devtools-space-4);
       }
     `,
   ];
@@ -126,10 +118,18 @@ export class TimelineSpanDetail extends LitElement {
                       ${c.key}: ${c.prev} →
                       ${c.next}${
                         c.sameRef
-                          ? html`<span class="badge">same reference</span>`
+                          ? html`<wa-badge
+                              class="badge"
+                              variant="neutral"
+                              appearance="filled"
+                              >same reference</wa-badge
+                            >`
                           : c.equal
-                            ? html`<span class="badge"
-                                >new reference, same value</span
+                            ? html`<wa-badge
+                                class="badge"
+                                variant="neutral"
+                                appearance="filled"
+                                >new reference, same value</wa-badge
                               >`
                             : nothing
                       }
@@ -147,19 +147,23 @@ export class TimelineSpanDetail extends LitElement {
                   &lt;${meta.tagName}&gt; #${id}
                   ${
                     id != null && this.filterable
-                      ? html`<a
+                      ? html`<wa-button
                           class="filter-link"
+                          size="small"
+                          appearance="plain"
                           @click=${() => this._emit('element-filter', id)}
-                          >filter</a
+                          >filter</wa-button
                         >`
                       : nothing
                   }${
                     id != null
-                      ? html`<a
+                      ? html`<wa-button
                           class="filter-link"
+                          size="small"
+                          appearance="plain"
                           title="Open this element in the Components tab"
                           @click=${() => this._emit('inspect-element', id)}
-                          >inspect</a
+                          >inspect</wa-button
                         >`
                       : nothing
                   }
@@ -172,11 +176,13 @@ export class TimelineSpanDetail extends LitElement {
             ? html`<tr>
                 <td class="key">source</td>
                 <td class="val">
-                  <a
+                  <wa-button
                     class="src-link"
+                    size="small"
+                    appearance="plain"
                     title="Open this file in your editor"
                     @click=${() => openInEditor(src.file, src.line)}
-                    >${src.file}:${src.line}</a
+                    >${src.file}:${src.line}</wa-button
                   >
                 </td>
               </tr>`
