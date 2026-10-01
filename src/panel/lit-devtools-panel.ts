@@ -28,6 +28,9 @@ import {onDeepLink, writeHashLink} from './deep-link.js';
 import type {DeepLinkTab} from './deep-link.js';
 import './devtools-settings.js';
 import './segmented-tabs.js';
+import '@awesome.me/webawesome/dist/components/button/button.js';
+import '@awesome.me/webawesome/dist/components/callout/callout.js';
+import '@awesome.me/webawesome/dist/components/icon/icon.js';
 import type {TabItem} from './segmented-tabs.js';
 
 /**
@@ -108,29 +111,18 @@ export class LitDevtoolsPanel extends LitElement {
         display: block;
       }
       .page-changed {
+        flex-shrink: 0;
+        border-radius: 0;
+        border-width: 0 0 1px;
+        font-size: var(--wa-font-size-s);
+      }
+      .page-changed::part(message) {
         display: flex;
         align-items: center;
-        gap: var(--lit-devtools-space-3);
-        flex-shrink: 0;
-        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
-        border-bottom: 1px solid var(--lit-devtools-border);
-        background: var(--lit-devtools-warning-soft);
-        color: var(--lit-devtools-warning);
-        font-size: var(--lit-devtools-text-xs);
-        font-weight: var(--lit-devtools-weight-semibold);
+        gap: var(--wa-space-xs);
       }
       .page-changed span {
         flex: 1;
-      }
-      .page-changed button {
-        border: 0;
-        background: none;
-        color: inherit;
-        font: inherit;
-        cursor: pointer;
-      }
-      .page-changed button:hover {
-        background: var(--lit-devtools-surface-hover);
       }
       .view {
         display: flex;
@@ -314,19 +306,26 @@ export class LitDevtoolsPanel extends LitElement {
       ${
         this._pageChange === null
           ? nothing
-          : html`<div class="page-changed" role="status">
+          : html`<wa-callout
+              class="page-changed"
+              variant="warning"
+              size="small"
+              role="status"
+            >
+              <wa-icon slot="icon" name="triangle-exclamation"></wa-icon>
               <span
                 >Another page connected at
                 ${new Date(this._pageChange.at).toLocaleTimeString()} — the
                 panel now follows it. The earlier recording was cleared.</span
               >
-              <button
-                aria-label="Dismiss"
+              <wa-button
+                appearance="plain"
+                size="small"
                 @click=${() => (this._pageChange = null)}
               >
-                ✕
-              </button>
-            </div>`
+                <wa-icon name="xmark" label="Dismiss"></wa-icon>
+              </wa-button>
+            </wa-callout>`
       }
       <div class="view" @inspect-element=${this._onInspectElement}>
         <timeline-view

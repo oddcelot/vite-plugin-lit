@@ -15,6 +15,7 @@ import bell from '@fortawesome/fontawesome-free/svgs/solid/bell.svg?raw';
 import clock from '@fortawesome/fontawesome-free/svgs/solid/clock.svg?raw';
 import cube from '@fortawesome/fontawesome-free/svgs/solid/cube.svg?raw';
 import gear from '@fortawesome/fontawesome-free/svgs/solid/gear.svg?raw';
+import triangleExclamation from '@fortawesome/fontawesome-free/svgs/solid/triangle-exclamation.svg?raw';
 import xmark from '@fortawesome/fontawesome-free/svgs/solid/xmark.svg?raw';
 
 const ICONS = {
@@ -22,6 +23,7 @@ const ICONS = {
   clock,
   cube,
   gear,
+  'triangle-exclamation': triangleExclamation,
   xmark,
 } as const;
 
