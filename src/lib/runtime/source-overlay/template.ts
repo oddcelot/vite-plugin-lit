@@ -3,7 +3,8 @@ import {CODE_ICON, COPY_ICON} from '../../icons.js';
 
 // Shadow DOM markup for the overlay: a transparent modal <dialog> hosting the
 // dimming mask, the highlight ring, and the bottom-fixed tooltip panel. The
-// panel is a three-section split: open-in-editor icon | tag + path | copy icon.
+// panel is a three-section split: open-in-editor icon | tag + path + arrow-key
+// steps | copy icon.
 export const OVERLAY_HTML = `
   <style>
     dialog {
@@ -99,6 +100,12 @@ export const OVERLAY_HTML = `
       font-size: 11px;
       word-break: break-all;
     }
+    /* Where the arrow keys step: out to the enclosing host, back in. */
+    #step {
+      color: var(--lit-devtools-text-secondary);
+      font-size: 11px;
+      white-space: pre;
+    }
   </style>
   <dialog id="overlay">
     <div id="mask"></div>
@@ -113,6 +120,7 @@ export const OVERLAY_HTML = `
       <div id="meta">
         <span id="tag"></span>
         <span id="path"></span>
+        <span id="step"></span>
       </div>
       <button
         id="copy"

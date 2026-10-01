@@ -25,6 +25,10 @@ export const isLitElement: HostTest = (el) =>
   (el.constructor as {elementProperties?: unknown}).elementProperties instanceof
   Map;
 
+/** What `hosts: 'lit'` picks: any Lit element, stamped or not. */
+export const isAnyHost: HostTest = (el) =>
+  hasSourceMeta(el) || isLitElement(el);
+
 // Walk up from an element (crossing shadow boundaries) to the nearest host that
 // passes `isHost` -- by default the one carrying Lit source metadata, i.e. the
 // component that rendered it.
@@ -43,6 +47,28 @@ export const findSourceHost = (
       continue;
     }
     current = current.parentElement;
+  }
+  return null;
+};
+
+// The next host out from a picked one, for stepping outward with the arrow
+// keys. Unlike findSourceHost, which jumps from shadow content straight to the
+// component that rendered it, this follows the composed tree, so a library
+// element slotted into another (a checkbox in a card) steps to that one first.
+export const findEnclosingHost = (
+  el: Element,
+  isHost: HostTest = hasSourceMeta
+): Element | null => {
+  let current: Element | null = el;
+  while (current !== null) {
+    const parent: Element | null = current.parentElement;
+    if (parent !== null) {
+      current = parent;
+    } else {
+      const root = current.getRootNode();
+      current = root instanceof ShadowRoot ? root.host : null;
+    }
+    if (current !== null && isHost(current)) return current;
   }
   return null;
 };
@@ -117,4 +143,27 @@ export const defaultResolver: ElementResolver = {
       },
     };
   },
+};
+
+/**
+ * What the tooltip shows for a host: its tag, and its file and line when the
+ * source-meta transform stamped it. A library element carries no stamp, so it
+ * is named after its class and has no source to open or copy.
+ */
+export const hostInfo = (
+  host: Element
+): Omit<ElementInfo, 'source'> & {source?: ElementInfo['source']} => {
+  const meta = (
+    host.constructor as CustomElementConstructor & {
+      [SOURCE_META_KEY]?: LitSourceMeta;
+    }
+  )[SOURCE_META_KEY];
+  const tagName = host.tagName.toLowerCase();
+  return meta === undefined
+    ? {tagName, componentName: host.constructor.name || undefined}
+    : {
+        tagName,
+        componentName: meta.componentName,
+        source: {filePath: meta.filePath, lineNumber: meta.lineNumber},
+      };
 };

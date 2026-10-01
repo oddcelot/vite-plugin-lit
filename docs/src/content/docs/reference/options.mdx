@@ -32,6 +32,7 @@ environment variable, and where to read more.
 | `sourceOverlay.editor`        | `string \| EditorConfig`                      | `'vscode'`   | `LIT_PLUGIN_SOURCE_OVERLAY_EDITOR`      |
 | `sourceOverlay.workspaceRoot` | `string`                                      | —            | —                                       |
 | `sourceOverlay.throttleMs`    | `number`                                      | `50`         | `LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS` |
+| `sourceOverlay.hosts`         | `'source' \| 'lit'`                           | `'source'`   | —                                       |
 | `sourceOverlay.exclude`       | `(el: Element) => boolean`                    | —            | —                                       |
 | `sourceOverlay.onSelect`      | `(info: ElementInfo) => void`                 | —            | —                                       |
 | `timeline`                    | `boolean`                                     | `false`      | `LIT_PLUGIN_TIMELINE`                   |
@@ -334,6 +335,27 @@ export default defineConfig({
 
 **Type:** `number` · **Default:** `50` · **Env:**
 `LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS`
+
+See also: [Open a component in your editor](/vite-plugin-lit/guides/source-overlay/).
+
+### sourceOverlay.hosts
+
+Which elements the picker can pick. `'source'` is your own components, the
+ones with a file to open. `'lit'` adds every other Lit element on the page,
+such as a component library's `<wa-button>` or `<sl-input>`: those pick into
+the DevTools Components tab, with no source to open or copy. Your own
+components keep theirs.
+
+```ts title="vite.config.ts" {5}
+import {defineConfig} from 'vite';
+import {litPlugin} from '@oddsquad/vite-plugin-lit';
+
+export default defineConfig({
+  plugins: [litPlugin({sourceOverlay: {hosts: 'lit'}})],
+});
+```
+
+**Type:** `'source' | 'lit'` · **Default:** `'source'` · **Env:** none
 
 See also: [Open a component in your editor](/vite-plugin-lit/guides/source-overlay/).
 

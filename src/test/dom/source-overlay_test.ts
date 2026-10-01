@@ -444,6 +444,16 @@ describe('lit hosts (no source metadata)', () => {
     expect(dialog().open).toBe(false);
   });
 
+  test('a stamped component keeps its source', async () => {
+    const {el} = makeTarget();
+    hitTarget = el;
+    mount({hosts: 'lit', workspaceRoot: '/ws'});
+    overlay.activate();
+    await hover();
+    expect(byId('path').textContent).toBe('src/card.ts:7');
+    expect(byId('open').style.display).toBe('');
+  });
+
   test('source mode still skips an unstamped Lit element', async () => {
     const {el} = makeLitTarget();
     hitTarget = el;
@@ -451,5 +461,91 @@ describe('lit hosts (no source metadata)', () => {
     overlay.activate();
     await hover();
     expect(byId('tooltip').style.display).toBe('none');
+  });
+});
+
+describe('stepping with the arrow keys', () => {
+  /** <x-target>#shadow <lib-card><lib-box>, the inner two unstamped. */
+  const makeNested = () => {
+    const {el: page} = makeTarget();
+    const lib = () => {
+      const tag = `x-lib-${counter++}`;
+      customElements.define(
+        tag,
+        class extends HTMLElement {
+          static elementProperties = new Map();
+        }
+      );
+      const el = document.createElement(tag);
+      el.getBoundingClientRect = () => page.getBoundingClientRect();
+      return el;
+    };
+    const card = lib();
+    const box = lib();
+    card.append(box);
+    page.attachShadow({mode: 'open'}).append(card);
+    return {page, card, box};
+  };
+
+  test('ArrowUp steps out to the enclosing host, ArrowDown back in', async () => {
+    const {page, card, box} = makeNested();
+    hitTarget = box;
+    mount({hosts: 'lit'});
+    overlay.activate();
+    await hover();
+    expect(byId('tag').textContent).toBe(`<${box.localName}>`);
+    expect(byId('step').textContent).toBe(`↑ <${card.localName}>`);
+
+    expect(key({key: 'ArrowUp'}).defaultPrevented).toBe(true);
+    expect(byId('tag').textContent).toBe(`<${card.localName}>`);
+    expect(byId('step').textContent).toBe(
+      `↑ <${page.localName}>  ↓ <${box.localName}>`
+    );
+
+    key({key: 'ArrowUp'});
+    expect(byId('tag').textContent).toBe(`<${page.localName}>`);
+    expect(byId('step').textContent).toBe(`↓ <${card.localName}>`);
+    // Nothing further out: stays put.
+    key({key: 'ArrowUp'});
+    expect(byId('tag').textContent).toBe(`<${page.localName}>`);
+
+    key({key: 'ArrowDown'});
+    key({key: 'ArrowDown'});
+    expect(byId('tag').textContent).toBe(`<${box.localName}>`);
+    expect(byId('step').textContent).toBe(`↑ <${card.localName}>`);
+  });
+
+  test('moving over the same host keeps the stepped-out target, and a click picks it', async () => {
+    const {page, box} = makeNested();
+    hitTarget = box;
+    const onPick = vi.fn<(id: number) => void>();
+    mount({hosts: 'lit', onPick, workspaceRoot: '/ws'});
+    overlay.activate();
+    await hover();
+    key({key: 'ArrowUp'});
+    key({key: 'ArrowUp'});
+    await hover(41, 41);
+    expect(byId('tag').textContent).toBe(`<${page.localName}>`);
+    expect(byId('path').textContent).toBe('src/card.ts:7');
+    click();
+    expect(onPick).toHaveBeenCalledOnce();
+  });
+
+  test('source mode steps over unstamped hosts', async () => {
+    const {page} = makeNested();
+    const inner = document.createElement(makeTarget().tag);
+    inner.getBoundingClientRect = () => page.getBoundingClientRect();
+    page.shadowRoot!.firstElementChild!.append(inner);
+    hitTarget = inner;
+    mount();
+    overlay.activate();
+    await hover();
+    key({key: 'ArrowUp'});
+    expect(byId('tag').textContent).toBe(`<${page.localName}>`);
+  });
+
+  test('arrow keys pass through while inactive', () => {
+    mount();
+    expect(key({key: 'ArrowUp'}).defaultPrevented).toBe(false);
   });
 });

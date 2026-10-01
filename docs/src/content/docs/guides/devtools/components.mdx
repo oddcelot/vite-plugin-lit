@@ -62,13 +62,16 @@ says so instead of showing stale values.
 
 Press **⌖ Pick** in the toolbar, or **Meta+Shift+E** (**⌘⇧E** on a Mac),
 which is also in the DevTools command palette as _Pick Lit Element_. Move the
-pointer over the page and click the element you want.
+pointer over the page and click the element you want. **↑** and **↓** step
+out to the element around the outlined one and back.
 
 This is the same picker the [source
 overlay](/vite-plugin-lit/guides/source-overlay/) uses, so it needs
 `sourceOverlay` switched on; without it the button is not shown. A page
 connected to [`lit-devtools dev`](/vite-plugin-lit/reference/cli/) gets a
-picker of its own that targets any Lit element, without source locations. A plain click selects the element here in the
+picker of its own that targets any Lit element, without source locations.
+Set [`sourceOverlay.hosts`](/vite-plugin-lit/reference/options/#sourceoverlayhosts)
+to `'lit'` to pick a component library's elements under Vite too. A plain click selects the element here in the
 tree; hold Ctrl or ⌘ while clicking to open it in your editor instead.
 
 ## Follow changes live

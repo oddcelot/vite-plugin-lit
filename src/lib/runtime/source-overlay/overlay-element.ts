@@ -1,11 +1,12 @@
 import type {ElementInfo, EditorConfig} from '../../types.js';
 import {BUILTIN_EDITORS, resolveEditor} from './editors.js';
 import {
-  defaultResolver,
+  findEnclosingHost,
   findSourceAtPoint,
   findSourceHost,
   hasSourceMeta,
-  isLitElement,
+  hostInfo,
+  isAnyHost,
   type HostTest,
 } from './source-host.js';
 import {buildSpotlightClipPath} from './mask-path.js';
@@ -30,9 +31,10 @@ export interface SourceOverlayInitOptions {
   openInEditorPath?: string;
   /**
    * What can be picked. `source` (the default) is components the source-meta
-   * transform stamped, which have a file to open. `lit` is any Lit element,
-   * for pages with no transform (`lit-devtools dev`): those pick into the
-   * panel but have no source to show, open or copy.
+   * transform stamped, which have a file to open. `lit` is any Lit element:
+   * library ones such as `<wa-button>` too, and every one on a page with no
+   * transform (`lit-devtools dev`). Stamped ones keep their source; the rest
+   * pick into the panel with no source to show, open or copy.
    */
   hosts?: 'source' | 'lit';
   /** Called with the picked element's id after the panel is told. */
@@ -53,10 +55,15 @@ class LitSourceOverlay extends HTMLElement {
   #tooltip: HTMLElement;
   #tag: HTMLElement;
   #path: HTMLElement;
+  #step: HTMLElement;
   #open: HTMLElement;
   #copy: HTMLElement;
   #info: PickInfo | null = null;
   #targetEl: Element | null = null;
+  // The host under the pointer, and the hosts stepped out of with ArrowUp,
+  // innermost first. The target is the pointer host while the trail is empty.
+  #pointerHost: Element | null = null;
+  #trail: Element[] = [];
   #throttleTimer: ReturnType<typeof setTimeout> | undefined;
   #scrollTimer: ReturnType<typeof setTimeout> | undefined;
   #resizeObserver: ResizeObserver | undefined;
@@ -81,6 +88,7 @@ class LitSourceOverlay extends HTMLElement {
     this.#tooltip = root.getElementById('tooltip')!;
     this.#tag = root.getElementById('tag')!;
     this.#path = root.getElementById('path')!;
+    this.#step = root.getElementById('step')!;
     this.#open = root.getElementById('open')!;
     this.#copy = root.getElementById('copy')!;
     this.#open.addEventListener('click', (e) => {
@@ -164,7 +172,7 @@ class LitSourceOverlay extends HTMLElement {
   configure(options: SourceOverlayInitOptions) {
     this.#options = options;
     this.#editor = resolveEditor(options.editor);
-    this.#isHost = options.hosts === 'lit' ? isLitElement : hasSourceMeta;
+    this.#isHost = options.hosts === 'lit' ? isAnyHost : hasSourceMeta;
   }
 
   activate() {
@@ -184,7 +192,7 @@ class LitSourceOverlay extends HTMLElement {
     document.addEventListener('click', this.#onClick, true);
     window.addEventListener('scroll', this.#onScrollOrResize, {passive: true});
     window.addEventListener('resize', this.#onScrollOrResize, {passive: true});
-    void this.#resolveAt(this.#lastMouseX, this.#lastMouseY);
+    this.#resolveAt(this.#lastMouseX, this.#lastMouseY);
   }
 
   deactivate() {
@@ -280,6 +288,15 @@ class LitSourceOverlay extends HTMLElement {
       source === undefined
         ? ''
         : `${this.#normalizePath(source.filePath)}:${source.lineNumber}`;
+    const out = this.#enclosingHost();
+    const back = this.#trail.at(-1);
+    this.#step.textContent = [
+      out === null ? '' : `↑ <${out.tagName.toLowerCase()}>`,
+      back === undefined ? '' : `↓ <${back.tagName.toLowerCase()}>`,
+    ]
+      .filter(Boolean)
+      .join('  ');
+    this.#step.style.display = out === null && back === undefined ? 'none' : '';
     const sourceDisplay = source === undefined ? 'none' : '';
     this.#path.style.display = sourceDisplay;
     this.#open.style.display = sourceDisplay;
@@ -289,6 +306,8 @@ class LitSourceOverlay extends HTMLElement {
 
   #clearTarget() {
     this.#targetEl = null;
+    this.#pointerHost = null;
+    this.#trail = [];
     this.#info = null;
     this.#highlight.style.display = 'none';
     this.#highlight.style.left = '0';
@@ -315,23 +334,29 @@ class LitSourceOverlay extends HTMLElement {
     return exclude !== undefined && exclude(el);
   }
 
-  async #resolveAt(x: number, y: number) {
+  #resolveAt(x: number, y: number) {
     this.#lastMouseX = x;
     this.#lastMouseY = y;
     const el = findSourceAtPoint(x, y, this.#dialog, this.#isHost);
-    if (el === null || this.#shouldSkip(el)) {
-      this.#clearTarget();
-      return;
-    }
-    const host = findSourceHost(el, this.#isHost);
+    const host =
+      el === null || this.#shouldSkip(el)
+        ? null
+        : findSourceHost(el, this.#isHost);
     if (host === null) {
       this.#clearTarget();
       return;
     }
-    if (host === this.#targetEl && this.#info !== null) {
+    // Still over the same host: keep the target, including one stepped out to.
+    if (host === this.#pointerHost && this.#info !== null) {
       this.#updateHighlightRect();
       return;
     }
+    this.#pointerHost = host;
+    this.#trail = [];
+    this.#setTarget(host);
+  }
+
+  #setTarget(host: Element) {
     this.#targetEl = host;
     if (this.#resizeObserver === undefined) {
       this.#resizeObserver = new ResizeObserver(() =>
@@ -341,20 +366,34 @@ class LitSourceOverlay extends HTMLElement {
       this.#resizeObserver.disconnect();
     }
     this.#resizeObserver.observe(host);
-    const resolved: PickInfo | null =
-      this.#options.hosts === 'lit'
-        ? {
-            tagName: host.tagName.toLowerCase(),
-            componentName: host.constructor.name || undefined,
-          }
-        : await defaultResolver.resolveElementInfo(el);
-    if (resolved === null) {
-      this.#clearTarget();
-      return;
-    }
-    this.#info = resolved;
+    this.#info = hostInfo(host);
     this.#updateHighlightRect();
     this.#showTooltip();
+  }
+
+  /** The next pickable host out from the target, skipping excluded ones. */
+  #enclosingHost(): Element | null {
+    let host = this.#targetEl;
+    while (host !== null) {
+      host = findEnclosingHost(host, this.#isHost);
+      if (host === null || !this.#shouldSkip(host)) return host;
+    }
+    return null;
+  }
+
+  // ArrowUp picks the host around the target, ArrowDown goes back in.
+  #stepTarget(outward: boolean) {
+    const target = this.#targetEl;
+    if (target === null) return;
+    if (outward) {
+      const next = this.#enclosingHost();
+      if (next === null) return;
+      this.#trail.push(target);
+      this.#setTarget(next);
+    } else {
+      const next = this.#trail.pop();
+      if (next !== undefined) this.#setTarget(next);
+    }
   }
 
   #onTrackMouse = (event: MouseEvent) => {
@@ -375,6 +414,18 @@ class LitSourceOverlay extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
     }
+    if (
+      this.#active &&
+      (event.key === 'ArrowUp' || event.key === 'ArrowDown') &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey
+    ) {
+      // Not a scroll: the page stays put under the picker.
+      event.preventDefault();
+      event.stopPropagation();
+      this.#stepTarget(event.key === 'ArrowUp');
+    }
   };
 
   #onMouseMove = (event: MouseEvent) => {
@@ -394,7 +445,7 @@ class LitSourceOverlay extends HTMLElement {
       const x = this.#lastMouseX;
       const y = this.#lastMouseY;
       if (this.#pointInTooltip(x, y)) return;
-      void this.#resolveAt(x, y);
+      this.#resolveAt(x, y);
     }, throttleMs);
   };
 

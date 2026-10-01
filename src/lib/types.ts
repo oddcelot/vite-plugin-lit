@@ -37,6 +37,13 @@ export interface SourceOverlayOptions {
   /** Mouse move throttle in ms (default 50). */
   throttleMs?: number;
 
+  /**
+   * What the picker can pick. `source` (the default) is your own components,
+   * the ones with a file to open. `lit` is any Lit element, so library ones
+   * such as `<wa-button>` pick into the DevTools panel too, without a source.
+   */
+  hosts?: 'source' | 'lit';
+
   /** Filter elements to skip during inspection. */
   exclude?: (el: Element) => boolean;
 

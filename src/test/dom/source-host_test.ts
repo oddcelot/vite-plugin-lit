@@ -1,8 +1,11 @@
 import {afterEach, describe, expect, test, vi} from 'vite-plus/test';
 import {
   defaultResolver,
+  findEnclosingHost,
   findSourceAtPoint,
   findSourceHost,
+  hostInfo,
+  isAnyHost,
 } from '../../lib/runtime/source-overlay/source-host.js';
 import {SOURCE_META_KEY} from '../../lib/runtime/source-meta.js';
 
@@ -156,5 +159,65 @@ describe('defaultResolver', () => {
     const el = document.createElement('div');
     document.body.append(el);
     expect(await defaultResolver.resolveElementInfo(el)).toBeNull();
+  });
+});
+
+/** Defines a Lit-shaped element without source metadata, like a library's. */
+const defineLit = (): string => {
+  const tag = `x-lib-${counter++}`;
+  customElements.define(
+    tag,
+    class Lib extends HTMLElement {
+      static elementProperties = new Map();
+    }
+  );
+  return tag;
+};
+
+describe('findEnclosingHost', () => {
+  test('follows the composed tree, so a slotted host steps to its container first', () => {
+    // <page>#shadow <card><checkbox>#shadow <icon>
+    const page = document.createElement(define());
+    const card = document.createElement(defineLit());
+    const checkbox = document.createElement(defineLit());
+    const icon = document.createElement(defineLit());
+    checkbox.attachShadow({mode: 'open'}).append(icon);
+    card.append(checkbox);
+    page.attachShadow({mode: 'open'}).append(card);
+    document.body.append(page);
+
+    expect(findEnclosingHost(icon, isAnyHost)).toBe(checkbox);
+    expect(findEnclosingHost(checkbox, isAnyHost)).toBe(card);
+    expect(findEnclosingHost(card, isAnyHost)).toBe(page);
+    expect(findEnclosingHost(page, isAnyHost)).toBeNull();
+  });
+
+  test('skips elements the host test rejects', () => {
+    const page = document.createElement(define());
+    const card = document.createElement(defineLit());
+    const inner = document.createElement(define());
+    card.append(inner);
+    page.attachShadow({mode: 'open'}).append(card);
+    document.body.append(page);
+    expect(findEnclosingHost(inner)).toBe(page);
+  });
+});
+
+describe('hostInfo', () => {
+  test('carries the source of a stamped host', () => {
+    const tag = define(true, 'Widget');
+    expect(hostInfo(document.createElement(tag))).toEqual({
+      tagName: tag,
+      componentName: 'Widget',
+      source: {filePath: '/src/comp.ts', lineNumber: 12},
+    });
+  });
+
+  test('names an unstamped host after its class, without a source', () => {
+    const tag = defineLit();
+    expect(hostInfo(document.createElement(tag))).toEqual({
+      tagName: tag,
+      componentName: 'Lib',
+    });
   });
 });
