@@ -80,6 +80,11 @@ hierarchy changes, including inside shadow roots.
 It is off by default and remembered per browser. Refresh is disabled while it
 is on, because there is nothing left to ask for.
 
+Closing the panel stops the page observer, and reopening it with Live still on
+starts it again. A panel opened as its own tab, rather than docked in the page,
+cannot tell the page it closed, so there Live keeps observing until the page
+reloads or you toggle Live off.
+
 ## Flash elements that update
 
 **⚡ Flash** draws a short fading outline over every Lit element that finishes
