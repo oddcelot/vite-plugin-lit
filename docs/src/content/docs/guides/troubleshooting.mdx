@@ -378,14 +378,18 @@ toggles are remembered in `localStorage` across sessions.
 **Fix.** Call `super` in the override. See
 [Find out why a component re-rendered](/vite-plugin-lit/guides/devtools/updates/).
 
-### Pick or Meta+Shift+E does nothing
+### No Pick button, or Meta+Shift+E does nothing
 
-**Symptom.** The button highlights and no picker appears on the page.
+**Symptom.** The Components tab has no **⌖ Pick** button, and the shortcut
+shows no picker on the page.
 
 **Cause.** Picking reuses the source-overlay picker, which is off by default.
+A page connected to `lit-devtools dev` has no picker at all: it needs the
+source metadata only the Vite plugin adds.
 
-**Fix.** Set `sourceOverlay: true`. See
+**Fix.** Under Vite, set `sourceOverlay: true`. See
 [Open a component in your editor from the page](/vite-plugin-lit/guides/source-overlay/).
+Standalone, select the element in the tree instead.
 
 ### A source link opens nothing, or the wrong editor
 

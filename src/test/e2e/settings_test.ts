@@ -21,7 +21,8 @@ beforeAll(async () => {
   // The playground's config has `hmr.reconnect` off. An override of `on`,
   // recorded when the config said `on`, is one whose config has since moved.
   fixture = await startFixture({
-    plugin: {timeline: true},
+    // The overlay is on so the Components tab has a picker to offer.
+    plugin: {timeline: true, sourceOverlay: true},
     panel: true,
     seedSettings: {
       override: {hmrReconnect: true},
@@ -75,4 +76,10 @@ test('the color scheme is adopted from the store and written back to it', async 
   await expect
     .poll(async () => JSON.parse(await fsp.readFile(store, 'utf8')).appearance)
     .toBe('light');
+});
+
+test('Pick is offered when the source overlay is on', async () => {
+  const {page} = panel;
+  await page.getByText('Components', {exact: true}).first().click();
+  await page.locator('components-view button.pick').waitFor();
 });

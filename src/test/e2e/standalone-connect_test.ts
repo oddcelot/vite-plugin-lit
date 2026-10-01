@@ -181,6 +181,10 @@ test('a page outside Vite shows up in the standalone panel', async () => {
   await panel.goto(`${devOrigin}/#tab=components`);
   await panel.waitForSelector('lit-devtools-panel');
   await panel.getByText('standalone-hello').first().waitFor({timeout: 15_000});
+  // No build-time source metadata, so no overlay to pick with: the panel
+  // must not offer a Pick button that does nothing.
+  await panel.waitForTimeout(500);
+  expect(await panel.locator('components-view button.pick').count()).toBe(0);
 }, 60_000);
 
 test('the panel can record the page it never served', async () => {
