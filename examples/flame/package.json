@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "stackblitz": "node stackblitz.mjs"
   },
   "dependencies": {
     "lit": "^3.3.3"
@@ -18,6 +19,6 @@
   },
   "stackblitz": {
     "installDependencies": true,
-    "startCommand": "npm run dev"
+    "startCommand": "npm run stackblitz"
   }
 }
