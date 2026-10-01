@@ -1,10 +1,14 @@
-import {afterEach, describe, expect, test} from 'vite-plus/test';
+import {afterEach, describe, expect, test, vi} from 'vite-plus/test';
 import {createOptionsContext} from '../../lib/plugins/context.js';
-import type {LitPluginOptions} from '../../lib/plugin.js';
+import {litPlugin, type LitPluginOptions} from '../../lib/plugin.js';
 
 type Hook = (...args: unknown[]) => unknown;
 
-const ENV_KEYS = ['LIT_PLUGIN_TIMELINE', 'LIT_PLUGIN_HMR'];
+const ENV_KEYS = [
+  'LIT_PLUGIN_TIMELINE',
+  'LIT_PLUGIN_HMR',
+  'LIT_PLUGIN_SOURCE_OVERLAY',
+];
 
 /** Runs the context's `config` hook against an env-less root. */
 const configure = (options: LitPluginOptions) => {
@@ -17,6 +21,7 @@ const configure = (options: LitPluginOptions) => {
 };
 
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const key of ENV_KEYS) delete process.env[key];
 });
 
@@ -121,5 +126,84 @@ describe('options context relativeToRoot', () => {
   test('is a no-op before the root is known', () => {
     const ctx = createOptionsContext({});
     expect(ctx.relativeToRoot('/proj/a.ts')).toBe('/proj/a.ts');
+  });
+});
+
+describe('litPlugin feature gating', () => {
+  const run = (options: LitPluginOptions) => {
+    const plugins = litPlugin(options);
+    const pre = plugins.find((p) => p.name === 'lit-plugin-options')!;
+    (pre.config as Hook)(
+      {root: '/nonexistent-lit-plugin-env'},
+      {mode: 'development', command: 'serve'}
+    );
+    return plugins;
+  };
+  const tagsOf = (plugins: ReturnType<typeof litPlugin>) =>
+    plugins.flatMap((p) => {
+      const hook = p.transformIndexHtml as Hook | undefined;
+      return hook ? ((hook.call({}, '', {}) as unknown[]) ?? []) : [];
+    });
+  const text = (tags: unknown[]) => JSON.stringify(tags);
+
+  test('the env turning the timeline on activates the devframe feature', async () => {
+    process.env.LIT_PLUGIN_TIMELINE = '1';
+    const plugins = run({});
+    const devframe = plugins.find((p) => p.name === 'devframe:lit')!;
+    expect(devframe).toBeDefined();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const install = vi.fn(async () => {});
+    await (devframe.devtools!.setup as Hook)({install});
+    expect(install).toHaveBeenCalledOnce();
+    expect(text(tagsOf(plugins))).toContain('timeline/install');
+  });
+
+  test('an explicit timeline: false keeps the devframe out entirely', () => {
+    process.env.LIT_PLUGIN_TIMELINE = '1';
+    const plugins = run({timeline: false});
+    expect(plugins.some((p) => p.name === 'devframe:lit')).toBe(false);
+    expect(text(tagsOf(plugins))).not.toContain('timeline/install');
+  });
+
+  test('with everything off nothing is injected, mounted or served', async () => {
+    const plugins = run({
+      timeline: false,
+      sourceOverlay: false,
+      hmr: {indicator: false},
+    });
+    expect(tagsOf(plugins)).toEqual([]);
+    const overlay = plugins.find((p) => p.name === 'lit-source-overlay')!;
+    const use = vi.fn();
+    (overlay.configureServer as Hook)({
+      middlewares: {use},
+      config: {server: {}},
+    });
+    expect(use).not.toHaveBeenCalled();
+    expect(
+      (overlay.transform as Hook).call({}, 'customElement', '/p/a.ts', {})
+    ).toBeNull();
+  });
+
+  test('the env turning the source overlay on activates it', () => {
+    process.env.LIT_PLUGIN_SOURCE_OVERLAY = '1';
+    const plugins = run({});
+    const overlay = plugins.find((p) => p.name === 'lit-source-overlay')!;
+    const use = vi.fn();
+    (overlay.configureServer as Hook)({
+      middlewares: {use},
+      config: {server: {}},
+    });
+    expect(use).toHaveBeenCalledOnce();
+    expect(text(tagsOf(plugins))).toContain('initSourceOverlay');
+  });
+
+  test('HMR off removes its virtual modules and private-field rewrite', () => {
+    const plugins = run({hmr: false, timeline: false});
+    const hmr = plugins.find((p) => p.name === 'lit-plugin')!;
+    expect((hmr.resolveId as Hook).call({}, 'virtual:lit-plugin/x')).toBeNull();
+    const priv = plugins.find((p) => p.name === 'lit-private-fields')!;
+    expect(
+      (priv.transform as Hook).call({}, 'class A { #a = 1 }', '/p/a.ts', {})
+    ).toBeNull();
   });
 });
