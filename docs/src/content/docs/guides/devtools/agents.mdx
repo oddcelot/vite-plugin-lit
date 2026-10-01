@@ -36,15 +36,15 @@ one is missing.
 
 ## The seven tools
 
-| Tool                        | Answers                                                                                                |
-| --------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `lit_get-meta`              | Plugin version, available timeline layers, resolved settings.                                          |
-| `lit_list-components`       | The live element tree, read from the page on each call, with each component's source file and line.    |
-| `lit_component-details`     | Reactive properties, attributes, and update flags for one element id, read from the page on each call. |
-| `lit_update-summary`        | Which components updated, how often, how long for, and what changed.                                   |
-| `lit_recent-events`         | Recent lifecycle, render and input events, filterable by element or layer.                             |
-| `lit_hmr-incompatibilities` | Components the plugin could not hot-patch in place, and why.                                           |
-| `lit_set-recording`         | Starts or stops timeline recording. The only tool that changes state.                                  |
+| Tool                        | Answers                                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lit_get-meta`              | Plugin version, available timeline layers, resolved settings.                                                                              |
+| `lit_list-components`       | The live element tree, read from the page on each call, with each component's source file and line. Bound it with `maxDepth`.              |
+| `lit_component-details`     | Reactive properties, attributes, and update flags for one element id, or for every element of a tag name, read from the page on each call. |
+| `lit_update-summary`        | Which components updated, how often, how long for, and what changed.                                                                       |
+| `lit_recent-events`         | Recent lifecycle, render and input events, filterable by tag name, element or layer.                                                       |
+| `lit_hmr-incompatibilities` | Components the plugin could not hot-patch in place, and why.                                                                               |
+| `lit_set-recording`         | Starts or stops timeline recording. The only tool that changes state.                                                                      |
 
 Six of the seven only read. `lit_set-recording` exists because
 `lit_recent-events` is a dead end while recording is off, and an agent that can

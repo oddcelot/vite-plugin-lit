@@ -26,6 +26,11 @@ export interface InspectorTreeNode {
   componentName?: string;
   source?: ElementSource;
   children: InspectorTreeNode[];
+  /**
+   * Set only when a depth limit pruned this node's children: how many
+   * direct children were dropped. Absent on the unpruned tree.
+   */
+  hiddenChildren?: number;
 }
 
 /** One reactive property (or internal `@state`) of an inspected element. */

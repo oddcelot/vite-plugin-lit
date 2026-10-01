@@ -156,6 +156,73 @@ describe('lit devframe definition', () => {
     expect(await gone).toBeNull();
   });
 
+  test('component-details by tag name reads every match from the page', async () => {
+    const {source, ctx} = await boot({inspectorTimeoutMs: 1000});
+    const tree: InspectorTreeNode[] = [
+      {
+        id: 1,
+        tagName: 'x-app',
+        children: [
+          {id: 2, tagName: 'x-a', children: []},
+          {id: 3, tagName: 'X-A', children: []},
+        ],
+      },
+    ];
+    const pending = ctx.rpc.invokeLocal('lit:component-details', {
+      tagName: 'x-a',
+    });
+    await vi.waitFor(() =>
+      expect(source.inspector.at(-1)).toEqual({type: 'tree'})
+    );
+    source.sink!.inspectorMessage({type: 'tree', roots: tree});
+    await vi.waitFor(() => expect(source.inspector).toHaveLength(3));
+    source.sink!.inspectorMessage({type: 'details', details: detailsFor(2)});
+    source.sink!.inspectorMessage({type: 'gone', id: 3});
+    expect(await pending).toEqual({
+      details: [detailsFor(2)],
+      missing: [3],
+      truncated: false,
+    });
+  });
+
+  test('component-details by tag name falls back to the cache on silence', async () => {
+    const {source, ctx} = await boot({inspectorTimeoutMs: 20});
+    source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]});
+    source.sink!.inspectorMessage({type: 'details', details: detailsFor(3)});
+    expect(
+      await ctx.rpc.invokeLocal('lit:component-details', {tagName: 'x-a'})
+    ).toEqual({details: [detailsFor(3)], missing: [], truncated: false});
+    expect(
+      await ctx.rpc.invokeLocal('lit:component-details', {tagName: 'x-zzz'})
+    ).toEqual({details: [], missing: [], truncated: false});
+  });
+
+  test('list-components bounds the tree with maxDepth', async () => {
+    const {source, ctx} = await boot({inspectorTimeoutMs: 20});
+    const full: InspectorTreeNode[] = [
+      {
+        id: 1,
+        tagName: 'x-app',
+        children: [
+          {
+            id: 2,
+            tagName: 'x-a',
+            children: [{id: 3, tagName: 'x-b', children: []}],
+          },
+        ],
+      },
+    ];
+    source.sink!.inspectorMessage({type: 'tree', roots: full});
+    expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual(full);
+    expect(
+      await ctx.rpc.invokeLocal('lit:list-components', {maxDepth: 1})
+    ).toEqual([{id: 1, tagName: 'x-app', children: [], hiddenChildren: 1}]);
+    // Not a usable depth: the whole tree, as if omitted.
+    expect(
+      await ctx.rpc.invokeLocal('lit:list-components', {maxDepth: 0})
+    ).toEqual(full);
+  });
+
   test('list-components falls back to the cache when nothing answers', async () => {
     const {source, ctx} = await boot({inspectorTimeoutMs: 20});
     source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]});
