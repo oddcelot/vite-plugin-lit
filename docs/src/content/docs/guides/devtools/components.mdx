@@ -32,6 +32,11 @@ row to outline that element in the page.
 **Refresh** re-reads the tree on demand. The tree also refreshes whenever you
 pick an element.
 
+When an edit is hot-patched in place, a line above the tree reads
+`Patched <tag> ×N in M ms (childState: …)` for the most recent patch. It is not
+an issue, so the tab badge does not count it. Components that could not be
+patched appear in the HMR issues banner instead.
+
 ## Read the details pane
 
 Selecting an element fills the pane on the right: its tag name, a source link
