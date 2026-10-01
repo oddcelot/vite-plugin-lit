@@ -38,7 +38,7 @@ import type {TabItem} from './segmented-tabs.js';
  * extension point for future Lit DevTools views.
  */
 const TABS: readonly TabItem[] = [
-  {id: 'components', label: 'Components', icon: 'cube'},
+  {id: 'components', label: 'Components', icon: 'box'},
   {id: 'updates', label: 'Updates', icon: 'bell'},
   {id: 'timeline', label: 'Timeline', icon: 'clock'},
   {id: 'settings', label: 'Settings', icon: 'gear'},
@@ -312,7 +312,7 @@ export class LitDevtoolsPanel extends LitElement {
               size="small"
               role="status"
             >
-              <wa-icon slot="icon" name="triangle-exclamation"></wa-icon>
+              <wa-icon slot="icon" name="warning-diamond"></wa-icon>
               <span
                 >Another page connected at
                 ${new Date(this._pageChange.at).toLocaleTimeString()} — the
@@ -323,7 +323,7 @@ export class LitDevtoolsPanel extends LitElement {
                 size="small"
                 @click=${() => (this._pageChange = null)}
               >
-                <wa-icon name="xmark" label="Dismiss"></wa-icon>
+                <wa-icon name="close" label="Dismiss"></wa-icon>
               </wa-button>
             </wa-callout>`
       }

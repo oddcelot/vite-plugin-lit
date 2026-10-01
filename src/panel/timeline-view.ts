@@ -475,11 +475,11 @@ export class TimelineView extends LitElement {
           title="Write this session to a static panel directory you can attach to a bug report"
           @click=${this._exportSnapshot}
         >
-          <wa-icon slot="start" name="file-export"></wa-icon>
+          <wa-icon slot="start" name="download"></wa-icon>
           Export snapshot
         </wa-button>
         <wa-button size="small" appearance="outlined" @click=${this._clear}>
-          <wa-icon slot="start" name="trash-can"></wa-icon>
+          <wa-icon slot="start" name="trash"></wa-icon>
           Clear
         </wa-button>
         ${
@@ -495,7 +495,7 @@ export class TimelineView extends LitElement {
               >
                 <wa-icon
                   slot="start"
-                  name=${this._recording ? 'stop' : 'circle'}
+                  name=${this._recording ? 'stop-solid' : 'play'}
                 ></wa-icon>
                 ${this._recording ? 'Stop' : 'Record'}
               </wa-button>`

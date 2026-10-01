@@ -798,7 +798,7 @@ export class ComponentsView extends LitElement {
               @click=${this._openSource}
             >
               ${d.source.file}:${d.source.line}
-              <wa-icon slot="end" name="arrow-up-right-from-square"></wa-icon>
+              <wa-icon slot="end" name="external-link"></wa-icon>
             </wa-button>`
           : nothing
       }
@@ -958,7 +958,7 @@ export class ComponentsView extends LitElement {
                 this._picking,
                 'Pick an element on the page (Meta+Shift+E)',
                 this._togglePick,
-                html`<wa-icon slot="start" name="crosshairs"></wa-icon>`,
+                html`<wa-icon slot="start" name="target"></wa-icon>`,
                 'Pick'
               )
             : nothing
@@ -971,7 +971,7 @@ export class ComponentsView extends LitElement {
           this._toggleLive,
           html`<wa-icon
             slot="start"
-            name=${this._live ? 'circle' : 'circle-regular'}
+            name=${this._live ? 'eye' : 'eye-off'}
           ></wa-icon>`,
           'Live'
         )}
@@ -980,7 +980,7 @@ export class ComponentsView extends LitElement {
           this._flash,
           'Flash elements on the page when they update',
           this._toggleFlash,
-          html`<wa-icon slot="start" name="bolt"></wa-icon>`,
+          html`<wa-icon slot="start" name="zap"></wa-icon>`,
           'Flash'
         )}
         <wa-button
@@ -989,7 +989,7 @@ export class ComponentsView extends LitElement {
           @click=${this._refresh}
           ?disabled=${this._live}
         >
-          <wa-icon slot="start" name="rotate-right"></wa-icon>
+          <wa-icon slot="start" name="reload"></wa-icon>
           Refresh
         </wa-button>
       </div>
