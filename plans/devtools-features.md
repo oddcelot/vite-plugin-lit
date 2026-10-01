@@ -141,6 +141,32 @@ too much", using data the capture layer already produced: `groupId` pairing and
   output. The cheap proxy (changed keys unused by `render()`) would mislead too
   often. Revisit only with a real signal from lit-html.
 
+## Instance state
+
+The details pane only knew `elementProperties`, so a `@lit/task`, a signal or a
+controller was invisible without the console.
+
+- **Duck-typed, not imported.** `extras.ts` recognises a task by `run`,
+  `render` and a numeric `status`, and a signal by its `State` or `Computed`
+  constructor name. The page runtime takes no dependency on `@lit/task` or the
+  signal polyfill, and an app without them pays nothing. The constructor name
+  also keeps a `Map`, which has `get` and `set` too, from passing as a signal.
+- **Controllers come from a private field.** Lit exposes no accessor, so the
+  set is read from `__controllers` (development) or `_$EO` (production), and a
+  build that renames it yields an empty list instead of an error.
+- **Reading stays passive.** Own fields are read through their descriptors, so
+  an accessor is never invoked, and a controller's `value` is shown only when it
+  is a data property. A computed signal is never evaluated, since it runs user
+  code and recomputes lazily.
+- **The live push is deferred to a microtask.** `State.get()` has no
+  non-tracking variant outside `Signal.subtle.untrack`, which the runtime
+  cannot import. A `SignalWatcher` runs `performUpdate` inside a `Computed`, so
+  reading from the `updated` hook would subscribe the render to the signal.
+  `extras_test.ts` demonstrates the hazard.
+- **Optional on the wire, capped at 24.** `extras` is absent when empty, so
+  older panels and baked snapshots keep loading unchanged, and a class with a
+  large field set stays cheap to snapshot.
+
 ## CLI and stdio MCP
 
 `bin.mjs` is the `lit-devtools` command with `dev`, `build` and `mcp`.
