@@ -1,5 +1,7 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
+import '@awesome.me/webawesome/dist/components/badge/badge.js';
+import '@awesome.me/webawesome/dist/components/card/card.js';
 import '@awesome.me/webawesome/dist/components/option/option.js';
 import '@awesome.me/webawesome/dist/components/select/select.js';
 import '@awesome.me/webawesome/dist/components/switch/switch.js';
@@ -52,35 +54,20 @@ export class DevtoolsSettings extends LitElement {
         font-family: var(--lit-devtools-font-mono);
       }
       section {
-        border: 1px solid var(--lit-devtools-border);
-        border-radius: var(--lit-devtools-radius-md);
         margin-bottom: var(--lit-devtools-space-5);
-        overflow: hidden;
+      }
+      wa-card {
+        --spacing: 0;
+      }
+      wa-card::part(header) {
+        padding: var(--lit-devtools-space-3) var(--lit-devtools-space-5);
       }
       h3 {
         display: flex;
         align-items: center;
         gap: var(--lit-devtools-space-4);
         margin: 0;
-        padding: var(--lit-devtools-space-3) var(--lit-devtools-space-5);
         font-size: var(--lit-devtools-text-xs);
-        background: var(--lit-devtools-surface-low);
-        border-bottom: 1px solid var(--lit-devtools-border);
-      }
-      .pill {
-        font-size: var(--lit-devtools-text-2xs);
-        font-weight: var(--lit-devtools-weight-semibold);
-        text-transform: uppercase;
-        letter-spacing: var(--lit-devtools-tracking-caps);
-        padding: 1px var(--lit-devtools-space-4);
-        border-radius: var(--lit-devtools-radius-pill);
-        border: 1px solid var(--lit-devtools-border-strong);
-        color: var(--lit-devtools-text-muted);
-      }
-      .pill.on {
-        color: var(--lit-devtools-accent);
-        border-color: var(--lit-devtools-accent);
-        background: var(--lit-devtools-accent-soft);
       }
       .reset {
         margin-left: auto;
@@ -123,9 +110,11 @@ export class DevtoolsSettings extends LitElement {
         font-size: var(--lit-devtools-text-2xs);
       }
       .ovr {
-        color: var(--lit-devtools-warning);
-        font-size: var(--lit-devtools-text-2xs);
         margin-left: var(--lit-devtools-space-3);
+        vertical-align: middle;
+      }
+      wa-badge.env {
+        font-family: var(--lit-devtools-font-mono);
         vertical-align: middle;
       }
       .src {
@@ -318,8 +307,11 @@ export class DevtoolsSettings extends LitElement {
   }
 
   private _pill(on: boolean) {
-    return html`<span class="pill ${on ? 'on' : ''}"
-      >${on ? 'enabled' : 'disabled'}</span
+    return html`<wa-badge
+      class="pill ${on ? 'on' : ''}"
+      size="small"
+      variant=${on ? 'success' : 'neutral'}
+      >${on ? 'enabled' : 'disabled'}</wa-badge
     >`;
   }
 
@@ -329,7 +321,15 @@ export class DevtoolsSettings extends LitElement {
    */
   private _source(key: keyof SettingSources) {
     const src = this._settings?.sources?.[key];
-    return src ? html`<span class="env src">(${src})</span>` : nothing;
+    return src
+      ? html`<wa-badge
+          class="env src"
+          size="small"
+          appearance="outlined"
+          variant="neutral"
+          >(${src})</wa-badge
+        >`
+      : nothing;
   }
 
   /**
@@ -350,8 +350,16 @@ export class DevtoolsSettings extends LitElement {
     const s = this._settings;
     const current = s === null ? undefined : configValues(s)[key];
     const changed = baselineChanged(key, this._recorded[key], current);
-    return html`<span class="ovr">(overridden)</span>
-      <span class="env">${src}: ${baseline}</span>
+    return html`<wa-badge
+        class="ovr"
+        size="small"
+        appearance="outlined"
+        variant="brand"
+        >(overridden)</wa-badge
+      >
+      <wa-badge class="env" size="small" appearance="outlined" variant="neutral"
+        >${src}: ${baseline}</wa-badge
+      >
       <button
         class="row-reset"
         title="Reset to the ${src} value"
@@ -396,33 +404,35 @@ export class DevtoolsSettings extends LitElement {
   private _renderAppearance() {
     return html`
       <section>
-        <h3>Appearance</h3>
-        <table>
-          <tr>
-            <td class="key">color scheme</td>
-            <td class="val">
-              <wa-select
-                size="small"
-                .value=${this._colorScheme}
-                @change=${(e: Event) =>
-                  this._setColorScheme(
-                    (e.target as WaSelect).value as ColorSchemePreference
+        <wa-card>
+          <h3 slot="header">Appearance</h3>
+          <table>
+            <tr>
+              <td class="key">color scheme</td>
+              <td class="val">
+                <wa-select
+                  size="small"
+                  .value=${this._colorScheme}
+                  @change=${(e: Event) =>
+                    this._setColorScheme(
+                      (e.target as WaSelect).value as ColorSchemePreference
+                    )}
+                >
+                  ${(
+                    [
+                      ['auto', 'Auto'],
+                      ['dark', 'Dark'],
+                      ['light', 'Light'],
+                    ] as Array<[ColorSchemePreference, string]>
+                  ).map(
+                    ([value, label]) =>
+                      html`<wa-option value=${value}>${label}</wa-option>`
                   )}
-              >
-                ${(
-                  [
-                    ['auto', 'Auto'],
-                    ['dark', 'Dark'],
-                    ['light', 'Light'],
-                  ] as Array<[ColorSchemePreference, string]>
-                ).map(
-                  ([value, label]) =>
-                    html`<wa-option value=${value}>${label}</wa-option>`
-                )}
-              </wa-select>
-            </td>
-          </tr>
-        </table>
+                </wa-select>
+              </td>
+            </tr>
+          </table>
+        </wa-card>
       </section>
     `;
   }
@@ -676,33 +686,35 @@ export class DevtoolsSettings extends LitElement {
           (versions.length > 1 ? ' (duplicate copies)' : '');
     return html`
       <section>
-        <h3>About</h3>
-        <table>
-          <tr>
-            <td class="key">plugin version</td>
-            <td class="val">${meta.version}</td>
-          </tr>
-          <tr>
-            <td class="key">lit</td>
-            <td class="val">${lit}</td>
-          </tr>
-          <tr>
-            <td class="key">timeline layers</td>
-            <td class="val">${meta.layers.map((l) => l.label).join(', ')}</td>
-          </tr>
-          <tr>
-            <td class="key">element picker</td>
-            <td class="val">
-              ${meta.picker ? 'available' : 'unavailable (enable sourceOverlay)'}
-            </td>
-          </tr>
-        </table>
-        <p class="note">
-          Settings resolve in this order: panel override, then plugin option,
-          then <code>LIT_PLUGIN_*</code> env, then default. An explicit
-          <code>timeline: false</code> in the plugin options is final and
-          ignores env.
-        </p>
+        <wa-card>
+          <h3 slot="header">About</h3>
+          <table>
+            <tr>
+              <td class="key">plugin version</td>
+              <td class="val">${meta.version}</td>
+            </tr>
+            <tr>
+              <td class="key">lit</td>
+              <td class="val">${lit}</td>
+            </tr>
+            <tr>
+              <td class="key">timeline layers</td>
+              <td class="val">${meta.layers.map((l) => l.label).join(', ')}</td>
+            </tr>
+            <tr>
+              <td class="key">element picker</td>
+              <td class="val">
+                ${meta.picker ? 'available' : 'unavailable (enable sourceOverlay)'}
+              </td>
+            </tr>
+          </table>
+          <p class="note">
+            Settings resolve in this order: panel override, then plugin option,
+            then <code>LIT_PLUGIN_*</code> env, then default. An explicit
+            <code>timeline: false</code> in the plugin options is final and
+            ignores env.
+          </p>
+        </wa-card>
       </section>
     `;
   }
@@ -737,55 +749,65 @@ export class DevtoolsSettings extends LitElement {
       ${appearance}
 
       <section>
-        <h3>HMR ${this._pill(s.hmr.enabled)}</h3>
-        ${this._renderHmr(s)}
+        <wa-card>
+          <h3 slot="header">HMR ${this._pill(s.hmr.enabled)}</h3>
+          ${this._renderHmr(s)}
+        </wa-card>
       </section>
 
       <section>
-        <h3>Source Overlay ${this._pill(s.sourceOverlay.enabled)}</h3>
-        ${
-          s.sourceOverlay.enabled
-            ? html`<table>
-                ${this._readonlyRow(
-                  'hotkey',
-                  `Ctrl+Shift+${s.sourceOverlay.key.toUpperCase()}`,
-                  'LIT_PLUGIN_SOURCE_OVERLAY_KEY',
-                  'sourceOverlayKey'
-                )}
-                ${this._renderEditorRow(s)}
-                ${this._readonlyRow(
-                  'throttle (ms)',
-                  s.sourceOverlay.throttleMs,
-                  'LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS',
-                  'sourceOverlayThrottleMs'
-                )}
-              </table>`
-            : html`<p class="empty">
-                Enable with <code>sourceOverlay: true</code> or
-                <code>LIT_PLUGIN_SOURCE_OVERLAY=true</code>.
-              </p>`
-        }
+        <wa-card>
+          <h3 slot="header">
+            Source Overlay ${this._pill(s.sourceOverlay.enabled)}
+          </h3>
+          ${
+            s.sourceOverlay.enabled
+              ? html`<table>
+                  ${this._readonlyRow(
+                    'hotkey',
+                    `Ctrl+Shift+${s.sourceOverlay.key.toUpperCase()}`,
+                    'LIT_PLUGIN_SOURCE_OVERLAY_KEY',
+                    'sourceOverlayKey'
+                  )}
+                  ${this._renderEditorRow(s)}
+                  ${this._readonlyRow(
+                    'throttle (ms)',
+                    s.sourceOverlay.throttleMs,
+                    'LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS',
+                    'sourceOverlayThrottleMs'
+                  )}
+                </table>`
+              : html`<p class="empty">
+                  Enable with <code>sourceOverlay: true</code> or
+                  <code>LIT_PLUGIN_SOURCE_OVERLAY=true</code>.
+                </p>`
+          }
+        </wa-card>
       </section>
 
       <section>
-        <h3>Components ${this._pill(s.timeline)}</h3>
-        ${
-          s.timeline
-            ? this._renderComponents()
-            : html`<p class="empty">
-                Needs the timeline runtime: enable with
-                <code>timeline: true</code> or
-                <code>LIT_PLUGIN_TIMELINE=true</code>.
-              </p>`
-        }
+        <wa-card>
+          <h3 slot="header">Components ${this._pill(s.timeline)}</h3>
+          ${
+            s.timeline
+              ? this._renderComponents()
+              : html`<p class="empty">
+                  Needs the timeline runtime: enable with
+                  <code>timeline: true</code> or
+                  <code>LIT_PLUGIN_TIMELINE=true</code>.
+                </p>`
+          }
+        </wa-card>
       </section>
 
       <section>
-        <h3>Timeline ${this._pill(s.timeline)}</h3>
-        <p class="empty">
-          Layers and recording are controlled in the Timeline tab.
-        </p>
-        ${s.timeline ? this._renderTimelinePrefs() : nothing}
+        <wa-card>
+          <h3 slot="header">Timeline ${this._pill(s.timeline)}</h3>
+          <p class="empty">
+            Layers and recording are controlled in the Timeline tab.
+          </p>
+          ${s.timeline ? this._renderTimelinePrefs() : nothing}
+        </wa-card>
       </section>
 
       ${this._renderAbout()}
