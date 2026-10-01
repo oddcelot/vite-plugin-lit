@@ -403,7 +403,18 @@ export class ComponentsView extends LitElement {
       // The baked tree above is all a frozen session has; asking the page for
       // a fresh one would reject (`inspect` is an action, so it is not in the
       // dump) and surface as an unhandled rejection in the console.
-      if (!isSnapshot()) void rpc.rpc.call('inspect', {type: 'tree'});
+      if (!isSnapshot()) {
+        void rpc.rpc.call('inspect', {type: 'tree'});
+        if (this._live) {
+          // Re-arm Live after a panel reload: the page released its observer
+          // when the previous panel went away.
+          this._call({type: 'observe', enabled: true});
+          // The page only learns the panel is gone over the in-page channel,
+          // which connects lazily on first use. Touch it so Live mode is
+          // covered even if the user never hovers the tree.
+          inPageConnected();
+        }
+      }
     } catch (err) {
       this._error = describeError(err);
     }
@@ -428,6 +439,10 @@ export class ComponentsView extends LitElement {
         if (this._selectedId !== null) {
           this._call({type: 'watch', id: this._selectedId});
         }
+        // The page may have dropped Live mode (it releases the observer when
+        // the panel disconnects, and a page reload restarts it with none).
+        // `_live` is the panel's own record of what the user asked for.
+        if (this._live) this._call({type: 'observe', enabled: true});
         break;
       case 'tree':
         this._roots = msg.roots;
@@ -548,6 +563,8 @@ export class ComponentsView extends LitElement {
     } catch {
       // ignore (private/storage unavailable)
     }
+    // Connect the lazy in-page channel so the page can see the panel leave.
+    if (this._live && !isSnapshot()) inPageConnected();
     this._call({type: 'observe', enabled: this._live});
     // Leaving live mode, pull one fresh tree so it doesn't go stale silently.
     if (!this._live) this._call({type: 'tree'});

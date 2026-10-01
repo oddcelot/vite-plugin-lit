@@ -32,6 +32,17 @@ if (hot !== undefined) pageChannel.useViteHot(hot);
 // part of the inspector that does not need a dev server, which is what lets
 // the hover outline keep working in a static snapshot of the panel. Answering
 // handshakes costs nothing until a panel actually sends one.
+
+// Set by the inspector block below, which owns the watch hook and the
+// observer. The channel is created first, outside it, so it reaches them
+// through these.
+let onPanelsGone: (() => void) | undefined;
+let onPanelArrived: (() => void) | undefined;
+// Which panels are connected right now. A reloaded panel connects before its
+// predecessor's heartbeat times out, so a release has to wait for the *last*
+// one rather than react to the first disconnect.
+const panels = new Set<string>();
+
 if (typeof window !== 'undefined') {
   const channel = createPageScriptChannel<LitInPageProtocol>({
     name: LIT_IN_PAGE_CHANNEL,
@@ -40,9 +51,28 @@ if (typeof window !== 'undefined') {
       highlight: {handler: (id) => highlightById(id)},
     },
   });
+  channel.events.on('panel:connected', (panel) => {
+    panels.add(panel.id);
+    try {
+      onPanelArrived?.();
+    } catch {
+      // Never throw into the app; the panel can re-request.
+    }
+  });
   // A panel that goes away mid-hover never gets to send its `highlight(null)`,
-  // and an outline left painted over the app is worse than a missing one.
-  channel.events.on('panel:disconnected', () => clearHighlight());
+  // and an outline left painted over the app is worse than a missing one. The
+  // same goes for Live mode and the watch hook: their off-switches are RPCs
+  // the closing panel fires and the closing iframe drops.
+  channel.events.on('panel:disconnected', (panel) => {
+    clearHighlight();
+    panels.delete(panel.id);
+    if (panels.size > 0) return;
+    try {
+      onPanelsGone?.();
+    } catch {
+      // Never throw into the app.
+    }
+  });
 }
 
 if (typeof window !== 'undefined') {
@@ -70,8 +100,9 @@ if (typeof window !== 'undefined') {
   let watched: {ref: WeakRef<Updatable>; restore: () => void} | null = null;
 
   const unwatch = (): void => {
-    watched?.restore();
+    const prev = watched;
     watched = null;
+    prev?.restore();
   };
 
   const watch = (id: number): void => {
@@ -225,6 +256,22 @@ if (typeof window !== 'undefined') {
       }
     }
   };
+
+  // The panel is gone, so nobody is reading either stream. Drop the
+  // MutationObserver (it rebuilds and stringifies the whole tree per batch)
+  // and the instance-level `updated` wrapper. The node side keeps its tree
+  // and details caches, and a returning panel re-arms both through `ready`.
+  onPanelsGone = () => {
+    try {
+      unwatch();
+    } finally {
+      setObserving(false);
+    }
+  };
+  // A panel that connects later cannot know whether this runtime was
+  // released, so tell it the runtime is up; its `ready` handler re-requests
+  // the tree and re-arms the selection and Live mode. Idempotent.
+  onPanelArrived = () => send({type: 'ready'});
 
   // -------------------------------------------------------------------------
   // SPA navigation: a route change swaps the component tree without any HMR

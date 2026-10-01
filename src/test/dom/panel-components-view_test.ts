@@ -50,8 +50,11 @@ const mount = async (picker = false) => {
   };
 };
 
+const LIVE_LS_KEY = 'lit-devtools-components-live';
+
 afterEach(() => {
   document.body.replaceChildren();
+  localStorage.removeItem(LIVE_LS_KEY);
   resetClient();
 });
 
@@ -111,4 +114,36 @@ test('selecting a nested element expands its ancestors', async () => {
     '<x-button>',
   ]);
   expect(rows()[1]!.classList.contains('selected')).toBe(true);
+});
+
+const observeOn = {type: 'observe', enabled: true};
+
+test('re-arms Live on connect when it was left on', async () => {
+  localStorage.setItem(LIVE_LS_KEY, 'true');
+  const {inspects} = await mount();
+  expect(inspects()).toContainEqual(observeOn);
+});
+
+test('does not arm Live on connect when it is off', async () => {
+  const {inspects} = await mount();
+  expect(inspects()).not.toContainEqual(observeOn);
+});
+
+test('re-arms Live when the runtime announces ready', async () => {
+  localStorage.setItem(LIVE_LS_KEY, 'true');
+  const {el, inspects} = await mount();
+  const armed = () =>
+    inspects().filter((c) => JSON.stringify(c) === JSON.stringify(observeOn))
+      .length;
+  const before = armed();
+  push('inspector-message', {type: 'ready'});
+  await flush(el);
+  expect(armed()).toBe(before + 1);
+});
+
+test('never arms Live in a snapshot', async () => {
+  setSnapshot(true);
+  localStorage.setItem(LIVE_LS_KEY, 'true');
+  const {inspects} = await mount();
+  expect(inspects()).toEqual([]);
 });

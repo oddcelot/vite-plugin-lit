@@ -214,6 +214,14 @@ node side, which a snapshot needs.
   disconnects, so a panel that goes away mid-hover leaves no box painted over
   the app. The panel endpoint connects lazily on first use, because connecting
   posts handshake hellos to every ancestor window.
+- **The page also releases Live mode and the watch hook when the last panel
+  disconnects,** because their off-switches were RPCs the closing iframe drops.
+  Release waits for the _last_ peer, since a reloaded panel connects before the
+  old peer's heartbeat times out. The panel re-arms Live from its persisted flag
+  on connect and on `ready`, since the page no longer holds the observer across
+  panel reloads, and it touches the lazy channel when Live is on so the page can
+  see it leave. The own-tab and old-plugin paths stay best-effort, because a
+  carrier cannot report the panel leaving.
 - **RPC stays as the fallback,** not as padding. A panel opened as its own tab
   has no page script in its ancestry, and an older plugin version has no
   channel.
