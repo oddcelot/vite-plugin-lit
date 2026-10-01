@@ -77,6 +77,19 @@ const tickOf = (el: object): number => ticks.get(el) ?? 0;
  */
 const inFlight = new WeakMap<object, Set<string>>();
 
+/** Name and message only: a stack would make every failed update a large event. */
+const describeError = (e: unknown): {name: string; message: string} => {
+  try {
+    if (e instanceof Error) {
+      return {name: e.name, message: e.message.slice(0, 200)};
+    }
+    return {name: 'Error', message: String(e).slice(0, 200)};
+  } catch {
+    // A hostile `toString` must not replace the app's own error.
+    return {name: 'Error', message: ''};
+  }
+};
+
 type AnyFn = (...args: unknown[]) => unknown;
 type Proto = Record<string | symbol, AnyFn | undefined>;
 
@@ -151,10 +164,15 @@ const wrap = (
     }
 
     let result: unknown;
+    let error: {name: string; message: string} | undefined;
     running.add(name);
     inFlight.set(this, running);
     try {
       result = orig?.apply(this, args);
+    } catch (e) {
+      // Describe, then rethrow the original: the app must see its own error.
+      error = describeError(e);
+      throw e;
     } finally {
       running.delete(name);
       if (!isPoint) {
@@ -164,7 +182,8 @@ const wrap = (
           groupId,
           title: name + ':end',
           subtitle: tagName,
-          data: {phase: name},
+          data: error === undefined ? {phase: name} : {phase: name, error},
+          ...(error === undefined ? {} : {logType: 'error' as const}),
           meta: {elementId, tagName, source},
         });
       } else {
@@ -173,7 +192,8 @@ const wrap = (
           time,
           title: name,
           subtitle: tagName,
-          data: {phase: name},
+          data: error === undefined ? {phase: name} : {phase: name, error},
+          ...(error === undefined ? {} : {logType: 'error' as const}),
           meta: {elementId, tagName, source},
         });
       }
