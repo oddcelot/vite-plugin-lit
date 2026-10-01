@@ -175,6 +175,7 @@ describe('static snapshot export', () => {
   });
 
   test('a cold-opened snapshot selects the event named in #event=', async () => {
+    const LATE_CHUNK_MS = 1500;
     const out = `${TMP}/out-browser`;
     await fsp.rm(TMP, {recursive: true, force: true});
 
@@ -234,8 +235,13 @@ describe('static snapshot export', () => {
       const path = new URL(req.url ?? '/', 'http://x').pathname
         .replace(/^\/__lit/, '')
         .replace(/\/$/, '/index.html');
-      fsp
-        .readFile(joinPath(root, path))
+      // The virtualizer's layout is its own chunk, and the list cannot scroll
+      // to the linked row until it lands. Serve it late, as a cold CI runner
+      // did, so the reveal has to wait for it rather than winning a race.
+      new Promise((done) =>
+        setTimeout(done, path.includes('/flow-') ? LATE_CHUNK_MS : 0)
+      )
+        .then(() => fsp.readFile(joinPath(root, path)))
         .then((body: Buffer) => {
           res.setHeader(
             'content-type',

@@ -12,6 +12,9 @@ import {applyFilter, NO_FILTER, rawRow} from '../lib/timeline/model.js';
 import type {TimelineFilter} from '../lib/timeline/model.js';
 import './timeline-span-detail.js';
 
+/** How long {@link TimelineEventList.reveal} waits for the virtualizer. */
+const REVEAL_TIMEOUT_MS = 5000;
+
 /** Lit updates are routinely sub-millisecond, so one decimal is not enough. */
 const formatMs = (ms: number): string =>
   ms < 1 ? `${ms.toFixed(2)}ms` : `${ms.toFixed(1)}ms`;
@@ -245,16 +248,27 @@ export class TimelineEventList extends LitElement {
       el.scrollTop = el.scrollHeight;
       return;
     }
-    // A list that has only just received its rows has not laid out yet, and
-    // the virtualizer throws until it has; wait for it a few frames.
-    const attempt = (left: number): void => {
+    // A list that has only just received its rows is not ready to scroll:
+    // the virtualizer may not hold the items yet, and it throws until its
+    // layout -- a separately loaded chunk, slow on a cold snapshot -- has
+    // arrived. Keep trying each frame for a bounded time, not a frame count,
+    // and stop if the selection moves on meanwhile.
+    const key = this.selectedKey;
+    const deadline = performance.now() + REVEAL_TIMEOUT_MS;
+    const attempt = (): void => {
+      if (!this.isConnected || this.selectedKey !== key) return;
       try {
-        el[virtualizerRef]?.element(index)?.scrollIntoView({block: 'center'});
+        const target = el[virtualizerRef]?.element(index);
+        if (target !== undefined) {
+          target.scrollIntoView({block: 'center'});
+          return;
+        }
       } catch {
-        if (left > 0) requestAnimationFrame(() => attempt(left - 1));
+        // Not laid out yet.
       }
+      if (performance.now() < deadline) requestAnimationFrame(attempt);
     };
-    attempt(30);
+    attempt();
   }
 
   private _layerOn(row: TimelineSpan): boolean {
