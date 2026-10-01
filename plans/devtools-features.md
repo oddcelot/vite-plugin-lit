@@ -66,6 +66,13 @@ now also shown in the panel and to agents.
   editor opens and snapshot export stay panel-only, because an agent that
   silently changes the developer's tool state, spawns a GUI process or writes to
   disk is a different trust level.
+- **`list-components` and `component-details` ask the page on each call.** The
+  session caches only what the panel last requested, so an agent with no panel
+  open read an empty tree from a live page. The two queries now send the
+  inspector command themselves and await the reply (`inspector-request.ts`),
+  falling back to the cache after a short timeout so the null source and a
+  departed page cannot hang a tool call. The replies still pass through the
+  cache and the broadcast, so an open panel sees the same refresh.
 - **Event ids are `${epoch}-${seq}`,** stamped once in `pushEvents`, the only
   place stream, `recent-events` and export share. The epoch is the session
   start, so a restarted server never reissues an id an older snapshot holds. The
