@@ -209,6 +209,8 @@ export interface ComponentDetailsArgs {
 export interface RecentEventsArgs {
   layerId?: string;
   elementId?: number;
+  /** Only events of elements with this tag name (case-insensitive). */
+  tagName?: string;
   /**
    * Only events from the last `sinceMs` milliseconds, measured against
    * the newest event currently in the buffer — not wall-clock time.

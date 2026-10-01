@@ -118,6 +118,40 @@ describe('query', () => {
     });
   });
 
+  test('filters by tag name, case-insensitively', () => {
+    const s = createRecordingSession({epoch: 'e'});
+    s.push([
+      ev(0, {meta: {elementId: 1, tagName: 'x-foo'}}),
+      ev(1, {meta: {elementId: 2, tagName: 'x-bar'}}),
+      ev(2, {}),
+      ev(3, {meta: {elementId: 3, tagName: 'x-foo'}}),
+    ]);
+    expect(s.query({tagName: 'X-Foo'}, true).events.map((e) => e.time)).toEqual(
+      [0, 3]
+    );
+  });
+
+  test('tagName combines with elementId and sinceMs, and may match nothing', () => {
+    const s = createRecordingSession({epoch: 'e'});
+    s.push([
+      ev(0, {meta: {elementId: 1, tagName: 'x-foo'}}),
+      ev(900, {meta: {elementId: 2, tagName: 'x-foo'}}),
+      ev(950, {meta: {elementId: 2, tagName: 'x-foo'}}),
+      ev(1000, {meta: {elementId: 3, tagName: 'x-bar'}}),
+    ]);
+    expect(
+      s
+        .query({tagName: 'x-foo', elementId: 2, sinceMs: 100}, true)
+        .events.map((e) => e.time)
+    ).toEqual([900, 950]);
+    // The window is measured against the newest event of the whole buffer.
+    expect(s.query({tagName: 'x-foo', sinceMs: 10}, true).events).toEqual([]);
+    expect(s.query({tagName: 'x-none'}, true)).toMatchObject({
+      events: [],
+      truncated: false,
+    });
+  });
+
   test('sinceMs is relative to the newest buffered event, not the match', () => {
     const s = seed();
     expect(s.query({sinceMs: 1000}, true).events.map((e) => e.time)).toEqual([

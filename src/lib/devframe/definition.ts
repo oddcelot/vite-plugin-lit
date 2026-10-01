@@ -482,7 +482,7 @@ export function createLitDevframe(
           snapshot: true,
           agent: {
             description:
-              'Get recent timeline events (lifecycle, render, mouse, keyboard) to diagnose why a component re-rendered or updated. Call list-components first to find an element’s id, then filter by elementId to see just its events. Check the `recording` field in the response — if false, no events are being captured; ask the developer to enable Recording in the Timeline tab before retrying.',
+              'Get recent timeline events (lifecycle, render, mouse, keyboard) to diagnose why a component re-rendered or updated. Filter by tagName to see one component type’s events, or by elementId (from list-components) for a single element. Check the `recording` field in the response — if false, no events are being captured; ask the developer to enable Recording in the Timeline tab before retrying.',
           },
           // `args` is genuinely absent when an agent calls the tool with no
           // filters — the most common call — so it must default, not just be

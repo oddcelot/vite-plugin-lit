@@ -163,6 +163,12 @@ export function createRecordingSession(
       if (args.elementId !== undefined) {
         filtered = filtered.filter((e) => e.meta?.elementId === args.elementId);
       }
+      if (args.tagName !== undefined) {
+        const wanted = args.tagName.toLowerCase();
+        filtered = filtered.filter(
+          (e) => e.meta?.tagName?.toLowerCase() === wanted
+        );
+      }
       filtered = sinceWindow(filtered, events, args.sinceMs);
       // A frozen session's panel reads the baked no-argument call, so the
       // agent-friendly 50/200 window would silently cut an export to its
