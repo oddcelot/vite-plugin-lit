@@ -170,23 +170,8 @@ export const SOURCE_OVERLAY_EDITORS: ReadonlyArray<{
 /** localStorage key holding the {@link SettingsOverride}. */
 export const SETTINGS_OVERRIDE_LS_KEY = 'lit-devtools-overrides';
 
-/**
- * The resolved config value each overridden key was set against, recorded so
- * the Settings tab can notice when `.env` or plugin options moved on. Kept
- * beside the {@link SettingsOverride}, never inside it: the runtime applies and
- * receives the override as-is and has no use for these.
- */
-export type OverrideBaselines = Partial<
-  Record<
-    | 'hmrReconnect'
-    | 'hmrOnIncompatible'
-    | 'hmrChildState'
-    | 'hmrIndicatorVisible'
-    | 'hmrIndicatorCount'
-    | 'sourceOverlayEditor',
-    unknown
-  >
->;
+/** The config values overrides were made against; defined with the key map. */
+export type {OverrideBaselines} from '../lib/settings-override.js';
 
 /** localStorage key holding the {@link OverrideBaselines}. */
 export const OVERRIDE_BASELINES_LS_KEY = 'lit-devtools-override-baselines';
