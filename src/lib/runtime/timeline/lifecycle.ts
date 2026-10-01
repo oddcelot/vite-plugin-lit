@@ -16,6 +16,7 @@
 
 import {idOf, sourceOf, changedKeys} from './identity.js';
 import {now} from './clock.js';
+import {captureChangedValues} from './changed-values.js';
 import type {TimelineEvent} from '../../../types/timeline.js';
 
 type EmitFn = (event: TimelineEvent) => void;
@@ -111,7 +112,8 @@ const wrap = (
   isPoint: boolean,
   emit: EmitFn,
   recording: RecordingFn,
-  enabled: LayerEnabledFn
+  enabled: LayerEnabledFn,
+  changedValues: LayerEnabledFn
 ): void => {
   if (isWrapped(proto, name)) return;
   const orig = proto[name];
@@ -150,6 +152,13 @@ const wrap = (
     const groupId = `${elementId}:${tick}`;
     const time = now();
     const changed = changedKeys(args[0]);
+    // Only `update`, and only with the layer on: `willUpdate` may be an
+    // override that never reaches our wrapper, and the previews cost a
+    // serialize per key.
+    const changedDetail =
+      name === 'update' && changedValues()
+        ? captureChangedValues(this, args[0])
+        : undefined;
 
     if (!isPoint) {
       emit({
@@ -158,7 +167,10 @@ const wrap = (
         groupId,
         title: name + ':start',
         subtitle: tagName,
-        data: {phase: name, changed},
+        data:
+          changedDetail === undefined
+            ? {phase: name, changed}
+            : {phase: name, changed, changedDetail},
         meta: {elementId, tagName, source},
       });
     }
@@ -281,7 +293,8 @@ let installed = false;
 export const installLifecycleLayer = (
   emit: EmitFn,
   recording: RecordingFn,
-  enabled: LayerEnabledFn
+  enabled: LayerEnabledFn,
+  changedValues: LayerEnabledFn = () => false
 ): void => {
   if (installed) return;
   installed = true;
@@ -291,7 +304,7 @@ export const installLifecycleLayer = (
   // injected after the app's modules).
   const proto = findLitElementProto();
   if (proto !== null) {
-    patchBases(proto, emit, recording, enabled);
+    patchBases(proto, emit, recording, enabled, changedValues);
   }
 
   // Also instrument on future defines — both for components registered later
@@ -307,7 +320,7 @@ export const installLifecycleLayer = (
   customElements.define = (name, ctor, options) => {
     const p = ctor?.prototype as Proto | null;
     if (p != null && 'performUpdate' in p) {
-      patchBases(p, emit, recording, enabled);
+      patchBases(p, emit, recording, enabled, changedValues);
     }
     origDefine(name, ctor, options);
   };
@@ -325,15 +338,18 @@ const patchBases = (
   sample: Proto,
   emit: EmitFn,
   recording: RecordingFn,
-  enabled: LayerEnabledFn
+  enabled: LayerEnabledFn,
+  changedValues: LayerEnabledFn
 ): void => {
   const reProto = ownerOf(sample, 'performUpdate');
   if (reProto === null) return;
   for (const name of UPDATE_PHASES) {
     const owner = name === 'update' ? ownerOf(sample, 'update') : reProto;
-    if (owner !== null) wrap(owner, name, false, emit, recording, enabled);
+    if (owner !== null) {
+      wrap(owner, name, false, emit, recording, enabled, changedValues);
+    }
   }
   for (const name of POINT_PHASES) {
-    wrap(reProto, name, true, emit, recording, enabled);
+    wrap(reProto, name, true, emit, recording, enabled, changedValues);
   }
 };
