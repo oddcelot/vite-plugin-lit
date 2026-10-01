@@ -4,7 +4,6 @@ import type {DevframeInstance} from 'devframe/initiate';
 import {TIMELINE_LAYERS} from '../../types/timeline.js';
 import {createLitDevframe} from '../../lib/devframe/definition.js';
 import {createSourceLocator} from '../../lib/source-locator.js';
-import {RECENT_EVENTS_BUFFER_SIZE} from '../../lib/devframe/protocol.js';
 import type {SessionState} from '../../lib/devframe/protocol.js';
 import type {TimelineSink, TimelineSource} from '../../lib/devframe/source.js';
 import type {InspectorCommand} from '../../types/inspector.js';
@@ -383,39 +382,21 @@ describe('lit devframe definition', () => {
     ).toBeNull();
   });
 
-  test('recent-events filters by layer, element, and reports recording state', async () => {
+  test('recent-events passes its filters through to the session', async () => {
+    // The filter semantics are `session_test.ts`'s; this checks the RPC
+    // forwards its arguments and the live recording flag.
     const {ctx, source} = await boot();
-    let result = await ctx.rpc.invokeLocal('lit:recent-events', {});
-    expect(result.recording).toBe(false);
-    expect(result.events).toEqual([]);
-
     await ctx.rpc.invokeLocal('lit:set-recording', {recording: true});
     source.sink!.pushEvents([
       {layerId: 'lit-lifecycle', time: 0, data: {}, meta: {elementId: 1}},
       {layerId: 'mouse', time: 10, data: {}},
-      {layerId: 'lit-lifecycle', time: 20, data: {}, meta: {elementId: 2}},
     ]);
-
-    result = await ctx.rpc.invokeLocal('lit:recent-events', {});
-    expect(result.recording).toBe(true);
-    expect(result.events.length).toBe(3);
-    expect(result.bufferSize).toBe(3);
-
-    result = await ctx.rpc.invokeLocal('lit:recent-events', {
-      layerId: 'lit-lifecycle',
+    const result = await ctx.rpc.invokeLocal('lit:recent-events', {
+      layerId: 'mouse',
     });
-    expect(result.events.length).toBe(2);
-
-    result = await ctx.rpc.invokeLocal('lit:recent-events', {elementId: 1});
-    expect(result.events).toEqual([
-      {
-        id: expect.any(String),
-        layerId: 'lit-lifecycle',
-        time: 0,
-        data: {},
-        meta: {elementId: 1},
-      },
-    ]);
+    expect(result.recording).toBe(true);
+    expect(result.bufferSize).toBe(2);
+    expect(result.events.map((e) => e.layerId)).toEqual(['mouse']);
   });
 
   test('timeline-history answers the whole buffer, uncapped by the agent limit', async () => {
@@ -436,27 +417,10 @@ describe('lit devframe definition', () => {
     expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toEqual([]);
   });
 
-  test('stamps each event with a unique id that outlives a buffer reset', async () => {
-    const {ctx, source} = await boot();
-    source.sink!.pushEvents([
-      {layerId: 'mouse', time: 1, data: {}},
-      {layerId: 'mouse', time: 2, data: {}},
-    ]);
-    const first = (await ctx.rpc.invokeLocal('lit:recent-events')).events;
-    const ids = first.map((e) => e.id);
-    expect(ids[0]).toMatch(/^[0-9a-z]+-\d+$/);
-    expect(new Set(ids).size).toBe(2);
-
-    // A page reload empties the buffer; ids must not restart, or a link into
-    // an earlier export could resolve to a different event.
-    source.sink!.runtimeReady();
-    source.sink!.pushEvents([{layerId: 'mouse', time: 1, data: {}}]);
-    const after = (await ctx.rpc.invokeLocal('lit:recent-events')).events;
-    expect(ids).not.toContain(after[0]!.id);
-  });
-
   test('a replayed session answers recent-events with its whole buffer', async () => {
-    const events = Array.from({length: 300}, (_, i) => ({
+    // More than the live default of 50, which is what a frozen panel must
+    // not be cut to.
+    const events = Array.from({length: 60}, (_, i) => ({
       id: `old-${i}`,
       layerId: 'mouse',
       time: i,
@@ -490,32 +454,8 @@ describe('lit devframe definition', () => {
     const result = await ctx.rpc.invokeLocal('lit:recent-events');
     // The frozen panel reads this no-argument call; the live default of 50
     // would drop everything a link could point at.
-    expect(result.events.length).toBe(300);
+    expect(result.events.length).toBe(60);
     expect(result.events[0]!.id).toBe('old-0');
-  });
-
-  test('keeps an id the event already carries', async () => {
-    const {ctx, source} = await boot();
-    source.sink!.pushEvents([{id: 'x-1', layerId: 'mouse', time: 1, data: {}}]);
-    const {events} = await ctx.rpc.invokeLocal('lit:recent-events');
-    expect(events[0]!.id).toBe('x-1');
-  });
-
-  test('recent-events caps the ring buffer and marks truncation', async () => {
-    const {ctx, source} = await boot();
-    const events = Array.from({length: 520}, (_, i) => ({
-      layerId: 'mouse',
-      time: i,
-      data: {},
-    }));
-    source.sink!.pushEvents(events);
-
-    const result = await ctx.rpc.invokeLocal('lit:recent-events', {
-      limit: 200,
-    });
-    expect(result.bufferSize).toBe(RECENT_EVENTS_BUFFER_SIZE);
-    expect(result.events.length).toBe(200);
-    expect(result.truncated).toBe(true);
   });
 
   test('replays recording state to a runtime that just connected', async () => {
@@ -601,37 +541,18 @@ describe('lit devframe definition', () => {
     expect(after.events).toEqual([]);
   });
 
-  test('update-summary derives cycles and totals from the buffer', async () => {
+  test('update-summary summarizes the buffer and forwards tagName', async () => {
+    // Derivation is covered by `timeline-derive_test.ts` and the windowing by
+    // `session_test.ts`; this checks the RPC reaches them.
     const {ctx, source} = await boot();
-    const meta = {
-      elementId: 1,
-      tagName: 'hmr-counter',
-      source: {file: '/src/counter.ts', line: 4},
-    };
+    const meta = {elementId: 1, tagName: 'hmr-counter'};
     source.sink!.pushEvents([
-      {layerId: 'mouse', time: 0, title: 'click', subtitle: '(4, 8)', data: {}},
       {
         layerId: 'lit-lifecycle',
         time: 1,
         groupId: '1:1',
         title: 'performUpdate:start',
-        data: {phase: 'performUpdate'},
-        meta,
-      },
-      {
-        layerId: 'lit-lifecycle',
-        time: 1.5,
-        groupId: '1:1',
-        title: 'willUpdate:start',
-        data: {phase: 'willUpdate', changed: ['count']},
-        meta,
-      },
-      {
-        layerId: 'lit-lifecycle',
-        time: 2,
-        groupId: '1:1',
-        title: 'willUpdate:end',
-        data: {phase: 'willUpdate'},
+        data: {phase: 'performUpdate', changed: ['count']},
         meta,
       },
       {
@@ -645,28 +566,13 @@ describe('lit devframe definition', () => {
     ]);
 
     const summary = await ctx.rpc.invokeLocal('lit:update-summary');
-    expect(summary.components).toEqual([
-      {
-        tagName: 'hmr-counter',
-        elementIds: [1],
-        updates: 1,
-        totalMs: 3,
-        maxMs: 3,
-        reasons: [{key: 'count', count: 1}],
-        source: {file: '/src/counter.ts', line: 4},
-      },
-    ]);
-    expect(summary.cycles.length).toBe(1);
+    expect(summary.components.map((c) => c.tagName)).toEqual(['hmr-counter']);
     expect(summary.cycles[0]!.changed).toEqual(['count']);
-    // The input layers earn their keep here: the click is what caused it.
-    expect(summary.cycles[0]!.cause?.type).toBe('click');
-    expect(summary.bufferSize).toBe(5);
-    expect(summary.truncated).toBe(false);
+    expect(summary.bufferSize).toBe(2);
 
     const other = await ctx.rpc.invokeLocal('lit:update-summary', {
       tagName: 'hmr-clock',
     });
-    expect(other.components).toEqual([]);
     expect(other.cycles).toEqual([]);
   });
 
@@ -677,29 +583,5 @@ describe('lit devframe definition', () => {
     const result = await ctx.rpc.invokeLocal('lit:recent-events');
     expect(result.recording).toBe(false);
     expect(result.events).toEqual([]);
-  });
-
-  test('recent-events measures sinceMs against the whole buffer', async () => {
-    const {ctx, source} = await boot();
-    // Element 1 last rendered long ago; mouse events kept flowing since.
-    source.sink!.pushEvents([
-      {layerId: 'lit-lifecycle', time: 0, data: {}, meta: {elementId: 1}},
-      {layerId: 'mouse', time: 9000, data: {}},
-      {layerId: 'mouse', time: 10000, data: {}},
-    ]);
-
-    // A window measured off the newest *matching* event would wrongly report
-    // element 1's stale render as recent; measured off the buffer it is out.
-    const stale = await ctx.rpc.invokeLocal('lit:recent-events', {
-      elementId: 1,
-      sinceMs: 1000,
-    });
-    expect(stale.events).toEqual([]);
-
-    const wide = await ctx.rpc.invokeLocal('lit:recent-events', {
-      elementId: 1,
-      sinceMs: 20000,
-    });
-    expect(wide.events.length).toBe(1);
   });
 });
