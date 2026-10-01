@@ -4,6 +4,7 @@ import {tokens} from '../lib/tokens.js';
 import {
   type InspectorCommand,
   type InspectorDetails,
+  type InspectorExtra,
   type InspectorMessage,
   type InspectorTreeNode,
 } from '../types/inspector.js';
@@ -670,6 +671,27 @@ export class ComponentsView extends LitElement {
     `;
   }
 
+  private _renderExtraTable(extras: InspectorExtra[]): TemplateResult {
+    return html`
+      <table>
+        ${extras.map(
+          (e) => html`
+            <tr>
+              <td class="name" title=${e.type}>
+                ${e.name}<span class="badge">${e.kind}</span>${
+                  e.status !== undefined
+                    ? html`<span class="badge">${e.status}</span>`
+                    : nothing
+                }
+              </td>
+              <td class="val">${e.value}</td>
+            </tr>
+          `
+        )}
+      </table>
+    `;
+  }
+
   private _renderDetails(): TemplateResult {
     const d = this._details;
     if (d === null) {
@@ -685,6 +707,7 @@ export class ComponentsView extends LitElement {
     }
     const props = d.properties.filter((p) => !p.state);
     const stateProps = d.properties.filter((p) => p.state);
+    const extras = d.extras ?? [];
     return html`
       <h2>&lt;${d.tagName}&gt;</h2>
       ${
@@ -734,6 +757,14 @@ export class ComponentsView extends LitElement {
                     </tr>`
                 )}
               </table>
+            </section>`
+          : nothing
+      }
+      ${
+        extras.length > 0
+          ? html`<section>
+              <div class="label">Instance</div>
+              ${this._renderExtraTable(extras)}
             </section>`
           : nothing
       }

@@ -190,6 +190,17 @@ describe('collectDetails', () => {
     expect(props[1]!.type).not.toBe('error');
   });
 
+  test('includes extras only when the element has instance state', () => {
+    const plain = collectDetails(document.createElement(define()));
+    expect('extras' in plain).toBe(false);
+
+    const el = document.createElement(define());
+    (el as unknown as Record<string, unknown>).counter = 2;
+    expect(collectDetails(el).extras).toEqual([
+      {kind: 'field', name: 'counter', value: '2', type: 'number'},
+    ]);
+  });
+
   test('tolerates elements without elementProperties', () => {
     const el = document.createElement('div');
     const details = collectDetails(el);

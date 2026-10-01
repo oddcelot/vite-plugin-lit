@@ -38,10 +38,19 @@ Selecting an element fills the pane on the right: its tag name, a source link
 reading `file:line`, and three flags — `updated`, `update pending` and
 `shadow root`.
 
-Below those come three tables. **Properties** lists the public reactive
+Below those come up to four tables. **Properties** lists the public reactive
 properties, with a badge naming the attribute a property reflects to.
 **State** lists internal `@state`. **Attributes** lists the attributes the
 element currently carries.
+
+**Instance** lists what the reactive properties do not cover: `@lit/task`
+status with its value or error, `@lit-labs/signals` signals, other reactive
+controllers (named by the field that holds them, else by class) and plain class
+fields, at most 24 in all. Each row carries a badge for its kind, and hovering
+the name shows the type. The table has limits. A computed signal shows as
+`(computed)` and is never evaluated, since that would run your code.
+Controllers are found through a private Lit field, so a Lit build that renames
+it lists none. Values use the same previews as properties.
 
 The playground fixture below fills all three. The two marked `@property`
 declarations land under Properties, `label` with an attribute badge; the two

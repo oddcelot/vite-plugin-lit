@@ -125,10 +125,17 @@ if (typeof window !== 'undefined') {
       const current =
         ownPrev ?? (Object.getPrototypeOf(this) as Updatable | null)?.updated;
       current?.call(this, changed);
-      const cur = ref.deref();
-      if (cur !== undefined) {
-        send({type: 'details', details: collectDetails(cur)});
-      }
+      // Deferred: this runs inside performUpdate, which a SignalWatcher wraps
+      // in a Computed, so reading a signal here would subscribe the element's
+      // render to it. A microtask runs outside any tracking context.
+      queueMicrotask(() => {
+        // Skip if the watch ended or moved on in the meantime.
+        if (watched?.ref !== ref) return;
+        const cur = ref.deref();
+        if (cur !== undefined) {
+          send({type: 'details', details: collectDetails(cur)});
+        }
+      });
     };
     watched = {
       ref,
