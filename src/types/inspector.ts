@@ -92,8 +92,12 @@ export interface InspectorDetails {
 
 /** App runtime → panel messages, carried on SSE `event: inspect`. */
 export type InspectorMessage =
-  /** The runtime came online; the panel should (re)request the tree. */
-  | {type: 'ready'}
+  /**
+   * The runtime came online; the panel should (re)request the tree. Carries
+   * what the page can say about itself, so an empty tree can be explained.
+   * Both fields are optional: an older runtime sends a bare `ready`.
+   */
+  | {type: 'ready'; litVersions?: string[]; topFrame?: boolean}
   | {type: 'tree'; roots: InspectorTreeNode[]}
   | {type: 'details'; details: InspectorDetails}
   /** The requested element id couldn't be resolved (removed / GC'd). */
