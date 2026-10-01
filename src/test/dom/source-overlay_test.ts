@@ -384,3 +384,72 @@ describe('keyboard', () => {
     expect(dialog().open).toBe(true);
   });
 });
+
+describe('lit hosts (no source metadata)', () => {
+  /** A Lit-shaped element: a ReactiveElement class carries `elementProperties`. */
+  const makeLitTarget = () => {
+    const tag = `x-lit-${counter++}`;
+    class Plain extends HTMLElement {
+      static elementProperties = new Map();
+    }
+    customElements.define(tag, Plain);
+    const el = document.createElement(tag);
+    el.getBoundingClientRect = () =>
+      ({
+        ...RECT,
+        right: RECT.left + RECT.width,
+        bottom: RECT.top + RECT.height,
+      }) as DOMRect;
+    document.body.append(el);
+    return {tag, el};
+  };
+
+  test('outlines an unstamped Lit element, naming it without a source', async () => {
+    const {tag, el} = makeLitTarget();
+    hitTarget = el;
+    mount({hosts: 'lit'});
+    overlay.activate();
+    await hover();
+    expect(byId('tag').textContent).toBe(`<${tag}>`);
+    expect(byId('path').style.display).toBe('none');
+    expect(byId('open').style.display).toBe('none');
+    expect(byId('copy').style.display).toBe('none');
+  });
+
+  test('ignores a plain custom element', async () => {
+    const tag = `x-plain-${counter++}`;
+    customElements.define(tag, class extends HTMLElement {});
+    const el = document.createElement(tag);
+    document.body.append(el);
+    hitTarget = el;
+    mount({hosts: 'lit'});
+    overlay.activate();
+    await hover();
+    expect(byId('tooltip').style.display).toBe('none');
+  });
+
+  test('a click picks into the panel and reports the id, without onSelect', async () => {
+    const {el} = makeLitTarget();
+    hitTarget = el;
+    const onPick = vi.fn<(id: number) => void>();
+    const onSelect = vi.fn();
+    mount({hosts: 'lit', onPick, onSelect});
+    overlay.activate();
+    await hover();
+    // Ctrl-click would open the source; with none it is a plain pick.
+    click({ctrlKey: true});
+    expect(onPick).toHaveBeenCalledOnce();
+    expect(typeof onPick.mock.calls[0]![0]).toBe('number');
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(dialog().open).toBe(false);
+  });
+
+  test('source mode still skips an unstamped Lit element', async () => {
+    const {el} = makeLitTarget();
+    hitTarget = el;
+    mount();
+    overlay.activate();
+    await hover();
+    expect(byId('tooltip').style.display).toBe('none');
+  });
+});

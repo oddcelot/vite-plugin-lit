@@ -181,10 +181,54 @@ test('a page outside Vite shows up in the standalone panel', async () => {
   await panel.goto(`${devOrigin}/#tab=components`);
   await panel.waitForSelector('lit-devtools-panel');
   await panel.getByText('standalone-hello').first().waitFor({timeout: 15_000});
-  // No build-time source metadata, so no overlay to pick with: the panel
-  // must not offer a Pick button that does nothing.
-  await panel.waitForTimeout(500);
-  expect(await panel.locator('components-view button.pick').count()).toBe(0);
+}, 60_000);
+
+test('Pick picks on the page and raises a panel on the element', async () => {
+  // A panel opened by hand, as the printed URL invites.
+  const panel = await browser.newPage();
+  await panel.goto(`${devOrigin}/#tab=components`);
+  await panel.getByText('standalone-hello').first().waitFor({timeout: 15_000});
+
+  const picking = () =>
+    app.evaluate(() =>
+      [...document.head.querySelectorAll('style')].some((s) =>
+        s.textContent?.includes('crosshair')
+      )
+    );
+  const pickHello = async () => {
+    await panel.locator('components-view button.pick').click();
+    // The toggle goes panel -> server -> page; the picker is up once the
+    // page has its crosshair cursor.
+    await expect.poll(picking).toBe(true);
+    const box = (await app.locator('standalone-hello').boundingBox())!;
+    await app.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // Past the picker's hover throttle.
+    await app.waitForTimeout(150);
+    await app.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  };
+
+  // No source metadata outside Vite: any Lit element is pickable.
+  const popup = app.waitForEvent('popup');
+  await pickHello();
+  const raised = await popup;
+  expect(new URL(raised.url()).hash).toMatch(/^#tab=components&component=\d+$/);
+  await raised
+    .locator('components-view .row.selected')
+    .getByText('standalone-hello')
+    .waitFor({timeout: 15_000});
+  // The hand-opened panel follows the pick over RPC, as under Vite.
+  await panel
+    .locator('components-view .row.selected')
+    .getByText('standalone-hello')
+    .waitFor();
+
+  // A second pick finds the raised panel by name instead of opening another.
+  const pages = app.context().pages().length;
+  await pickHello();
+  await app.waitForTimeout(500);
+  expect(app.context().pages().length).toBe(pages);
+  await raised.close();
+  await panel.close();
 }, 60_000);
 
 test('the panel can record the page it never served', async () => {

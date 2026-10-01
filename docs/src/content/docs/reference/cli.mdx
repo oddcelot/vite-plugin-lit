@@ -76,10 +76,14 @@ DevTools.
 'https://*.webcontainer-api.io'` admits every port of a StackBlitz project.
   Scheme and port still have to match, and the wildcard needs at least two
   literal labels after it (`https://*.com` is refused).
+- **Picking.** **⌖ Pick** in the Components tab, or Ctrl/⌘+Shift+S on the
+  page, starts a picker on the page that targets any Lit element. Clicking one
+  selects it in the panel and brings a panel tab forward on it. A browser only
+  lets a page raise a tab it opened itself, so the first pick opens a second
+  panel tab if you opened the panel yourself; later picks reuse that tab.
 - **Limits.** Outside Vite there are no build-time transforms, so HMR patching,
-  source locations, open-in-editor and the element picker are unavailable (the
-  Components tab has no **Pick** button). Select elements in the tree instead.
-  The tree, inspector and timeline work.
+  source locations and open-in-editor are unavailable: the picker shows a tag
+  name, not a file. The tree, inspector and timeline work.
 
 A page served by a Vite dev server can also connect from its own code:
 

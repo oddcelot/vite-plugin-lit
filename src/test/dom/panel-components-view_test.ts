@@ -32,8 +32,8 @@ const flush = async (el: ComponentsView) => {
   }
 };
 
-const mount = async (features: unknown = null) => {
-  meta.features = features;
+const mount = async (picker = false) => {
+  meta.picker = picker;
   answers.set('list-components', tree);
   answers.set('hmr-incompatibilities', []);
   const el = document.createElement('components-view');
@@ -50,28 +50,24 @@ const mount = async (features: unknown = null) => {
   };
 };
 
-const overlayOn = {sourceOverlay: {enabled: true}};
-
 afterEach(() => {
   document.body.replaceChildren();
   resetClient();
 });
 
-test('offers Pick only when the page has the source overlay', async () => {
-  expect((await mount(null)).pick()).toBeNull();
+test('offers Pick only when the page has a picker', async () => {
+  expect((await mount(false)).pick()).toBeNull();
   document.body.replaceChildren();
-  expect((await mount({sourceOverlay: {enabled: false}})).pick()).toBeNull();
-  document.body.replaceChildren();
-  expect((await mount(overlayOn)).pick()).not.toBeNull();
+  expect((await mount(true)).pick()).not.toBeNull();
 });
 
 test('never offers Pick in a snapshot', async () => {
   setSnapshot(true);
-  expect((await mount(overlayOn)).pick()).toBeNull();
+  expect((await mount(true)).pick()).toBeNull();
 });
 
 test('Pick starts the picker in the page', async () => {
-  const {el, pick, inspects} = await mount(overlayOn);
+  const {el, pick, inspects} = await mount(true);
   pick()!.click();
   await flush(el);
   expect(inspects()).toContainEqual({type: 'pick'});
@@ -79,7 +75,7 @@ test('Pick starts the picker in the page', async () => {
 });
 
 test('a pick from the page selects it and asks to be brought forward', async () => {
-  const {el, pick, inspects} = await mount(overlayOn);
+  const {el, pick, inspects} = await mount(true);
   pick()!.click();
   const activated = vi.fn();
   document.body.addEventListener('inspector-activate', activated);

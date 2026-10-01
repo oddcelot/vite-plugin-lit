@@ -16,10 +16,17 @@
  * the server does not answer with CORS headers). The descriptor holds paths
  * only, so it resolves against either address. Its `url` is the fallback for
  * when the script's own address is unknown.
+ *
+ * The page also gets the element picker, in its `lit` mode: there is no
+ * source metadata to find components by, so any Lit element can be picked.
+ * The panel is a separate tab here, and a page cannot raise another tab, so a
+ * pick opens the panel by a fixed window name instead (see {@link pickInto}).
  */
 
 import './timeline/install.js';
 import './inspector/install.js';
+import {initSourceOverlay} from './source-overlay/overlay-element.js';
+import {pickInto} from './panel-window.js';
 import {connectToDevServer} from './rpc-transport.js';
 import type {ConnectOptions} from './rpc-transport.js';
 
@@ -44,6 +51,14 @@ if (url === undefined) {
       'script from the server with <script src="http://localhost:5180/lit-devtools.js">.'
   );
 } else {
+  const startPicker = () =>
+    initSourceOverlay({hosts: 'lit', onPick: pickInto(url)});
+  // Usually loaded from <head>, before there is a <body> to attach to.
+  if (document.body === null) {
+    document.addEventListener('DOMContentLoaded', startPicker, {once: true});
+  } else {
+    startPicker();
+  }
   connectToDevServer(url, {connectionMeta: config.connectionMeta}).then(
     () => console.info(`[lit-devtools] connected to ${url}`),
     (error) =>

@@ -98,7 +98,12 @@ export function createStandaloneLitDevframe(
   options: Omit<CreateLitDevframeOptions, 'source'>
 ): DevframeDefinition {
   const source = new RpcTimelineSource();
-  const definition = createLitDevframe({...options, source});
+  // `lit-devtools.js` starts its own picker; see `runtime/standalone.ts`.
+  const definition = createLitDevframe({
+    picker: () => true,
+    ...options,
+    source,
+  });
   const {setup} = definition;
 
   return {

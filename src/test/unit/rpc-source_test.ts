@@ -174,6 +174,8 @@ describe('createStandaloneLitDevframe', () => {
       roots,
     });
     expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual(roots);
+    // `lit-devtools.js` brings its own picker, so the panel offers Pick.
+    expect((await ctx.rpc.invokeLocal('lit:get-meta')).picker).toBe(true);
   });
 });
 

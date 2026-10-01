@@ -5,15 +5,36 @@ export interface ElementResolver {
   resolveElementInfo(el: Element): Promise<ElementInfo | null>;
 }
 
+/** Which elements the overlay can pick. */
+export type HostTest = (el: Element) => boolean;
+
+/** A component the source-meta transform stamped: it has a file to open. */
+export const hasSourceMeta: HostTest = (el) =>
+  (
+    el.constructor as CustomElementConstructor & {
+      [SOURCE_META_KEY]?: LitSourceMeta;
+    }
+  )[SOURCE_META_KEY] !== undefined;
+
+/**
+ * Any Lit element, stamped or not, for pages with no build-time transform
+ * (`lit-devtools dev`). `elementProperties` is the static map every
+ * `ReactiveElement` class carries; a plain custom element has none.
+ */
+export const isLitElement: HostTest = (el) =>
+  (el.constructor as {elementProperties?: unknown}).elementProperties instanceof
+  Map;
+
 // Walk up from an element (crossing shadow boundaries) to the nearest host that
-// carries Lit source metadata, i.e. the component that rendered it.
-export const findSourceHost = (el: Element): Element | null => {
+// passes `isHost` -- by default the one carrying Lit source metadata, i.e. the
+// component that rendered it.
+export const findSourceHost = (
+  el: Element,
+  isHost: HostTest = hasSourceMeta
+): Element | null => {
   let current: Element | null = el;
   while (current !== null) {
-    const ctor = current.constructor as CustomElementConstructor & {
-      [SOURCE_META_KEY]?: LitSourceMeta;
-    };
-    if (ctor[SOURCE_META_KEY] !== undefined) {
+    if (isHost(current)) {
       return current;
     }
     const root = current.getRootNode();
@@ -46,13 +67,14 @@ export const deepElementFromPoint = (x: number, y: number): Element | null => {
 export const findSourceAtPoint = (
   x: number,
   y: number,
-  dialog: HTMLDialogElement | null = null
+  dialog: HTMLDialogElement | null = null,
+  isHost: HostTest = hasSourceMeta
 ): Element | null => {
   if (dialog !== null) dialog.close();
   try {
     const deepest = deepElementFromPoint(x, y);
     if (deepest !== null) {
-      const host = findSourceHost(deepest);
+      const host = findSourceHost(deepest, isHost);
       if (host !== null) return host;
     }
 
@@ -60,10 +82,7 @@ export const findSourceAtPoint = (
     // deepest matching host so nested components still beat their ancestors.
     let best: Element | null = null;
     for (const el of document.querySelectorAll('*')) {
-      const ctor = el.constructor as CustomElementConstructor & {
-        [SOURCE_META_KEY]?: LitSourceMeta;
-      };
-      if (ctor[SOURCE_META_KEY] === undefined) continue;
+      if (!isHost(el)) continue;
       const rect = el.getBoundingClientRect();
       if (
         x >= rect.left &&
