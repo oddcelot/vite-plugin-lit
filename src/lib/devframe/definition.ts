@@ -21,7 +21,6 @@ import type {
   InspectorTreeNode,
 } from '../../types/inspector.js';
 import {TIMELINE_LAYERS} from '../../types/timeline.js';
-import {MAX_HMR_INCOMPATIBILITIES} from '../../types/hmr-incompatibility.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 import {LIT_LOGO_ICON} from './icon.js';
 import {PANEL_DIST_DIR} from './paths.js';
@@ -34,7 +33,6 @@ import {
   DEFAULT_SESSION_STATE,
   LAYER_FLAGS,
   LIT_DEVFRAME_ID,
-  RECENT_EVENTS_BUFFER_SIZE,
   RPC_COMPONENT_DETAILS,
   RPC_GET_META,
   RPC_HMR_INCOMPATIBILITIES,
@@ -67,13 +65,8 @@ import {
   type UpdateSummaryArgs,
   type UpdateSummaryResult,
 } from './protocol.js';
-import {
-  attributeInput,
-  rollup,
-  toSpans,
-  toUpdateCycles,
-} from '../timeline/derive.js';
 import {resolveLaunchEditor} from './launch-editor.js';
+import {createRecordingSession} from './session.js';
 import {createNullSource, type TimelineSource} from './source.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
 
@@ -191,38 +184,17 @@ export function createLitDevframe(
         }
       );
 
-      // Latest inspector snapshot, cached so a panel that (re)connects after
-      // the runtime already answered can read it without round-tripping to
-      // the page again. Pre-filled when replaying: there is no page to ask.
-      let cachedRoots: InspectorTreeNode[] = replay ? [...replay.roots] : [];
-      const cachedDetails = new Map<number, InspectorDetails>(
-        replay?.details.map((d) => [d.id, d])
-      );
-
-      // Bounded history for the `recent-events` agent query and the panel's
-      // `timeline-history` seed. A plain array, not devframe's internal
-      // per-stream replay buffer, which devframe marks `@internal` (see
-      // plans/devtools-features.md).
-      const recentEvents: TimelineEvent[] = replay ? [...replay.events] : [];
-
-      // Event ids: `${epoch}-${seq}`. The epoch is the session start, so a
-      // restarted dev server can never reissue an id an older snapshot holds;
-      // the seq is monotonic across Clear. Stamped here, once, because this is
-      // the only place every consumer (stream, `recent-events`, export) shares.
-      // A replayed session never reaches `pushEvents`, so its ids are kept.
-      const eventEpoch = Date.now().toString(36);
-      let eventSeq = 0;
-
-      // Recent HMR-incompatibility notices, capped the same way
-      // `runtime/timeline/transport.ts` caps its pending queue — a long
-      // session with many failing edits must not grow this forever.
-      const hmrIncompatibilities: HmrIncompatibilityEvent[] = replay
-        ? [...replay.hmrIncompatibilities]
-        : [];
+      // Everything the page tells us -- events, inspector answers, HMR
+      // notices -- is held by the session; the RPC functions below are thin
+      // adapters over it. Pre-filled when replaying: there is no page to ask.
+      const recording = createRecordingSession({
+        replay,
+        recording: session.value().layers.recordingState,
+      });
 
       // Terminal echo for an audience that only sees dev-server stdout (an
       // agent, or a CI log) and not the browser console or the panel.
-      // Fire-and-log only — the cache above is the read-back store.
+      // Fire-and-log only — the session is the read-back store.
       const hmrDiagnostics = ctx.diagnostics.defineDiagnostics({
         docsBase:
           'https://oddcelot.github.io/vite-plugin-lit/reference/limitations/',
@@ -254,7 +226,7 @@ export function createLitDevframe(
         // in separate chunks, including batches from before the last
         // recording started (a different clock) and ones the panel's Clear
         // dropped, and the node has no way to forget them. A connecting panel
-        // is seeded from `timeline-history` instead, which is `recentEvents`,
+        // is seeded from `timeline-history` instead, which is the session buffer,
         // cleared on the same edges.
         const channel =
           my.rpc.streaming.create<TimelineEvent[]>(TIMELINE_STREAM_NAME);
@@ -273,18 +245,7 @@ export function createLitDevframe(
         source.attach({
           pushEvents(incoming) {
             if (incoming.length === 0) return;
-            const events = incoming.map((event) => ({
-              ...event,
-              id: event.id ?? `${eventEpoch}-${eventSeq++}`,
-            }));
-            ensureStream().write(events);
-            recentEvents.push(...events);
-            if (recentEvents.length > RECENT_EVENTS_BUFFER_SIZE) {
-              recentEvents.splice(
-                0,
-                recentEvents.length - RECENT_EVENTS_BUFFER_SIZE
-              );
-            }
+            ensureStream().write(recording.push(incoming));
           },
           addLayer(layer) {
             session.mutate((state) => {
@@ -296,13 +257,7 @@ export function createLitDevframe(
             });
           },
           inspectorMessage(message) {
-            if (message.type === 'tree') {
-              cachedRoots = message.roots;
-            } else if (message.type === 'details') {
-              cachedDetails.set(message.details.id, message.details);
-            } else if (message.type === 'gone') {
-              cachedDetails.delete(message.id);
-            }
+            recording.applyInspector(message);
             void ctx.rpc.broadcast({
               method: `${LIT_DEVFRAME_ID}:${RPC_INSPECTOR_MESSAGE}`,
               args: [message],
@@ -318,7 +273,7 @@ export function createLitDevframe(
             // would sit in the same buffer on a different time origin and make
             // `recent-events`' `sinceMs` window meaningless. They also describe
             // a page that no longer exists.
-            recentEvents.length = 0;
+            recording.clear();
 
             // Replay current state to a runtime that just booted from its
             // defaults. Unconditional: `setRecording(false)` on a fresh page
@@ -328,13 +283,7 @@ export function createLitDevframe(
             source.setRecording(layers.recordingState);
           },
           hmrIncompatible(event) {
-            hmrIncompatibilities.push(event);
-            if (hmrIncompatibilities.length > MAX_HMR_INCOMPATIBILITIES) {
-              hmrIncompatibilities.splice(
-                0,
-                hmrIncompatibilities.length - MAX_HMR_INCOMPATIBILITIES
-              );
-            }
+            recording.pushHmrIncompatibility(event);
             void ctx.rpc.broadcast({
               method: `${LIT_DEVFRAME_ID}:${RPC_HMR_INCOMPATIBLE}`,
               args: [event],
@@ -369,13 +318,9 @@ export function createLitDevframe(
         // window reads them as the future, and pairing a start with its end
         // across the seam yields a negative duration. Same rationale as
         // `runtimeReady()` above, one level finer: a new clock, not a new page.
-        let wasRecording = session.value().layers.recordingState;
         session.on('updated', (state) => {
           const {recordingState} = state.layers;
-          if (recordingState && !wasRecording) {
-            recentEvents.length = 0;
-          }
-          wasRecording = recordingState;
+          recording.setRecording(recordingState);
           source.setRecording(recordingState);
           source.setLayers(state.layers);
         });
@@ -417,7 +362,7 @@ export function createLitDevframe(
             description:
               'List the live Lit component tree of the inspected page. Call this before asking about a specific element to find its id.',
           },
-          handler: async (): Promise<InspectorTreeNode[]> => cachedRoots,
+          handler: async (): Promise<InspectorTreeNode[]> => recording.roots(),
         })
       );
 
@@ -434,7 +379,7 @@ export function createLitDevframe(
               "List recent components the Lit plugin could not hot-patch in place, and why. Call this after an unexplained full-page reload during development, or when a component's state resets unexpectedly on edit.",
           },
           handler: async (): Promise<HmrIncompatibilityEvent[]> =>
-            hmrIncompatibilities,
+            recording.hmrIncompatibilities(),
         })
       );
 
@@ -449,8 +394,7 @@ export function createLitDevframe(
           },
           handler: async (
             args: ComponentDetailsArgs
-          ): Promise<InspectorDetails | null> =>
-            cachedDetails.get(args.id) ?? null,
+          ): Promise<InspectorDetails | null> => recording.details(args.id),
         })
       );
 
@@ -472,41 +416,7 @@ export function createLitDevframe(
           handler: async (
             args: RecentEventsArgs = {}
           ): Promise<RecentEventsResult> => {
-            const recording = session.value().layers.recordingState;
-            let filtered = recentEvents;
-            if (args.layerId !== undefined) {
-              filtered = filtered.filter((e) => e.layerId === args.layerId);
-            }
-            if (args.elementId !== undefined) {
-              filtered = filtered.filter(
-                (e) => e.meta?.elementId === args.elementId
-              );
-            }
-            // Measured against the newest event in the whole buffer, not the
-            // newest *matching* one: an element that last rendered 10s ago
-            // must come back empty for `sinceMs: 1000`, not report its own
-            // stale events as if they were recent.
-            if (args.sinceMs !== undefined && recentEvents.length > 0) {
-              const newest = recentEvents[recentEvents.length - 1]!.time;
-              const cutoff = newest - args.sinceMs;
-              filtered = filtered.filter((e) => e.time >= cutoff);
-            }
-            // A frozen session's panel reads the baked no-argument call, so
-            // the agent-friendly 50/200 window would silently cut an export to
-            // its last 25 spans -- and a link to anything older would miss.
-            const limit = replay
-              ? Math.min(
-                  args.limit ?? RECENT_EVENTS_BUFFER_SIZE,
-                  RECENT_EVENTS_BUFFER_SIZE
-                )
-              : Math.min(args.limit ?? 50, 200);
-            const events = filtered.slice(-limit);
-            return {
-              recording,
-              events,
-              bufferSize: recentEvents.length,
-              truncated: events.length < filtered.length,
-            };
+            return recording.query(args, session.value().layers.recordingState);
           },
         })
       );
@@ -521,7 +431,7 @@ export function createLitDevframe(
           // answers a replayed session with its whole buffer). This is the
           // live panel's seed: the stream carries nothing from before a
           // panel subscribed, so a reloaded panel asks for it here.
-          handler: async (): Promise<TimelineEvent[]> => [...recentEvents],
+          handler: async (): Promise<TimelineEvent[]> => recording.history(),
         })
       );
 
@@ -542,34 +452,10 @@ export function createLitDevframe(
           handler: async (
             args: UpdateSummaryArgs = {}
           ): Promise<UpdateSummaryResult> => {
-            const recording = session.value().layers.recordingState;
-            let events: readonly TimelineEvent[] = recentEvents;
-            // Same window semantics as `recent-events`: measured against the
-            // newest event in the whole buffer, not the newest match.
-            if (args.sinceMs !== undefined && recentEvents.length > 0) {
-              const cutoff =
-                recentEvents[recentEvents.length - 1]!.time - args.sinceMs;
-              events = recentEvents.filter((e) => e.time >= cutoff);
-            }
-            let cycles = attributeInput(
-              toUpdateCycles(toSpans(events)),
-              events
+            return recording.summarize(
+              args,
+              session.value().layers.recordingState
             );
-            if (args.tagName !== undefined) {
-              cycles = cycles.filter((c) => c.tagName === args.tagName);
-            }
-            // Totals cover the whole window; only the per-cycle list is
-            // capped, so a limit never silently understates a hot component.
-            const components = rollup(cycles);
-            const limit = Math.min(args.limit ?? 50, 200);
-            const limited = cycles.slice(-limit);
-            return {
-              recording,
-              components,
-              cycles: limited,
-              bufferSize: recentEvents.length,
-              truncated: limited.length < cycles.length,
-            };
           },
         })
       );
@@ -694,25 +580,26 @@ export function createLitDevframe(
             // `outDir` comes from the client and the build deletes it before
             // writing, so it has to land strictly beneath the working
             // directory -- never the directory itself, and never elsewhere
-            // on disk.
-            const {resolve, sep} = await import('node:path');
+            // on disk (symlinks included). It usually does not exist yet.
+            const {confineToRoots} = await import('../confine.js');
             const cwd = process.cwd();
-            const outDir = resolve(cwd, args.outDir ?? 'lit-devtools-snapshot');
-            if (!outDir.startsWith(cwd + sep)) {
+            const confined = confineToRoots(
+              [cwd],
+              args.outDir ?? 'lit-devtools-snapshot',
+              {mustExist: false, allowRoot: false}
+            );
+            if ('failure' in confined) {
               throw new Error(
                 `[lit-devtools] export-snapshot: outDir must be inside ${cwd}`
               );
             }
+            const outDir = confined.path;
             return buildSnapshot(
-              {
+              recording.capture({
                 capturedAt: new Date().toISOString(),
                 version,
-                customLayers: [...session.value().customLayers],
-                roots: cachedRoots,
-                details: [...cachedDetails.values()],
-                events: [...recentEvents],
-                hmrIncompatibilities: [...hmrIncompatibilities],
-              },
+                customLayers: session.value().customLayers,
+              }),
               {
                 outDir,
                 features: features ? features() : null,

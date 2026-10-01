@@ -1,5 +1,13 @@
 import {existsSync, realpathSync} from 'node:fs';
-import {resolve as resolvePath, sep} from 'node:path';
+import {dirname, resolve as resolvePath, sep} from 'node:path';
+
+/** Knobs for callers that confine something other than an existing file. */
+export interface ConfineOptions {
+  /** Refuse a path that does not exist yet. Default `true`. */
+  mustExist?: boolean;
+  /** Accept a path equal to a root, not only one beneath it. Default `true`. */
+  allowRoot?: boolean;
+}
 
 /** Why {@link confineToRoots} refused a path. */
 export type ConfineFailure = 'outside' | 'missing';
@@ -15,14 +23,16 @@ export type ConfineFailure = 'outside' | 'missing';
  */
 export const confineToRoots = (
   roots: readonly string[],
-  file: string
+  file: string,
+  {mustExist = true, allowRoot = true}: ConfineOptions = {}
 ): {path: string} | {failure: ConfineFailure} => {
   const resolvedRoots = roots.map((root) => resolvePath(root));
   const primary = resolvedRoots[0];
   if (primary === undefined) return {failure: 'outside'};
   const path = resolvePath(primary, file);
   if (!within(resolvedRoots, path)) return {failure: 'outside'};
-  if (!existsSync(path)) return {failure: 'missing'};
+  if (!allowRoot && resolvedRoots.includes(path)) return {failure: 'outside'};
+  if (mustExist && !existsSync(path)) return {failure: 'missing'};
   // Checked again on the real paths, so a symlink beneath a root can't point
   // the editor outside every root. The caller still gets the path as asked:
   // that's the one the developer recognises.
@@ -33,7 +43,16 @@ export const confineToRoots = (
       return [];
     }
   });
-  if (!within(realRoots, realpathSync(path))) return {failure: 'outside'};
+  // A path that does not exist yet (an output directory about to be created)
+  // is judged by its nearest existing ancestor: that is where a symlink could
+  // redirect it.
+  let existing = path;
+  while (!existsSync(existing)) existing = dirname(existing);
+  const real = realpathSync(existing);
+  if (!within(realRoots, real)) return {failure: 'outside'};
+  if (!allowRoot && existing === path && realRoots.includes(real)) {
+    return {failure: 'outside'};
+  }
   return {path};
 };
 

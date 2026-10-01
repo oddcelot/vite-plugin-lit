@@ -1,0 +1,248 @@
+import {describe, expect, test} from 'vite-plus/test';
+import {
+  capTail,
+  createRecordingSession,
+  sinceWindow,
+} from '../../lib/devframe/session.js';
+import {RECENT_EVENTS_BUFFER_SIZE} from '../../lib/devframe/protocol.js';
+import {MAX_HMR_INCOMPATIBILITIES} from '../../types/hmr-incompatibility.js';
+import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
+import type {SessionSnapshot} from '../../types/snapshot.js';
+import type {TimelineEvent} from '../../types/timeline.js';
+
+const ev = (
+  time: number,
+  extra: Partial<TimelineEvent> = {}
+): TimelineEvent => ({layerId: 'lit-render', time, data: {}, ...extra});
+
+const hmr = (n: number): HmrIncompatibilityEvent =>
+  ({
+    tagName: `x-${n}`,
+    reason: {code: 'attributes-changed'},
+  }) as unknown as HmrIncompatibilityEvent;
+
+describe('capTail', () => {
+  test('drops the oldest entries and leaves a short list alone', () => {
+    const a = [1, 2, 3, 4];
+    capTail(a, 2);
+    expect(a).toEqual([3, 4]);
+    capTail(a, 5);
+    expect(a).toEqual([3, 4]);
+  });
+});
+
+describe('sinceWindow', () => {
+  test('measures against the newest event of the whole buffer', () => {
+    const buffer = [ev(0, {layerId: 'a'}), ev(10_000, {layerId: 'b'})];
+    const onlyA = buffer.filter((e) => e.layerId === 'a');
+    // The matching event is 10s stale relative to the buffer, not to itself.
+    expect(sinceWindow(onlyA, buffer, 1000)).toEqual([]);
+    expect(sinceWindow(onlyA, buffer, 10_000)).toEqual(onlyA);
+  });
+
+  test('is a no-op without a window or without events', () => {
+    const buffer = [ev(5)];
+    expect(sinceWindow(buffer, buffer, undefined)).toBe(buffer);
+    expect(sinceWindow([], [], 100)).toEqual([]);
+  });
+});
+
+describe('push', () => {
+  test('stamps epoch-seq ids, monotonic across clear, keeping existing ids', () => {
+    const s = createRecordingSession({epoch: 'e1'});
+    const out = s.push([ev(1), ev(2, {id: 'keep'}), ev(3)]);
+    expect(out.map((e) => e.id)).toEqual(['e1-0', 'keep', 'e1-1']);
+    s.clear();
+    expect(s.history()).toEqual([]);
+    expect(s.push([ev(4)])[0]!.id).toBe('e1-2');
+  });
+
+  test('caps the buffer at RECENT_EVENTS_BUFFER_SIZE, oldest first', () => {
+    const s = createRecordingSession({epoch: 'e'});
+    s.push(
+      Array.from({length: RECENT_EVENTS_BUFFER_SIZE + 5}, (_, i) => ev(i))
+    );
+    const kept = s.history();
+    expect(kept).toHaveLength(RECENT_EVENTS_BUFFER_SIZE);
+    expect(kept[0]!.time).toBe(5);
+  });
+});
+
+describe('rising edge', () => {
+  test('clears only when recording turns on', () => {
+    const s = createRecordingSession({recording: false});
+    s.push([ev(1)]);
+    s.setRecording(false);
+    expect(s.history()).toHaveLength(1);
+    s.setRecording(true);
+    expect(s.history()).toHaveLength(0);
+    s.push([ev(2)]);
+    s.setRecording(true);
+    expect(s.history()).toHaveLength(1);
+    // Falling edge keeps what was recorded: it is what the user reads next.
+    s.setRecording(false);
+    expect(s.history()).toHaveLength(1);
+    s.setRecording(true);
+    expect(s.history()).toHaveLength(0);
+  });
+
+  test('starting already recording makes the first true a non-edge', () => {
+    const s = createRecordingSession({recording: true});
+    s.push([ev(1)]);
+    s.setRecording(true);
+    expect(s.history()).toHaveLength(1);
+  });
+});
+
+describe('query', () => {
+  const seed = () => {
+    const s = createRecordingSession({epoch: 'e'});
+    s.push([
+      ev(0, {layerId: 'a', meta: {elementId: 1}}),
+      ev(5000, {layerId: 'b', meta: {elementId: 2}}),
+      ev(9000, {layerId: 'a', meta: {elementId: 1}}),
+      ev(10_000, {layerId: 'b', meta: {elementId: 2}}),
+    ]);
+    return s;
+  };
+
+  test('filters by layer and element, and reports the recording flag', () => {
+    const s = seed();
+    expect(s.query({layerId: 'a'}, true).events.map((e) => e.time)).toEqual([
+      0, 9000,
+    ]);
+    expect(s.query({elementId: 2}, false)).toMatchObject({
+      recording: false,
+      bufferSize: 4,
+      truncated: false,
+    });
+  });
+
+  test('sinceMs is relative to the newest buffered event, not the match', () => {
+    const s = seed();
+    expect(s.query({sinceMs: 1000}, true).events.map((e) => e.time)).toEqual([
+      9000, 10_000,
+    ]);
+    // Element 1 last fired at 9000; the window still starts at 10000 - 500.
+    expect(s.query({elementId: 1, sinceMs: 500}, true).events).toEqual([]);
+  });
+
+  test('limit defaults to 50, is capped at 200 and flags truncation', () => {
+    const s = createRecordingSession({epoch: 'e'});
+    s.push(Array.from({length: 300}, (_, i) => ev(i)));
+    const dflt = s.query({}, true);
+    expect(dflt.events).toHaveLength(50);
+    expect(dflt.truncated).toBe(true);
+    expect(dflt.events[49]!.time).toBe(299);
+    expect(s.query({limit: 10_000}, true).events).toHaveLength(200);
+    expect(s.query({limit: 3}, true).events.map((e) => e.time)).toEqual([
+      297, 298, 299,
+    ]);
+  });
+
+  test('a replayed session answers up to the whole buffer by default', () => {
+    const replay: SessionSnapshot = {
+      capturedAt: 'then',
+      version: '1',
+      customLayers: [],
+      roots: [],
+      details: [],
+      hmrIncompatibilities: [],
+      events: Array.from({length: 300}, (_, i) => ev(i, {id: `r-${i}`})),
+    };
+    const s = createRecordingSession({replay});
+    const result = s.query({}, false);
+    expect(result.events).toHaveLength(300);
+    expect(result.truncated).toBe(false);
+    // Replayed ids survive, and new pushes continue to stamp.
+    expect(result.events[0]!.id).toBe('r-0');
+    expect(s.query({limit: 10_000}, false).events.length).toBeLessThanOrEqual(
+      RECENT_EVENTS_BUFFER_SIZE
+    );
+  });
+});
+
+describe('summarize', () => {
+  const phase = (
+    edge: 'start' | 'end',
+    time: number,
+    tick: number
+  ): TimelineEvent => ({
+    layerId: 'lit-lifecycle',
+    time,
+    groupId: `1:${tick}`,
+    title: `performUpdate:${edge}`,
+    subtitle: 'my-el',
+    data: {phase: 'performUpdate'},
+    meta: {elementId: 1, tagName: 'my-el'},
+  });
+
+  test('applies the same window as query and caps cycles, not totals', () => {
+    const s = createRecordingSession({epoch: 'e'});
+    s.push([
+      phase('start', 0, 1),
+      phase('end', 4, 1),
+      phase('start', 9000, 2),
+      phase('end', 9010, 2),
+    ]);
+    const all = s.summarize({}, true);
+    expect(all.recording).toBe(true);
+    expect(all.bufferSize).toBe(4);
+    expect(all.cycles).toHaveLength(2);
+
+    const recent = s.summarize({sinceMs: 1000}, true);
+    expect(recent.cycles).toHaveLength(1);
+    expect(recent.bufferSize).toBe(4);
+
+    const capped = s.summarize({limit: 1}, true);
+    expect(capped.cycles).toHaveLength(1);
+    expect(capped.truncated).toBe(true);
+    expect(capped.components).toEqual(all.components);
+
+    expect(s.summarize({tagName: 'other'}, true).cycles).toEqual([]);
+  });
+});
+
+describe('hmr incompatibilities', () => {
+  test('keeps the newest MAX_HMR_INCOMPATIBILITIES', () => {
+    const s = createRecordingSession();
+    for (let i = 0; i < MAX_HMR_INCOMPATIBILITIES + 3; i++) {
+      s.pushHmrIncompatibility(hmr(i));
+    }
+    const kept = s.hmrIncompatibilities();
+    expect(kept).toHaveLength(MAX_HMR_INCOMPATIBILITIES);
+    expect(kept[0]!.tagName).toBe('x-3');
+  });
+});
+
+describe('inspector caches and capture', () => {
+  test('tree replaces, details accumulate and gone evicts', () => {
+    const s = createRecordingSession();
+    const details = {id: 7} as never;
+    s.applyInspector({type: 'tree', roots: [{id: 1}] as never});
+    s.applyInspector({type: 'details', details});
+    expect(s.roots()).toEqual([{id: 1}]);
+    expect(s.details(7)).toBe(details);
+    expect(s.details(8)).toBeNull();
+    s.applyInspector({type: 'gone', id: 7});
+    expect(s.details(7)).toBeNull();
+  });
+
+  test('capture freezes the buffers and replay round-trips it', () => {
+    const s = createRecordingSession({epoch: 'e'});
+    s.push([ev(1)]);
+    s.pushHmrIncompatibility(hmr(1));
+    s.applyInspector({type: 'tree', roots: [{id: 1}] as never});
+    const snap = s.capture({capturedAt: 't', version: 'v', customLayers: []});
+    expect(snap).toMatchObject({capturedAt: 't', version: 'v'});
+    expect(snap.events.map((e) => e.id)).toEqual(['e-0']);
+    expect(snap.hmrIncompatibilities).toHaveLength(1);
+
+    s.push([ev(2)]);
+    expect(snap.events).toHaveLength(1);
+
+    const again = createRecordingSession({replay: snap});
+    expect(again.history()).toEqual(snap.events);
+    expect(again.roots()).toEqual(snap.roots);
+  });
+});

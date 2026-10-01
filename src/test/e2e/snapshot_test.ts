@@ -159,6 +159,13 @@ describe('static snapshot export', () => {
     for (const outDir of ['.', '..', joinPath(process.cwd(), '..', 'x')]) {
       await expect(exportTo(outDir)).rejects.toThrow(/must be inside/);
     }
+    // A symlink beneath the cwd that leads out of it is outside by its real
+    // path, and so is a not-yet-existing child of one.
+    const escape = `${TMP}/escape`;
+    await fsp.symlink(joinPath(process.cwd(), '..'), escape);
+    for (const outDir of [escape, `${escape}/x`]) {
+      await expect(exportTo(outDir)).rejects.toThrow(/must be inside/);
+    }
     await expect(exportTo(keep)).rejects.toThrow(/not a snapshot/);
     expect(await fsp.readFile(`${keep}/keep.txt`, 'utf8')).toBe('mine');
 
