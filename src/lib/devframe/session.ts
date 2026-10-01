@@ -17,12 +17,8 @@ import {MAX_HMR_INCOMPATIBILITIES} from '../../types/hmr-incompatibility.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 import type {TimelineEvent, TimelineLayer} from '../../types/timeline.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
-import {
-  attributeInput,
-  rollup,
-  toSpans,
-  toUpdateCycles,
-} from '../timeline/derive.js';
+import {rollup} from '../timeline/derive.js';
+import {updateCycles} from '../timeline/model.js';
 import {RECENT_EVENTS_BUFFER_SIZE} from './protocol.js';
 import type {
   RecentEventsArgs,
@@ -165,7 +161,7 @@ export function createRecordingSession(
     },
     summarize(args, recording) {
       const windowed = sinceWindow(events, events, args.sinceMs);
-      let cycles = attributeInput(toUpdateCycles(toSpans(windowed)), windowed);
+      let cycles = updateCycles(windowed);
       if (args.tagName !== undefined) {
         cycles = cycles.filter((c) => c.tagName === args.tagName);
       }

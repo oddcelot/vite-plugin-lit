@@ -8,17 +8,11 @@ import type {
   TimelineLayersState,
 } from '../types/timeline.js';
 import type {LayerState} from './timeline-layers.js';
-import {toSpans} from '../lib/timeline/derive.js';
-import {
-  compileRegex,
-  filterSpans,
-  listElements,
-} from '../lib/timeline/filter.js';
-import type {TimelineSpan} from '../lib/timeline/derive.js';
+import {TimelineModel} from '../lib/timeline/model.js';
 import '../lib/segmented-tabs.js';
 import type {TabItem} from '../lib/segmented-tabs.js';
 import './timeline-layers.js';
-import {isRawKey} from './timeline-event-list.js';
+import './timeline-event-list.js';
 import type {TimelineEventList} from './timeline-event-list.js';
 import './timeline-tracks.js';
 import {litRpc, getMeta, describeError, isSnapshot} from './client.js';
@@ -85,8 +79,8 @@ const store = (key: string, value: string) => {
  * shared state so it stays in sync with other panels and the page runtime.
  *
  * The events are shown two ways, List (`timeline-event-list`) and Tracks
- * (`timeline-tracks`). This view derives the spans once for both and owns
- * the selection and the element/regex filter, so clicking a mark and
+ * (`timeline-tracks`). This view holds one `TimelineModel` for both: the
+ * spans, the selection and the element/regex filter, so clicking a mark and
  * switching to the list lands on the same row, and a filter typed in one
  * presentation is still applied in the other. Both stay mounted and the
  * inactive one is hidden, so the list keeps its Raw toggle and scroll and the
@@ -205,27 +199,12 @@ export class TimelineView extends LitElement {
   @state() private _mode: ViewMode = readMode();
   /** Layers whose track the user hid. View-only: capture is untouched. */
   @state() private _hiddenTracks: Set<string> = readHiddenTracks();
-  /** Selection shared by both presentations; see `timeline-event-list`. */
-  @state() private _selectedKey: string | null = null;
-  /** Element id both presentations are filtered to, or null for all. */
-  @state() private _elementFilter: number | null = null;
-  /** Case-insensitive regex source both presentations are filtered by. */
-  @state() private _regex = '';
-
-  /** `toSpans(_events)`, re-derived only when the buffer changes. */
-  private _spans: TimelineSpan[] = [];
-  private _spansOf: TimelineEvent[] | null = null;
-  /** Distinct elements in `_events`, re-derived with `_spans` so a keystroke
-   *  in the regex box does not rescan the buffer. */
-  private _elements: Array<{id: number; tag: string}> = [];
-  /** `_spans` after the element and regex filters, for Tracks. The list
-   *  applies the same filter itself because its Raw mode filters events. */
-  private _filteredSpans: TimelineSpan[] = [];
-  /** An event id a deep link asked for that the store has not delivered yet;
-   *  the store loads asynchronously, so it is applied once events arrive. */
-  private _pendingEventId: string | null = null;
+  /** Spans, filter and selection shared by both presentations. Not
+   *  reactive itself: every mutation is followed by `requestUpdate()`. */
+  private readonly _model = new TimelineModel();
+  /** `selectedEventId` as last announced through `selection-change`. */
+  private _announcedEventId: string | null = null;
   private _revealSelection = false;
-  private _pendingSettled = false;
   private readonly _listRef = createRef<TimelineEventList>();
   /** Captured, not-hidden layer ids. Cached so a selection change does not
    *  hand `timeline-tracks` a new array and re-pack every lane. */
@@ -263,85 +242,21 @@ export class TimelineView extends LitElement {
         .filter((l) => l.enabled && !this._hiddenTracks.has(l.id))
         .map((l) => l.id);
     }
-    // The store hands out a new array whenever the buffer changes, so identity
-    // is the memo key.
-    if (this._events !== this._spansOf) {
-      this._spansOf = this._events;
-      this._spans = toSpans(this._events);
-      this._elements = listElements(this._events);
-      // Drop a stale element filter when its element is no longer recorded
-      // (e.g. after Clear), otherwise both views would silently show nothing.
-      if (
-        this._elementFilter !== null &&
-        !this._elements.some((el) => el.id === this._elementFilter)
-      ) {
-        this._elementFilter = null;
-      }
-      // A span can fall out of the buffer cap, or vanish on Clear. Raw-mode
-      // keys are the list's to interpret.
-      const key = this._selectedKey;
-      if (
-        key !== null &&
-        !isRawKey(key) &&
-        !this._spans.some((s) => s.key === key)
-      ) {
-        this._selectedKey = null;
-      }
-      this._applyPendingEvent();
-    }
-    if (
-      changed.has('_events') ||
-      changed.has('_elementFilter') ||
-      changed.has('_regex')
-    ) {
-      // Recomputed on its own inputs only, so a selection change does not hand
-      // `timeline-tracks` a new array and re-pack every lane.
-      this._filteredSpans = filterSpans(
-        this._spans,
-        this._elementFilter,
-        compileRegex(this._regex).re
-      );
-    }
+    if (this._model.setEvents(this._events)) this._revealSelection = true;
   }
 
-  /**
-   * Select the span a deep link named. Its start event is the natural target
-   * (`span.events[0]`), but any of the span's events matches, so a link to
-   * either half of a pair lands on the same row.
-   *
-   * An id the buffer does not hold — evicted, or from another session — ends
-   * with no selection and no error, once there are events to have looked in.
-   */
+  /** Selects the span a deep link named; see `TimelineModel.selectEvent`. */
   selectEvent(id: string): void {
-    this._pendingEventId = id;
-    this._applyPendingEvent();
+    if (this._model.selectEvent(id)) this._revealSelection = true;
     this.requestUpdate();
   }
 
-  private _applyPendingEvent(): void {
-    const id = this._pendingEventId;
-    // An empty buffer is "not loaded yet", not "not found".
-    if (id === null || this._spans.length === 0) return;
-    const span = this._spans.find((s) => s.events.some((e) => e.id === id));
-    this._pendingEventId = null;
-    this._pendingSettled = true;
-    // A miss clears the selection: the link named something, and leaving the
-    // previous row highlighted would read as if that were it.
-    this._selectedKey = span?.key ?? null;
-    if (span !== undefined) this._revealSelection = true;
-  }
-
-  /** Id of the selected span's start event, for the shell's URL sync. While a
-   *  linked id is still waiting on the store it is reported as-is, so the
-   *  address bar does not drop it before the events land. */
+  /** Id of the selected span's start event, for the shell's URL sync. */
   get selectedEventId(): string | null {
-    if (this._pendingEventId !== null) return this._pendingEventId;
-    const key = this._selectedKey;
-    if (key === null) return null;
-    return this._spans.find((s) => s.key === key)?.events[0]?.id ?? null;
+    return this._model.selectedEventId;
   }
 
-  override updated(changed: Map<string, unknown>) {
+  override updated() {
     if (this._revealSelection) {
       this._revealSelection = false;
       // After the *list's* update, not ours: it pins itself to the newest row
@@ -350,8 +265,9 @@ export class TimelineView extends LitElement {
         .then(() => this._listRef.value?.updateComplete)
         .then(() => this._listRef.value?.reveal());
     }
-    if (changed.has('_selectedKey') || this._pendingSettled) {
-      this._pendingSettled = false;
+    const id = this._model.selectedEventId;
+    if (id !== this._announcedEventId) {
+      this._announcedEventId = id;
       this.dispatchEvent(new CustomEvent('selection-change'));
     }
   }
@@ -514,21 +430,24 @@ export class TimelineView extends LitElement {
 
   private _onElementSelect(e: Event) {
     const v = (e.target as HTMLSelectElement).value;
-    this._elementFilter = v === '' ? null : Number(v);
+    this._model.setFilter({elementId: v === '' ? null : Number(v)});
+    this.requestUpdate();
   }
 
   private _onRegexInput(e: Event) {
-    this._regex = (e.target as HTMLInputElement).value;
+    this._model.setFilter({regex: (e.target as HTMLInputElement).value});
+    this.requestUpdate();
   }
 
   /** The detail pane's **filter** link. */
   private _onElementFilter(e: CustomEvent<{id: number}>) {
-    this._elementFilter = e.detail.id;
+    this._model.setFilter({elementId: e.detail.id});
+    this.requestUpdate();
   }
 
   private _onSpanSelect(e: CustomEvent<{key: string | null}>) {
-    this._pendingEventId = null;
-    this._selectedKey = e.detail.key;
+    this._model.select(e.detail.key);
+    this.requestUpdate();
   }
 
   override render() {
@@ -538,6 +457,8 @@ export class TimelineView extends LitElement {
     const tracks = this._mode === 'tracks';
     // Only captured layers can have events to draw.
     const captured = this._layers.filter((l) => l.enabled);
+    const model = this._model;
+    const {filter} = model;
     return html`
       <div class="toolbar">
         <segmented-tabs
@@ -592,21 +513,18 @@ export class TimelineView extends LitElement {
         this._events.length > 0
           ? html`<div class="filterbar">
               ${
-                this._elements.length > 0
+                model.elements.length > 0
                   ? html`
                       <span>Element:</span>
                       <select @change=${this._onElementSelect}>
-                        <option
-                          value=""
-                          ?selected=${this._elementFilter === null}
-                        >
+                        <option value="" ?selected=${filter.elementId === null}>
                           All elements
                         </option>
-                        ${this._elements.map(
+                        ${model.elements.map(
                           (el) => html`
                             <option
                               value=${el.id}
-                              ?selected=${this._elementFilter === el.id}
+                              ?selected=${filter.elementId === el.id}
                             >
                               &lt;${el.tag}&gt; #${el.id}
                             </option>
@@ -617,12 +535,12 @@ export class TimelineView extends LitElement {
                   : nothing
               }
               <input
-                class="regex ${compileRegex(this._regex).invalid ? 'invalid' : ''}"
+                class="regex ${model.regexInvalid ? 'invalid' : ''}"
                 type="text"
                 spellcheck="false"
                 placeholder="filter regex…"
                 title="Case-insensitive regex matched against element tag, title and subtitle"
-                .value=${this._regex}
+                .value=${filter.regex}
                 @input=${this._onRegexInput}
               />
             </div>`
@@ -632,25 +550,20 @@ export class TimelineView extends LitElement {
         ${ref(this._listRef)}
         ?hidden=${tracks}
         .events=${this._events}
-        .spans=${this._spans}
+        .spans=${model.spans}
         .layers=${this._layers}
-        .selectedKey=${this._selectedKey}
-        .elementFilter=${this._elementFilter}
-        .regex=${this._regex}
+        .selectedKey=${model.selectedKey}
+        .filter=${filter}
         @span-select=${this._onSpanSelect}
         @element-filter=${this._onElementFilter}
       ></timeline-event-list>
       <timeline-tracks
         ?hidden=${!tracks}
-        .spans=${this._filteredSpans}
+        .spans=${model.filteredSpans}
         .layers=${this._layers}
         .visibleTracks=${this._visibleTracks}
-        .selectedKey=${this._selectedKey}
-        .selectedSpan=${
-          this._selectedKey === null
-            ? undefined
-            : this._spans.find((s) => s.key === this._selectedKey)
-        }
+        .selectedKey=${model.selectedKey}
+        .selectedSpan=${model.selectedSpan}
         ?recording=${this._recording}
         @span-select=${this._onSpanSelect}
         @element-filter=${this._onElementFilter}

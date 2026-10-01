@@ -2,12 +2,7 @@ import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 import {repeat} from 'lit/directives/repeat.js';
 import {tokens} from '../lib/tokens.js';
-import {
-  attributeInput,
-  rollup,
-  toSpans,
-  toUpdateCycles,
-} from '../lib/timeline/derive.js';
+import {summarizeUpdates} from '../lib/timeline/model.js';
 import type {ComponentRollup, UpdateCycle} from '../lib/timeline/derive.js';
 import type {TimelineEvent} from '../types/timeline.js';
 import {
@@ -197,11 +192,9 @@ export class UpdatesView extends LitElement {
   override willUpdate() {
     if (this._derivedFrom === this._events) return;
     this._derivedFrom = this._events;
-    this._cycles = attributeInput(
-      toUpdateCycles(toSpans(this._events)),
+    ({cycles: this._cycles, components: this._components} = summarizeUpdates(
       this._events
-    );
-    this._components = rollup(this._cycles);
+    ));
     // Keep the selection meaningful: a tag that no longer updated in the
     // retained window would leave the lower pane permanently empty.
     if (
