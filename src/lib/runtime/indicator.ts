@@ -81,7 +81,7 @@ class LitDevtoolsIndicator extends HTMLElement {
         #container.with-count{--idle-op:.5}
         #container.active{animation:pulse 2.5s ease-out forwards}
         #icon{display:flex;align-items:center;justify-content:center;padding:0 10px}
-        #icon svg{width:16px;height:16px;display:block;fill:currentColor}
+        #icon svg{width:18px;height:18px;display:block;fill:currentColor}
         #indicator{
           display:flex;align-items:center;gap:6px;
           padding:7px 12px;

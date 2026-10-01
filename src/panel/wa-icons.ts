@@ -1,6 +1,6 @@
 /**
- * Pixelarticons (https://pixelarticons.com, MIT) for `<wa-icon>`, bundled
- * into the panel.
+ * Pixelarticons (https://pixelarticons.com), Copyright (c) 2019 Gerrit
+ * Halfmann, MIT License, for `<wa-icon>`, bundled into the panel.
  *
  * Web Awesome's `default` icon library fetches Font Awesome SVGs from a CDN
  * at runtime, which breaks the panel offline and inside exported snapshots.

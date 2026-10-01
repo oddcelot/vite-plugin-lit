@@ -73,8 +73,8 @@ export const OVERLAY_HTML = `
     .icon-btn:focus { outline: none; }
     .icon-btn:focus-visible { background: var(--lit-devtools-surface-hover); }
     .icon-btn svg {
-      width: 16px;
-      height: 16px;
+      width: 18px;
+      height: 18px;
       display: block;
       fill: currentColor;
     }
