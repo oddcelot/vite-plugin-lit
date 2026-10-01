@@ -177,9 +177,11 @@ export const startFixture = async (
     );
   await page.goto(url);
   await ready();
-  // Defensive: if the dep optimizer discovered anything on first load, its
-  // full-reload has settled by now; a clean reload makes test state
-  // (clicks, focus) immune to it.
+  // Defensive: the injected runtime's bare imports are invisible to the dep
+  // scanner, so the optimizer can still be working on the first load. Wait
+  // for it, then reload cleanly, so test state (clicks, focus) is immune to
+  // any full-reload it would trigger. Today it settles without one.
+  await server.waitForRequestsIdle();
   await page.reload();
   await ready();
 
