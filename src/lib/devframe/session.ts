@@ -23,6 +23,7 @@ import {rollup} from '../timeline/derive.js';
 import {updateCycles} from '../timeline/model.js';
 import {RECENT_EVENTS_BUFFER_SIZE} from './protocol.js';
 import type {
+  HmrHistoryEntry,
   RecentEventsArgs,
   RecentEventsResult,
   UpdateSummaryArgs,
@@ -67,6 +68,8 @@ export interface RecordingSession {
    */
   pushHmrPatch(event: HmrPatchEvent): void;
   hmrPatches(): HmrPatchEvent[];
+  /** Patches and incompatibilities as one list, oldest first. */
+  hmrHistory(): HmrHistoryEntry[];
   /** Fold a runtime inspector message into the caches. */
   applyInspector(message: InspectorMessage): void;
   roots(): InspectorTreeNode[];
@@ -286,6 +289,21 @@ export function createRecordingSession(
       capTail(patches, MAX_HMR_PATCHES);
     },
     hmrPatches: () => [...patches],
+    // Patches go first so that, the sort being stable, a tie keeps them
+    // ahead of an incompatibility reported in the same millisecond.
+    hmrHistory: () =>
+      [
+        ...patches.map((patch): HmrHistoryEntry => ({
+          kind: 'patched',
+          at: patch.at,
+          patch,
+        })),
+        ...hmr.map((incompatibility): HmrHistoryEntry => ({
+          kind: 'incompatible',
+          at: incompatibility.time,
+          incompatibility,
+        })),
+      ].sort((a, b) => a.at - b.at),
     applyInspector(message) {
       if (message.type === 'tree') {
         roots = message.roots;

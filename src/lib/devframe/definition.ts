@@ -37,6 +37,7 @@ import {
   RPC_COMPONENT_DETAILS,
   RPC_GET_META,
   RPC_PAGE_CHANGED,
+  RPC_HMR_HISTORY,
   RPC_HMR_INCOMPATIBILITIES,
   RPC_HMR_INCOMPATIBLE,
   RPC_HMR_PATCHED,
@@ -56,6 +57,7 @@ import {
   TIMELINE_STREAM_NAME,
   type ComponentDetailsArgs,
   type ComponentDetailsByTagResult,
+  type HmrHistoryResult,
   type ListComponentsArgs,
   type LitGetMetaResult,
   type RecentEventsArgs,
@@ -483,6 +485,24 @@ export function createLitDevframe(
           },
           handler: async (): Promise<HmrIncompatibilityEvent[]> =>
             recording.hmrIncompatibilities(),
+        })
+      );
+
+      my.rpc.register(
+        defineRpcFunction({
+          name: RPC_HMR_HISTORY,
+          type: 'query',
+          jsonSerializable: true,
+          // Baked into a static snapshot: takes no required arguments, and
+          // by export time its answer is exactly what the session recorded.
+          snapshot: true,
+          agent: {
+            description:
+              'List recent hot-module-reload outcomes for Lit components, oldest first, up to 50 patches and 50 failures. Each entry is kind "patched" (an edit landed in place: instances updated, durationMs of the synchronous patch, and childState, what happened to re-created child elements) or kind "incompatible" (the component could not be patched, with the reason and whether the page reloaded). Call this after editing a component to check the change landed, or after a full-page reload to see what preceded it. Works without recording; the history survives page reloads.',
+          },
+          handler: async (): Promise<HmrHistoryResult> => ({
+            entries: recording.hmrHistory(),
+          }),
         })
       );
 

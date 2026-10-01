@@ -136,11 +136,29 @@ export const RPC_INSPECTOR_MESSAGE = 'inspector-message';
 /** Bare name of the `hmr-incompatibilities` query. */
 export const RPC_HMR_INCOMPATIBILITIES = 'hmr-incompatibilities';
 
+/** Bare name of the `hmr-history` query. */
+export const RPC_HMR_HISTORY = 'hmr-history';
+
 /** Bare name of the `hmr-incompatible` client (node → panel) event. */
 export const RPC_HMR_INCOMPATIBLE = 'hmr-incompatible';
 
 /** Bare name of the `hmr-patched` client (node → panel) event. */
 export const RPC_HMR_PATCHED = 'hmr-patched';
+
+/** One entry of the `hmr-history` result: a patch that landed, or one that could not. */
+export type HmrHistoryEntry =
+  | {kind: 'patched'; at: number; patch: HmrPatchEvent}
+  | {
+      kind: 'incompatible';
+      at: number;
+      incompatibility: HmrIncompatibilityEvent;
+    };
+
+/** Result of the `hmr-history` query. */
+export interface HmrHistoryResult {
+  /** Patches and incompatibilities merged, oldest first, each list capped at 50. */
+  entries: HmrHistoryEntry[];
+}
 
 /** Bare name of the `page-changed` client (node → panel) event. */
 export const RPC_PAGE_CHANGED = 'page-changed';
@@ -348,6 +366,7 @@ declare module 'devframe' {
       args: ExportSnapshotArgs
     ) => Promise<ExportSnapshotResult>;
     'lit:hmr-incompatibilities': () => Promise<HmrIncompatibilityEvent[]>;
+    'lit:hmr-history': () => Promise<HmrHistoryResult>;
     'lit:page-send': (channel: string, data?: unknown) => void;
   }
 

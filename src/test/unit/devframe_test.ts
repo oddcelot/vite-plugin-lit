@@ -6,6 +6,7 @@ import {createLitDevframe} from '../../lib/devframe/definition.js';
 import {createSourceLocator} from '../../lib/source-locator.js';
 import type {SessionState} from '../../lib/devframe/protocol.js';
 import type {TimelineSink, TimelineSource} from '../../lib/devframe/source.js';
+import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 import type {
   InspectorCommand,
   InspectorDetails,
@@ -321,6 +322,58 @@ describe('lit devframe definition', () => {
     ]);
   });
 
+  test('hmr-history merges patches and failures, oldest first', async () => {
+    const {source, ctx} = await boot();
+    const patched = (at: number, tagName = 'x-a') => ({
+      tagName,
+      instances: 2,
+      generation: 1,
+      durationMs: 1,
+      childState: 'transfer' as const,
+      at,
+    });
+    const failed = {
+      tagName: 'x-b',
+      time: 20,
+      reason: {code: 'accessor-decorators'},
+      action: 'reload',
+    } as unknown as HmrIncompatibilityEvent;
+    source.sink!.hmrPatched(patched(30, 'x-c'));
+    source.sink!.hmrIncompatible(failed);
+    source.sink!.hmrPatched(patched(10));
+    const result = (await ctx.rpc.invokeLocal('lit:hmr-history')) as {
+      entries: Array<{kind: string; at: number}>;
+    };
+    expect(result.entries.map((e) => [e.kind, e.at])).toEqual([
+      ['patched', 10],
+      ['incompatible', 20],
+      ['patched', 30],
+    ]);
+    // The failures-only tool is unchanged.
+    expect(await ctx.rpc.invokeLocal('lit:hmr-incompatibilities')).toEqual([
+      failed,
+    ]);
+  });
+
+  test('hmr-history ignores patches from a page that is not followed', async () => {
+    const {source, ctx} = await boot();
+    const event = {
+      tagName: 'x-a',
+      instances: 1,
+      generation: 1,
+      durationMs: 1,
+      childState: 'transfer' as const,
+      at: 1,
+    };
+    source.sink!.runtimeReady('a');
+    source.sink!.hmrPatched(event, 'a');
+    source.sink!.hmrPatched({...event, at: 2}, 'other-tab');
+    const result = (await ctx.rpc.invokeLocal('lit:hmr-history')) as {
+      entries: Array<{at: number}>;
+    };
+    expect(result.entries.map((e) => e.at)).toEqual([1]);
+  });
+
   test('registers the scoped rpc surface', async () => {
     const {ctx} = await boot();
     const names = ctx.rpc.list();
@@ -334,6 +387,8 @@ describe('lit devframe definition', () => {
       'lit:inspect',
       'lit:set-recording',
       'lit:toggle-layer',
+      'lit:hmr-history',
+      'lit:hmr-incompatibilities',
     ]) {
       expect(names).toContain(name);
     }
@@ -352,6 +407,8 @@ describe('lit devframe definition', () => {
     expect(exposed).toContain('lit:set-recording');
     // A query, so read-safe by inference — it must not join the mutating set.
     expect(exposed).toContain('lit:update-summary');
+    expect(exposed).toContain('lit:hmr-history');
+    expect(exposed).toContain('lit:hmr-incompatibilities');
     expect(exposed).not.toContain('lit:inspect');
     expect(exposed).not.toContain('lit:toggle-layer');
 

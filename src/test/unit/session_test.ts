@@ -394,6 +394,20 @@ describe('hmr patches', () => {
     ]);
   });
 
+  test('hmrHistory merges both lists by timestamp, patches first on a tie', () => {
+    const s = createRecordingSession();
+    s.pushHmrPatch(patch(20));
+    s.pushHmrIncompatibility({...hmr(1), time: 10});
+    s.pushHmrPatch(patch(30));
+    s.pushHmrIncompatibility({...hmr(2), time: 30});
+    expect(s.hmrHistory().map((e) => [e.kind, e.at])).toEqual([
+      ['incompatible', 10],
+      ['patched', 20],
+      ['patched', 30],
+      ['incompatible', 30],
+    ]);
+  });
+
   test('capture includes the patches and replay round-trips them', () => {
     const s = createRecordingSession();
     s.pushHmrPatch(patch(1));
