@@ -164,3 +164,33 @@ test('a disconnect with no Live mode and no watch is harmless', async () => {
   }).not.toThrow();
   expect(trees(carrier)).toBe(before);
 });
+
+const details = (carrier: Carrier) => count(carrier, 'details');
+
+test('pushes live details after the update, not inside it', async () => {
+  const {carrier, idOf} = await load();
+  const el = make() as HTMLElement & {updated?: (c: unknown) => void};
+  document.body.append(el);
+  fire('panel:connected', 'p1');
+  carrier.deliver(INSPECT_CMD_CHANNEL, {type: 'watch', id: idOf(el)});
+  const afterWatch = details(carrier);
+  el.updated?.(new Map());
+  // Still inside performUpdate here; reading a signal now would subscribe the
+  // element's render to it.
+  expect(details(carrier)).toBe(afterWatch);
+  await Promise.resolve();
+  expect(details(carrier)).toBe(afterWatch + 1);
+});
+
+test('drops a queued live push once the watch ended', async () => {
+  const {carrier, idOf} = await load();
+  const el = make() as HTMLElement & {updated?: (c: unknown) => void};
+  document.body.append(el);
+  fire('panel:connected', 'p1');
+  carrier.deliver(INSPECT_CMD_CHANNEL, {type: 'watch', id: idOf(el)});
+  const afterWatch = details(carrier);
+  el.updated?.(new Map());
+  carrier.deliver(INSPECT_CMD_CHANNEL, {type: 'watch', id: null});
+  await Promise.resolve();
+  expect(details(carrier)).toBe(afterWatch);
+});
