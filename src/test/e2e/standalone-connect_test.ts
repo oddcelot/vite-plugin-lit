@@ -18,7 +18,7 @@ import {randomUUID} from 'node:crypto';
 import {createServer, type Server} from 'node:http';
 import {connect, createServer as createTcpServer} from 'node:net';
 import type {AddressInfo, Server as TcpServer} from 'node:net';
-import {mkdir, rm, writeFile} from 'node:fs/promises';
+import {mkdir, readFile, rm, writeFile} from 'node:fs/promises';
 import * as path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {build} from 'vite';
@@ -214,5 +214,58 @@ test('behind a proxy the page dials the address it loaded the script from', asyn
   const proxyHost = new URL(proxyOrigin).host;
   expect(sockets.length).toBeGreaterThan(0);
   expect(sockets.every((url) => new URL(url).host === proxyHost)).toBe(true);
+  await page.close();
+}, 60_000);
+
+test('a panel setting survives a reload of the page it never served', async () => {
+  const page = await browser.newPage();
+  await page.goto(appOrigin);
+
+  // The page's localStorage is on another origin than the panel's, so the
+  // override the panel sets can only come back through the server's store.
+  const panel = await browser.newPage();
+  await panel.goto(`${devOrigin}/`);
+  await panel.waitForSelector('lit-devtools-panel');
+  // Opening Settings syncs the panel's settings mirror with the server's
+  // store (it isn't a deep-link tab, and in standalone mode it has no
+  // controls of its own). A write that lands before that sync is overwritten
+  // by it, so let it settle, then use the Components tab's Flash button.
+  await panel.getByText('Settings', {exact: true}).first().click();
+  await panel.getByText('color scheme').waitFor();
+  await new Promise((resolve) => setTimeout(resolve, 1_000));
+  await panel.getByText('Components', {exact: true}).first().click();
+  const flash = panel.getByRole('button', {name: /Flash/});
+  await flash.click();
+  await expect.poll(() => flash.getAttribute('class')).toContain('active');
+  // Durable once the server's store file has it (written after a debounce).
+  const store = path.join(cliHome, '.lit', 'devframe', 'settings', 'lit.json');
+  await expect
+    .poll(() => readFile(store, 'utf8').catch(() => ''))
+    .toContain('flashUpdates');
+
+  await page.reload();
+  const box = page.locator('[data-lit-devtools-flash]');
+  // Keep updating until the replayed override reaches the runtime: the
+  // connection is up some time after the reload, and the first renders
+  // may have run before it. Without the replay no box ever appears.
+  await expect
+    .poll(
+      async () => {
+        await page.evaluate(async () => {
+          const el = document.querySelector('standalone-hello') as
+            | (HTMLElement & {
+                requestUpdate(): void;
+                updateComplete: Promise<unknown>;
+              })
+            | null;
+          el?.requestUpdate();
+          await el?.updateComplete;
+        });
+        return box.count();
+      },
+      {timeout: 15_000}
+    )
+    .toBeGreaterThan(0);
+  await panel.close();
   await page.close();
 }, 60_000);
