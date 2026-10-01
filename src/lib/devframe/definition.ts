@@ -67,6 +67,7 @@ import {
   type UpdateSummaryResult,
 } from './protocol.js';
 import {resolveLaunchEditor} from './launch-editor.js';
+import {createInspectorRequester} from './inspector-request.js';
 import {createRecordingSession} from './session.js';
 import {createNullSource, type TimelineSource} from './source.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
@@ -111,7 +112,15 @@ export interface CreateLitDevframeOptions {
    * render with no page and no dev server behind it.
    */
   replay?: SessionSnapshot;
+  /**
+   * How long `list-components` and `component-details` wait for the page
+   * before answering from the cache. Short on purpose: the null source never
+   * answers, and an agent call must not hang. Tests lower it.
+   */
+  inspectorTimeoutMs?: number;
 }
+
+const DEFAULT_INSPECTOR_TIMEOUT_MS = 500;
 
 /**
  * Builds the Lit devframe definition. Framework-neutral: everything here
@@ -187,6 +196,13 @@ export function createLitDevframe(
         recording: session.value().layers.recordingState,
       });
 
+      // Lets the agent queries ask the page instead of trusting the cache,
+      // which only holds what the panel last requested.
+      const requester = createInspectorRequester(source);
+      const live = ctx.mode === 'dev' && replay === undefined;
+      const inspectorTimeout =
+        options.inspectorTimeoutMs ?? DEFAULT_INSPECTOR_TIMEOUT_MS;
+
       // Terminal echo for an audience that only sees dev-server stdout (an
       // agent, or a CI log) and not the browser console or the panel.
       // Fire-and-log only — the session is the read-back store.
@@ -252,6 +268,7 @@ export function createLitDevframe(
             });
           },
           inspectorMessage(message) {
+            requester.resolve(message);
             recording.applyInspector(message);
             void ctx.rpc.broadcast({
               method: `${LIT_DEVFRAME_ID}:${RPC_INSPECTOR_MESSAGE}`,
@@ -374,9 +391,16 @@ export function createLitDevframe(
           snapshot: true,
           agent: {
             description:
-              'List the live Lit component tree of the inspected page. Call this before asking about a specific element to find its id.',
+              'List the live Lit component tree of the inspected page, read from the page on each call. Call this before asking about a specific element to find its id.',
           },
-          handler: async (): Promise<InspectorTreeNode[]> => recording.roots(),
+          handler: async (): Promise<InspectorTreeNode[]> => {
+            if (!live) return recording.roots();
+            // The cache only holds what the panel last asked for; an agent
+            // with no panel open would otherwise read an empty tree from a
+            // live page.
+            const roots = await requester.tree(inspectorTimeout);
+            return roots ?? recording.roots();
+          },
         })
       );
 
@@ -404,11 +428,17 @@ export function createLitDevframe(
           jsonSerializable: true,
           agent: {
             description:
-              'Get reactive properties, attributes, and internal state for one component by id. Call list-components first to find the id.',
+              'Get reactive properties, attributes, and internal state for one component by id, read from the page on each call. Returns null if the element has left the page. Call list-components first to find the id.',
           },
           handler: async (
             args: ComponentDetailsArgs
-          ): Promise<InspectorDetails | null> => recording.details(args.id),
+          ): Promise<InspectorDetails | null> => {
+            if (!live) return recording.details(args.id);
+            const fresh = await requester.details(args.id, inspectorTimeout);
+            // `null` is the page saying the element is gone; `undefined` is
+            // silence.
+            return fresh === undefined ? recording.details(args.id) : fresh;
+          },
         })
       );
 

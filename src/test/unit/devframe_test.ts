@@ -6,7 +6,11 @@ import {createLitDevframe} from '../../lib/devframe/definition.js';
 import {createSourceLocator} from '../../lib/source-locator.js';
 import type {SessionState} from '../../lib/devframe/protocol.js';
 import type {TimelineSink, TimelineSource} from '../../lib/devframe/source.js';
-import type {InspectorCommand} from '../../types/inspector.js';
+import type {
+  InspectorCommand,
+  InspectorDetails,
+  InspectorTreeNode,
+} from '../../types/inspector.js';
 import type {
   FeatureSettings,
   SettingsOverride,
@@ -72,6 +76,7 @@ const boot = async (
   options: {
     roots?: string[];
     configuredEditor?: string;
+    inspectorTimeoutMs?: number;
   } = {}
 ) => {
   const source = new FakeSource();
@@ -84,6 +89,7 @@ const boot = async (
         ? undefined
         : createSourceLocator(options.roots),
     configuredEditor: () => options.configuredEditor,
+    inspectorTimeoutMs: options.inspectorTimeoutMs,
   });
   instance = initDevframe(def, {
     base: '/__lit/',
@@ -106,7 +112,51 @@ afterEach(async () => {
   instance = undefined;
 });
 
+const treeNode: InspectorTreeNode = {id: 3, tagName: 'x-a', children: []};
+const detailsFor = (id: number): InspectorDetails => ({
+  id,
+  tagName: 'x-a',
+  attributes: [],
+  properties: [],
+  flags: {hasUpdated: true, isUpdatePending: false, hasShadowRoot: true},
+});
+
 describe('lit devframe definition', () => {
+  test('list-components asks the page and returns its answer', async () => {
+    const {source, ctx} = await boot({inspectorTimeoutMs: 1000});
+    const pending = ctx.rpc.invokeLocal('lit:list-components');
+    await vi.waitFor(() =>
+      expect(source.inspector.at(-1)).toEqual({type: 'tree'})
+    );
+    source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]});
+    expect(await pending).toEqual([treeNode]);
+  });
+
+  test('component-details asks the page by id and reports a gone element', async () => {
+    const {source, ctx} = await boot({inspectorTimeoutMs: 1000});
+    const found = ctx.rpc.invokeLocal('lit:component-details', {id: 3});
+    await vi.waitFor(() =>
+      expect(source.inspector.at(-1)).toEqual({type: 'details', id: 3})
+    );
+    source.sink!.inspectorMessage({type: 'details', details: detailsFor(3)});
+    expect(await found).toEqual(detailsFor(3));
+
+    // The cache now holds id 3, so a null here proves the page's `gone` wins
+    // over the stale entry.
+    const gone = ctx.rpc.invokeLocal('lit:component-details', {id: 3});
+    await vi.waitFor(() => expect(source.inspector).toHaveLength(2));
+    source.sink!.inspectorMessage({type: 'gone', id: 3});
+    expect(await gone).toBeNull();
+  });
+
+  test('list-components falls back to the cache when nothing answers', async () => {
+    const {source, ctx} = await boot({inspectorTimeoutMs: 20});
+    source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]});
+    expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([
+      treeNode,
+    ]);
+  });
+
   test('registers the scoped rpc surface', async () => {
     const {ctx} = await boot();
     const names = ctx.rpc.list();
