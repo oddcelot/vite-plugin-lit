@@ -27,8 +27,8 @@ import type {TimelineView} from './timeline-view.js';
 import {onDeepLink, writeHashLink} from './deep-link.js';
 import type {DeepLinkTab} from './deep-link.js';
 import './devtools-settings.js';
-import '../lib/segmented-tabs.js';
-import type {TabItem} from '../lib/segmented-tabs.js';
+import './segmented-tabs.js';
+import type {TabItem} from './segmented-tabs.js';
 import {
   CUBE_ICON,
   CLOCK_ICON,

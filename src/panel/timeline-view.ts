@@ -9,8 +9,8 @@ import type {
 } from '../types/timeline.js';
 import type {LayerState} from './timeline-layers.js';
 import {TimelineModel} from '../lib/timeline/model.js';
-import '../lib/segmented-tabs.js';
-import type {TabItem} from '../lib/segmented-tabs.js';
+import './segmented-tabs.js';
+import type {TabItem} from './segmented-tabs.js';
 import './timeline-layers.js';
 import './timeline-event-list.js';
 import type {TimelineEventList} from './timeline-event-list.js';

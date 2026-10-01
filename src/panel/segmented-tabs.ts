@@ -1,6 +1,6 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
-import {tokens} from './tokens.js';
+import {tokens} from '../lib/tokens.js';
 
 export interface TabItem {
   id: string;
