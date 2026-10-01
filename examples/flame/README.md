@@ -51,6 +51,10 @@ cd examples/flame
 pnpm dev
 ```
 
-On StackBlitz it installs the published plugin and plain Vite with npm.
+On StackBlitz it installs the published plugin and plain Vite with npm, and
+starts with `npm run stackblitz`: the `vite` command does not start in a
+WebContainer, so `stackblitz.mjs` starts the same server through Vite's
+JavaScript API, as the playground does.
+
 Private-field updates need Vite 8: on Vite 7 the TypeScript step rewrites
 `#private` before the plugin can, and the third edit above fails.
