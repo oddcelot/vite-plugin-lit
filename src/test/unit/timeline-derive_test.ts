@@ -22,20 +22,26 @@ const phase = (
     tag?: string;
     tick?: number;
     changed?: string[];
+    error?: {name: string; message: string};
   } = {}
 ): TimelineEvent => {
   const elementId = options.elementId ?? 1;
   const tag = options.tag ?? 'hmr-counter';
+  // As the runtime does: only the end event of a phase that threw carries it.
+  const error = edge === 'end' ? options.error : undefined;
   return {
     layerId: 'lit-lifecycle',
     time,
     groupId: `${elementId}:${options.tick ?? 1}`,
     title: `${name}:${edge}`,
     subtitle: tag,
+    ...(error === undefined ? {} : {logType: 'error' as const}),
     data:
       edge === 'start' && options.changed !== undefined
         ? {phase: name, changed: options.changed}
-        : {phase: name},
+        : error === undefined
+          ? {phase: name}
+          : {phase: name, error},
     meta: {
       elementId,
       tagName: tag,
@@ -53,14 +59,17 @@ const tick = (
     tick?: number;
     changed?: string[];
     duration?: number;
+    /** Thrown from `update`, so both it and `performUpdate` end in error. */
+    error?: {name: string; message: string};
   } = {}
 ): TimelineEvent[] => {
   const duration = options.duration ?? 4;
+  const {error: _error, ...rest} = options;
   return [
-    phase('performUpdate', 'start', start, options),
-    phase('willUpdate', 'start', start + 1, options),
-    phase('willUpdate', 'end', start + 1.5, options),
-    phase('update', 'start', start + 2, options),
+    phase('performUpdate', 'start', start, rest),
+    phase('willUpdate', 'start', start + 1, rest),
+    phase('willUpdate', 'end', start + 1.5, rest),
+    phase('update', 'start', start + 2, rest),
     phase('update', 'end', start + 3, options),
     phase('performUpdate', 'end', start + duration, options),
   ];
@@ -154,6 +163,34 @@ describe('toSpans', () => {
     ]);
     const starts = spans.map((s) => s.start);
     expect([...starts].sort((a, b) => a - b)).toEqual(starts);
+  });
+});
+
+describe('thrown errors', () => {
+  const boom = {name: 'TypeError', message: 'render exploded'};
+
+  test('toSpans lifts the end event error onto the span', () => {
+    const spans = toSpans(tick(0, {error: boom}));
+    const byName = new Map(spans.map((s) => [s.name, s]));
+    expect(byName.get('update')!.logType).toBe('error');
+    expect(byName.get('update')!.error).toEqual(boom);
+    expect(byName.get('willUpdate')!.error).toBeUndefined();
+    expect(toSpans(tick(0)).every((s) => s.error === undefined)).toBe(true);
+  });
+
+  test('toUpdateCycles reports the innermost phase that threw', () => {
+    const [cycle] = toUpdateCycles(toSpans(tick(0, {error: boom})));
+    expect(cycle!.error).toEqual({phase: 'update', ...boom});
+  });
+
+  test('rollup counts the cycles that threw', () => {
+    const entries = rollup(
+      toUpdateCycles(
+        toSpans([...tick(0, {tick: 1}), ...tick(10, {tick: 2, error: boom})])
+      )
+    );
+    expect(entries[0]!.updates).toBe(2);
+    expect(entries[0]!.errors).toBe(1);
   });
 });
 
