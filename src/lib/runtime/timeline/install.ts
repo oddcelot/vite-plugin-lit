@@ -22,6 +22,11 @@ import {subscribeOverride} from '../overrides.js';
 import {preferences} from '../../settings-override.js';
 import {pageChannel} from '../page-channel.js';
 import type {ViteHotLike} from '../page-channel.js';
+import {
+  CHANNEL_LAYERS_CHANGED,
+  CHANNEL_RECORDING_CHANGED,
+  CHANNEL_RUNTIME_READY,
+} from '../../../types/timeline.js';
 import type {TimelineLayersState} from '../../../types/timeline.js';
 
 // Recording state is written by the panel toggle, the Chrome tracks flag by
@@ -71,18 +76,16 @@ if (hot !== undefined) pageChannel.useViteHot(hot);
   setHotClient(pageChannel);
 
   // Panel → app: toggle recording and per-layer flags.
-  pageChannel.on('lit:timeline:recording-changed', (data) => {
+  pageChannel.on(CHANNEL_RECORDING_CHANGED, (data) => {
     capture.setRecording((data as {recording: boolean}).recording);
   });
 
-  pageChannel.on('lit:timeline:layers-changed', (data) => {
+  pageChannel.on(CHANNEL_LAYERS_CHANGED, (data) => {
     capture.setLayers(data as Partial<TimelineLayersState>);
   });
 
   // Announce readiness so the panel can detect the runtime.
-  pageChannel.send('lit:timeline:runtime-ready', {});
+  pageChannel.send(CHANNEL_RUNTIME_READY, {});
   // A carrier attached later starts with no idea a runtime exists.
-  pageChannel.onAttach(() =>
-    pageChannel.send('lit:timeline:runtime-ready', {})
-  );
+  pageChannel.onAttach(() => pageChannel.send(CHANNEL_RUNTIME_READY, {}));
 }

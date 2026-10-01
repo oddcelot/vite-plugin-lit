@@ -8,19 +8,17 @@ import type {InspectorMessage} from '../../types/inspector.js';
 import {HMR_INCOMPATIBLE_CHANNEL} from '../../types/hmr-incompatibility.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 import {
+  CHANNEL_CUSTOM_LAYER,
+  CHANNEL_LAYERS_CHANGED,
+  CHANNEL_PUSH_EVENT,
+  CHANNEL_RECORDING_CHANGED,
+  CHANNEL_RUNTIME_READY,
   DEFAULT_LAYERS_STATE,
   SETTINGS_OVERRIDE_CHANNEL,
 } from '../../types/timeline.js';
 import type {TimelineEvent, TimelineLayer} from '../../types/timeline.js';
 import {TimelineChannelCodec} from '../../lib/devframe/page-codec.js';
 import type {PageCarrier} from '../../lib/devframe/page-codec.js';
-import {
-  CHANNEL_CUSTOM_LAYER,
-  CHANNEL_LAYERS_CHANGED,
-  CHANNEL_PUSH_EVENT,
-  CHANNEL_RECORDING_CHANGED,
-  CHANNEL_RUNTIME_READY,
-} from '../../lib/devframe/protocol.js';
 import type {TimelineSink} from '../../lib/devframe/source.js';
 
 class RecordingSink implements TimelineSink {
