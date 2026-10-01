@@ -15,25 +15,8 @@ import {
 } from '../types/timeline.js';
 import {baselineChanged} from '../lib/override-baselines.js';
 import {getMeta, litRpc, type LitClient} from './client.js';
-import {
-  adoptOverride,
-  commitOverride,
-  dropOverrideKey,
-  onOverrideChange,
-  keepBaseline,
-  readBaselines,
-  readOverride,
-  resetOverride,
-} from './settings-override.js';
-
-/** Settings a panel override can replace and that have a config baseline. */
-type OverridableKey =
-  | 'hmrReconnect'
-  | 'hmrOnIncompatible'
-  | 'hmrChildState'
-  | 'hmrIndicatorVisible'
-  | 'hmrIndicatorCount'
-  | 'sourceOverlayEditor';
+import {configValues, type OverridableKey} from '../lib/settings-override.js';
+import {overrides} from './settings-override.js';
 
 /** The settings this panel persists, as `DevframeSettingsRegistry.lit`. */
 type LitSettings = Awaited<ReturnType<LitClient['settings']['global']['all']>>;
@@ -241,12 +224,12 @@ export class DevtoolsSettings extends LitElement {
     // values (and the panel the right scheme) with no flash. `_hydrate()`
     // then reconciles against the durable store, which is what makes these
     // preferences survive a different browser or cleared site data.
-    this._override = readOverride();
-    this._recorded = readBaselines();
+    this._override = overrides.get();
+    this._recorded = overrides.baselines();
     // Other tabs (Components' Flash button) flip overrides too; stay in sync.
-    this._unsubscribeOverride = onOverrideChange((o) => {
+    this._unsubscribeOverride = overrides.subscribe((o) => {
       this._override = o;
-      this._recorded = readBaselines();
+      this._recorded = overrides.baselines();
     });
     this._colorScheme = readColorSchemePreference();
     void this._fetch();
@@ -289,29 +272,20 @@ export class DevtoolsSettings extends LitElement {
     }
   }
 
-  /**
-   * Apply a settings snapshot. Both branches no-op when the value already
-   * matches, which is what stops `_adopt` -> `commitOverride` -> store write ->
-   * `onChange` -> `_adopt` from looping.
-   */
+  /** Apply a settings snapshot from the durable store. */
   private _adopt(all: Readonly<LitSettings>): void {
     const {appearance, override, overrideBaselines} = all;
     if (appearance !== undefined && appearance !== this._colorScheme) {
       this._colorScheme = appearance;
       setColorSchemePreference(appearance);
     }
-    if (
-      override !== undefined &&
-      (JSON.stringify(override) !== JSON.stringify(this._override) ||
-        JSON.stringify(overrideBaselines ?? {}) !==
-          JSON.stringify(readBaselines()))
-    ) {
-      // Mirrors to the page and `localStorage` without writing back to the
-      // store the value just came from; `_override` updates via the listener.
-      // The baselines come along so a second browser judges "config changed"
-      // against what the first one recorded.
-      adoptOverride(override, overrideBaselines ?? {});
-    }
+    // Mirrors to the page and `localStorage` without writing back to the
+    // store the value just came from; `_override` updates via the listener.
+    // The baselines come along so a second browser judges "config changed"
+    // against what the first one recorded. A snapshot that already matches is
+    // a no-op, which is what stops the adopt -> store write -> `onChange` ->
+    // adopt loop.
+    overrides.adopt({override, overrideBaselines});
   }
 
   /** Write one preference through to the durable store, best-effort. */
@@ -353,54 +327,21 @@ export class DevtoolsSettings extends LitElement {
     key: K,
     value: SettingsOverride[K]
   ) {
-    // Remember the config value this override was made against, so a later
-    // change to `.env` or the plugin options can be pointed out.
-    const s = this._settings;
-    const baselines = readBaselines();
-    if (s !== null && key in this._baselines(s)) {
-      baselines[key as OverridableKey] =
-        this._baselines(s)[key as OverridableKey];
-    }
-    commitOverride({...this._override, [key]: value}, baselines);
-  }
-
-  /** The resolved config value of every overridable setting. */
-  private _baselines(
-    s: FeatureSettings
-  ): Required<Pick<SettingsOverride, OverridableKey>> {
-    return {
-      hmrReconnect: s.hmr.reconnect,
-      hmrOnIncompatible: s.hmr.onIncompatible,
-      hmrChildState: s.hmr.childState,
-      hmrIndicatorVisible: s.hmr.indicatorEnabled,
-      hmrIndicatorCount: s.hmr.indicatorCount,
-      sourceOverlayEditor: s.sourceOverlay.editor,
-    };
+    // The module records the config value this override was made against, so
+    // a later change to `.env` or the plugin options can be pointed out.
+    overrides.set(key, value, this._settings ?? undefined);
   }
 
   /** Clear overrides and revert the runtime to the resolved env values. */
   private _reset() {
-    const s = this._settings;
-    // The env values go along so the live runtime reverts now (an empty
-    // override would leave the current live values in place). Preferences
-    // with no config baseline revert to off.
-    resetOverride(
-      s === null
-        ? undefined
-        : ({
-            ...this._baselines(s),
-            flashUpdates: false,
-            flashUpdatesRamp: false,
-            chromeTracks: false,
-          } satisfies SettingsOverride)
-    );
+    overrides.reset(this._settings ?? undefined);
   }
 
   /** Drop one overridden setting, reverting it (live) to its baseline. */
   private _resetKey(key: OverridableKey) {
     const s = this._settings;
     if (s === null) return;
-    dropOverrideKey(key, this._baselines(s)[key]);
+    overrides.resetKey(key, s);
   }
 
   private _pill(on: boolean) {
@@ -434,7 +375,7 @@ export class DevtoolsSettings extends LitElement {
     if (this._override[key] === undefined) return this._source(key);
     const src = this._settings?.sources?.[key] ?? 'config';
     const s = this._settings;
-    const current = s === null ? undefined : this._baselines(s)[key];
+    const current = s === null ? undefined : configValues(s)[key];
     const changed = baselineChanged(key, this._recorded[key], current);
     return html`<span class="ovr">(overridden)</span>
       <span class="env">${src}: ${baseline}</span>
@@ -454,7 +395,9 @@ export class DevtoolsSettings extends LitElement {
                 ${fmt(this._recorded[key])}, now ${baseline}</span
               >
               <button @click=${() => this._resetKey(key)}>Reset</button>
-              <button @click=${() => keepBaseline(key, current)}>Keep</button>
+              <button @click=${() => s !== null && overrides.keep(key, s)}>
+                Keep
+              </button>
             </div>`
           : nothing
       }`;
