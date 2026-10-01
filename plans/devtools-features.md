@@ -112,6 +112,14 @@ too much", using data the capture layer already produced: `groupId` pairing and
   mispaired spans. The clear sits in the `session.on('updated')` listener, the
   single push point for recording changes, and not in the `set-recording`
   handler, since the panel can mutate the shared state directly.
+- **A throwing phase is recorded on its `:end` event, then rethrown.**
+  `logType` and the Chrome-tracks red colour existed but nothing set them. The
+  wrapper catches only to describe (`name`, truncated `message`, no stack) and
+  rethrows unchanged, so the app sees the same error. The end event owns the
+  error because that is when it is known; `derive.ts` lifts it onto the span,
+  the cycle (innermost phase wins, since `performUpdate` rethrows what `update`
+  threw) and a per-component `errors` count. Not built here: attributing
+  `window.onerror` to a host.
 - **Not built: a flamechart or scrubber.** Lit update ticks are sub-millisecond
   and sparse, so it would be mostly whitespace, and Chrome's Performance panel
   already does it better. The value here is attribution and frequency, which is

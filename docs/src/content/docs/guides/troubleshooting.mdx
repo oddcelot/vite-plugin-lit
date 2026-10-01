@@ -378,6 +378,19 @@ toggles are remembered in `localStorage` across sessions.
 **Fix.** Call `super` in the override. See
 [Find out why a component re-rendered](/vite-plugin-lit/guides/devtools/updates/).
 
+### A component shows ⚠ in Updates
+
+**Symptom.** The component table shows a ⚠ count, and an update row reads
+_threw in update_ (or `willUpdate`, `updated`).
+
+**Cause.** That lifecycle phase threw. The component usually renders blank or
+stays stale, and the error also appears in the browser console. The panel
+records the error's name and message only, never a stack.
+
+**Fix.** Open the browser console for the stack, fix the throwing method, and
+record again. See
+[Find out why a component re-rendered](/vite-plugin-lit/guides/devtools/updates/).
+
 ### No Pick button, or Meta+Shift+E does nothing
 
 **Symptom.** The Components tab has no **⌖ Pick** button, and the shortcut
