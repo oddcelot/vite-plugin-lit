@@ -34,7 +34,7 @@ import {
   CHANNEL_PUSH_EVENT,
   CHANNEL_RECORDING_CHANGED,
   CHANNEL_RUNTIME_READY,
-} from './protocol.js';
+} from '../../types/timeline.js';
 import {layersWireFormat} from './source.js';
 import type {TimelineSink, TimelineSource} from './source.js';
 

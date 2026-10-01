@@ -180,6 +180,18 @@ export const OVERRIDE_BASELINES_LS_KEY = 'lit-devtools-override-baselines';
 export const SETTINGS_OVERRIDE_CHANNEL = 'lit-devtools:settings-override';
 
 /**
+ * Timeline channel names carried over `import.meta.hot` (Vite) or the
+ * page-link RPC events (standalone). Here rather than in
+ * `devframe/protocol.ts` so the page runtime can import them without
+ * bundling the protocol into the page.
+ */
+export const CHANNEL_PUSH_EVENT = 'lit:timeline:push-event';
+export const CHANNEL_CUSTOM_LAYER = 'lit:timeline:custom-layer';
+export const CHANNEL_RUNTIME_READY = 'lit:timeline:runtime-ready';
+export const CHANNEL_RECORDING_CHANGED = 'lit:timeline:recording-changed';
+export const CHANNEL_LAYERS_CHANGED = 'lit:timeline:layers-changed';
+
+/**
  * Vite HMR channel the DevTools "toggle source overlay" command uses to tell
  * the app runtime to toggle the overlay (the command handler runs server-side).
  */

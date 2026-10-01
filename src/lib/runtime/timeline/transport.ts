@@ -11,6 +11,7 @@
  * with one message per event.
  */
 
+import {CHANNEL_PUSH_EVENT} from '../../../types/timeline.js';
 import type {TimelineEvent} from '../../../types/timeline.js';
 import type {PageTransport} from '../page-channel.js';
 
@@ -72,7 +73,7 @@ const flush = (): void => {
   if (queue.length === 0 || hotClient === null) return;
   const batch = queue.splice(0);
   try {
-    hotClient.send('lit:timeline:push-event', {events: batch});
+    hotClient.send(CHANNEL_PUSH_EVENT, {events: batch});
   } catch {
     // HMR channel may be temporarily unavailable; events are dropped.
   }

@@ -9,6 +9,7 @@
 
 import {pageChannel} from '../page-channel.js';
 import {emit, setHotClientCallback} from './transport.js';
+import {CHANNEL_CUSTOM_LAYER} from '../../../types/timeline.js';
 import type {TimelineEvent, TimelineLayer} from '../../../types/timeline.js';
 
 export type {TimelineEvent, TimelineLayer};
@@ -34,7 +35,7 @@ const announcedLayers: TimelineLayer[] = [];
 // layers registered before it, so they are announced to it again.
 pageChannel.onAttach(() => {
   for (const layer of announcedLayers) {
-    pageChannel.send('lit:timeline:custom-layer', {layer});
+    pageChannel.send(CHANNEL_CUSTOM_LAYER, {layer});
   }
 });
 
@@ -48,7 +49,7 @@ pageChannel.onAttach(() => {
 export const addTimelineLayer = (layer: TimelineLayer): void => {
   const send = (): void => {
     announcedLayers.push(layer);
-    pageChannel.send('lit:timeline:custom-layer', {layer});
+    pageChannel.send(CHANNEL_CUSTOM_LAYER, {layer});
   };
   setHotClientCallback(send);
 };
