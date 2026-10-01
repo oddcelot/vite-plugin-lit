@@ -21,6 +21,7 @@ import {rollup} from '../timeline/derive.js';
 import {updateCycles} from '../timeline/model.js';
 import {RECENT_EVENTS_BUFFER_SIZE} from './protocol.js';
 import type {
+  LitRuntimeInfo,
   RecentEventsArgs,
   RecentEventsResult,
   UpdateSummaryArgs,
@@ -63,6 +64,8 @@ export interface RecordingSession {
   applyInspector(message: InspectorMessage): void;
   roots(): InspectorTreeNode[];
   details(id: number): InspectorDetails | null;
+  /** The page runtime's last `ready` announcement; `ready: false` before it. */
+  runtime(): LitRuntimeInfo;
   /**
    * The page whose traffic the session accepts. `undefined` until a runtime
    * announces itself with an id; a runtime without one (older plugin
@@ -177,6 +180,7 @@ export function createRecordingSession(
     ? [...replay.hmrIncompatibilities]
     : [];
   let roots: InspectorTreeNode[] = replay ? [...replay.roots] : [];
+  let runtime: LitRuntimeInfo = {ready: false, litVersions: [], topFrame: true};
   const details = new Map<number, InspectorDetails>(
     replay?.details.map((d) => [d.id, d])
   );
@@ -263,9 +267,16 @@ export function createRecordingSession(
         details.set(message.details.id, message.details);
       } else if (message.type === 'gone') {
         details.delete(message.id);
+      } else if (message.type === 'ready') {
+        runtime = {
+          ready: true,
+          litVersions: [...(message.litVersions ?? [])],
+          topFrame: message.topFrame ?? true,
+        };
       }
     },
     roots: () => roots,
+    runtime: () => runtime,
     details: (id) => details.get(id) ?? null,
     activePageId: () => activePage,
     activeTabId: () => activeTab,

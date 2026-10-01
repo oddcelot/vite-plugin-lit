@@ -343,9 +343,13 @@ neither jsdom nor Node provides one.
 **Symptom.** Vite DevTools opens with no Lit dock in it.
 
 **Cause.** `timeline` defaults to `false`, `DevTools()` is missing from
-`plugins`, or `@vitejs/devtools` is not installed.
+`plugins`, or `@vitejs/devtools` is not installed. When `timeline` is on and
+`DevTools()` is missing, the dev server prints a one-time
+`[lit-plugin] timeline is on, but Vite DevTools never mounted the Lit panel.`
+warning.
 
-**Fix.** Work through
+**Fix.** Add `DevTools()` to `plugins` (under Vite+, a `devtools:` key in the
+config does the same; use one, not both), or work through
 [Set up the DevTools panel](/vite-plugin-lit/guides/devtools/).
 
 ### Vite errors with DTK0034
@@ -357,6 +361,50 @@ neither jsdom nor Node provides one.
 
 **Fix.** Keep one of the two. See
 [Set up the DevTools panel](/vite-plugin-lit/guides/devtools/).
+
+### The Components tab says the page runtime has not connected
+
+**Symptom.** The tab shows "The page runtime has not connected to this dev
+server."
+
+**Cause.** `timeline` is off, so no runtime script was injected; the page is not
+served through this dev server; or the script failed to load.
+
+**Fix.** Set `timeline: true` or `LIT_PLUGIN_TIMELINE=true`, reload the page
+through the dev server, and check the browser console for a failed script.
+
+### The Components tab is empty
+
+**Symptom.** The tab shows "No Lit components found on the page."
+
+**Cause.** Nothing Lit has rendered yet, the components come from a
+pre-bundled dependency outside Vite's transform, or lit loaded after the runtime
+announced itself.
+
+**Fix.** Wait or navigate, press Refresh, and check Settings, About, for the lit
+version the runtime detected.
+
+### The Components tab warns about more than one copy of lit
+
+**Symptom.** The tab says more than one copy of lit is loaded and lists two
+versions.
+
+**Cause.** Two copies of `lit`, `lit-element` or `@lit/reactive-element`
+resolve, typically a dependency with its own nested lit. Components registered
+against another copy are invisible to the inspector and to HMR patching.
+
+**Fix.** Set
+`resolve.dedupe: ['lit', 'lit-element', '@lit/reactive-element']` in the Vite
+config, then reinstall and restart the dev server.
+
+### The Components tab says it is running inside an iframe
+
+**Symptom.** The tab says the runtime is running inside an iframe.
+
+**Cause.** The runtime loaded in a frame, so only that frame's components are
+listed.
+
+**Fix.** Open the framed app directly in its own tab.
 
 ### The tree shows a different page, or the recording vanished
 

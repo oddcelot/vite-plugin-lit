@@ -422,6 +422,7 @@ export function createLitDevframe(
             layers: [...TIMELINE_LAYERS, ...session.value().customLayers],
             features: features ? features() : null,
             picker: picker(),
+            runtime: recording.runtime(),
             stream: {
               channel: `${LIT_DEVFRAME_ID}:${TIMELINE_STREAM_NAME}`,
               id: TIMELINE_STREAM_ID,

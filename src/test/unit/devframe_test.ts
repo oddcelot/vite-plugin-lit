@@ -549,6 +549,25 @@ describe('lit devframe definition', () => {
     expect(meta.picker).toBe(false);
   });
 
+  test('get-meta reports what the runtime announced', async () => {
+    const {ctx, source} = await boot();
+    expect((await ctx.rpc.invokeLocal('lit:get-meta')).runtime).toEqual({
+      ready: false,
+      litVersions: [],
+      topFrame: true,
+    });
+    source.sink!.inspectorMessage({
+      type: 'ready',
+      litVersions: ['3.3.3', '3.2.0'],
+      topFrame: false,
+    });
+    expect((await ctx.rpc.invokeLocal('lit:get-meta')).runtime).toEqual({
+      ready: true,
+      litVersions: ['3.3.3', '3.2.0'],
+      topFrame: false,
+    });
+  });
+
   test('get-meta reports a picker when the source overlay is on', async () => {
     instance = initDevframe(
       createLitDevframe({

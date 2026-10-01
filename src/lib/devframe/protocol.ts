@@ -187,6 +187,19 @@ export const DEFAULT_SESSION_STATE: SessionState = {
 };
 
 /** Result of the `get-meta` query. */
+/** What the page runtime last announced about itself in its `ready` message. */
+export interface LitRuntimeInfo {
+  /**
+   * False until a runtime has connected to this dev server, which is how the
+   * panel tells "no components" from "no runtime".
+   */
+  ready: boolean;
+  /** One entry per loaded copy of lit; more than one means duplicates. */
+  litVersions: string[];
+  /** False when the runtime runs inside an iframe. */
+  topFrame: boolean;
+}
+
 export interface LitGetMetaResult {
   version: string;
   /** Built-in layers followed by any runtime-announced custom ones. */
@@ -194,6 +207,8 @@ export interface LitGetMetaResult {
   features: FeatureSettings | null;
   /** Whether the page can pick an element for the Components tab. */
   picker: boolean;
+  /** What the page runtime last announced; see {@link LitRuntimeInfo}. */
+  runtime: LitRuntimeInfo;
   /** Channel and id to pass to `rpc.streaming.subscribe()`. */
   stream: {channel: string; id: string};
   /** The page the session follows; absent until a runtime has announced itself. */

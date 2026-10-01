@@ -123,6 +123,19 @@ second. Green for one, yellow at two, orange at four, red at eight.
 Both preferences live in the settings override, so the page picks them up at
 boot and they survive a reload.
 
+## When the tree is empty
+
+An empty tree names its cause instead of one generic line. The tab says when the
+page runtime has not connected to the dev server, when more than one copy of lit
+is loaded, and when the runtime is inside an iframe; otherwise it reports that no
+Lit components were found. Each case has a fix in
+[Troubleshooting](/vite-plugin-lit/guides/troubleshooting/).
+
+The Settings tab ends with an About section: the plugin version, the lit
+version or versions the page loaded, the timeline layers, whether the element
+picker is available, and the order settings resolve in (panel override, plugin
+option, `LIT_PLUGIN_*` env, default). Check it first when something looks off.
+
 ## Related
 
 <CardGrid>

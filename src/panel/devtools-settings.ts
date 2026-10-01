@@ -11,6 +11,7 @@ import {
 } from '../types/timeline.js';
 import {baselineChanged} from '../lib/override-baselines.js';
 import {getMeta, litSettingsRpc, type LitClient} from './client.js';
+import type {LitGetMetaResult} from '../lib/devframe/protocol.js';
 import {configValues, type OverridableKey} from '../lib/settings-override.js';
 import {overrides} from './settings-override.js';
 
@@ -207,6 +208,7 @@ export class DevtoolsSettings extends LitElement {
   ];
 
   @state() private _settings: FeatureSettings | null = null;
+  @state() private _meta: LitGetMetaResult | null = null;
   @state() private _override: SettingsOverride = {};
   @state() private _recorded: OverrideBaselines = {};
   @state() private _loaded = false;
@@ -292,8 +294,10 @@ export class DevtoolsSettings extends LitElement {
     try {
       const meta = await getMeta();
       this._settings = meta.features;
+      this._meta = meta;
     } catch {
       this._settings = null;
+      this._meta = null;
     } finally {
       this._loaded = true;
     }
@@ -695,6 +699,52 @@ export class DevtoolsSettings extends LitElement {
     `;
   }
 
+  /**
+   * Versions, layers and picker as `get-meta` reports them: the first thing
+   * to check when the panel or the Components tab looks wrong.
+   */
+  private _renderAbout() {
+    const meta = this._meta;
+    if (meta === null) return nothing;
+    const versions = meta.runtime.litVersions;
+    const lit =
+      !meta.runtime.ready || versions.length === 0
+        ? 'not detected'
+        : versions.join(', ') +
+          (versions.length > 1 ? ' (duplicate copies)' : '');
+    return html`
+      <section>
+        <h3>About</h3>
+        <table>
+          <tr>
+            <td class="key">plugin version</td>
+            <td class="val">${meta.version}</td>
+          </tr>
+          <tr>
+            <td class="key">lit</td>
+            <td class="val">${lit}</td>
+          </tr>
+          <tr>
+            <td class="key">timeline layers</td>
+            <td class="val">${meta.layers.map((l) => l.label).join(', ')}</td>
+          </tr>
+          <tr>
+            <td class="key">element picker</td>
+            <td class="val">
+              ${meta.picker ? 'available' : 'unavailable (enable sourceOverlay)'}
+            </td>
+          </tr>
+        </table>
+        <p class="note">
+          Settings resolve in this order: panel override, then plugin option,
+          then <code>LIT_PLUGIN_*</code> env, then default. An explicit
+          <code>timeline: false</code> in the plugin options is final and
+          ignores env.
+        </p>
+      </section>
+    `;
+  }
+
   override render() {
     if (!this._loaded) {
       return html`<p class="loading">Loading settings…</p>`;
@@ -703,7 +753,8 @@ export class DevtoolsSettings extends LitElement {
     const appearance = this._renderAppearance();
     if (s === null) {
       return html`${appearance}
-        <p class="empty">Settings unavailable.</p>`;
+        <p class="empty">Settings unavailable.</p>
+        ${this._renderAbout()}`;
     }
     const hasOverride = Object.keys(this._override).length > 0;
     return html`
@@ -774,6 +825,8 @@ export class DevtoolsSettings extends LitElement {
         </p>
         ${s.timeline ? this._renderTimelinePrefs() : nothing}
       </section>
+
+      ${this._renderAbout()}
     `;
   }
 }

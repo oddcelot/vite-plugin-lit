@@ -422,3 +422,31 @@ Two arrival paths, one `DeepLink` shape (`src/panel/deep-link.ts`).
   its page's `ready` also passes, since no page is followed yet.
 - **Outbound commands still broadcast.** Pages that are not followed answer and
   are dropped.
+
+## Empty states and the About block
+
+- **The empty tree names its cause.** It is the first thing a user sees when
+  setup is wrong, and one generic line served four different problems: no
+  runtime, duplicate lit, an iframe, or genuinely nothing rendered. The panel
+  picks the first match in that order. A frozen snapshot skips the runtime
+  branches, since it has no page.
+- **The diagnosis rides the `ready` message.** The runtime already announces
+  itself there, and the node side caches the last announcement next to roots and
+  details, so a panel opened late still knows. `get-meta` reports it as
+  `runtime`; `ready: false` means no runtime has connected to this dev server.
+  Because the session only accepts the followed page, the cached announcement is
+  that page's, and a different tab taking over replaces it.
+- **Duplicate lit is read from the version sentinels.** Lit pushes onto
+  `litElementVersions` and `reactiveElementVersions` once per loaded copy, in dev
+  and production builds, so a list longer than one means duplicates.
+- **No runtime version in `ready`.** The runtime may only import from
+  `src/types` and `src/lib/runtime`, so it cannot read the package version, and
+  it always ships from the same install as the node side, which already reports
+  `version`.
+- **The missing-`DevTools()` warning is a `configureServer` return callback.**
+  DevTools mounts devframes from inside its own awaited `configureServer`, so
+  only a callback that runs after every plugin's hook has settled can tell
+  whether `setup()` ran. It stays quiet when the panel is disabled and fires once
+  per process.
+- **Known gap:** a runtime that announces before Lit loads reports no versions,
+  which the panel and About show as "not detected" rather than as an error.

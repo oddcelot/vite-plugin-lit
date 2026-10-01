@@ -8,6 +8,7 @@ import {
   type InspectorMessage,
   type InspectorTreeNode,
 } from '../types/inspector.js';
+import type {LitRuntimeInfo} from '../lib/devframe/protocol.js';
 import {
   describeHmrReason,
   MAX_HMR_INCOMPATIBILITIES,
@@ -111,6 +112,9 @@ export class ComponentsView extends LitElement {
         padding: var(--lit-devtools-space-6);
         color: var(--lit-devtools-text-muted);
         font-size: var(--lit-devtools-text-xs);
+      }
+      .empty code {
+        font-family: var(--lit-devtools-font-mono);
       }
       .row {
         display: flex;
@@ -312,6 +316,11 @@ export class ComponentsView extends LitElement {
    * a Pick button with no picker behind it would light up and do nothing.
    */
   @state() private _canPick = false;
+  /**
+   * What the page runtime announced, from `get-meta` on connect and from each
+   * `ready` push. `null` until known. Only used to explain an empty tree.
+   */
+  @state() private _runtime: LitRuntimeInfo | null = null;
   /** Opt-in live tree (MutationObserver in the page); persisted, default off. */
   @state() private _live = false;
   /** Mirror of the `flashUpdates` override; the Settings tab shows it too. */
@@ -394,6 +403,7 @@ export class ComponentsView extends LitElement {
       void getMeta().then(
         (meta) => {
           this._canPick = !isSnapshot() && meta.picker;
+          this._runtime = meta.runtime;
         },
         () => {
           // No meta, no picker to offer.
@@ -432,9 +442,45 @@ export class ComponentsView extends LitElement {
     });
   }
 
+  /**
+   * Why the tree is empty, from the most specific cause the runtime's
+   * announcement allows. A frozen snapshot has no runtime to ask about.
+   */
+  private _renderEmpty() {
+    const runtime = isSnapshot() ? null : this._runtime;
+    if (runtime !== null && !runtime.ready) {
+      return html`<div class="empty">
+        The page runtime has not connected to this dev server. Open the page
+        through this dev server and check that <code>timeline</code> is on (or
+        <code>LIT_PLUGIN_TIMELINE=true</code>), then reload. If it stays empty,
+        look for a failed script in the browser console.
+      </div>`;
+    }
+    if (runtime !== null && runtime.litVersions.length > 1) {
+      return html`<div class="empty">
+        More than one copy of lit is loaded (${runtime.litVersions.join(', ')}).
+        Components registered against a different copy cannot be inspected or
+        patched. Dedupe lit in your bundler with
+        <code>resolve.dedupe: ['lit']</code>.
+      </div>`;
+    }
+    if (runtime !== null && !runtime.topFrame) {
+      return html`<div class="empty">
+        The runtime is running inside an iframe, so this tree only shows that
+        frame's components. Open the page that owns the components directly.
+      </div>`;
+    }
+    return html`<div class="empty">No Lit components found on the page.</div>`;
+  }
+
   private _onMessage = (msg: InspectorMessage): void => {
     switch (msg.type) {
       case 'ready':
+        this._runtime = {
+          ready: true,
+          litVersions: msg.litVersions ?? [],
+          topFrame: msg.topFrame ?? true,
+        };
         // Runtime (re)connected — refresh the tree and re-arm any selection.
         this._call({type: 'tree'});
         if (this._selectedId !== null) {
@@ -869,9 +915,7 @@ export class ComponentsView extends LitElement {
             this._error !== null
               ? html`<div class="empty">${this._error}</div>`
               : this._roots.length === 0
-                ? html`<div class="empty">
-                    No Lit components found on the page.
-                  </div>`
+                ? this._renderEmpty()
                 : this._roots.map((n) => this._renderNode(n, 0))
           }
         </div>

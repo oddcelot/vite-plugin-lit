@@ -386,6 +386,40 @@ describe('inspector caches and capture', () => {
     expect(s.details(7)).toBeNull();
   });
 
+  test('runtime defaults to not ready and follows each ready message', () => {
+    const s = createRecordingSession();
+    expect(s.runtime()).toEqual({
+      ready: false,
+      litVersions: [],
+      topFrame: true,
+    });
+
+    s.applyInspector({
+      type: 'ready',
+      litVersions: ['3.3.3', '3.2.0'],
+      topFrame: false,
+    });
+    expect(s.runtime()).toEqual({
+      ready: true,
+      litVersions: ['3.3.3', '3.2.0'],
+      topFrame: false,
+    });
+
+    // A page reload with fewer copies replaces the announcement.
+    s.applyInspector({type: 'ready', litVersions: ['3.3.3'], topFrame: true});
+    expect(s.runtime()).toEqual({
+      ready: true,
+      litVersions: ['3.3.3'],
+      topFrame: true,
+    });
+  });
+
+  test('a bare ready from an older runtime reads as ready, nothing known', () => {
+    const s = createRecordingSession();
+    s.applyInspector({type: 'ready'});
+    expect(s.runtime()).toEqual({ready: true, litVersions: [], topFrame: true});
+  });
+
   test('capture freezes the buffers and replay round-trips it', () => {
     const s = createRecordingSession({epoch: 'e'});
     s.push([ev(1)]);

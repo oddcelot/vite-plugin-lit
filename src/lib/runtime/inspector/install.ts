@@ -84,6 +84,36 @@ if (typeof window !== 'undefined') {
     }
   };
 
+  /**
+   * What the page can say about itself, for the panel's empty state. Reads
+   * the version sentinels Lit pushes once per loaded copy of the package, so
+   * more than one entry means duplicate copies. Never throws.
+   */
+  const readyMessage = (): InspectorMessage => {
+    const g = globalThis as {
+      litElementVersions?: unknown;
+      reactiveElementVersions?: unknown;
+    };
+    const lists = [g.litElementVersions, g.reactiveElementVersions].filter(
+      (v): v is unknown[] => Array.isArray(v)
+    );
+    // Duplicates may show up in only one of the two packages; report the
+    // longer list.
+    const longest = lists.sort((a, b) => b.length - a.length)[0] ?? [];
+    let topFrame = true;
+    try {
+      topFrame = window.top === window;
+    } catch {
+      // Reading a cross-origin `top` can throw; that is a frame.
+      topFrame = false;
+    }
+    return {
+      type: 'ready',
+      litVersions: longest.filter((v): v is string => typeof v === 'string'),
+      topFrame,
+    };
+  };
+
   // -------------------------------------------------------------------------
   // Live-watch: re-push details whenever the watched element finishes updating.
   // We wrap the instance's `updated` (not the prototype) so the hook is scoped
@@ -278,7 +308,7 @@ if (typeof window !== 'undefined') {
   // A panel that connects later cannot know whether this runtime was
   // released, so tell it the runtime is up; its `ready` handler re-requests
   // the tree and re-arms the selection and Live mode. Idempotent.
-  onPanelArrived = () => send({type: 'ready'});
+  onPanelArrived = () => send(readyMessage());
 
   // -------------------------------------------------------------------------
   // SPA navigation: a route change swaps the component tree without any HMR
@@ -341,8 +371,8 @@ if (typeof window !== 'undefined') {
   });
 
   // Announce readiness so a panel that loaded first re-requests the tree.
-  send({type: 'ready'});
+  send(readyMessage());
   // A carrier attached later (a standalone dev server) starts with no idea a
   // runtime exists.
-  pageChannel.onAttach(() => send({type: 'ready'}));
+  pageChannel.onAttach(() => send(readyMessage()));
 }
