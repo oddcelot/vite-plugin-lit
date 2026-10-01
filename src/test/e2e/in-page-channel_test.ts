@@ -40,6 +40,18 @@ const PANEL_STUB = `<!doctype html>
 beforeAll(async () => {
   fixture = await startFixture({plugin: {timeline: true}});
   await writeFile(path.join(fixture.root, 'panel-stub.html'), PANEL_STUB);
+
+  // The stub's `devframe/in-page-channel` import is new to this fixture, so
+  // the first request for it makes Vite's dep optimizer pre-bundle it and
+  // full-reload every page that loaded it. Mid-test that reload destroys the
+  // iframe (or the evaluate context) and the handshake never completes.
+  // Let the optimizer settle on a throwaway visit, then return to the page.
+  const {page, server} = fixture;
+  const origin = fixture.origin;
+  await page.goto(`${origin}/panel-stub.html`, {waitUntil: 'networkidle'});
+  await server.waitForRequestsIdle();
+  await page.goto(`${origin}/panel-stub.html`, {waitUntil: 'networkidle'});
+  await page.goto(`${origin}/`, {waitUntil: 'networkidle'});
 });
 
 afterAll(async () => {
