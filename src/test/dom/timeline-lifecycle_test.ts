@@ -10,7 +10,7 @@ import type {TimelineEvent} from '../../types/timeline.js';
 
 type Lifecycle = typeof import('../../lib/runtime/timeline/lifecycle.js');
 
-const SOURCE_META_KEY = Symbol.for('@lit-labs/vite-plugin-lit#source');
+const SOURCE_META_KEY = Symbol.for('@oddsquad/vite-plugin-lit#source');
 
 let counter = 0;
 const originalDefine = customElements.define.bind(customElements);

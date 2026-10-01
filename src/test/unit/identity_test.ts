@@ -65,7 +65,7 @@ describe('idOf and elementById', () => {
 });
 
 describe('sourceOf', () => {
-  const META = Symbol.for('@lit-labs/vite-plugin-lit#source');
+  const META = Symbol.for('@oddsquad/vite-plugin-lit#source');
   const withMeta = (meta: unknown) => {
     class El {}
     (El as unknown as Record<symbol, unknown>)[META] = meta;

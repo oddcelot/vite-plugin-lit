@@ -1,5 +1,5 @@
 /** Runtime accessor for injected component source metadata. */
-export const SOURCE_META_KEY = Symbol.for('@lit-labs/vite-plugin-lit#source');
+export const SOURCE_META_KEY = Symbol.for('@oddsquad/vite-plugin-lit#source');
 
 export interface LitSourceMeta {
   filePath: string;

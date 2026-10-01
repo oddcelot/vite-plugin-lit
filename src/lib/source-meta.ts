@@ -1,7 +1,7 @@
 import type MagicString from 'magic-string';
 
 /** Stable key shared between transform output and runtime resolution. */
-export const SOURCE_META_KEY = '@lit-labs/vite-plugin-lit#source';
+export const SOURCE_META_KEY = '@oddsquad/vite-plugin-lit#source';
 
 /**
  * The expression string used in generated code to reference the shared

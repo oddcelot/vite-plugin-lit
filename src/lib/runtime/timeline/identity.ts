@@ -10,12 +10,12 @@
  * events can deep-link to the component's definition file.
  */
 
+import {SOURCE_META_KEY} from '../source-meta.js';
+
 export interface ElementSource {
   file: string;
   line: number;
 }
-
-const SOURCE_META_KEY = Symbol.for('@lit-labs/vite-plugin-lit#source');
 
 /** WeakMap avoids retaining elements after disconnection + GC. */
 const ids = new WeakMap<object, number>();

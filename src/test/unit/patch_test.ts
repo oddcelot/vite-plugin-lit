@@ -26,7 +26,7 @@ import {SETTINGS_OVERRIDE_LS_KEY} from '../../types/timeline.js';
  */
 
 /** Same key `patch.ts` pins its singleton state under. */
-const STATE_KEY = Symbol.for('@lit-labs/vite-plugin-lit#patch');
+const STATE_KEY = Symbol.for('@oddsquad/vite-plugin-lit#patch');
 
 interface ElementCtor {
   new (): FakeElement;

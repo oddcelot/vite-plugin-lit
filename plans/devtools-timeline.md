@@ -35,7 +35,7 @@ forward to node, display in the panel. How the panel is hosted is in
 - **Identity.** Elements get a monotonic id from a `WeakMap`, never a property
   on the element, so ids survive HMR because patching keeps the same instance.
   The source location comes from the
-  `Symbol.for('@lit-labs/vite-plugin-lit#source')` metadata that the source
+  `Symbol.for('@oddsquad/vite-plugin-lit#source')` metadata that the source
   overlay already attaches, so a row can open the file in the editor.
 - **Time is recording-relative.** `runtime/timeline/clock.ts` re-zeroes on each
   rising edge of recording, so times read as ms since recording started rather

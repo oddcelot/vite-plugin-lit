@@ -97,9 +97,9 @@ interface BrandedWrapper {
 }
 
 // Exactly one patch state per page, even if this module loads twice.
-const STATE_KEY = Symbol.for('@lit-labs/vite-plugin-lit#patch');
+const STATE_KEY = Symbol.for('@oddsquad/vite-plugin-lit#patch');
 // Brands our lifecycle wrappers so re-instrumentation is idempotent.
-const RECORD_BRAND = Symbol.for('@lit-labs/vite-plugin-lit#wrapperRecord');
+const RECORD_BRAND = Symbol.for('@oddsquad/vite-plugin-lit#wrapperRecord');
 
 const PROTO_SKIP: ReadonlyArray<PropertyKey> = ['constructor'];
 const STATIC_SKIP: ReadonlyArray<PropertyKey> = ['prototype', 'name', 'length'];
