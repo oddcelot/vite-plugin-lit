@@ -39,7 +39,14 @@ import type {
   TimelineLayersState,
 } from '../../types/timeline.js';
 import {createLitDevframe} from './definition.js';
-import {LIT_DEVFRAME_ID} from './protocol.js';
+import {
+  CHANNEL_CUSTOM_LAYER,
+  CHANNEL_LAYERS_CHANGED,
+  CHANNEL_PUSH_EVENT,
+  CHANNEL_RECORDING_CHANGED,
+  CHANNEL_RUNTIME_READY,
+  LIT_DEVFRAME_ID,
+} from './protocol.js';
 import {layersWireFormat} from './source.js';
 import type {TimelineSink, TimelineSource} from './source.js';
 
@@ -119,11 +126,11 @@ export class HotTimelineSource implements TimelineSource {
     const hot = server.hot;
     this.#hot = hot;
 
-    hot.on('lit:timeline:push-event', (data: {events?: TimelineEvent[]}) => {
+    hot.on(CHANNEL_PUSH_EVENT, (data: {events?: TimelineEvent[]}) => {
       this.#sink?.pushEvents(data.events ?? []);
     });
 
-    hot.on('lit:timeline:custom-layer', (data: {layer?: TimelineLayer}) => {
+    hot.on(CHANNEL_CUSTOM_LAYER, (data: {layer?: TimelineLayer}) => {
       if (!data.layer?.id) return;
       this.#sink?.addLayer(data.layer);
     });
@@ -150,7 +157,7 @@ export class HotTimelineSource implements TimelineSource {
     // compiled-in defaults (recording off), so the session's current state
     // has to be pushed back down or a page that loads while recording is on
     // captures nothing while every surface still reports `recording: true`.
-    hot.on('lit:timeline:runtime-ready', () => {
+    hot.on(CHANNEL_RUNTIME_READY, () => {
       this.#sink?.runtimeReady();
     });
   }
@@ -172,11 +179,11 @@ export class HotTimelineSource implements TimelineSource {
   }
 
   setRecording(recording: boolean): void {
-    this.#hot?.send('lit:timeline:recording-changed', {recording});
+    this.#hot?.send(CHANNEL_RECORDING_CHANGED, {recording});
   }
 
   setLayers(layers: TimelineLayersState): void {
-    this.#hot?.send('lit:timeline:layers-changed', layersWireFormat(layers));
+    this.#hot?.send(CHANNEL_LAYERS_CHANGED, layersWireFormat(layers));
   }
 
   setSettingsOverride(override: SettingsOverride): void {

@@ -28,6 +28,18 @@ import type {ComponentRollup, UpdateCycle} from '../timeline/derive.js';
 /** The devframe's scope id. RPC names become `lit:*`, MCP wire names `lit_*`. */
 export const LIT_DEVFRAME_ID = 'lit';
 
+/**
+ * Page-runtime channel names carried over `import.meta.hot` (Vite) or the
+ * page-link RPC events (standalone). The page runtime in
+ * `src/lib/runtime/timeline` spells the same strings; it cannot import this
+ * module without bundling the protocol into the page.
+ */
+export const CHANNEL_PUSH_EVENT = 'lit:timeline:push-event';
+export const CHANNEL_CUSTOM_LAYER = 'lit:timeline:custom-layer';
+export const CHANNEL_RUNTIME_READY = 'lit:timeline:runtime-ready';
+export const CHANNEL_RECORDING_CHANGED = 'lit:timeline:recording-changed';
+export const CHANNEL_LAYERS_CHANGED = 'lit:timeline:layers-changed';
+
 /** Shared-state key holding the {@link SessionState} snapshot. */
 export const SESSION_STATE_KEY = 'session';
 

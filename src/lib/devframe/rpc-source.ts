@@ -38,7 +38,16 @@ import type {
 } from '../../types/timeline.js';
 import {createLitDevframe} from './definition.js';
 import type {CreateLitDevframeOptions} from './definition.js';
-import {LIT_DEVFRAME_ID, RPC_PAGE_RECEIVE, RPC_PAGE_SEND} from './protocol.js';
+import {
+  CHANNEL_CUSTOM_LAYER,
+  CHANNEL_LAYERS_CHANGED,
+  CHANNEL_PUSH_EVENT,
+  CHANNEL_RECORDING_CHANGED,
+  CHANNEL_RUNTIME_READY,
+  LIT_DEVFRAME_ID,
+  RPC_PAGE_RECEIVE,
+  RPC_PAGE_SEND,
+} from './protocol.js';
 import {layersWireFormat} from './source.js';
 import type {TimelineSink, TimelineSource} from './source.js';
 
@@ -80,14 +89,14 @@ export class RpcTimelineSource implements TimelineSource {
     const sink = this.#sink;
     if (sink === undefined) return;
     switch (channel) {
-      case 'lit:timeline:push-event': {
+      case CHANNEL_PUSH_EVENT: {
         const events = isRecord(data) ? data.events : undefined;
         sink.pushEvents(
           Array.isArray(events) ? (events as TimelineEvent[]) : []
         );
         break;
       }
-      case 'lit:timeline:custom-layer': {
+      case CHANNEL_CUSTOM_LAYER: {
         const layer = isRecord(data)
           ? (data.layer as TimelineLayer)
           : undefined;
@@ -105,7 +114,7 @@ export class RpcTimelineSource implements TimelineSource {
         if (isRecord(data))
           sink.hmrIncompatible(data as unknown as HmrIncompatibilityEvent);
         break;
-      case 'lit:timeline:runtime-ready':
+      case CHANNEL_RUNTIME_READY:
         sink.runtimeReady();
         break;
     }
@@ -120,14 +129,11 @@ export class RpcTimelineSource implements TimelineSource {
   }
 
   setRecording(recording: boolean): void {
-    this.#node?.sendToPages('lit:timeline:recording-changed', {recording});
+    this.#node?.sendToPages(CHANNEL_RECORDING_CHANGED, {recording});
   }
 
   setLayers(layers: TimelineLayersState): void {
-    this.#node?.sendToPages(
-      'lit:timeline:layers-changed',
-      layersWireFormat(layers)
-    );
+    this.#node?.sendToPages(CHANNEL_LAYERS_CHANGED, layersWireFormat(layers));
   }
 
   setSettingsOverride(override: SettingsOverride): void {
