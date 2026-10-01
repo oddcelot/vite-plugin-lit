@@ -32,6 +32,7 @@ test('lifecycle layer reports update phases over the timeline source', async () 
     addLayer: () => {},
     inspectorMessage: () => {},
     hmrIncompatible: () => {},
+    hmrPatched: () => {},
     runtimeReady: () => {},
   });
 
@@ -96,6 +97,7 @@ test('changed values layer records the old and new value of a property', async (
     addLayer: () => {},
     inspectorMessage: () => {},
     hmrIncompatible: () => {},
+    hmrPatched: () => {},
     runtimeReady: () => {},
   });
 

@@ -9,6 +9,8 @@ import {
 import {RECENT_EVENTS_BUFFER_SIZE} from '../../lib/devframe/protocol.js';
 import {MAX_HMR_INCOMPATIBILITIES} from '../../types/hmr-incompatibility.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
+import {MAX_HMR_PATCHES} from '../../types/hmr-patch.js';
+import type {HmrPatchEvent} from '../../types/hmr-patch.js';
 import type {InspectorTreeNode} from '../../types/inspector.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
 import type {TimelineEvent} from '../../types/timeline.js';
@@ -23,6 +25,19 @@ const hmr = (n: number): HmrIncompatibilityEvent =>
     tagName: `x-${n}`,
     reason: {code: 'attributes-changed'},
   }) as unknown as HmrIncompatibilityEvent;
+
+const patch = (
+  n: number,
+  extra: Partial<HmrPatchEvent> = {}
+): HmrPatchEvent => ({
+  tagName: `x-${n}`,
+  instances: 1,
+  generation: 1,
+  durationMs: 1,
+  childState: 'transfer',
+  at: n,
+  ...extra,
+});
 
 describe('capTail', () => {
   test('drops the oldest entries and leaves a short list alone', () => {
@@ -334,6 +349,86 @@ describe('hmr incompatibilities', () => {
     const kept = s.hmrIncompatibilities();
     expect(kept).toHaveLength(MAX_HMR_INCOMPATIBILITIES);
     expect(kept[0]!.tagName).toBe('x-3');
+  });
+});
+
+describe('hmr patches', () => {
+  test('keeps the newest MAX_HMR_PATCHES', () => {
+    const s = createRecordingSession();
+    for (let i = 0; i < MAX_HMR_PATCHES + 3; i++) s.pushHmrPatch(patch(i));
+    const kept = s.hmrPatches();
+    expect(kept).toHaveLength(MAX_HMR_PATCHES);
+    expect(kept[0]!.tagName).toBe('x-3');
+  });
+
+  test('survives clear() and the recording rising edge', () => {
+    const s = createRecordingSession();
+    s.pushHmrPatch(patch(1));
+    s.clear();
+    s.setRecording(true);
+    s.setRecording(false);
+    s.setRecording(true);
+    expect(s.hmrPatches()).toHaveLength(1);
+  });
+
+  test('fills the file from the cached tree, never over a given one', () => {
+    const s = createRecordingSession();
+    const source = {file: 'src/x-1.ts', line: 3, column: 1};
+    s.applyInspector({
+      type: 'tree',
+      roots: [
+        {
+          id: 1,
+          tagName: 'x-outer',
+          children: [{id: 2, tagName: 'x-1', source, children: []}],
+        },
+      ] as InspectorTreeNode[],
+    });
+    s.pushHmrPatch(patch(1));
+    s.pushHmrPatch(patch(1, {file: 'given.ts'}));
+    s.pushHmrPatch(patch(2));
+    expect(s.hmrPatches().map((p) => p.file)).toEqual([
+      'src/x-1.ts',
+      'given.ts',
+      undefined,
+    ]);
+  });
+
+  test('hmrHistory merges both lists by timestamp, patches first on a tie', () => {
+    const s = createRecordingSession();
+    s.pushHmrPatch(patch(20));
+    s.pushHmrIncompatibility({...hmr(1), time: 10});
+    s.pushHmrPatch(patch(30));
+    s.pushHmrIncompatibility({...hmr(2), time: 30});
+    expect(s.hmrHistory().map((e) => [e.kind, e.at])).toEqual([
+      ['incompatible', 10],
+      ['patched', 20],
+      ['patched', 30],
+      ['incompatible', 30],
+    ]);
+  });
+
+  test('capture includes the patches and replay round-trips them', () => {
+    const s = createRecordingSession();
+    s.pushHmrPatch(patch(1));
+    const snap = s.capture({capturedAt: 't', version: 'v', customLayers: []});
+    expect(snap.hmrPatches).toEqual([patch(1)]);
+    expect(createRecordingSession({replay: snap}).hmrPatches()).toEqual([
+      patch(1),
+    ]);
+  });
+
+  test('a snapshot from before patches were recorded replays empty', () => {
+    const replay: SessionSnapshot = {
+      capturedAt: 'then',
+      version: '1',
+      customLayers: [],
+      roots: [],
+      details: [],
+      hmrIncompatibilities: [],
+      events: [],
+    };
+    expect(createRecordingSession({replay}).hmrPatches()).toEqual([]);
   });
 });
 

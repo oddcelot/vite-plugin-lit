@@ -34,7 +34,7 @@ The command needs two optional peers, `cac` and `@devframes/agentic`. See the
 [CLI reference](/vite-plugin-lit/reference/cli/) for the message it prints when
 one is missing.
 
-## The seven tools
+## The eight tools
 
 | Tool                        | Answers                                                                                                                                    |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -43,16 +43,17 @@ one is missing.
 | `lit_component-details`     | Reactive properties, attributes, and update flags for one element id, or for every element of a tag name, read from the page on each call. |
 | `lit_update-summary`        | Which components updated, how often, how long for, and what changed.                                                                       |
 | `lit_recent-events`         | Recent lifecycle, render and input events, filterable by tag name, element or layer.                                                       |
+| `lit_hmr-history`           | Recent hot patches that landed (instances, duration, child-state mode) and ones that could not, oldest first, up to 50 of each.            |
 | `lit_hmr-incompatibilities` | Components the plugin could not hot-patch in place, and why.                                                                               |
 | `lit_set-recording`         | Starts or stops timeline recording. The only tool that changes state.                                                                      |
 
-Six of the seven only read. `lit_set-recording` exists because
+Seven of the eight only read. `lit_set-recording` exists because
 `lit_recent-events` is a dead end while recording is off, and an agent that can
 read the timeline but not start it just hands the question back to you.
 Recording is a shared toggle, so an agent turning it on also changes what you
 see in an open panel. The layer toggles and the element picker stay panel-only.
 
-All seven answer only while a dev server with DevTools is running. Nothing is
+All eight answer only while a dev server with DevTools is running. Nothing is
 stored, so with the server down an agent gets a connection error rather than an
 empty answer.
 
@@ -67,6 +68,8 @@ Two prompts that work:
 
 - "Record ten seconds of the running app while I click the filter bar, then
   tell me which component updated most and which properties caused it."
+- "I just edited `src/todo-item.ts`. Did the change land in the running page
+  without a reload? Check `lit_hmr-history`."
 - "The page reloads whenever I edit `src/app-shell.ts`. Check
   `lit_hmr-incompatibilities` and tell me which shape is to blame."
 

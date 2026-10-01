@@ -7,6 +7,8 @@ import {
 import type {InspectorMessage} from '../../types/inspector.js';
 import {HMR_INCOMPATIBLE_CHANNEL} from '../../types/hmr-incompatibility.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
+import {HMR_PATCH_CHANNEL} from '../../types/hmr-patch.js';
+import type {HmrPatchEvent} from '../../types/hmr-patch.js';
 import {
   CHANNEL_CUSTOM_LAYER,
   CHANNEL_LAYERS_CHANGED,
@@ -38,6 +40,10 @@ class RecordingSink implements TimelineSink {
   }
   hmrIncompatible(event: HmrIncompatibilityEvent) {
     this.calls.push(['hmrIncompatible', event]);
+  }
+  hmrPatched(event: HmrPatchEvent, pageId?: string) {
+    this.calls.push(['hmrPatched', event]);
+    this.pageIds.push(pageId);
   }
   readonly tabIds: Array<string | undefined> = [];
   runtimeReady(pageId?: string, tabId?: string) {
@@ -91,7 +97,40 @@ describe('TimelineChannelCodec inbound', () => {
     deliver(INSPECT_DATA_CHANNEL, null);
     deliver(INSPECT_DATA_CHANNEL, {type: 3});
     deliver(HMR_INCOMPATIBLE_CHANNEL, 'nope');
+    const patched = {
+      tagName: 'x-a',
+      instances: 1,
+      generation: 1,
+      durationMs: 1,
+      childState: 'transfer',
+      at: 1,
+    };
+    deliver(HMR_PATCH_CHANNEL, 'nope');
+    deliver(HMR_PATCH_CHANNEL, null);
+    deliver(HMR_PATCH_CHANNEL, {...patched, tagName: undefined});
+    deliver(HMR_PATCH_CHANNEL, {...patched, instances: '3'});
+    deliver(HMR_PATCH_CHANNEL, {...patched, instances: undefined});
+    deliver(HMR_PATCH_CHANNEL, {...patched, durationMs: null});
     expect(sink.calls).toEqual([]);
+  });
+
+  test('delivers a patch event with its page id beside it', () => {
+    const {sink, deliver} = setup();
+    const patched: HmrPatchEvent = {
+      tagName: 'x-a',
+      instances: 2,
+      generation: 1,
+      durationMs: 1.5,
+      childState: 'transfer',
+      at: 10,
+    };
+    deliver(HMR_PATCH_CHANNEL, {...patched, pageId: 'a'});
+    deliver(HMR_PATCH_CHANNEL, patched);
+    expect(sink.calls).toEqual([
+      ['hmrPatched', patched],
+      ['hmrPatched', patched],
+    ]);
+    expect(sink.pageIds).toEqual(['a', undefined]);
   });
 
   test('pushes an empty batch when events are missing or not an array', () => {

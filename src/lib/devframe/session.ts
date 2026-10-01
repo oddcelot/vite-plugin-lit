@@ -15,12 +15,15 @@ import type {
 } from '../../types/inspector.js';
 import {MAX_HMR_INCOMPATIBILITIES} from '../../types/hmr-incompatibility.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
+import {MAX_HMR_PATCHES} from '../../types/hmr-patch.js';
+import type {HmrPatchEvent} from '../../types/hmr-patch.js';
 import type {TimelineEvent, TimelineLayer} from '../../types/timeline.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
 import {rollup} from '../timeline/derive.js';
 import {updateCycles} from '../timeline/model.js';
 import {RECENT_EVENTS_BUFFER_SIZE} from './protocol.js';
 import type {
+  HmrHistoryEntry,
   LitRuntimeInfo,
   RecentEventsArgs,
   RecentEventsResult,
@@ -60,6 +63,14 @@ export interface RecordingSession {
   /** Remember an HMR-incompatibility notice, capped. */
   pushHmrIncompatibility(event: HmrIncompatibilityEvent): void;
   hmrIncompatibilities(): HmrIncompatibilityEvent[];
+  /**
+   * Remember a successful HMR patch, capped. Fills `file` from the cached
+   * component tree when the page did not send one.
+   */
+  pushHmrPatch(event: HmrPatchEvent): void;
+  hmrPatches(): HmrPatchEvent[];
+  /** Patches and incompatibilities as one list, oldest first. */
+  hmrHistory(): HmrHistoryEntry[];
   /** Fold a runtime inspector message into the caches. */
   applyInspector(message: InspectorMessage): void;
   roots(): InspectorTreeNode[];
@@ -93,6 +104,19 @@ export interface RecordingSession {
     customLayers: readonly TimelineLayer[];
   }): SessionSnapshot;
 }
+
+/** Source file of the first node tagged `tagName`, depth-first. */
+const sourceFileOf = (
+  nodes: readonly InspectorTreeNode[],
+  tagName: string
+): string | undefined => {
+  for (const node of nodes) {
+    if (node.tagName === tagName && node.source) return node.source.file;
+    const nested = sourceFileOf(node.children, tagName);
+    if (nested !== undefined) return nested;
+  }
+  return undefined;
+};
 
 /** Drop the oldest entries so `items` holds at most `max`. */
 export const capTail = <T>(items: T[], max: number): void => {
@@ -179,6 +203,9 @@ export function createRecordingSession(
   const hmr: HmrIncompatibilityEvent[] = replay
     ? [...replay.hmrIncompatibilities]
     : [];
+  const patches: HmrPatchEvent[] = replay?.hmrPatches
+    ? [...replay.hmrPatches]
+    : [];
   let roots: InspectorTreeNode[] = replay ? [...replay.roots] : [];
   let runtime: LitRuntimeInfo = {ready: false, litVersions: [], topFrame: true};
   const details = new Map<number, InspectorDetails>(
@@ -260,6 +287,27 @@ export function createRecordingSession(
       capTail(hmr, MAX_HMR_INCOMPATIBILITIES);
     },
     hmrIncompatibilities: () => [...hmr],
+    pushHmrPatch(event) {
+      const file = event.file ?? sourceFileOf(roots, event.tagName);
+      patches.push(file === undefined ? event : {...event, file});
+      capTail(patches, MAX_HMR_PATCHES);
+    },
+    hmrPatches: () => [...patches],
+    // Patches go first so that, the sort being stable, a tie keeps them
+    // ahead of an incompatibility reported in the same millisecond.
+    hmrHistory: () =>
+      [
+        ...patches.map((patch): HmrHistoryEntry => ({
+          kind: 'patched',
+          at: patch.at,
+          patch,
+        })),
+        ...hmr.map((incompatibility): HmrHistoryEntry => ({
+          kind: 'incompatible',
+          at: incompatibility.time,
+          incompatibility,
+        })),
+      ].sort((a, b) => a.at - b.at),
     applyInspector(message) {
       if (message.type === 'tree') {
         roots = message.roots;
@@ -301,6 +349,7 @@ export function createRecordingSession(
       details: [...details.values()],
       events: [...events],
       hmrIncompatibilities: [...hmr],
+      hmrPatches: [...patches],
     }),
   };
 }

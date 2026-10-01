@@ -9,6 +9,7 @@ import {
 import type {InspectorMessage} from '../../types/inspector.js';
 import {HMR_INCOMPATIBLE_CHANNEL} from '../../types/hmr-incompatibility.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
+import type {HmrPatchEvent} from '../../types/hmr-patch.js';
 import {
   DEFAULT_LAYERS_STATE,
   SETTINGS_OVERRIDE_CHANNEL,
@@ -38,6 +39,9 @@ class RecordingSink implements TimelineSink {
   }
   hmrIncompatible(event: HmrIncompatibilityEvent) {
     this.calls.push(['hmrIncompatible', event]);
+  }
+  hmrPatched(event: HmrPatchEvent) {
+    this.calls.push(['hmrPatched', event]);
   }
   runtimeReady() {
     this.calls.push(['runtimeReady', undefined]);

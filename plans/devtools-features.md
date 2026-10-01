@@ -40,6 +40,32 @@ now also shown in the panel and to agents.
   `observed-attributes-changed` has `action: 'none'`, since the patch succeeds
   and never reloads.
 
+## HMR patch history
+
+- **A patch that lands is reported too.** The runtime only said when a patch
+  failed, so "did my edit land, how many instances, how long, what did
+  `childState` do" had no answer. `lit:hmr:patched` is sent once per successful
+  `hotPatch`, at the end of its `try`, wrapped so a failed send cannot turn a
+  landed patch into a reload. It is the second and last send in `patch.ts`; the
+  patch's semantics are untouched.
+- **The page does not send the file.** `patch.ts` only knows the tag, so the
+  node side fills `file` from the cached component tree's `source` when the tag
+  is in it. A tag not in the tree has no `file`.
+- **Stamped with the page id, filtered on the node.** Every open tab applies the
+  same HMR update and the channel is a broadcast, so the node keeps only the
+  followed page's patches (`recording.accepts(pageId)`), like the timeline.
+- **The history survives page reloads and is not recording-gated.** A full
+  reload is often the symptom being debugged, so clearing on page load would
+  erase "did my last edit land" exactly when it is asked. Capped at
+  `MAX_HMR_PATCHES` (50), like the incompatibility list.
+- **`lit:hmr-history` merges both lists** into one oldest-first sequence, so
+  "the edit landed, then the next one forced a reload" reads in order.
+  `lit:hmr-incompatibilities` stays for callers that only want failures.
+- **Not a timeline layer.** A `lit-hmr` timeline event would reuse the stream,
+  but the timeline is recording-gated and cleared when recording starts or a
+  page loads, which is the wrong lifetime for HMR history. A separate capped
+  list costs one channel and one cache.
+
 ## Agent access to the timeline
 
 - **`lit:recent-events` is one raw, filtered query, not a summarizing tool.** An

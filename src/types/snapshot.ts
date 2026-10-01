@@ -14,6 +14,7 @@
  */
 
 import type {HmrIncompatibilityEvent} from './hmr-incompatibility.js';
+import type {HmrPatchEvent} from './hmr-patch.js';
 import type {InspectorDetails, InspectorTreeNode} from './inspector.js';
 import type {TimelineEvent, TimelineLayer} from './timeline.js';
 
@@ -37,4 +38,6 @@ export interface SessionSnapshot {
   events: TimelineEvent[];
   /** HMR incompatibilities reported during the session. */
   hmrIncompatibilities: HmrIncompatibilityEvent[];
+  /** Successful HMR patches reported during the session. Optional so snapshots exported by an earlier version still load. */
+  hmrPatches?: HmrPatchEvent[];
 }

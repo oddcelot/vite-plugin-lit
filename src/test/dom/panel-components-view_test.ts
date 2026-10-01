@@ -36,6 +36,7 @@ const mount = async (picker = false, roots: InspectorTreeNode[] = tree) => {
   meta.picker = picker;
   answers.set('list-components', roots);
   answers.set('hmr-incompatibilities', []);
+  if (!answers.has('hmr-history')) answers.set('hmr-history', {entries: []});
   const el = document.createElement('components-view');
   document.body.append(el);
   await flush(el);
@@ -249,4 +250,65 @@ test('does not add a diagnosis to a tree that has components', async () => {
   meta.runtime = {ready: false, litVersions: [], topFrame: true};
   const {root} = await mount();
   expect(root.querySelector('.empty')).toBeNull();
+});
+
+const patched = {
+  tagName: 'x-button',
+  instances: 3,
+  generation: 1,
+  durationMs: 4.2,
+  childState: 'transfer' as const,
+  at: Date.now(),
+};
+
+/** Visible text of the latest-patch line with whitespace collapsed. */
+const patchLine = (root: ShadowRoot): string | undefined =>
+  root
+    .querySelector('.hmr-last-patch')
+    ?.textContent?.replace(/\s+/g, ' ')
+    .trim();
+
+test('shows no patch line until a patch has landed', async () => {
+  const {root} = await mount();
+  expect(root.querySelector('.hmr-last-patch')).toBeNull();
+});
+
+test('a pushed patch shows its line, and a later one replaces it', async () => {
+  const {el, root} = await mount();
+  push('hmr-patched', patched);
+  await flush(el);
+  expect(patchLine(root)).toContain(
+    'Patched <x-button> ×3 in 4.2 ms (childState: transfer)'
+  );
+  push('hmr-patched', {...patched, tagName: 'x-card', instances: 1});
+  await flush(el);
+  expect(patchLine(root)).toContain('Patched <x-card> ×1 in 4.2 ms');
+  expect(root.querySelectorAll('.hmr-last-patch')).toHaveLength(1);
+});
+
+test('primes the patch line from the history, skipping failures', async () => {
+  answers.set('hmr-history', {
+    entries: [
+      {kind: 'patched', at: 1, patch: patched},
+      {
+        kind: 'incompatible',
+        at: 2,
+        incompatibility: {
+          tagName: 'x-card',
+          time: 2,
+          reason: {code: 'attributes-changed'},
+          action: 'none',
+        },
+      },
+    ],
+  });
+  const {root} = await mount();
+  expect(patchLine(root)).toContain('Patched <x-button> ×3');
+});
+
+test('a patch does not count toward the HMR issue badge', async () => {
+  const {el} = await mount();
+  push('hmr-patched', patched);
+  await flush(el);
+  expect(el.hmrIncompatibilityCount).toBe(0);
 });
