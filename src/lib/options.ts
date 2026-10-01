@@ -377,11 +377,20 @@ export const toFeatureSettings = (r: ResolvedOptions): FeatureSettings => {
     sourceOverlay: {
       enabled: so !== false,
       key: (so === false ? undefined : so.key) ?? 's',
-      editor:
-        typeof editor === 'string' ? editor : editor ? 'custom' : 'vscode',
+      editor: configuredEditor(r) ?? (editor ? 'custom' : 'vscode'),
       throttleMs: (so === false ? undefined : so.throttleMs) ?? 50,
     },
     timeline: r.timeline,
     sources: {...r.sources},
   };
+};
+
+/**
+ * The editor the developer named, if any. Unlike {@link toFeatureSettings},
+ * which reports `vscode` for "never chose", this stays `undefined` then, so a
+ * default never turns into a forced launcher.
+ */
+export const configuredEditor = (r: ResolvedOptions): string | undefined => {
+  const editor = r.sourceOverlay === false ? undefined : r.sourceOverlay.editor;
+  return typeof editor === 'string' ? editor : undefined;
 };
