@@ -15,11 +15,7 @@ import {
 import {describeError, isSnapshot, litRpc, type LitClient} from './client.js';
 import {openInEditor} from './open-in-editor.js';
 import {inPageChannel, inPageConnected} from './in-page.js';
-import {
-  onOverrideChange,
-  patchOverride,
-  readOverride,
-} from './settings-override.js';
+import {overrides} from './settings-override.js';
 
 /** localStorage key remembering the opt-in live-tree toggle. */
 const LIVE_LS_KEY = 'lit-devtools-components-live';
@@ -320,8 +316,8 @@ export class ComponentsView extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
     this._live = localStorage.getItem(LIVE_LS_KEY) === 'true';
-    this._flash = readOverride().flashUpdates ?? false;
-    this._unsubscribeOverride = onOverrideChange((o) => {
+    this._flash = overrides.get().flashUpdates ?? false;
+    this._unsubscribeOverride = overrides.subscribe((o) => {
       this._flash = o.flashUpdates ?? false;
     });
     void this._connect();
@@ -542,7 +538,7 @@ export class ComponentsView extends LitElement {
    * pushes, and the Settings tab mirrors the same switch.
    */
   private _toggleFlash(): void {
-    patchOverride({flashUpdates: !this._flash});
+    overrides.set('flashUpdates', !this._flash);
   }
 
   /**

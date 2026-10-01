@@ -20,6 +20,7 @@ import {installRenderLayer, setRenderDebugEnabled} from './render.js';
 import {installMouseLayer, installKeyboardLayer} from './input.js';
 import {flashUpdate, setFlashEnabled, setFlashRamp} from './flash.js';
 import {subscribeOverride} from '../overrides.js';
+import {preferences} from '../../settings-override.js';
 import {pageChannel} from '../page-channel.js';
 import type {ViteHotLike} from '../page-channel.js';
 import type {
@@ -89,9 +90,10 @@ setUpdateHook(flashUpdate);
 const hot = (import.meta as {hot?: ViteHotLike}).hot;
 
 subscribeOverride(hot, (o) => {
-  setFlashEnabled(o.flashUpdates ?? false);
-  setFlashRamp(o.flashUpdatesRamp ?? false);
-  const next = o.chromeTracks ?? false;
+  const prefs = preferences(o);
+  setFlashEnabled(prefs.flashUpdates);
+  setFlashRamp(prefs.flashUpdatesRamp);
+  const next = prefs.chromeTracks;
   if (next !== chromeTracks) {
     chromeTracks = next;
     if (!next) sink.reset();
