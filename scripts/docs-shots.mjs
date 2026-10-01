@@ -261,7 +261,7 @@ const SHOTS = [
     name: 'devtools-timeline-raw',
     capture: async (ctx) => {
       const {panel} = await recordSession(ctx);
-      await eventList(panel).locator('css=.filterbar button').click();
+      await eventList(panel).locator('css=.filterbar wa-switch').click();
       await sleep(400);
       await ctx.shot(panel);
     },
@@ -358,7 +358,9 @@ const SHOTS = [
     capture: async (ctx) => {
       const {panel} = await recordSession(ctx);
       const toolbar = timelineView(panel).locator('css=.toolbar');
-      await toolbar.locator('css=button', {hasText: 'Export snapshot'}).click();
+      await toolbar
+        .locator('css=wa-button', {hasText: 'Export snapshot'})
+        .click();
       const note = timelineView(panel).locator('css=.export-note');
       await note.waitFor();
       await note.filter({hasText: 'Wrote'}).waitFor({timeout: 60_000});
