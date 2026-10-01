@@ -14,6 +14,7 @@ import type {
 import type {
   FeatureSettings,
   SettingsOverride,
+  TimelineEvent,
   TimelineLayersState,
 } from '../../types/timeline.js';
 
@@ -121,6 +122,12 @@ const detailsFor = (id: number): InspectorDetails => ({
   flags: {hasUpdated: true, isUpdatePending: false, hasShadowRoot: true},
 });
 
+const pageEvent = (time: number): TimelineEvent => ({
+  layerId: 'lit-render',
+  time,
+  data: {},
+});
+
 describe('lit devframe definition', () => {
   test('list-components asks the page and returns its answer', async () => {
     const {source, ctx} = await boot({inspectorTimeoutMs: 1000});
@@ -151,6 +158,77 @@ describe('lit devframe definition', () => {
 
   test('list-components falls back to the cache when nothing answers', async () => {
     const {source, ctx} = await boot({inspectorTimeoutMs: 20});
+    source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]});
+    expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([
+      treeNode,
+    ]);
+  });
+
+  test('a ready from the page already followed keeps its buffer', async () => {
+    const {source, ctx} = await boot();
+    source.sink!.runtimeReady('a');
+    source.sink!.pushEvents([pageEvent(1), pageEvent(2)], 'a');
+    source.sink!.runtimeReady('a');
+    expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toHaveLength(2);
+  });
+
+  test('a ready from another page clears the buffer and says so', async () => {
+    const {source, ctx} = await boot();
+    const spy = vi.spyOn(ctx.rpc, 'broadcast');
+    // The event stream broadcasts too; only the notice matters here.
+    const notices = () =>
+      spy.mock.calls.filter(([call]) => call.method === 'lit:page-changed');
+    source.sink!.runtimeReady('a');
+    source.sink!.pushEvents([pageEvent(1), pageEvent(2)], 'a');
+    expect(notices()).toHaveLength(0);
+
+    source.sink!.runtimeReady('b');
+    expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toEqual([]);
+    expect(notices()).toHaveLength(1);
+    expect(notices()[0]![0]).toMatchObject({
+      args: [{previousPageId: 'a', pageId: 'b'}],
+    });
+    expect((await ctx.rpc.invokeLocal('lit:get-meta')).activePageId).toBe('b');
+  });
+
+  test('drops events and inspector messages from a page that is not followed', async () => {
+    const {source, ctx} = await boot();
+    source.sink!.runtimeReady('a');
+    source.sink!.runtimeReady('b');
+    source.sink!.pushEvents([pageEvent(1)], 'a');
+    source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]}, 'a');
+    expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toEqual([]);
+    expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([]);
+
+    source.sink!.pushEvents([pageEvent(2)], 'b');
+    source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]}, 'b');
+    expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toHaveLength(1);
+    expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([
+      treeNode,
+    ]);
+  });
+
+  test('a stale page cannot answer an agent query', async () => {
+    const {source, ctx} = await boot({inspectorTimeoutMs: 1000});
+    source.sink!.runtimeReady('a');
+    source.sink!.runtimeReady('b');
+    const pending = ctx.rpc.invokeLocal('lit:list-components');
+    await vi.waitFor(() =>
+      expect(source.inspector.at(-1)).toEqual({type: 'tree'})
+    );
+    source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]}, 'a');
+    const other: InspectorTreeNode = {id: 9, tagName: 'x-b', children: []};
+    source.sink!.inspectorMessage({type: 'tree', roots: [other]}, 'b');
+    expect(await pending).toEqual([other]);
+  });
+
+  test('runtimes without a page id are never filtered', async () => {
+    const {source, ctx} = await boot();
+    source.sink!.runtimeReady(undefined);
+    source.sink!.pushEvents([pageEvent(1)]);
+    source.sink!.runtimeReady(undefined);
+    source.sink!.pushEvents([pageEvent(2)]);
+    expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toHaveLength(1);
     source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]});
     expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([
       treeNode,

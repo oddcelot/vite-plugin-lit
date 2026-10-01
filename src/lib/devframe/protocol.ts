@@ -138,6 +138,17 @@ export const RPC_HMR_INCOMPATIBILITIES = 'hmr-incompatibilities';
 /** Bare name of the `hmr-incompatible` client (node → panel) event. */
 export const RPC_HMR_INCOMPATIBLE = 'hmr-incompatible';
 
+/** Bare name of the `page-changed` client (node → panel) event. */
+export const RPC_PAGE_CHANGED = 'page-changed';
+
+/** The page the session follows changed (another tab or frame took over). */
+export interface PageChangedEvent {
+  previousPageId: string;
+  pageId: string;
+  /** Wall-clock ms on the node side; for display only. */
+  at: number;
+}
+
 /**
  * Bare name of the page-to-server event. A page runtime that is not on a Vite
  * dev server's HMR socket sends every channel message it would have sent over
@@ -183,6 +194,8 @@ export interface LitGetMetaResult {
   picker: boolean;
   /** Channel and id to pass to `rpc.streaming.subscribe()`. */
   stream: {channel: string; id: string};
+  /** The page the session follows; absent until a runtime has announced itself. */
+  activePageId?: string;
 }
 
 /** Argument of the `component-details` query. */
@@ -300,6 +313,7 @@ declare module 'devframe' {
   interface DevframeRpcClientFunctions {
     'lit:inspector-message': (message: InspectorMessage) => void;
     'lit:hmr-incompatible': (event: HmrIncompatibilityEvent) => void;
+    'lit:page-changed': (event: PageChangedEvent) => void;
     'lit:page-receive': (channel: string, data?: unknown) => void;
   }
 
