@@ -47,8 +47,8 @@ test('litPlugin({timeline: true}) contributes a DevTools hook', () => {
   expect(typeof plugin?.devtools?.setup).toBe('function');
 });
 
-test('litPlugin({}) (timeline off) contributes no DevTools hook', () => {
-  expect(findDevframePlugin(litPlugin({}))).toBeUndefined();
+test('litPlugin({timeline: false}) contributes no DevTools hook', () => {
+  expect(findDevframePlugin(litPlugin({timeline: false}))).toBeUndefined();
 });
 
 test('devtools.setup() installs the devframe definition', async () => {

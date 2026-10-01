@@ -1,4 +1,4 @@
-import {describe, expect, test} from 'vite-plus/test';
+import {afterEach, describe, expect, test, vi} from 'vite-plus/test';
 import {
   INSTALL_ID,
   VIRTUAL_PREFIX,
@@ -363,5 +363,53 @@ describe('litPlugin timeline virtual module', () => {
     const code = callLoad(plugin, RESOLVED_ID)!.code;
     expect(code).toContain('addTimelineLayer = () => {}');
     expect(code).not.toContain('public-api');
+  });
+});
+
+describe('litPlugin devframe mount', () => {
+  type Hook = (...args: unknown[]) => unknown;
+  const ENV_KEY = 'LIT_PLUGIN_TIMELINE';
+
+  afterEach(() => {
+    delete process.env[ENV_KEY];
+    vi.restoreAllMocks();
+  });
+
+  /** Runs the options `config` hook, then the devframe `setup()` hook. */
+  const mount = async (options: Parameters<typeof litPlugin>[0]) => {
+    const plugins = litPlugin(options);
+    const optionsPlugin = plugins.find((p) => p.name === 'lit-plugin-options')!;
+    (optionsPlugin.config as Hook)(
+      {root: '/nonexistent-lit-plugin-env'},
+      {mode: 'development', command: 'serve'}
+    );
+    const devframe = plugins.find((p) => p.name === 'devframe:lit');
+    if (!devframe) return {included: false, installed: 0};
+    // No dev server in the fake context: discovery warns once and gives up.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let installed = 0;
+    await (devframe.devtools!.setup as Hook)({
+      install: async () => {
+        installed++;
+      },
+    });
+    return {included: true, installed};
+  };
+
+  test('mounts when LIT_PLUGIN_TIMELINE turns the timeline on', async () => {
+    process.env[ENV_KEY] = '1';
+    expect(await mount({})).toEqual({included: true, installed: 1});
+  });
+
+  test('skips mounting when nothing turns the timeline on', async () => {
+    expect(await mount({})).toEqual({included: true, installed: 0});
+  });
+
+  test('leaves the plugin out under an explicit timeline: false', async () => {
+    process.env[ENV_KEY] = '1';
+    expect(await mount({timeline: false})).toEqual({
+      included: false,
+      installed: 0,
+    });
   });
 });
