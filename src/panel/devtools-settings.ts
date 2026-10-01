@@ -1,7 +1,10 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 import '@awesome.me/webawesome/dist/components/badge/badge.js';
+import '@awesome.me/webawesome/dist/components/button/button.js';
+import '@awesome.me/webawesome/dist/components/callout/callout.js';
 import '@awesome.me/webawesome/dist/components/card/card.js';
+import '@awesome.me/webawesome/dist/components/icon/icon.js';
 import '@awesome.me/webawesome/dist/components/option/option.js';
 import '@awesome.me/webawesome/dist/components/select/select.js';
 import '@awesome.me/webawesome/dist/components/switch/switch.js';
@@ -71,18 +74,6 @@ export class DevtoolsSettings extends LitElement {
       }
       .reset {
         margin-left: auto;
-        appearance: none;
-        border: 1px solid var(--lit-devtools-border-strong);
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text);
-        border-radius: var(--lit-devtools-radius-sm);
-        font: inherit;
-        font-size: var(--lit-devtools-text-2xs);
-        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-4);
-        cursor: pointer;
-      }
-      .reset:hover {
-        background: var(--lit-devtools-surface-hover);
       }
       table {
         width: 100%;
@@ -122,46 +113,13 @@ export class DevtoolsSettings extends LitElement {
         vertical-align: middle;
       }
       .row-reset {
-        appearance: none;
-        border: 1px solid var(--lit-devtools-border-strong);
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text-muted);
-        border-radius: var(--lit-devtools-radius-sm);
-        font: inherit;
-        font-size: var(--lit-devtools-text-2xs);
-        line-height: 1;
-        padding: 1px var(--lit-devtools-space-2);
         margin-left: var(--lit-devtools-space-3);
         vertical-align: middle;
-        cursor: pointer;
-      }
-      .row-reset:hover {
-        background: var(--lit-devtools-surface-hover);
-        color: var(--lit-devtools-text);
       }
       .nudge {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: var(--lit-devtools-space-3);
+        display: block;
         margin-top: var(--lit-devtools-space-2);
-        color: var(--lit-devtools-warning);
-        font-family: inherit;
         font-size: var(--lit-devtools-text-2xs);
-      }
-      .nudge button {
-        appearance: none;
-        border: 1px solid var(--lit-devtools-border-strong);
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text);
-        border-radius: var(--lit-devtools-radius-sm);
-        font: inherit;
-        line-height: 1;
-        padding: 1px var(--lit-devtools-space-3);
-        cursor: pointer;
-      }
-      .nudge button:hover {
-        background: var(--lit-devtools-surface-hover);
       }
       wa-switch,
       wa-select {
@@ -360,26 +318,37 @@ export class DevtoolsSettings extends LitElement {
       <wa-badge class="env" size="small" appearance="outlined" variant="neutral"
         >${src}: ${baseline}</wa-badge
       >
-      <button
+      <wa-button
         class="row-reset"
+        appearance="plain"
+        size="small"
         title="Reset to the ${src} value"
-        aria-label="Reset to the ${src} value"
         @click=${() => this._resetKey(key)}
       >
-        ×
-      </button>
+        <wa-icon name="xmark" label="Reset to the ${src} value"></wa-icon>
+      </wa-button>
       ${
         changed
-          ? html`<div class="nudge" data-nudge=${key}>
+          ? html`<wa-callout
+              class="nudge"
+              data-nudge=${key}
+              variant="warning"
+              size="small"
+            >
               <span
                 >Config changed since you overrode this: was
                 ${fmt(this._recorded[key])}, now ${baseline}</span
               >
-              <button @click=${() => this._resetKey(key)}>Reset</button>
-              <button @click=${() => s !== null && overrides.keep(key, s)}>
+              <wa-button size="small" @click=${() => this._resetKey(key)}
+                >Reset</wa-button
+              >
+              <wa-button
+                size="small"
+                @click=${() => s !== null && overrides.keep(key, s)}
+              >
                 Keep
-              </button>
-            </div>`
+              </wa-button>
+            </wa-callout>`
           : nothing
       }`;
   }
@@ -739,9 +708,15 @@ export class DevtoolsSettings extends LitElement {
         restart).
         ${
           hasOverride
-            ? html`<button class="reset" @click=${this._reset}>
+            ? html`<wa-button
+                class="reset"
+                size="small"
+                appearance="outlined"
+                @click=${this._reset}
+              >
+                <wa-icon slot="start" name="rotate-left"></wa-icon>
                 Reset to env
-              </button>`
+              </wa-button>`
             : nothing
         }
       </p>
