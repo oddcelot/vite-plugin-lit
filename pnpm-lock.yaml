@@ -235,6 +235,19 @@ importers:
         specifier: 'catalog:'
         version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.7.6)(esbuild@0.28.2)(typescript@7.0.2)(yaml@2.9.1)'
 
+  examples/flame:
+    dependencies:
+      lit:
+        specifier: ^3.3.3
+        version: 3.3.3
+    devDependencies:
+      '@oddsquad/vite-plugin-lit':
+        specifier: '*'
+        version: link:../..
+      vite:
+        specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
+        version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.7.6)(esbuild@0.28.2)(typescript@7.0.2)(yaml@2.9.1)'
+
   playground:
     dependencies:
       '@lit-labs/signals':

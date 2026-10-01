@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lit flame</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: light-dark(oklch(0.98 0.01 260), oklch(0.18 0.03 265));
+      }
+    </style>
+    <script type="module" src="/src/lit-flame.ts"></script>
+  </head>
+  <body>
+    <lit-flame></lit-flame>
+  </body>
+</html>
