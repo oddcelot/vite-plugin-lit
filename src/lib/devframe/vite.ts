@@ -19,35 +19,15 @@
 
 import type {Plugin, ViteDevServer} from 'vite';
 import type {DevframeDefinition} from 'devframe';
-import {
-  INSPECT_CMD_CHANNEL,
-  INSPECT_DATA_CHANNEL,
-  INSPECT_OVERLAY_TOGGLE_CHANNEL,
-} from '../../types/inspector.js';
-import type {
-  InspectorCommand,
-  InspectorMessage,
-} from '../../types/inspector.js';
-import {HMR_INCOMPATIBLE_CHANNEL} from '../../types/hmr-incompatibility.js';
-import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
-import {SETTINGS_OVERRIDE_CHANNEL} from '../../types/timeline.js';
+import type {InspectorCommand} from '../../types/inspector.js';
 import type {
   FeatureSettings,
   SettingsOverride,
-  TimelineEvent,
-  TimelineLayer,
   TimelineLayersState,
 } from '../../types/timeline.js';
 import {createLitDevframe} from './definition.js';
-import {
-  CHANNEL_CUSTOM_LAYER,
-  CHANNEL_LAYERS_CHANGED,
-  CHANNEL_PUSH_EVENT,
-  CHANNEL_RECORDING_CHANGED,
-  CHANNEL_RUNTIME_READY,
-  LIT_DEVFRAME_ID,
-} from './protocol.js';
-import {layersWireFormat} from './source.js';
+import {TimelineChannelCodec} from './page-codec.js';
+import {LIT_DEVFRAME_ID} from './protocol.js';
 import type {TimelineSink, TimelineSource} from './source.js';
 
 export {createLitDevframe};
@@ -112,8 +92,17 @@ export interface CreateLitDevframePluginOptions {
  * has connected to a bound server.
  */
 export class HotTimelineSource implements TimelineSource {
-  #hot: ViteDevServer['hot'] | undefined;
-  #sink: TimelineSink | undefined;
+  // An overlay pick means the developer clicked an element in the page and
+  // wants the Components tab. Bring the dock forward from the node side
+  // rather than having the panel reach into the parent frame. The target
+  // rides the activation, not just the dock id: the params ride the hub's
+  // `devframe:docks:active` state, so a panel that mounts *because of* this
+  // pick still lands on the right element instead of racing the separate
+  // `pick` message.
+  readonly #codec = new TimelineChannelCodec({
+    onPick: (id) =>
+      this.#hub?.docks?.activate?.(LIT_DEVFRAME_ID, {componentId: id}),
+  });
   #hub: DevToolsHubContext | undefined;
 
   /**
@@ -124,70 +113,35 @@ export class HotTimelineSource implements TimelineSource {
   bind(server: ViteDevServer, hub?: DevToolsHubContext): void {
     this.#hub = hub;
     const hot = server.hot;
-    this.#hot = hot;
-
-    hot.on(CHANNEL_PUSH_EVENT, (data: {events?: TimelineEvent[]}) => {
-      this.#sink?.pushEvents(data.events ?? []);
+    this.#codec.connect({
+      on: (channel, callback) => hot.on(channel, callback),
+      send: (channel, data) => hot.send(channel, data),
     });
+  }
 
-    hot.on(CHANNEL_CUSTOM_LAYER, (data: {layer?: TimelineLayer}) => {
-      if (!data.layer?.id) return;
-      this.#sink?.addLayer(data.layer);
-    });
-
-    hot.on(INSPECT_DATA_CHANNEL, (data: InspectorMessage) => {
-      // An overlay pick means the developer clicked an element in the page and
-      // wants the Components tab. Bring the dock forward from the node side
-      // rather than having the panel reach into the parent frame.
-      if (data.type === 'pick') {
-        // Carry the target with the activation, not just the dock id: the
-        // params ride the hub's `devframe:docks:active` state, so a panel
-        // that mounts *because of* this pick still lands on the right
-        // element instead of racing the separate `pick` message.
-        this.#hub?.docks?.activate?.(LIT_DEVFRAME_ID, {componentId: data.id});
-      }
-      this.#sink?.inspectorMessage(data);
-    });
-
-    hot.on(HMR_INCOMPATIBLE_CHANNEL, (event: HmrIncompatibilityEvent) => {
-      this.#sink?.hmrIncompatible(event);
-    });
-
-    // The runtime announces itself on every connect. It boots from the
-    // compiled-in defaults (recording off), so the session's current state
-    // has to be pushed back down or a page that loads while recording is on
-    // captures nothing while every surface still reports `recording: true`.
-    hot.on(CHANNEL_RUNTIME_READY, () => {
-      this.#sink?.runtimeReady();
-    });
+  attach(sink: TimelineSink): () => void {
+    return this.#codec.attach(sink);
   }
 
   /** Toggle the page's inspect overlay. Also used by the palette command. */
   toggleOverlay(): void {
-    this.#hot?.send(INSPECT_OVERLAY_TOGGLE_CHANNEL);
-  }
-
-  attach(sink: TimelineSink): () => void {
-    this.#sink = sink;
-    return () => {
-      if (this.#sink === sink) this.#sink = undefined;
-    };
+    this.#codec.toggleOverlay();
   }
 
   sendInspector(cmd: InspectorCommand): void {
-    this.#hot?.send(INSPECT_CMD_CHANNEL, cmd);
+    this.#codec.sendInspector(cmd);
   }
 
   setRecording(recording: boolean): void {
-    this.#hot?.send(CHANNEL_RECORDING_CHANGED, {recording});
+    this.#codec.setRecording(recording);
   }
 
   setLayers(layers: TimelineLayersState): void {
-    this.#hot?.send(CHANNEL_LAYERS_CHANGED, layersWireFormat(layers));
+    this.#codec.setLayers(layers);
   }
 
   setSettingsOverride(override: SettingsOverride): void {
-    this.#hot?.send(SETTINGS_OVERRIDE_CHANNEL, override);
+    this.#codec.setSettingsOverride(override);
   }
 }
 
