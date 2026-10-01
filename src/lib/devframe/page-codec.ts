@@ -21,6 +21,8 @@ import type {
 } from '../../types/inspector.js';
 import {HMR_INCOMPATIBLE_CHANNEL} from '../../types/hmr-incompatibility.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
+import {HMR_PATCH_CHANNEL} from '../../types/hmr-patch.js';
+import type {HmrPatchEvent} from '../../types/hmr-patch.js';
 import {SETTINGS_OVERRIDE_CHANNEL} from '../../types/timeline.js';
 import type {
   SettingsOverride,
@@ -110,6 +112,25 @@ export class TimelineChannelCodec implements TimelineSource {
     carrier.on(HMR_INCOMPATIBLE_CHANNEL, (data) => {
       if (isRecord(data))
         this.#sink?.hmrIncompatible(data as unknown as HmrIncompatibilityEvent);
+    });
+    carrier.on(HMR_PATCH_CHANNEL, (data) => {
+      // Stricter than the incompatibility channel: the node side does
+      // arithmetic and string matching on these fields.
+      if (
+        isRecord(data) &&
+        typeof data.tagName === 'string' &&
+        typeof data.instances === 'number' &&
+        typeof data.generation === 'number' &&
+        typeof data.durationMs === 'number' &&
+        typeof data.at === 'number'
+      ) {
+        // Transport metadata: the sink gets the page id beside the event.
+        const {pageId, ...event} = data;
+        this.#sink?.hmrPatched(
+          event as unknown as HmrPatchEvent,
+          typeof pageId === 'string' ? pageId : undefined
+        );
+      }
     });
     // The runtime announces itself on every connect and boots from the
     // compiled-in defaults, so the sink replays the session's state to it.

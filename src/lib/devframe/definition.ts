@@ -39,6 +39,7 @@ import {
   RPC_PAGE_CHANGED,
   RPC_HMR_INCOMPATIBILITIES,
   RPC_HMR_INCOMPATIBLE,
+  RPC_HMR_PATCHED,
   RPC_INSPECT,
   RPC_INSPECTOR_MESSAGE,
   RPC_LIST_COMPONENTS,
@@ -360,6 +361,17 @@ export function createLitDevframe(
                 }
               })
               .catch(() => {});
+          },
+          hmrPatched(event, pageId) {
+            // Every open tab applies the same HMR patch; only the followed
+            // page's counts.
+            if (!recording.accepts(pageId)) return;
+            recording.pushHmrPatch(event);
+            void ctx.rpc.broadcast({
+              method: `${LIT_DEVFRAME_ID}:${RPC_HMR_PATCHED}`,
+              args: [event],
+              optional: true,
+            });
           },
           hmrIncompatible(event) {
             recording.pushHmrIncompatibility(event);

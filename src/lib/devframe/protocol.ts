@@ -23,6 +23,7 @@ import type {
   InspectorTreeNode,
 } from '../../types/inspector.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
+import type {HmrPatchEvent} from '../../types/hmr-patch.js';
 import type {ComponentRollup, UpdateCycle} from '../timeline/derive.js';
 
 /** The devframe's scope id. RPC names become `lit:*`, MCP wire names `lit_*`. */
@@ -137,6 +138,9 @@ export const RPC_HMR_INCOMPATIBILITIES = 'hmr-incompatibilities';
 
 /** Bare name of the `hmr-incompatible` client (node → panel) event. */
 export const RPC_HMR_INCOMPATIBLE = 'hmr-incompatible';
+
+/** Bare name of the `hmr-patched` client (node → panel) event. */
+export const RPC_HMR_PATCHED = 'hmr-patched';
 
 /** Bare name of the `page-changed` client (node → panel) event. */
 export const RPC_PAGE_CHANGED = 'page-changed';
@@ -350,6 +354,7 @@ declare module 'devframe' {
   interface DevframeRpcClientFunctions {
     'lit:inspector-message': (message: InspectorMessage) => void;
     'lit:hmr-incompatible': (event: HmrIncompatibilityEvent) => void;
+    'lit:hmr-patched': (event: HmrPatchEvent) => void;
     'lit:page-changed': (event: PageChangedEvent) => void;
     'lit:page-receive': (channel: string, data?: unknown) => void;
   }

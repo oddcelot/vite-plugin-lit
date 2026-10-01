@@ -49,6 +49,7 @@ test('lit-render-verbose stays silent when only lit-render is enabled', async ()
     addLayer: () => {},
     inspectorMessage: () => {},
     hmrIncompatible: () => {},
+    hmrPatched: () => {},
     runtimeReady: () => {},
   });
 
@@ -90,6 +91,7 @@ test('lit-render-verbose reports serializable per-part events when enabled', asy
     addLayer: () => {},
     inspectorMessage: () => {},
     hmrIncompatible: () => {},
+    hmrPatched: () => {},
     runtimeReady: () => {},
   });
 
