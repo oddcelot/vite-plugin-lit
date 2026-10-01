@@ -8,30 +8,9 @@ import type {TimelineEvent} from '../types/timeline.js';
 import type {TimelineSpan} from '../lib/timeline/derive.js';
 import {layerColor} from './timeline-layers.js';
 import type {LayerState} from './timeline-layers.js';
-import {compileRegex, filterSpans} from '../lib/timeline/filter.js';
+import {applyFilter, NO_FILTER, rawRow} from '../lib/timeline/model.js';
+import type {TimelineFilter} from '../lib/timeline/model.js';
 import './timeline-span-detail.js';
-
-const RAW_KEY_PREFIX = 'raw:';
-
-/** Whether `key` names a Raw-mode row rather than a collapsed span. */
-export const isRawKey = (key: string): boolean =>
-  key.startsWith(RAW_KEY_PREFIX);
-
-/**
- * Adapts one raw event to the row shape for the Raw toggle. Deliberately
- * drops `groupId`: pairing is what the collapsed mode is for, and without it
- * the duration cell reads "point event" rather than "still open".
- */
-const rawRow = (event: TimelineEvent, index: number): TimelineSpan => ({
-  layerId: event.layerId,
-  key: `${RAW_KEY_PREFIX}${index}`,
-  name: event.title ?? event.layerId,
-  start: event.time,
-  subtitle: event.subtitle,
-  logType: event.logType,
-  meta: event.meta,
-  events: [event],
-});
 
 /** Lit updates are routinely sub-millisecond, so one decimal is not enough. */
 const formatMs = (ms: number): string =>
@@ -190,12 +169,10 @@ export class TimelineEventList extends LitElement {
   /** Key of the selected row. Keys survive re-derivation; the row objects
    *  themselves are rebuilt whenever the event buffer changes. */
   @property({attribute: false}) selectedKey: string | null = null;
-  /** Element id to filter the list to, or null for all elements. Owned by
-   *  `timeline-view`, which applies the same filter to the tracks. */
-  @property({attribute: false}) elementFilter: number | null = null;
-  /** Case-insensitive regex (source text) matched against tag/title/subtitle.
-   *  Owned by `timeline-view`, like `elementFilter`. */
-  @property({attribute: false}) regex = '';
+  /** Element and regex filter. Owned by `timeline-view`, which applies the
+   *  same filter to the tracks; applied here too because Raw rows are not
+   *  spans the view derives. */
+  @property({attribute: false}) filter: TimelineFilter = NO_FILTER;
   /** One row per raw event instead of one per collapsed span. */
   @state() private _raw = false;
 
@@ -221,15 +198,13 @@ export class TimelineEventList extends LitElement {
       changed.has('spans') ||
       changed.has('_raw') ||
       changed.has('layers') ||
-      changed.has('elementFilter') ||
-      changed.has('regex')
+      changed.has('filter')
     ) {
       // Compile once per relevant change, not once per render; an invalid
       // pattern disables the filter (rather than hiding everything).
-      this._visibleCache = filterSpans(
+      this._visibleCache = applyFilter(
         this._rowsCache.filter((row) => this._layerOn(row)),
-        this.elementFilter,
-        compileRegex(this.regex).re
+        this.filter
       );
     }
   }
