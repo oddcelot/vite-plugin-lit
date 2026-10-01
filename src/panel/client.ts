@@ -17,6 +17,7 @@ import type {DevframeScopedClientContext} from 'devframe/client';
 import type {SettingsForNamespace} from 'devframe';
 import {LIT_DEVFRAME_ID} from '../lib/devframe/protocol.js';
 import type {LitGetMetaResult} from '../lib/devframe/protocol.js';
+import {createSettingsGate} from './settings-sync.js';
 
 /**
  * The `lit:`-scoped client. The second parameter is what makes
@@ -47,6 +48,15 @@ export const litRpc = (): Promise<LitClient> =>
     await client.ensureTrusted();
     return client.scope(LIT_DEVFRAME_ID);
   })());
+
+/**
+ * {@link litRpc} once the durable settings store has synced with the server.
+ * Every read and write of `settings.global` goes through this, never through
+ * {@link litRpc} directly: a write that beats the first sync is overwritten by
+ * it, and the server's store is reset with it (see `settings-sync.ts`).
+ */
+export const litSettingsRpc: () => Promise<LitClient> =
+  createSettingsGate(litRpc);
 
 /**
  * Whether this panel is a frozen snapshot rather than a live session.

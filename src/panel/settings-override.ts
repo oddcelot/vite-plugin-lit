@@ -11,7 +11,7 @@
  */
 
 import {createSettingsOverrides} from '../lib/settings-override.js';
-import {litRpc} from './client.js';
+import {litRpc, litSettingsRpc} from './client.js';
 
 const quiet = (p: Promise<unknown>): void => {
   p.catch(() => {
@@ -31,8 +31,10 @@ export const overrides = createSettingsOverrides({
   },
   durable: {
     set: (key: 'override' | 'overrideBaselines', value: never) =>
-      quiet(litRpc().then((rpc) => rpc.settings.global.set(key, value))),
+      quiet(
+        litSettingsRpc().then((rpc) => rpc.settings.global.set(key, value))
+      ),
     delete: (key) =>
-      quiet(litRpc().then((rpc) => rpc.settings.global.delete(key))),
+      quiet(litSettingsRpc().then((rpc) => rpc.settings.global.delete(key))),
   },
 });
