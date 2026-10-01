@@ -206,3 +206,8 @@ Issues and pull requests are welcome; see [CONTRIBUTING.md](./CONTRIBUTING.md).
 ## License
 
 BSD-3-Clause. See [LICENSE](./LICENSE).
+
+The DevTools panel bundles [Web Awesome](https://webawesome.com) components
+(MIT) and [Font Awesome Free](https://fontawesome.com) icons
+([CC BY 4.0](https://fontawesome.com/license/free)); each icon SVG keeps its
+license notice.
