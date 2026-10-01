@@ -13,6 +13,7 @@
 
 import {CHANNEL_PUSH_EVENT} from '../../../types/timeline.js';
 import type {TimelineEvent} from '../../../types/timeline.js';
+import {PAGE_ID} from '../page-id.js';
 import type {PageTransport} from '../page-channel.js';
 
 type HotClient = Pick<PageTransport, 'send'>;
@@ -73,7 +74,7 @@ const flush = (): void => {
   if (queue.length === 0 || hotClient === null) return;
   const batch = queue.splice(0);
   try {
-    hotClient.send(CHANNEL_PUSH_EVENT, {events: batch});
+    hotClient.send(CHANNEL_PUSH_EVENT, {events: batch, pageId: PAGE_ID});
   } catch {
     // HMR channel may be temporarily unavailable; events are dropped.
   }
