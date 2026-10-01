@@ -46,7 +46,7 @@ now also shown in the panel and to agents.
   LLM already summarizes structured events well, and a node-side summarizer
   would add a second schema to keep in sync with `TimelineEvent` and force
   heuristics like "what is a render storm" with no feedback. Filters (`layerId`,
-  `elementId`, `sinceMs`, `limit`) let the agent ask the specific question. The
+  `elementId`, `tagName`, `sinceMs`, `limit`) let the agent ask the specific question. The
   summary tool that did arrive (below) came from a stronger reason.
 - **The history is a node-side ring buffer in `definition.ts`,** capped at
   `RECENT_EVENTS_BUFFER_SIZE` (512). The stream's internal replay buffer is
@@ -58,6 +58,18 @@ now also shown in the panel and to agents.
   accepted until it is a real problem.
 - **`sinceMs` is relative to the newest buffered event,** because event times
   are recording-relative and share no clock with node.
+- **Agents can address a component by tag name.** The question an agent gets
+  names `<todo-item>`, not an element id, and the id route cost a full
+  `list-components` call plus a scan first. `component-details` and
+  `recent-events` therefore take `tagName`, matched case-insensitively. The
+  `{id}` form of `component-details` is unchanged because the static snapshot
+  bakes it per id. The tag-name form reads the live tree, then each match, and
+  returns a `missing` list for matches the page reports gone or that nothing
+  answered for and the cache lacks; it is capped (20, ceiling 50) with
+  `truncated`. `list-components` takes `maxDepth` so a large app does not flood
+  the agent's context, and marks cut nodes with `hiddenChildren`. The filtering
+  lives in `devframe/session.ts`, not `timeline/filter.ts`, which is the
+  panel's.
 - **The response always carries `recording: boolean`.** With recording off,
   `events` is empty and the tool description tells the agent to enable
   recording, so "not recording" is distinguishable from "recording but quiet".
