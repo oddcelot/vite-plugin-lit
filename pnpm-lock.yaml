@@ -145,12 +145,18 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
         version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.7.6)(esbuild@0.28.2)(typescript@7.0.2)(yaml@2.9.1)'
     devDependencies:
+      '@awesome.me/webawesome':
+        specifier: ^3.14.0
+        version: 3.14.0(@floating-ui/utils@0.2.12)(@types/node@26.6.3)(@types/react@19.3.0)
       '@devframes/agentic':
         specifier: 1.1.0
         version: 1.1.0(crossws@0.4.12(srvx@1.0.5))(devframe@1.1.0)
       '@devframes/service-open':
         specifier: 1.1.0
         version: 1.1.0(devframe@1.1.0)
+      '@fortawesome/fontawesome-free':
+        specifier: ^7.3.1
+        version: 7.3.1
       '@lit-labs/signals':
         specifier: ^0.3.0
         version: 0.3.0
@@ -823,6 +829,10 @@ packages:
 
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
+
+  '@fortawesome/fontawesome-free@7.3.1':
+    resolution: {integrity: sha512-wmglKKPDIkgV3aWlZzWECCPoGIkYCulzBwxG9+w7rc5BGapZ6cPMpoPOT8k36J0Ni7PPX6c/rsoMWfS4d1MUMg==}
+    engines: {node: '>=6'}
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -4342,6 +4352,8 @@ snapshots:
       '@floating-ui/utils': 0.2.12
 
   '@floating-ui/utils@0.2.12': {}
+
+  '@fortawesome/fontawesome-free@7.3.1': {}
 
   '@img/colour@1.1.0': {}
 
