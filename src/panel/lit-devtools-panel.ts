@@ -7,6 +7,7 @@ import {
 } from '../lib/color-scheme.js';
 import './timeline-view.js';
 import {isSnapshot, litRpc} from './client.js';
+import {clearTimelineEvents} from './timeline-store.js';
 import type {PageChangedEvent} from '../lib/devframe/protocol.js';
 
 // Install the shared design tokens on the panel iframe's :root before the
@@ -175,6 +176,9 @@ export class LitDevtoolsPanel extends LitElement {
         name: 'page-changed',
         type: 'event',
         handler: (event: PageChangedEvent) => {
+          // The node dropped its buffer; the panel's own copy describes a
+          // page that is no longer followed, on a different clock.
+          clearTimelineEvents();
           this._pageChange = event;
         },
       });

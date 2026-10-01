@@ -10,7 +10,11 @@ import {
   setSnapshot,
   updateSharedState,
 } from './fakes/client.js';
-import {resetStore, setEvents} from './fakes/timeline-store.js';
+import {
+  getTimelineEvents,
+  resetStore,
+  setEvents,
+} from './fakes/timeline-store.js';
 
 vi.mock('../../panel/client.js', () => import('./fakes/client.js'));
 vi.mock(
@@ -173,6 +177,7 @@ test('the hub activating the dock with params is a link too', async () => {
 const pageChanged = {previousPageId: 'a', pageId: 'b', at: Date.now()};
 
 test('says so when the followed page changes, until dismissed', async () => {
+  setEvents(events);
   const {el, root} = await mount();
   expect(root.querySelector('.page-changed')).toBeNull();
   push('page-changed', pageChanged);
@@ -180,6 +185,7 @@ test('says so when the followed page changes, until dismissed', async () => {
   expect(root.querySelector('.page-changed')?.textContent).toContain(
     'Another page connected'
   );
+  expect(getTimelineEvents()).toEqual([]);
   root.querySelector<HTMLButtonElement>('.page-changed button')!.click();
   await flush(el);
   expect(root.querySelector('.page-changed')).toBeNull();
