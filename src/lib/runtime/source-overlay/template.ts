@@ -30,7 +30,7 @@ export const OVERLAY_HTML = `
       display: none;
       pointer-events: none;
       box-sizing: border-box;
-      border-radius: 2px;
+      border-radius: 0;
       /* Same box the inspector panel draws on tree hover (inspector/install.ts),
          so picking and panel-hovering read as the same selection. */
       background: rgba(77, 99, 255, 0.25);

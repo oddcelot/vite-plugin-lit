@@ -104,18 +104,19 @@ const baseTokenCSS = `
 `;
 
 /**
- * Radius scale. Kept out of the `:host` copy in {@link tokens} so panel
- * components inherit it from `:root`, where the panel re-points it at Web
- * Awesome's radii (src/panel/wa-theme.css).
+ * Radius scale: the DevTools draw square corners everywhere, in the panel
+ * and in the in-page UI. Kept as tokens (and out of the `:host` copy in
+ * {@link tokens}, so components inherit it from `:root`) so a surface can
+ * still opt into a radius in one place.
  */
 const radiusTokenCSS = `
-  /* ---- Radius ---- */
-  --lit-devtools-radius-xs:   3px;
-  --lit-devtools-radius-sm:   5px;
-  --lit-devtools-radius-md:   8px;
-  --lit-devtools-radius-lg:   12px;
-  --lit-devtools-radius-xl:   16px;
-  --lit-devtools-radius-pill: 999px;
+  /* ---- Radius · square corners throughout ---- */
+  --lit-devtools-radius-xs:   0;
+  --lit-devtools-radius-sm:   0;
+  --lit-devtools-radius-md:   0;
+  --lit-devtools-radius-lg:   0;
+  --lit-devtools-radius-xl:   0;
+  --lit-devtools-radius-pill: 0;
 `;
 
 const darkThemeCSS = `

@@ -87,7 +87,7 @@ class LitDevtoolsIndicator extends HTMLElement {
           padding:7px 12px;
           border-left:1px solid var(--lit-devtools-border-subtle)
         }
-        .dot{width:8px;height:8px;border-radius:50%;background:var(--lit-devtools-success);flex-shrink:0}
+        .dot{width:8px;height:8px;border-radius:0;background:var(--lit-devtools-success);flex-shrink:0}
         /* Style-only swaps (shared adopted stylesheet hot-swap, no re-render)
            pulse in the calmer info color and don't bump the count. */
         #container.style-swap .dot{background:var(--lit-devtools-info)}

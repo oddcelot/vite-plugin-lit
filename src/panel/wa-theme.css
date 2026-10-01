@@ -50,17 +50,3 @@
     --wa-border-radius-circle: 0;
   }
 }
-
-/*
- * The custom views (tree, tables, timeline) are square too. `:root:root`
- * outranks the `:root` block injectTokens() appends later. Spacing needs no
- * mapping: WA's 2/4/8/12/16/24/32px scale already matches ours.
- */
-:root:root {
-  --lit-devtools-radius-xs: 0;
-  --lit-devtools-radius-sm: 0;
-  --lit-devtools-radius-md: 0;
-  --lit-devtools-radius-lg: 0;
-  --lit-devtools-radius-xl: 0;
-  --lit-devtools-radius-pill: 0;
-}
