@@ -1,6 +1,13 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
 import {ref, createRef} from 'lit/directives/ref.js';
+import '@awesome.me/webawesome/dist/components/button/button.js';
+import '@awesome.me/webawesome/dist/components/icon/icon.js';
+import '@awesome.me/webawesome/dist/components/input/input.js';
+import '@awesome.me/webawesome/dist/components/option/option.js';
+import '@awesome.me/webawesome/dist/components/select/select.js';
+import type WaInput from '@awesome.me/webawesome/dist/components/input/input.js';
+import type WaSelect from '@awesome.me/webawesome/dist/components/select/select.js';
 import {tokens} from '../lib/tokens.js';
 import type {
   TimelineEvent,
@@ -116,19 +123,6 @@ export class TimelineView extends LitElement {
       .spacer {
         flex: 1;
       }
-      button {
-        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
-        border-radius: var(--lit-devtools-radius-sm);
-        border: 1px solid var(--lit-devtools-border);
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text);
-        font-size: var(--lit-devtools-text-2xs);
-        cursor: pointer;
-      }
-      button:hover {
-        background: var(--lit-devtools-surface-hover);
-        border-color: var(--lit-devtools-border-strong);
-      }
       .export-note {
         color: var(--lit-devtools-text-muted);
         font-size: var(--lit-devtools-text-2xs);
@@ -136,10 +130,8 @@ export class TimelineView extends LitElement {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .record.active {
-        border-color: var(--lit-devtools-error);
-        background: var(--lit-devtools-error-soft);
-        color: var(--lit-devtools-error);
+      .record:not(.active) wa-icon {
+        color: var(--wa-color-danger-fill-loud);
       }
       .toolbar segmented-tabs {
         align-self: stretch;
@@ -155,24 +147,16 @@ export class TimelineView extends LitElement {
         color: var(--lit-devtools-text-muted);
         flex-shrink: 0;
       }
-      .filterbar select,
-      .filterbar input.regex {
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text);
-        border: 1px solid var(--lit-devtools-border-strong);
-        border-radius: var(--lit-devtools-radius-sm);
-        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-3);
-        font-size: var(--lit-devtools-text-2xs);
+      .filterbar wa-select {
+        min-width: 160px;
         font-family: var(--lit-devtools-font-mono);
       }
-      .filterbar input.regex {
+      .filterbar wa-input.regex {
         min-width: 140px;
+        font-family: var(--lit-devtools-font-mono);
       }
-      .filterbar input.regex::placeholder {
-        color: var(--lit-devtools-text-muted);
-      }
-      .filterbar input.regex.invalid {
-        border-color: var(--lit-devtools-error);
+      .filterbar wa-input.regex.invalid {
+        --wa-form-control-border-color: var(--wa-color-danger-border-loud);
       }
       timeline-event-list,
       timeline-tracks {
@@ -438,13 +422,13 @@ export class TimelineView extends LitElement {
   }
 
   private _onElementSelect(e: Event) {
-    const v = (e.target as HTMLSelectElement).value;
+    const v = (e.target as WaSelect).value as string;
     this._model.setFilter({elementId: v === '' ? null : Number(v)});
     this.requestUpdate();
   }
 
   private _onRegexInput(e: Event) {
-    this._model.setFilter({regex: (e.target as HTMLInputElement).value});
+    this._model.setFilter({regex: (e.target as WaInput).value ?? ''});
     this.requestUpdate();
   }
 
@@ -484,24 +468,37 @@ export class TimelineView extends LitElement {
             : html`<span class="export-note">${this._exportNote}</span>`
         }
         <span class="spacer"></span>
-        <button
+        <wa-button
+          size="small"
+          appearance="outlined"
           ?disabled=${this._exporting || isSnapshot()}
           title="Write this session to a static panel directory you can attach to a bug report"
           @click=${this._exportSnapshot}
         >
+          <wa-icon slot="start" name="file-export"></wa-icon>
           Export snapshot
-        </button>
-        <button @click=${this._clear}>Clear</button>
+        </wa-button>
+        <wa-button size="small" appearance="outlined" @click=${this._clear}>
+          <wa-icon slot="start" name="trash-can"></wa-icon>
+          Clear
+        </wa-button>
         ${
           // A frozen session has nothing to record and no server to tell.
           isSnapshot()
             ? nothing
-            : html`<button
+            : html`<wa-button
                 class="record ${this._recording ? 'active' : ''}"
+                size="small"
+                variant=${this._recording ? 'danger' : 'neutral'}
+                appearance=${this._recording ? 'filled' : 'outlined'}
                 @click=${this._toggleRecord}
               >
-                ${this._recording ? '⏹ Stop' : '▶ Record'}
-              </button>`
+                <wa-icon
+                  slot="start"
+                  name=${this._recording ? 'stop' : 'circle'}
+                ></wa-icon>
+                ${this._recording ? 'Stop' : 'Record'}
+              </wa-button>`
         }
       </div>
       <timeline-layers
@@ -527,33 +524,37 @@ export class TimelineView extends LitElement {
                 model.elements.length > 0
                   ? html`
                       <span>Element:</span>
-                      <select @change=${this._onElementSelect}>
-                        <option value="" ?selected=${filter.elementId === null}>
-                          All elements
-                        </option>
+                      <wa-select
+                        size="small"
+                        .value=${
+                          filter.elementId === null
+                            ? ''
+                            : String(filter.elementId)
+                        }
+                        @change=${this._onElementSelect}
+                      >
+                        <wa-option value="">All elements</wa-option>
                         ${model.elements.map(
                           (el) => html`
-                            <option
-                              value=${el.id}
-                              ?selected=${filter.elementId === el.id}
-                            >
+                            <wa-option value=${String(el.id)}>
                               &lt;${el.tag}&gt; #${el.id}
-                            </option>
+                            </wa-option>
                           `
                         )}
-                      </select>
+                      </wa-select>
                     `
                   : nothing
               }
-              <input
+              <wa-input
                 class="regex ${model.regexInvalid ? 'invalid' : ''}"
+                size="small"
                 type="text"
                 spellcheck="false"
                 placeholder="filter regex…"
                 title="Case-insensitive regex matched against element tag, title and subtitle"
                 .value=${filter.regex}
                 @input=${this._onRegexInput}
-              />
+              ></wa-input>
             </div>`
           : nothing
       }

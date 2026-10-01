@@ -186,7 +186,7 @@ test('the regex filter narrows the tracks as well as the list', async () => {
   await expect.poll(() => marks.count()).toBeGreaterThan(0);
 
   // The filter bar stays on screen in Tracks mode.
-  const regex = page.locator('timeline-view input.regex');
+  const regex = page.locator('timeline-view wa-input.regex input');
   await regex.fill('^no-such-span$');
   await expect.poll(() => marks.count()).toBe(0);
 
@@ -206,7 +206,9 @@ test('a filter that hides the selected mark keeps its detail in Tracks', async (
   await marks.first().click();
   await detail.waitFor();
 
-  await page.locator('timeline-view input.regex').fill('^no-such-span$');
+  await page
+    .locator('timeline-view wa-input.regex input')
+    .fill('^no-such-span$');
   await expect.poll(() => marks.count()).toBe(0);
   expect(await detail.count()).toBe(1);
   expect(panel.errors).toEqual([]);

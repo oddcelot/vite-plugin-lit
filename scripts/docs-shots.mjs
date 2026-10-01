@@ -117,7 +117,7 @@ const exercise = async (app) => {
 const recordSession = async (ctx) => {
   const app = await ctx.openApp();
   const panel = await ctx.openPanel('#tab=timeline');
-  const record = timelineView(panel).locator('css=button.record');
+  const record = timelineView(panel).locator('css=wa-button.record');
   await record.waitFor();
   await record.click();
   await record.and(panel.locator('css=.active')).waitFor();
@@ -311,7 +311,9 @@ const SHOTS = [
       const {panel} = await recordSession(ctx);
       // The Router layer's events are the only ones titled `navigate …`, and
       // custom layers have no toggle chip — the regex box is the filter.
-      await timelineView(panel).locator('css=input.regex').fill('navigate');
+      await timelineView(panel)
+        .locator('css=wa-input.regex input')
+        .fill('navigate');
       await sleep(400);
       await ctx.shot(panel);
     },
