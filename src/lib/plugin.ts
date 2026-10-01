@@ -60,6 +60,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
         enabled: () => ctx.get().timeline,
         features: () => toFeatureSettings(ctx.get()),
         configuredEditor: () => configuredEditor(ctx.get()),
+        sourceLocator: () => ctx.locator(),
       })
     );
   }

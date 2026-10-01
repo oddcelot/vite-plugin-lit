@@ -54,11 +54,15 @@ describe('options context resolution', () => {
     expect(ctx.get().timeline).toBe(true);
   });
 
-  test('root() is recorded from configResolved', () => {
+  test('the source locator is built from configResolved', () => {
     const ctx = createOptionsContext({});
-    expect(ctx.root()).toBe('');
-    (ctx.plugin.configResolved as Hook)({root: '/proj'});
-    expect(ctx.root()).toBe('/proj');
+    expect(ctx.locator().roots).toEqual([]);
+    (ctx.plugin.configResolved as Hook)({
+      root: '/proj/app',
+      server: {fs: {allow: ['/proj']}},
+    });
+    expect(ctx.locator().roots).toEqual(['/proj/app', '/proj']);
+    expect(ctx.locator().toWire('/proj/app/src/a.ts')).toBe('src/a.ts');
   });
 });
 
@@ -93,39 +97,6 @@ describe('options context shouldTransform', () => {
   test('rejects an SSR pass', () => {
     expect(ctx.shouldTransform('/proj/src/a.ts', {ssr: true})).toBe(false);
     expect(ctx.shouldTransform('/proj/src/a.ts', {ssr: false})).toBe(true);
-  });
-});
-
-describe('options context relativeToRoot', () => {
-  const at = (root: string) => {
-    const ctx = createOptionsContext({});
-    (ctx.plugin.configResolved as Hook)({root});
-    return ctx;
-  };
-
-  test('strips the root from files inside it', () => {
-    expect(at('/proj').relativeToRoot('/proj/src/a.ts')).toBe('src/a.ts');
-  });
-
-  test('works for a filesystem root', () => {
-    expect(at('/').relativeToRoot('/src/a.ts')).toBe('src/a.ts');
-  });
-
-  test('leaves a sibling that shares the root prefix alone', () => {
-    expect(at('/proj').relativeToRoot('/proj-other/a.ts')).toBe(
-      '/proj-other/a.ts'
-    );
-  });
-
-  test('leaves files outside the root alone', () => {
-    expect(at('/proj/app').relativeToRoot('/proj/lib/a.ts')).toBe(
-      '/proj/lib/a.ts'
-    );
-  });
-
-  test('is a no-op before the root is known', () => {
-    const ctx = createOptionsContext({});
-    expect(ctx.relativeToRoot('/proj/a.ts')).toBe('/proj/a.ts');
   });
 });
 
