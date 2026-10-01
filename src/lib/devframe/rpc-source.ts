@@ -6,40 +6,28 @@
  * That lets `lit-devtools dev` show a live tree, inspector and timeline
  * instead of running on {@link createNullSource}.
  *
- * The channel names and payloads are the ones {@link HotTimelineSource} moves
- * over `import.meta.hot`; only the carrier differs. The page half is
+ * The channel mapping is the {@link TimelineChannelCodec} that
+ * {@link HotTimelineSource} also uses over `import.meta.hot`; only the carrier
+ * differs. The page half is
  * `runtime/rpc-transport.ts`.
  *
  * Like `definition.ts`, nothing here imports Vite. The devframe-specific
  * wiring lives in {@link createStandaloneLitDevframe}; the class itself takes a
- * tiny {@link PageLinkNode}, so its channel-to-sink mapping is testable
+ * tiny {@link PageLinkNode}, so its carrier is testable
  * without a running server.
  */
 
 import {defineRpcFunction} from 'devframe';
 import type {DevframeDefinition, DevframeNodeContext} from 'devframe';
-import {
-  INSPECT_CMD_CHANNEL,
-  INSPECT_DATA_CHANNEL,
-  INSPECT_OVERLAY_TOGGLE_CHANNEL,
-} from '../../types/inspector.js';
-import type {
-  InspectorCommand,
-  InspectorMessage,
-} from '../../types/inspector.js';
-import {HMR_INCOMPATIBLE_CHANNEL} from '../../types/hmr-incompatibility.js';
-import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
-import {SETTINGS_OVERRIDE_CHANNEL} from '../../types/timeline.js';
+import type {InspectorCommand} from '../../types/inspector.js';
 import type {
   SettingsOverride,
-  TimelineEvent,
-  TimelineLayer,
   TimelineLayersState,
 } from '../../types/timeline.js';
 import {createLitDevframe} from './definition.js';
 import type {CreateLitDevframeOptions} from './definition.js';
+import {TimelineChannelCodec} from './page-codec.js';
 import {LIT_DEVFRAME_ID, RPC_PAGE_RECEIVE, RPC_PAGE_SEND} from './protocol.js';
-import {layersWireFormat} from './source.js';
 import type {TimelineSink, TimelineSource} from './source.js';
 
 /** What {@link RpcTimelineSource} needs of the server it is mounted on. */
@@ -50,88 +38,49 @@ export interface PageLinkNode {
   sendToPages(channel: string, data?: unknown): void;
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
 /**
- * `TimelineSource` over devframe RPC. Messages that arrive from the network
- * are untrusted in shape, so each is checked before it reaches the sink;
- * anything unrecognised is ignored rather than thrown, which keeps a
- * misbehaving page from taking the session down.
+ * `TimelineSource` over devframe RPC: a {@link TimelineChannelCodec} on a
+ * carrier built from the server's {@link PageLinkNode}. There is no dock to
+ * bring forward on a `pick`, unlike the Vite hub: the standalone panel is the
+ * whole page, so the codec gets no pick hook.
  */
 export class RpcTimelineSource implements TimelineSource {
-  #node: PageLinkNode | undefined;
-  #sink: TimelineSink | undefined;
+  readonly #codec = new TimelineChannelCodec();
 
   /** Wire the source to a server. Call once, before pages can connect. */
   bind(node: PageLinkNode): void {
-    this.#node = node;
-    node.onPageMessage((channel, data) => this.#receive(channel, data));
+    // The node hands over every page message through one handler; fan it out
+    // by channel for the codec.
+    const listeners = new Map<string, (data: unknown) => void>();
+    node.onPageMessage((channel, data) => listeners.get(channel)?.(data));
+    this.#codec.connect({
+      on: (channel, callback) => void listeners.set(channel, callback),
+      send: (channel, data) => node.sendToPages(channel, data),
+    });
   }
 
   attach(sink: TimelineSink): () => void {
-    this.#sink = sink;
-    return () => {
-      if (this.#sink === sink) this.#sink = undefined;
-    };
-  }
-
-  #receive(channel: string, data: unknown): void {
-    const sink = this.#sink;
-    if (sink === undefined) return;
-    switch (channel) {
-      case 'lit:timeline:push-event': {
-        const events = isRecord(data) ? data.events : undefined;
-        sink.pushEvents(
-          Array.isArray(events) ? (events as TimelineEvent[]) : []
-        );
-        break;
-      }
-      case 'lit:timeline:custom-layer': {
-        const layer = isRecord(data)
-          ? (data.layer as TimelineLayer)
-          : undefined;
-        if (layer?.id) sink.addLayer(layer);
-        break;
-      }
-      case INSPECT_DATA_CHANNEL:
-        // No dock to bring forward on a `pick`, unlike the Vite hub: the
-        // standalone panel is the whole page.
-        if (isRecord(data) && typeof data.type === 'string') {
-          sink.inspectorMessage(data as unknown as InspectorMessage);
-        }
-        break;
-      case HMR_INCOMPATIBLE_CHANNEL:
-        if (isRecord(data))
-          sink.hmrIncompatible(data as unknown as HmrIncompatibilityEvent);
-        break;
-      case 'lit:timeline:runtime-ready':
-        sink.runtimeReady();
-        break;
-    }
+    return this.#codec.attach(sink);
   }
 
   toggleOverlay(): void {
-    this.#node?.sendToPages(INSPECT_OVERLAY_TOGGLE_CHANNEL);
+    this.#codec.toggleOverlay();
   }
 
   sendInspector(cmd: InspectorCommand): void {
-    this.#node?.sendToPages(INSPECT_CMD_CHANNEL, cmd);
+    this.#codec.sendInspector(cmd);
   }
 
   setRecording(recording: boolean): void {
-    this.#node?.sendToPages('lit:timeline:recording-changed', {recording});
+    this.#codec.setRecording(recording);
   }
 
   setLayers(layers: TimelineLayersState): void {
-    this.#node?.sendToPages(
-      'lit:timeline:layers-changed',
-      layersWireFormat(layers)
-    );
+    this.#codec.setLayers(layers);
   }
 
   setSettingsOverride(override: SettingsOverride): void {
-    this.#node?.sendToPages(SETTINGS_OVERRIDE_CHANNEL, override);
+    this.#codec.setSettingsOverride(override);
   }
 }
 
