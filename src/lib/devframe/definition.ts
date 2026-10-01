@@ -281,6 +281,24 @@ export function createLitDevframe(
             const {layers} = session.value();
             source.setLayers(layers);
             source.setRecording(layers.recordingState);
+
+            // The runtime reads the panel's settings override from its own
+            // localStorage at boot. That only works where the panel and the
+            // app share an origin (the Vite hub); in standalone mode and on
+            // per-port origins (StackBlitz) the page's localStorage never
+            // holds it, so a reload would fall back to the config defaults.
+            // The durable store has it, so replay from there. In the hub this
+            // re-sends the values the page already read. Best-effort and
+            // fire-and-forget: this handler is sync, and a missing override
+            // or a failed read just leaves the runtime on its defaults.
+            void my.settings.global
+              .get('override')
+              .then((override) => {
+                if (override && Object.keys(override).length > 0) {
+                  source.setSettingsOverride(override as SettingsOverride);
+                }
+              })
+              .catch(() => {});
           },
           hmrIncompatible(event) {
             recording.pushHmrIncompatibility(event);
