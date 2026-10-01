@@ -1,4 +1,4 @@
-import {afterEach, describe, expect, test} from 'vite-plus/test';
+import {afterEach, describe, expect, test, vi} from 'vite-plus/test';
 import {initDevframe} from 'devframe/initiate';
 import type {DevframeInstance} from 'devframe/initiate';
 import {TIMELINE_LAYERS} from '../../types/timeline.js';
@@ -538,6 +538,32 @@ describe('lit devframe definition', () => {
 
     expect(source.recording).toEqual([true]);
     expect(source.layers[0]?.recordingState).toBe(true);
+  });
+
+  test('replays the stored settings override to a runtime that just connected', async () => {
+    const {ctx, source} = await boot();
+    const settings = ctx.scope('lit').settings.global;
+    await settings.set('override', {flashUpdates: true});
+    try {
+      // Cross-origin pages (standalone, StackBlitz) have no localStorage copy
+      // of the panel's override, so the node replays it on every boot.
+      source.sink!.runtimeReady();
+      await vi.waitFor(() =>
+        expect(source.overrides).toEqual([{flashUpdates: true}])
+      );
+    } finally {
+      await settings.delete('override');
+    }
+  });
+
+  test('sends no settings override when none is stored', async () => {
+    const {ctx, source} = await boot();
+    await ctx.scope('lit').settings.global.delete('override');
+    source.sink!.runtimeReady();
+    // The replay is async; let the store read settle before asserting.
+    await ctx.scope('lit').settings.global.get('override');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(source.overrides).toEqual([]);
   });
 
   test('drops buffered events from the previous page on reconnect', async () => {
