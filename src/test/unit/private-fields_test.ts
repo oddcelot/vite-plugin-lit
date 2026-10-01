@@ -1,4 +1,4 @@
-import {describe, expect, test} from 'vite-plus/test';
+import {afterEach, describe, expect, test} from 'vite-plus/test';
 import {rewritePrivateNames} from '../../lib/plugins/private-fields.js';
 import {syncOwnMembers} from '../../lib/runtime/patch.js';
 
@@ -197,5 +197,78 @@ describe('hot patching a class with private members', () => {
     // New method body (`* 10`) runs against the preserved count (2 -> 3).
     expect(old.inc()).toBe(30);
     expect(new OldClass().inc()).toBe(10);
+  });
+});
+
+describe('private members esbuild already lowered', () => {
+  // What Vite 7's esbuild emits for a decorated class under
+  // `experimentalDecorators` + `useDefineForClassFields: false`, trimmed to
+  // the helpers it uses.
+  const lowered = (body: string) => `
+    var __typeError = (msg) => { throw TypeError(msg); };
+    var __accessCheck = (obj, member, msg) => member.has(obj) || __typeError("Cannot " + msg);
+    var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read from private field"), getter ? getter.call(obj) : member.get(obj));
+    var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value);
+    var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
+    var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
+    var _count, _Counter_instances, bump_fn, cache;
+    let Counter = class {
+      constructor() {
+        __privateAdd(this, _Counter_instances);
+        __privateAdd(this, _count, 0);
+      }
+      inc() {
+        __privateMethod(this, _Counter_instances, bump_fn).call(this);
+        return ${body};
+      }
+    };
+    _count = new WeakMap();
+    _Counter_instances = new WeakSet();
+    cache = new WeakMap();
+    bump_fn = function() {
+      __privateSet(this, _count, __privateGet(this, _count) + 1);
+    };
+  `;
+  const source = lowered('__privateGet(this, _count)');
+  const patched = lowered('__privateGet(this, _count) * 10');
+  const registry = Symbol.for('@oddsquad/vite-plugin-lit#private');
+
+  afterEach(() => {
+    delete (globalThis as any)[registry];
+  });
+
+  test('swaps the slots for registry lookups and leaves other WeakMaps', () => {
+    const out = rewrite(source);
+    expect(out).toContain(`_count = __litPrivSlot("${KEY}_count", WeakMap);`);
+    expect(out).toContain(
+      `_Counter_instances = __litPrivSlot("${KEY}_Counter_instances", WeakSet);`
+    );
+    expect(out).toContain('cache = new WeakMap();');
+  });
+
+  test('returns null for a WeakMap that backs no private member', () => {
+    expect(
+      rewritePrivateNames('var m; m = new WeakMap(); __privateAdd;', 'a.js')
+    ).toBeNull();
+  });
+
+  test('an old instance keeps working and keeps state after a patch', () => {
+    const OldClass = evaluate(rewrite(source), 'Counter');
+    const NewClass = evaluate(rewrite(patched), 'Counter');
+    const old = new OldClass();
+    expect(old.inc()).toBe(1);
+    expect(old.inc()).toBe(2);
+    syncOwnMembers(OldClass.prototype, NewClass.prototype, ['constructor']);
+    expect(old.inc()).toBe(30);
+    expect(new OldClass().inc()).toBe(10);
+  });
+
+  test('without the rewrite the old instance breaks (control)', () => {
+    const OldClass = evaluate(source, 'Counter');
+    const NewClass = evaluate(patched, 'Counter');
+    const old = new OldClass();
+    old.inc();
+    syncOwnMembers(OldClass.prototype, NewClass.prototype, ['constructor']);
+    expect(() => old.inc()).toThrow(TypeError);
   });
 });

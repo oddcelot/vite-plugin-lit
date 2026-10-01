@@ -41,8 +41,12 @@ by hand.
 Patched in place by default. In dev the plugin rewrites each `#private` member
 to a `Symbol.for()` key built from the file, the class and the member name.
 Instances created before an edit and methods copied from after it use the same
-key, so private state survives the edit. Builds keep real `#private`. What's
-left:
+key, so private state survives the edit. Builds keep real `#private`.
+
+On Vite 7, esbuild lowers `#private` members of a decorated class to
+module-level `WeakMap`s and `WeakSet`s before the plugin sees them. The plugin
+then fetches each of those from a registry keyed by the file and the slot's
+name instead, with the same effect. What's left:
 
 - **Dev drops the brand check.** Reading `obj.#x` from the wrong object returns
   `undefined` instead of throwing, and `Object.getOwnPropertySymbols()` lists
@@ -50,6 +54,8 @@ left:
 - **Decorated private members** such as `@state() accessor #x` leave the whole
   module unrewritten. They already fall under
   [standard `accessor` decorators](#standard-accessor-decorators).
+- **Lowered classes inside functions**, such as a mixin's, keep fresh slots
+  on each evaluation, so on Vite 7 their private state fails as before.
 - **A mixin applied twice in one chain** shares its private keys across both
   applications, since every class it returns has the same key.
 - **Two same-named classes in one file** are told apart by order. Adding one
