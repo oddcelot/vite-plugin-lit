@@ -191,16 +191,25 @@ test('the panel can record the page it never served', async () => {
   const panel = await browser.newPage();
   await panel.goto(`${devOrigin}/#tab=timeline`);
   await panel.getByRole('button', {name: /Record/}).click();
-  // An update on the page is what the recording should now capture.
-  await app.evaluate(() => {
-    (
-      document.querySelector('standalone-hello') as HTMLElement & {name: string}
-    ).name = 'again';
-  });
-  await panel
-    .locator('timeline-event-list .row')
-    .first()
-    .waitFor({timeout: 15_000});
+  // An update on the page is what the recording should now capture. The
+  // click only reaches the page by way of the server, so keep updating until
+  // one lands after recording did, rather than racing the first.
+  let n = 0;
+  await expect
+    .poll(
+      async () => {
+        await app.evaluate((name) => {
+          (
+            document.querySelector('standalone-hello') as HTMLElement & {
+              name: string;
+            }
+          ).name = name;
+        }, `again-${n++}`);
+        return panel.locator('timeline-event-list .row').count();
+      },
+      {timeout: 15_000}
+    )
+    .toBeGreaterThan(0);
 }, 60_000);
 
 test('behind a proxy the page dials the address it loaded the script from', async () => {
