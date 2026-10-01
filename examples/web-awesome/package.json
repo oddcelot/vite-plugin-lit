@@ -1,0 +1,26 @@
+{
+  "name": "vite-plugin-lit-web-awesome-example",
+  "description": "A Lit component built from Web Awesome elements, for @oddsquad/vite-plugin-lit: edit it while it runs and the checklist, the switches and the text in the inputs stay as they were. Opens on StackBlitz straight from the repo URL.",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "stackblitz": "node stackblitz.mjs"
+  },
+  "dependencies": {
+    "@awesome.me/webawesome": "^3.14.0",
+    "lit": "^3.3.3"
+  },
+  "devDependencies": {
+    "@oddsquad/vite-plugin-lit": "*",
+    "@vitejs/devtools": "^0.7.6",
+    "vite": "^8.3.2"
+  },
+  "stackblitz": {
+    "installDependencies": true,
+    "startCommand": "npm run stackblitz"
+  }
+}

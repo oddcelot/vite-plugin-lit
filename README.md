@@ -23,7 +23,10 @@ on its own port.
 For the short version, the
 [Lit flame example](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/examples/flame?file=src/lit-flame.ts)
 is one component: turn its colours, stoke it and blow it out, then edit it and
-watch its state, `#private` field and colours survive.
+watch its state, `#private` field and colours survive. The
+[Web Awesome example](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/examples/web-awesome?file=src/packing-list.ts)
+builds a component from a third-party Lit library: edit it, and the library's
+elements keep their checked boxes and half-typed text.
 
 Started life in a fork of the [lit monorepo](https://github.com/lit/lit) as a
 proposed `@lit-labs/vite-hmr` package, and now lives here on its own. Lit is
