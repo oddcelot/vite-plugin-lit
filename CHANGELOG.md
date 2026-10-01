@@ -3,6 +3,17 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.8.1 — 2026-10-01
+
+A one-fix patch: turning the timeline on with `LIT_PLUGIN_TIMELINE=true` now
+brings up the Lit DevTools panel, not just the page runtime behind it.
+
+### Fixed
+
+- **`LIT_PLUGIN_TIMELINE=true` brings up the Lit DevTools panel.** Turning the
+  timeline on through the env var injected the page runtime but left the
+  panel out of Vite DevTools; it now mounts as it does with `timeline: true`.
+
 ## 0.8.0 — 2026-09-30
 
 The plugin is now on JSR as well as npm: every release publishes the same
