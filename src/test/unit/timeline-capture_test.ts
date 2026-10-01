@@ -85,9 +85,10 @@ describe('layer flags', () => {
       enabled.lifecycle(),
       enabled.render(),
       enabled.renderVerbose(),
+      enabled.changedValues(),
       enabled.mouse(),
       enabled.keyboard(),
-    ]).toEqual([true, true, false, false, false]);
+    ]).toEqual([true, true, false, false, false, false]);
   });
 
   test('follow the panel toggles', () => {
@@ -95,6 +96,12 @@ describe('layer flags', () => {
     capture.setLayers({mouseEventEnabled: true, litLifecycleEnabled: false});
     expect(capture.enabled.mouse()).toBe(true);
     expect(capture.enabled.lifecycle()).toBe(false);
+  });
+
+  test('turn changed values on from the panel', () => {
+    const {capture} = setup();
+    capture.setLayers({litChangedValuesEnabled: true});
+    expect(capture.enabled.changedValues()).toBe(true);
   });
 });
 

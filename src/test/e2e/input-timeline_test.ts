@@ -47,6 +47,7 @@ test('mouse and keyboard layers capture when enabled at record start', async () 
     litLifecycleEnabled: true,
     litRenderEnabled: true,
     litRenderVerboseEnabled: false,
+    litChangedValuesEnabled: false,
     mouseEventEnabled: true,
     keyboardEventEnabled: true,
   });

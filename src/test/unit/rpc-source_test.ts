@@ -132,6 +132,7 @@ describe('RpcTimelineSource: server to page', () => {
       litLifecycleEnabled: DEFAULT_LAYERS_STATE.litLifecycleEnabled,
       litRenderEnabled: DEFAULT_LAYERS_STATE.litRenderEnabled,
       litRenderVerboseEnabled: DEFAULT_LAYERS_STATE.litRenderVerboseEnabled,
+      litChangedValuesEnabled: DEFAULT_LAYERS_STATE.litChangedValuesEnabled,
       mouseEventEnabled: true,
       keyboardEventEnabled: DEFAULT_LAYERS_STATE.keyboardEventEnabled,
     });

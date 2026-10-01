@@ -41,6 +41,7 @@ export interface CaptureController {
     readonly lifecycle: () => boolean;
     readonly render: () => boolean;
     readonly renderVerbose: () => boolean;
+    readonly changedValues: () => boolean;
     readonly mouse: () => boolean;
     readonly keyboard: () => boolean;
   };
@@ -61,6 +62,7 @@ export const createCaptureController = (
     litLifecycleEnabled: true,
     litRenderEnabled: true,
     litRenderVerboseEnabled: false,
+    litChangedValuesEnabled: false,
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
   };
@@ -83,6 +85,7 @@ export const createCaptureController = (
       lifecycle: () => state.litLifecycleEnabled,
       render: () => state.litRenderEnabled,
       renderVerbose: () => state.litRenderVerboseEnabled,
+      changedValues: () => state.litChangedValuesEnabled,
       mouse: () => state.mouseEventEnabled,
       keyboard: () => state.keyboardEventEnabled,
     },
