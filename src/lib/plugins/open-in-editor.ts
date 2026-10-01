@@ -1,16 +1,21 @@
-import {resolve as resolvePath} from 'node:path';
-import {confineToRoots} from '../confine.js';
+import {createSourceLocator, type SourceLocator} from '../source-locator.js';
 import {toLaunchEditor} from '../devframe/launch-editor.js';
 import {isTrustedRequest, type TrustHeaders} from '../http.js';
 
 export const OPEN_IN_EDITOR_PATH = '/__lit-open-in-editor';
 
+/**
+ * `allowedRoots` is a locator, or the roots to build one from: the first is
+ * the primary root that relative `file` params resolve against, and every
+ * entry grants open access to files beneath it.
+ */
 export const createOpenInEditorMiddleware = (
-  allowedRoots: readonly string[]
+  allowedRoots: SourceLocator | readonly string[]
 ) => {
-  // First entry is the primary root: relative `file` params resolve against
-  // it. Every entry grants open access to files beneath it.
-  const roots = allowedRoots.map((r) => resolvePath(r));
+  const locator =
+    'resolve' in allowedRoots
+      ? allowedRoots
+      : createSourceLocator(allowedRoots);
   return (
     req: {url?: string; method?: string; headers?: TrustHeaders},
     res: {statusCode: number; end: (msg: string) => void},
@@ -43,7 +48,7 @@ export const createOpenInEditorMiddleware = (
     // Confine the open to the allowed roots: `launch-editor` spawns the
     // user's editor on this path, so an unvalidated `file` is a
     // local-file-open / arg-injection vector.
-    const confined = confineToRoots(roots, file);
+    const confined = locator.resolve(file);
     if ('failure' in confined) {
       const outside = confined.failure === 'outside';
       res.statusCode = outside ? 403 : 404;

@@ -25,6 +25,7 @@ import type {
   SettingsOverride,
   TimelineLayersState,
 } from '../../types/timeline.js';
+import type {SourceLocator} from '../source-locator.js';
 import {createLitDevframe} from './definition.js';
 import {TimelineChannelCodec} from './page-codec.js';
 import {LIT_DEVFRAME_ID} from './protocol.js';
@@ -80,6 +81,8 @@ export interface CreateLitDevframePluginOptions {
   configuredEditor?: () => string | undefined;
   /** Override the built panel SPA directory. Defaults to `dist/client`. */
   clientAssets?: string;
+  /** See {@link CreateLitDevframeOptions.sourceLocator}. */
+  sourceLocator?: () => SourceLocator;
 }
 
 /**
@@ -301,18 +304,13 @@ export function createLitDevframePlugin(
   options: CreateLitDevframePluginOptions
 ): Plugin {
   const source = new HotTimelineSource();
-  // Only known once `setup()` has the dev server, which is after the
-  // definition is built -- hence the getter.
-  let viteRoot: string | undefined;
-  let fsAllow: readonly string[] = [];
   const definition = createLitDevframe({
     source,
     version: options.version,
     features: options.features,
     configuredEditor: options.configuredEditor,
     clientAssets: options.clientAssets,
-    sourceRoot: () => viteRoot,
-    allowedRoots: () => fsAllow,
+    sourceLocator: options.sourceLocator,
   });
 
   return {
@@ -328,8 +326,6 @@ export function createLitDevframePlugin(
         // which attaches to this source, and the dev server is already
         // available on the context by now.
         if (ctx.viteServer) source.bind(ctx.viteServer, ctx);
-        viteRoot = ctx.viteServer?.config.root;
-        fsAllow = ctx.viteServer?.config.server.fs?.allow ?? [];
         await ctx.install(definition);
 
         // The overlay picker as a palette command with a managed shortcut.

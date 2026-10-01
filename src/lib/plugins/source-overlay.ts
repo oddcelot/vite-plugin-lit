@@ -22,14 +22,9 @@ export const litSourceOverlay = (ctx: OptionsContext): Plugin => ({
   enforce: 'pre',
   configureServer(server) {
     if (!ctx.get().sourceOverlay) return;
-    // Allow opens from everything vite itself is willing to serve
-    // (`server.fs.allow` defaults to the workspace root), not just
-    // `config.root` — in monorepos, component sources regularly live in
-    // sibling packages outside the served app's root.
-    const fsAllow = server.config.server.fs?.allow ?? [];
     server.middlewares.use(
       OPEN_IN_EDITOR_PATH,
-      createOpenInEditorMiddleware([ctx.root(), ...fsAllow])
+      createOpenInEditorMiddleware(ctx.locator())
     );
   },
   transform(code, id, transformOptions) {
@@ -40,8 +35,7 @@ export const litSourceOverlay = (ctx: OptionsContext): Plugin => ({
     }
     const ms = new MagicString(code);
     const [file] = id.split('?', 1);
-    const relativeFile = ctx.relativeToRoot(file);
-    if (!injectSourceMeta(code, relativeFile, ms)) {
+    if (!injectSourceMeta(code, ctx.locator().toWire(file), ms)) {
       return null;
     }
     return {code: ms.toString(), map: ms.generateMap({hires: true})};

@@ -22,6 +22,7 @@ import type {
 } from '../../types/inspector.js';
 import {TIMELINE_LAYERS} from '../../types/timeline.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
+import type {SourceLocator} from '../source-locator.js';
 import {LIT_LOGO_ICON} from './icon.js';
 import {PANEL_DIST_DIR} from './paths.js';
 import type {
@@ -83,20 +84,13 @@ export interface CreateLitDevframeOptions {
    */
   clientAssets?: string;
   /**
-   * Absolute directory the injected `ElementSource.file` paths are relative
-   * to (the Vite root). Read per call, since a host only knows it once its
-   * dev server is up. Also the first root `open-source` confines opens to;
-   * without it, relative paths resolve against the working directory.
+   * Resolves the injected `ElementSource.file` paths for `open-source` and
+   * confines opens to its roots (the Vite host's root and
+   * `server.fs.allow`). Read per call, since a host only knows its roots once
+   * its dev server is up. Without one, or before it has roots, the process's
+   * working directory is the only root.
    */
-  sourceRoot?: () => string | undefined;
-  /**
-   * Further directories `open-source` may open files beneath, beyond
-   * `sourceRoot` (the Vite host passes `server.fs.allow`, where sibling
-   * packages of a monorepo live). Read per call. A path outside every root
-   * is refused; with neither this nor `sourceRoot`, the process's working
-   * directory is the only root.
-   */
-  allowedRoots?: () => readonly string[];
+  sourceLocator?: () => SourceLocator | undefined;
   /**
    * The editor key the developer named in config or env
    * (`sourceOverlay.editor`), or `undefined` when they never did. Read per
@@ -121,15 +115,8 @@ export interface CreateLitDevframeOptions {
 export function createLitDevframe(
   options: CreateLitDevframeOptions
 ): DevframeDefinition {
-  const {
-    source,
-    version,
-    features,
-    replay,
-    sourceRoot,
-    allowedRoots,
-    configuredEditor,
-  } = options;
+  const {source, version, features, replay, sourceLocator, configuredEditor} =
+    options;
 
   return defineDevframe({
     id: LIT_DEVFRAME_ID,
@@ -562,11 +549,13 @@ export function createLitDevframe(
             if (service === undefined) return {opened: false};
             // Confined like `/__lit-open-in-editor`: whatever can reach this
             // RPC could otherwise have the editor open any file on disk.
-            const {confineToRoots} = await import('../confine.js');
-            const confined = confineToRoots(
-              [sourceRoot?.() ?? process.cwd(), ...(allowedRoots?.() ?? [])],
-              args.file
-            );
+            // Imported here for the same reason as `buildSnapshot` below.
+            const {createSourceLocator} = await import('../source-locator.js');
+            let locator = sourceLocator?.();
+            if (locator === undefined || locator.roots.length === 0) {
+              locator = createSourceLocator([process.cwd()]);
+            }
+            const confined = locator.resolve(args.file);
             if ('failure' in confined) return {opened: false};
             const {path} = confined;
             const override = await my.settings.global.get('override');
