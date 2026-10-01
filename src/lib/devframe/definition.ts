@@ -580,15 +580,20 @@ export function createLitDevframe(
             // `outDir` comes from the client and the build deletes it before
             // writing, so it has to land strictly beneath the working
             // directory -- never the directory itself, and never elsewhere
-            // on disk.
-            const {resolve, sep} = await import('node:path');
+            // on disk (symlinks included). It usually does not exist yet.
+            const {confineToRoots} = await import('../confine.js');
             const cwd = process.cwd();
-            const outDir = resolve(cwd, args.outDir ?? 'lit-devtools-snapshot');
-            if (!outDir.startsWith(cwd + sep)) {
+            const confined = confineToRoots(
+              [cwd],
+              args.outDir ?? 'lit-devtools-snapshot',
+              {mustExist: false, allowRoot: false}
+            );
+            if ('failure' in confined) {
               throw new Error(
                 `[lit-devtools] export-snapshot: outDir must be inside ${cwd}`
               );
             }
+            const outDir = confined.path;
             return buildSnapshot(
               recording.capture({
                 capturedAt: new Date().toISOString(),

@@ -1,5 +1,13 @@
 import {randomUUID} from 'node:crypto';
-import {cp, mkdir, readdir, readFile, rm, writeFile} from 'node:fs/promises';
+import {
+  cp,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import * as path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createServer, type ViteDevServer} from 'vite';
@@ -339,7 +347,7 @@ export const mountElement = async (page: Page, tag: string): Promise<void> => {
  * staged test without `@types/node` and rejects a plain `node:fs/promises`
  * import. This module already needs one, so tests borrow it from here.
  */
-export const fsp = {mkdir, readdir, readFile, rm, writeFile};
+export const fsp = {mkdir, readdir, readFile, rm, symlink, writeFile};
 
 /** `path.join`, borrowed for the same reason as `fsp`. */
 export const joinPath = path.join;
