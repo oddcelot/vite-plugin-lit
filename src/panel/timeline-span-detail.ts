@@ -56,6 +56,10 @@ export class TimelineSpanDetail extends LitElement {
       a:hover {
         text-decoration: underline;
       }
+      .badge {
+        color: var(--lit-devtools-accent);
+        margin-left: var(--lit-devtools-space-4);
+      }
       .filter-link {
         margin-left: var(--lit-devtools-space-4);
         font-size: var(--lit-devtools-text-2xs);
@@ -109,6 +113,29 @@ export class TimelineSpanDetail extends LitElement {
             ? html`<tr>
                 <td class="key">changed</td>
                 <td class="val">${row.changed.join(', ')}</td>
+              </tr>`
+            : nothing
+        }
+        ${
+          row.changedDetail?.length
+            ? html`<tr>
+                <td class="key">values</td>
+                <td class="val">
+                  ${row.changedDetail.map(
+                    (c) => html`<div>
+                      ${c.key}: ${c.prev} →
+                      ${c.next}${
+                        c.sameRef
+                          ? html`<span class="badge">same reference</span>`
+                          : c.equal
+                            ? html`<span class="badge"
+                                >new reference, same value</span
+                              >`
+                            : nothing
+                      }
+                    </div>`
+                  )}
+                </td>
               </tr>`
             : nothing
         }

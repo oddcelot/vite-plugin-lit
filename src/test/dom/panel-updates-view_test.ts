@@ -160,3 +160,50 @@ test('flags a component and an update in which a phase threw', async () => {
     /threw in update:\s+TypeError/
   );
 });
+
+test('shows old and new values and flags a new reference with equal content', async () => {
+  const {root, rows, settle} = await mount();
+  const detailed = tick(3, 'x-list', 1, 0);
+  detailed[0]!.data = {
+    phase: 'performUpdate',
+    changed: ['items'],
+    changedDetail: [
+      {
+        key: 'items',
+        prev: '[1, 2]',
+        next: '[1, 2]',
+        sameRef: false,
+        equal: true,
+      },
+    ],
+  };
+  setEvents([...detailed, ...tick(1, 'x-counter', 1, 10)]);
+  await settle();
+  const list = rows().find((r) => r.tag === '<x-list>')!;
+  expect(list.row.querySelector('.redundant')?.getAttribute('title')).toContain(
+    'items ×1'
+  );
+  expect(
+    rows()
+      .find((r) => r.tag === '<x-counter>')!
+      .row.querySelector('.redundant')
+  ).toBeNull();
+
+  list.row.click();
+  await settle();
+  const change = root.querySelector('.cycles .change')!;
+  expect(change.textContent!.replace(/\s+/g, ' ')).toContain(
+    'items [1, 2] → [1, 2] new reference, same value'
+  );
+});
+
+test('renders no value block for cycles without detail', async () => {
+  const {root, rows, settle} = await mount();
+  setEvents(events);
+  await settle();
+  rows()
+    .find((r) => r.tag === '<x-counter>')!
+    .row.click();
+  await settle();
+  expect(root.querySelector('.changes')).toBeNull();
+});

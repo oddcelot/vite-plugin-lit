@@ -99,3 +99,23 @@ test('the source link opens the file at its line', async () => {
   root.querySelector<HTMLElement>('.src-link')!.click();
   expect(opened).toHaveBeenCalledWith('src/counter.ts', 12);
 });
+
+test('lists old and new values when the span has them', async () => {
+  const {value} = await mount({
+    span: {
+      ...span,
+      changedDetail: [
+        {key: 'count', prev: '0', next: '1', sameRef: false, equal: false},
+        {key: 'items', prev: '[1]', next: '[1]', sameRef: false, equal: true},
+      ],
+    },
+  });
+  expect(value('values')).toBe(
+    'count: 0 → 1 items: [1] → [1]new reference, same value'
+  );
+});
+
+test('has no values row without detail', async () => {
+  const {value} = await mount({span});
+  expect(value('values')).toBeUndefined();
+});
