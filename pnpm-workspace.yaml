@@ -16,6 +16,10 @@ catalog:
   vite-plus: 1.0.0
 overrides:
   vite@*: 'catalog:'
+  # Except for the flame example, which is a plain Vite project: its `dev`
+  # script runs `vite`, and vite-plus-core has no such bin. Keep this in step
+  # with examples/flame/package.json.
+  vite-plugin-lit-flame-example>vite: ^8.3.2
   # satori pins 0.7.3, inside GHSA-px8p-9vwx-vf98 (an infinite loop in
   # `unzipSync`). It only calls `inflateSync`, so this is for a clean audit,
   # and a patch release can't break it. Drop it once satori moves on.
@@ -38,3 +42,5 @@ peerDependencyRules:
 allowBuilds:
   # astro bundles with esbuild; its postinstall wires up the platform binary.
   esbuild: true
+minimumReleaseAgeExclude:
+  - vite@8.3.2
