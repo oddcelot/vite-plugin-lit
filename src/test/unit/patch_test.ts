@@ -11,7 +11,10 @@ import {
   syncOwnMembers,
   type PatchOptions,
 } from '../../lib/runtime/patch.js';
+import {PAGE_ID} from '../../lib/runtime/page-id.js';
 import {HMR_INCOMPATIBLE_CHANNEL} from '../../types/hmr-incompatibility.js';
+import {HMR_PATCH_CHANNEL} from '../../types/hmr-patch.js';
+import type {HmrPatchEvent} from '../../types/hmr-patch.js';
 import {SETTINGS_OVERRIDE_LS_KEY} from '../../types/timeline.js';
 
 /**
@@ -486,6 +489,99 @@ describe('hotPatch', () => {
       expect(event.tagName).toBe('x-o');
       expect(event.reason.code).toBe('accessor-decorators');
       expect(event.action).toBe('warn');
+    } finally {
+      delete (Symbol as {metadata?: symbol}).metadata;
+      delete litGlobal.litPropertyMetadata;
+    }
+  });
+
+  test('a successful patch reports one event on the patched channel', () => {
+    const {send} = stubHotChannel();
+    class XP1 extends FakeElement {}
+    class XP2 extends FakeElement {}
+    class XP3 extends FakeElement {}
+    define('x-p', XP1);
+    connect('x-p', new XP1());
+    connect('x-p', new XP1());
+    define('x-p', XP2);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0]?.[0]).toBe(HMR_PATCH_CHANNEL);
+    const first = send.mock.calls[0]?.[1] as HmrPatchEvent & {pageId: string};
+    expect(first).toMatchObject({
+      tagName: 'x-p',
+      instances: 2,
+      generation: 1,
+      childState: 'transfer',
+      pageId: PAGE_ID,
+    });
+    expect(first.durationMs).toBeGreaterThanOrEqual(0);
+    expect(typeof first.at).toBe('number');
+
+    define('x-p', XP3);
+    expect(send).toHaveBeenCalledTimes(2);
+    const second = send.mock.calls[1]?.[1] as HmrPatchEvent;
+    expect(second.generation).toBe(2);
+  });
+
+  test('the patched event carries the configured childState mode', () => {
+    installFresh({childState: 'reset'});
+    const {send} = stubHotChannel();
+    class XQ1 extends FakeElement {}
+    class XQ2 extends FakeElement {}
+    define('x-q', XQ1);
+    define('x-q', XQ2);
+    const event = send.mock.calls[0]?.[1] as HmrPatchEvent;
+    expect(event.childState).toBe('reset');
+  });
+
+  test('a failing report does not turn a landed patch into a failure', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const {send} = stubHotChannel();
+    send.mockImplementation(() => {
+      throw new Error('transport down');
+    });
+    class XR1 extends FakeElement {
+      label(): string {
+        return 'v1';
+      }
+    }
+    class XR2 extends FakeElement {
+      label(): string {
+        return 'v2';
+      }
+    }
+    define('x-r', XR1);
+    define('x-r', XR2);
+    expect(XR1.prototype.label()).toBe('v2');
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  test('a patch that cannot land never reports on the patched channel', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const {send} = stubHotChannel();
+    const metadataKey = Symbol('Symbol.metadata');
+    Object.defineProperty(Symbol, 'metadata', {
+      value: metadataKey,
+      configurable: true,
+    });
+    const litGlobal = globalThis as {
+      litPropertyMetadata?: WeakMap<object, Map<unknown, unknown>>;
+    };
+    litGlobal.litPropertyMetadata = new WeakMap();
+    try {
+      class XS1 extends FakeElement {}
+      class XS2 extends FakeElement {}
+      const metadata = {};
+      Object.defineProperty(XS2, metadataKey, {value: metadata});
+      litGlobal.litPropertyMetadata.set(metadata, new Map([['count', {}]]));
+      define('x-s', XS1);
+      define('x-s', XS2);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(send.mock.calls.every((c) => c[0] !== HMR_PATCH_CHANNEL)).toBe(
+        true
+      );
     } finally {
       delete (Symbol as {metadata?: symbol}).metadata;
       delete litGlobal.litPropertyMetadata;

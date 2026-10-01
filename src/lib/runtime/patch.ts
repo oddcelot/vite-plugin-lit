@@ -21,6 +21,7 @@ import {
 } from './child-state.js';
 import {subscribeOverrideKeys} from './overrides.js';
 import {pageChannel} from './page-channel.js';
+import {PAGE_ID} from './page-id.js';
 import type {PageTransport, ViteHotLike} from './page-channel.js';
 import {
   HMR_INCOMPATIBLE_CHANNEL,
@@ -28,6 +29,8 @@ import {
   type HmrIncompatibilityEvent,
   type HmrIncompatibilityReason,
 } from '../../types/hmr-incompatibility.js';
+import {HMR_PATCH_CHANNEL} from '../../types/hmr-patch.js';
+import type {HmrPatchEvent} from '../../types/hmr-patch.js';
 
 /** What the patcher needs of the page channel: reporting incompatibilities. */
 type HotChannel = Pick<PageTransport, 'send'>;
@@ -335,6 +338,7 @@ const hotPatch = (
   NewClass: ReactiveCtorLike
 ): void => {
   const OldClass = record.canonical as ReactiveCtorLike;
+  const startedAt = performance.now();
   try {
     // 1. Materialize finalized/elementProperties/elementStyles/
     //    __attributeToPropertyMap on the new class before we copy statics.
@@ -465,6 +469,24 @@ const hotPatch = (
     }
     // Read after requestUpdate() so each promise covers the new update.
     state.childState?.watch(record.instances);
+
+    // The one success report: everything above has landed. A failure to
+    // report must not turn a landed patch into a "patch-failed" reload, so
+    // it is swallowed here rather than reaching the catch below.
+    try {
+      const patched: HmrPatchEvent = {
+        tagName: record.tagName,
+        instances: record.instances.size,
+        generation: record.generation,
+        durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+        childState: state.options.childState,
+        at: Date.now(),
+      };
+      // Stamped with the document: every open tab applies the same update.
+      state.hot?.send(HMR_PATCH_CHANNEL, {...patched, pageId: PAGE_ID});
+    } catch {
+      // Reporting is best-effort; the patch already succeeded.
+    }
   } catch (e) {
     incompatible(state, record.tagName, {
       code: 'patch-failed',
