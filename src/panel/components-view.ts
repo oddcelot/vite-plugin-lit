@@ -12,7 +12,13 @@ import {
   MAX_HMR_INCOMPATIBILITIES,
   type HmrIncompatibilityEvent,
 } from '../types/hmr-incompatibility.js';
-import {describeError, isSnapshot, litRpc, type LitClient} from './client.js';
+import {
+  describeError,
+  getMeta,
+  isSnapshot,
+  litRpc,
+  type LitClient,
+} from './client.js';
 import {openInEditor} from './open-in-editor.js';
 import {inPageChannel, inPageConnected} from './in-page.js';
 import {overrides} from './settings-override.js';
@@ -298,6 +304,14 @@ export class ComponentsView extends LitElement {
   @state() private _gone = false;
   @state() private _expanded = new Set<number>();
   @state() private _picking = false;
+  /**
+   * Whether the page has a picker to toggle. The picker is the source
+   * overlay, which only the Vite plugin injects and only with
+   * `sourceOverlay` on: a page fed by `lit-devtools dev` (no build-time
+   * source metadata) or a frozen snapshot has none, and a Pick button there
+   * would light up and do nothing.
+   */
+  @state() private _canPick = false;
   /** Opt-in live tree (MutationObserver in the page); persisted, default off. */
   @state() private _live = false;
   /** Mirror of the `flashUpdates` override; the Settings tab shows it too. */
@@ -377,6 +391,15 @@ export class ComponentsView extends LitElement {
         type: 'event',
         handler: this._onHmrIncompatible,
       });
+      void getMeta().then(
+        (meta) => {
+          this._canPick =
+            !isSnapshot() && meta.features?.sourceOverlay.enabled === true;
+        },
+        () => {
+          // No meta, no picker to offer.
+        }
+      );
       this._roots = await rpc.rpc.call('list-components');
       this._hmrIncompatibilities = await rpc.rpc.call('hmr-incompatibilities');
       // The baked tree above is all a frozen session has; asking the page for
@@ -765,13 +788,17 @@ export class ComponentsView extends LitElement {
   override render() {
     return html`
       <div class="toolbar">
-        <button
-          class="pick ${this._picking ? 'active' : ''}"
-          title="Pick an element on the page (Meta+Shift+E)"
-          @click=${this._togglePick}
-        >
-          ⌖ Pick
-        </button>
+        ${
+          this._canPick
+            ? html`<button
+                class="pick ${this._picking ? 'active' : ''}"
+                title="Pick an element on the page (Meta+Shift+E)"
+                @click=${this._togglePick}
+              >
+                ⌖ Pick
+              </button>`
+            : nothing
+        }
         <span class="spacer"></span>
         <button
           class="live ${this._live ? 'active' : ''}"
