@@ -31,6 +31,31 @@ test file, sequentially, to avoid port and file contention.
 By default the tests run against the published npm versions of `lit`,
 `@lit/context`, `@lit/task`, `@lit-labs/signals`, and `@lit-labs/virtualizer`.
 
+## Writing an e2e test
+
+Start from `startFixture()` in `src/test/e2e/utils.ts`. It copies the playground
+into a fresh directory and serves that, so a test can edit files to trigger HMR
+without touching the real playground or another test's copy.
+
+- **Fixtures live under `.e2e-tmp/`**, inside the package, not the OS temp
+  directory. Bare imports in a fixture resolve by walking up to the repo's
+  `node_modules`, and they would not find it from `/tmp`. Use `tmpRoot(prefix)`
+  for any other throwaway directory a test needs. `.e2e-tmp/` is gitignored.
+- **`HOME` points at a throwaway directory** while a fixture runs, because
+  devframe keeps its global settings store under the home directory. Panel
+  settings a test writes never reach your own. Seed them with the
+  `seedSettings` option instead of writing to `~/.vite`.
+- **Importing a bare package a fixture has never loaded** can make Vite's dep
+  optimizer reload the page mid-test. Load the module once and wait for the
+  network to settle before the part of the test that matters.
+
+The plugin's internal virtual modules use ids that start with `\0lit-plugin:`
+(`VIRTUAL_PREFIX` in `src/lib/transform.ts`). The `\0` is Rollup's marker for "not
+a file": other plugins skip these ids, and this plugin's own transforms skip
+them too. The one public virtual module, `virtual:lit-plugin/timeline`, resolves
+to `\0virtual:lit-plugin/timeline`. When a test looks for a module in Vite's
+module graph or a build chunk, match on these ids, not on a file path.
+
 ## Canary runs against lit `main`
 
 The [lit monorepo](https://github.com/lit/lit) is checked out as a submodule. It
