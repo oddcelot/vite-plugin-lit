@@ -65,6 +65,7 @@
     "docs:dev": "pnpm --filter ./docs dev",
     "docs:build": "pnpm --filter ./docs build",
     "docs:shots": "pnpm run build && node scripts/docs-shots.mjs",
+    "chrome:clean": "node scripts/chrome-profile.mjs",
     "format": "vp fmt \"**/*.{cjs,html,js,json,md,mdx,ts,yaml}\"",
     "format:check": "vp fmt \"**/*.{cjs,html,js,json,md,mdx,ts,yaml}\" --check",
     "prepublishOnly": "pnpm exec vp check && pnpm run test:unit && pnpm run build",
