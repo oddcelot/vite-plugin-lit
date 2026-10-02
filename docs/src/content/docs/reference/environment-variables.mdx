@@ -37,10 +37,10 @@ Precedence applies to each setting on its own, not to the group it sits in. So
 `LIT_PLUGIN_HMR_INDICATOR_COUNT=1` still reaches the indicator.
 
 A live override from the DevTools **Settings** tab sits above all three, for
-the settings it can change. The tab labels each value with the layer it came
-from, such as `Zed (env)` or `VS Code (default)`. While an override is active
-the row reads `(overridden)` and names the value it replaced, such as
-`env: Zed`, so you can tell what a reset restores.
+the settings it can change. The tab labels a value set by env or an option
+with its layer, such as `Zed (env)`; a built-in default carries no label. While an override is active
+the row names the value it replaced, such as `env: Zed`, so you can tell what
+a reset restores.
 
 ## How values are parsed
 
