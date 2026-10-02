@@ -30,7 +30,7 @@ import process from 'node:process';
 import {pathToFileURL} from 'node:url';
 import {resolveAllowedOrigins} from './lib/devframe/allowed-origins.js';
 import {createStandaloneLitDevframe} from './lib/devframe/rpc-source.js';
-import {PACKAGE_VERSION} from './lib/devframe/paths.js';
+import {PACKAGE_VERSION, PANEL_DIST_DIR} from './lib/devframe/paths.js';
 
 /**
  * Standalone `dev` default port. Deliberately *not* the playground's 5179
@@ -168,7 +168,10 @@ const main = async () => {
       const app = new H3();
       app.use('/lit-devtools.js', serveScript);
       server = await createDevServer(
-        createStandaloneLitDevframe({version: PACKAGE_VERSION}),
+        createStandaloneLitDevframe({
+          version: PACKAGE_VERSION,
+          clientAssets: PANEL_DIST_DIR,
+        }),
         {
           host: flags.host,
           port: Number(flags.port),

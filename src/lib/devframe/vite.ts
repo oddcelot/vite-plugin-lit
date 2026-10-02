@@ -28,6 +28,7 @@ import type {
 import type {SourceLocator} from '../source-locator.js';
 import {createLitDevframe} from './definition.js';
 import {TimelineChannelCodec} from './page-codec.js';
+import {PANEL_DIST_DIR} from './paths.js';
 import {LIT_DEVFRAME_ID} from './protocol.js';
 import type {TimelineSink, TimelineSource} from './source.js';
 
@@ -329,7 +330,7 @@ export function createLitDevframePlugin(
     version: options.version,
     features: options.features,
     configuredEditor: options.configuredEditor,
-    clientAssets: options.clientAssets,
+    clientAssets: options.clientAssets ?? PANEL_DIST_DIR,
     sourceLocator: options.sourceLocator,
   });
 

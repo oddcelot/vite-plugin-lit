@@ -11,7 +11,7 @@
  * differs. The page half is
  * `runtime/rpc-transport.ts`.
  *
- * Like `definition.ts`, nothing here imports Vite. The devframe-specific
+ * Like `definition.ts`, nothing here imports Vite or a `node:` module. The devframe-specific
  * wiring lives in {@link createStandaloneLitDevframe}; the class itself takes a
  * tiny {@link PageLinkNode}, so its carrier is testable
  * without a running server.
@@ -88,17 +88,51 @@ export const createRpcTimelineSource = (): RpcTimelineSource =>
   new RpcTimelineSource();
 
 /**
+ * The {@link PageLinkNode} `lit-devtools dev` uses: the page's two RPC
+ * events, `page-send` in and `page-receive` out. Built from the context
+ * `setup()` runs against, since that is where `page-send` is registered.
+ */
+export const rpcPageLink = (ctx: DevframeNodeContext): PageLinkNode => ({
+  onPageMessage(handler) {
+    ctx.scope(LIT_DEVFRAME_ID).rpc.register(
+      defineRpcFunction({
+        name: RPC_PAGE_SEND,
+        type: 'event',
+        handler: (channel: string, data?: unknown) => handler(channel, data),
+      })
+    );
+  },
+  sendToPages(channel, data) {
+    ctx.rpc
+      .broadcast({
+        method: `${LIT_DEVFRAME_ID}:${RPC_PAGE_RECEIVE}`,
+        args: [channel, data],
+        // Only pages register this; the panel, on the same
+        // connection list, does not.
+        optional: true,
+        event: true,
+      })
+      .catch(() => {
+        // A page that vanished mid-broadcast is not an error.
+      });
+  },
+});
+
+/**
  * The Lit devframe with an {@link RpcTimelineSource} already mounted on it,
- * for hosts with no page of their own (`lit-devtools dev`). Wraps
- * `setup()` so the two page-link RPC functions are registered on the same
- * context the definition runs against, leaving `definition.ts` unaware of how
- * its source is fed.
+ * for hosts with no page of their own: `lit-devtools dev`, and the browser
+ * extension's local host. Wraps `setup()` so the page link is bound on the
+ * same context the definition runs against, leaving `definition.ts` unaware
+ * of how its source is fed. `link` defaults to {@link rpcPageLink}; the
+ * extension passes one over a `chrome.runtime.Port` (see `port-link.ts`).
  */
 export function createStandaloneLitDevframe(
-  options: Omit<CreateLitDevframeOptions, 'source'>
+  options: Omit<CreateLitDevframeOptions, 'source'>,
+  link: (ctx: DevframeNodeContext) => PageLinkNode = rpcPageLink
 ): DevframeDefinition {
   const source = new RpcTimelineSource();
-  // `lit-devtools.js` starts its own picker; see `runtime/standalone.ts`.
+  // Both hosts start a picker of their own in the page: `lit-devtools.js`
+  // does (see `runtime/standalone.ts`), and so will the extension.
   const definition = createLitDevframe({
     picker: () => true,
     ...options,
@@ -110,34 +144,7 @@ export function createStandaloneLitDevframe(
     ...definition,
     async setup(ctx: DevframeNodeContext, info) {
       // A static build or MCP run has no pages to link.
-      if (ctx.mode === 'dev') {
-        source.bind({
-          onPageMessage(handler) {
-            ctx.scope(LIT_DEVFRAME_ID).rpc.register(
-              defineRpcFunction({
-                name: RPC_PAGE_SEND,
-                type: 'event',
-                handler: (channel: string, data?: unknown) =>
-                  handler(channel, data),
-              })
-            );
-          },
-          sendToPages(channel, data) {
-            ctx.rpc
-              .broadcast({
-                method: `${LIT_DEVFRAME_ID}:${RPC_PAGE_RECEIVE}`,
-                args: [channel, data],
-                // Only pages register this; the panel, on the same
-                // connection list, does not.
-                optional: true,
-                event: true,
-              })
-              .catch(() => {
-                // A page that vanished mid-broadcast is not an error.
-              });
-          },
-        });
-      }
+      if (ctx.mode === 'dev') source.bind(link(ctx));
       await setup(ctx, info);
     },
   };

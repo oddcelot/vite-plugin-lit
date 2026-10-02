@@ -13,7 +13,10 @@
  */
 
 import {connectDevframe, getDevframeConnection} from 'devframe/client';
-import type {DevframeScopedClientContext} from 'devframe/client';
+import type {
+  DevframeRpcClient,
+  DevframeScopedClientContext,
+} from 'devframe/client';
 import type {SettingsForNamespace} from 'devframe';
 import {LIT_DEVFRAME_ID} from '../lib/devframe/protocol.js';
 import type {LitGetMetaResult} from '../lib/devframe/protocol.js';
@@ -31,6 +34,27 @@ export type LitClient = DevframeScopedClientContext<
 >;
 
 let connecting: Promise<LitClient> | undefined;
+
+/**
+ * Supply the client instead of connecting: for a host page that runs the
+ * devframe in-process (the browser extension, see
+ * `lib/devframe/local-host.ts`), where there is no `__connection.json` to
+ * discover and no server to trust. Takes the unscoped client; the panel
+ * scopes it to `lit:` itself.
+ *
+ * Must run before anything calls {@link litRpc}: the panel connects once, so
+ * a client supplied afterwards would never be used. Throws if it is too late.
+ */
+export const useLocalClient = (
+  client: Pick<DevframeRpcClient, 'scope'>
+): void => {
+  if (connecting !== undefined) {
+    throw new Error(
+      '[lit-devtools] useLocalClient() must run before the panel connects'
+    );
+  }
+  connecting = Promise.resolve(client.scope(LIT_DEVFRAME_ID));
+};
 
 /**
  * The shared, `lit:`-scoped RPC client. Connects on first call; every later

@@ -62,13 +62,18 @@ export const buildSnapshot = async (
         'refusing to replace it'
     );
   }
+  // The definition takes no default for its SPA (it also loads in a browser);
+  // a snapshot always needs one, so it falls back to the package's own build.
+  const clientAssets =
+    options.clientAssets ??
+    (await import('./devframe/paths.js')).PANEL_DIST_DIR;
   const definition = createLitDevframe({
     // Nothing to attach to: the page this session describes is gone, and
     // every answer the frozen panel needs is already in `replay`.
     source: createNullSource(),
     version: snapshot.version,
     features: () => options.features,
-    clientAssets: options.clientAssets,
+    clientAssets,
     replay: snapshot,
   });
 
