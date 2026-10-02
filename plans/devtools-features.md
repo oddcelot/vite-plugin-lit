@@ -156,8 +156,21 @@ too much", using data the capture layer already produced: `groupId` pairing and
   rethrows unchanged, so the app sees the same error. The end event owns the
   error because that is when it is known; `derive.ts` lifts it onto the span,
   the cycle (innermost phase wins, since `performUpdate` rethrows what `update`
-  threw) and a per-component `errors` count. Not built here: attributing
-  `window.onerror` to a host.
+  threw) and a per-component `errors` count.
+- **Async failures are attributed only where there is a causal link.** A
+  promise an async `willUpdate`/`updated`/`firstUpdated` returns is remembered
+  (never subscribed to, which would mark it handled and hide the app's own
+  `unhandledrejection`) and matched against `event.promise`. The base wrappers
+  cannot see it, because a subclass override replaces the base method, so a
+  recorded update also wraps the component's own async-capable phases with a
+  wrapper that only remembers the promise. That check runs on every update
+  because HMR patches copy fresh methods onto the prototype. `@lit/task` catches
+  its own rejection, so a task is found in its error state after the update its
+  completion requests, and reported once per error object. Both land as
+  `async` point events carrying the cycle's `groupId`, so `derive.ts` joins them
+  to the cycle's `error` without making them phases. Plain `window.onerror`
+  (timers, listeners) is not attributed: nothing ties it to a host, and guessing
+  the last updated element would blame the wrong one.
 - **Old and new values are a layer flag, not a new RPC.** Changed values is a
   boolean on `TimelineLayersState` plus a pseudo-layer id, mirroring
   `litRenderVerboseEnabled`. That reuses the pill strip and `toggle-layer`, and

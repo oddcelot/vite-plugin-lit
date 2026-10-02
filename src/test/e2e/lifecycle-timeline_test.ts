@@ -139,3 +139,101 @@ test('changed values layer records the old and new value of a property', async (
     )
     .toMatchObject([{key: 'count', sameRef: false, equal: false}]);
 });
+
+// Async failures never throw out of a phase, so they only reach the timeline
+// through the rejection listener and the task check. Both need the real thing:
+// a browser-fired `unhandledrejection` and a real `@lit/task` controller.
+test('async updated() rejections and failed tasks are attributed to their element', async () => {
+  const {page} = fixture;
+
+  const source = createHotTimelineSource();
+  source.bind(fixture.server);
+  const events: TimelineEvent[] = [];
+  source.attach({
+    pushEvents: (batch) => events.push(...batch),
+    addLayer: () => {},
+    inspectorMessage: () => {},
+    hmrIncompatible: () => {},
+    hmrPatched: () => {},
+    runtimeReady: () => {},
+  });
+
+  await page.reload();
+  await page.waitForFunction(
+    () => (window as {__hmr?: unknown}).__hmr !== undefined
+  );
+  source.setRecording(true);
+  source.setLayers({
+    recordingState: true,
+    litLifecycleEnabled: true,
+    litRenderEnabled: false,
+    litRenderVerboseEnabled: false,
+    litChangedValuesEnabled: false,
+    mouseEventEnabled: false,
+    keyboardEventEnabled: false,
+  });
+  // Recording reaches the page over HMR; wait until updates are recorded.
+  await expect
+    .poll(
+      async () => {
+        await page.evaluate(() =>
+          (
+            document.querySelector('hmr-task') as {requestUpdate?: () => void}
+          )?.requestUpdate?.()
+        );
+        return events.some((e) => e.title === 'performUpdate:start');
+      },
+      {timeout: 10_000}
+    )
+    .toBe(true);
+
+  // A component whose own async updated() rejects after an await. Built off
+  // the page's LitElement so it is instrumented like any app component.
+  await page.evaluate(() => {
+    const Base = Object.getPrototypeOf(customElements.get('hmr-task')!) as {
+      new (): HTMLElement;
+    };
+    class AsyncFail extends Base {
+      async updated() {
+        null;
+        throw new RangeError('late failure');
+      }
+    }
+    customElements.define('e2e-async-fail', AsyncFail);
+    document.body.append(document.createElement('e2e-async-fail'));
+  });
+  await expect
+    .poll(() => events.find((e) => e.title === 'updated:rejected'), {
+      timeout: 5_000,
+    })
+    .toMatchObject({
+      logType: 'error',
+      data: {
+        phase: 'updated',
+        async: true,
+        error: {name: 'RangeError', message: 'late failure'},
+      },
+      meta: {tagName: 'e2e-async-fail'},
+    });
+
+  // The playground's task fetches a user by id; one that does not exist fails.
+  await page.evaluate(() => {
+    (document.querySelector('hmr-task') as unknown as {userId: number}).userId =
+      999;
+  });
+  await expect
+    .poll(() => events.filter((e) => e.title === 'task:error'), {
+      timeout: 5_000,
+    })
+    .toEqual([
+      expect.objectContaining({
+        logType: 'error',
+        data: expect.objectContaining({
+          phase: 'task',
+          task: 'userTask',
+          error: {name: 'Error', message: 'no such user: 999'},
+        }),
+        meta: expect.objectContaining({tagName: 'hmr-task'}),
+      }),
+    ]);
+});

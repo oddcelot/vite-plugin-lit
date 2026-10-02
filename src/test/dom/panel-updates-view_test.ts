@@ -161,6 +161,43 @@ test('flags a component and an update in which a phase threw', async () => {
   );
 });
 
+test.each([
+  [
+    'rejected',
+    {title: 'updated:rejected', data: {phase: 'updated', async: true}},
+    /rejected in updated:\s+TypeError/,
+  ],
+  [
+    'task',
+    {
+      title: 'task:error',
+      data: {phase: 'task', task: 'userTask', async: true},
+    },
+    /task userTask failed:\s+TypeError/,
+  ],
+])('labels an async %s error', async (_label, event, badge) => {
+  const {el, root, settle} = await mount();
+  const error = {name: 'TypeError', message: 'nope'};
+  setEvents([
+    ...tick(1, 'x-counter', 1, 0),
+    {
+      layerId: 'lit-lifecycle',
+      time: 5,
+      groupId: '1:1',
+      title: event.title,
+      data: {...event.data, error},
+      logType: 'error',
+      meta: {elementId: 1, tagName: 'x-counter'},
+    },
+  ]);
+  await settle();
+  el.selectById(1);
+  await settle();
+  const threw = root.querySelector('.cycles .row .threw');
+  expect(threw?.textContent).toMatch(badge);
+  expect(threw?.getAttribute('title')).toBe('nope');
+});
+
 test('shows old and new values and flags a new reference with equal content', async () => {
   const {root, rows, settle} = await mount();
   const detailed = tick(3, 'x-list', 1, 0);

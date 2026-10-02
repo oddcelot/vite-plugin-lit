@@ -77,6 +77,13 @@ shown, and its message is in the tooltip. The component table counts such
 updates under ⚠, and `lit_update-summary` returns `errors` per component and
 `error` per cycle, so an agent sees them too.
 
+Failures that happen later are tied to the update that started them. A row
+marked _rejected in updated_ means an `async updated()` (or `willUpdate`,
+`firstUpdated`) returned a promise that rejected with nothing handling it. A row
+marked _task userTask failed_ means that `@lit/task` ended in its error state.
+An error thrown from a timer or an event listener the component set up has no
+such link, so it shows only in the browser console.
+
 ## See the old and new values
 
 Turn on the **Changed values** layer in the Timeline tab before you record.
