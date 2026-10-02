@@ -165,6 +165,7 @@ export class LitDevtoolsPanel extends LitElement {
           // The node dropped its buffer; the panel's own copy describes a
           // page that is no longer followed, on a different clock.
           clearTimelineEvents();
+          this._componentsView?.pageChanged();
           // A reload of the same tab is not news.
           if (!event.reload) this._pageChange = event;
         },

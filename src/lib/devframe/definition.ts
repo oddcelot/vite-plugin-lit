@@ -321,6 +321,9 @@ export function createLitDevframe(
             // followed is only its socket reconnecting: its clock did not
             // restart, so its buffer stays.
             if (outcome !== 'same') recording.clear();
+            // Element ids are minted per document, so the old page's tree and
+            // details would answer for ids that mean nothing on the new one.
+            if (outcome === 'switched') recording.forgetInspector();
             if (
               outcome === 'switched' &&
               previous !== undefined &&

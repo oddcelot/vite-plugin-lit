@@ -325,6 +325,25 @@ describe('lit devframe definition', () => {
     );
   });
 
+  test('a ready from another page forgets the cached tree and details', async () => {
+    const {source, ctx} = await boot({inspectorTimeoutMs: 20});
+    const details = detailsFor(1);
+    source.sink!.runtimeReady('a');
+    source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]}, 'a');
+    source.sink!.inspectorMessage({type: 'details', details}, 'a');
+    // A reconnect of the same page keeps them.
+    source.sink!.runtimeReady('a');
+    expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([
+      treeNode,
+    ]);
+
+    source.sink!.runtimeReady('b');
+    expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([]);
+    expect(
+      await ctx.rpc.invokeLocal('lit:component-details', {id: 1})
+    ).toBeNull();
+  });
+
   test('a stale page cannot answer an agent query', async () => {
     const {source, ctx} = await boot({inspectorTimeoutMs: 1000});
     source.sink!.runtimeReady('a');
