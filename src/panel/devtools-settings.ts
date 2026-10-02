@@ -314,21 +314,24 @@ export class DevtoolsSettings extends LitElement {
   }
 
   /**
-   * Marker trailing the select option that holds the config baseline, naming
-   * where it came from, so the open list shows which choice is the default.
-   * Option labels come from the default slot only, so the closed select
-   * doesn't repeat it.
+   * Marker trailing a select option: the config baseline names where it came
+   * from, and when that was env or an option, the built-in default gets its
+   * own "default" marker, so the open list shows both. Option labels come
+   * from the default slot only, so the closed select doesn't repeat it.
    */
   private _optSource(
     key: keyof SettingSources,
     value: string,
-    baseline: string
+    baseline: string,
+    builtin: string
   ) {
-    return value === baseline
-      ? html`<span slot="end" class="opt-src"
-          >${this._settings?.sources?.[key] ?? 'default'}</span
-        >`
-      : nothing;
+    const src =
+      value === baseline
+        ? (this._settings?.sources?.[key] ?? 'default')
+        : value === builtin
+          ? 'default'
+          : undefined;
+    return src ? html`<span slot="end" class="opt-src">${src}</span>` : nothing;
   }
 
   /**
@@ -528,7 +531,8 @@ export class DevtoolsSettings extends LitElement {
                     >${mode}${this._optSource(
                       'hmrOnIncompatible',
                       mode,
-                      s.hmr.onIncompatible
+                      s.hmr.onIncompatible,
+                      'reload'
                     )}</wa-option
                   >`
               )}
@@ -560,7 +564,8 @@ export class DevtoolsSettings extends LitElement {
                     >${mode}${this._optSource(
                       'hmrChildState',
                       mode,
-                      s.hmr.childState
+                      s.hmr.childState,
+                      'transfer'
                     )}</wa-option
                   >`
               )}
@@ -646,7 +651,7 @@ export class DevtoolsSettings extends LitElement {
       <tr>
         <td
           class="key"
-          data-tip="The editor that source links and the overlay open files in"
+          data-tip="The editor that source links and the overlay open files in. Default: VS Code"
         >
           editor
         </td>
@@ -670,7 +675,8 @@ export class DevtoolsSettings extends LitElement {
                         >${ed.label}${this._optSource(
                           'sourceOverlayEditor',
                           ed.value,
-                          baseline
+                          baseline,
+                          'vscode'
                         )}</wa-option
                       >`
                   )
