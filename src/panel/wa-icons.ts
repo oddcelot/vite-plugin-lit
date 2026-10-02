@@ -14,7 +14,6 @@ import {
   getIconLibrary,
   registerIconLibrary,
 } from '@awesome.me/webawesome/dist/components/icon/library.js';
-import arrowClockwise from '@phosphor-icons/core/assets/regular/arrow-clockwise.svg?raw';
 import arrowCounterClockwise from '@phosphor-icons/core/assets/regular/arrow-counter-clockwise.svg?raw';
 import arrowRight from '@phosphor-icons/core/assets/regular/arrow-right.svg?raw';
 import arrowSquareOut from '@phosphor-icons/core/assets/regular/arrow-square-out.svg?raw';
@@ -40,7 +39,6 @@ import warning from '@phosphor-icons/core/assets/regular/warning.svg?raw';
 import x from '@phosphor-icons/core/assets/regular/x.svg?raw';
 
 const ICONS = {
-  'arrow-clockwise': arrowClockwise,
   'arrow-counter-clockwise': arrowCounterClockwise,
   'arrow-right': arrowRight,
   'arrow-square-out': arrowSquareOut,

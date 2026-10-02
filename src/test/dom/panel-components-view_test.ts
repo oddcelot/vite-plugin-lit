@@ -121,19 +121,30 @@ test('selecting a nested element expands its ancestors', async () => {
 
 const observeOn = {type: 'observe', enabled: true};
 
-test('re-arms Live on connect when it was left on', async () => {
-  localStorage.setItem(LIVE_LS_KEY, 'true');
+test('arms Live on connect by default', async () => {
   const {inspects} = await mount();
   expect(inspects()).toContainEqual(observeOn);
 });
 
-test('does not arm Live on connect when it is off', async () => {
+test('does not arm Live on connect when it was paused', async () => {
+  localStorage.setItem(LIVE_LS_KEY, 'false');
   const {inspects} = await mount();
   expect(inspects()).not.toContainEqual(observeOn);
 });
 
+test('pausing Live remembers it and pulls one fresh tree', async () => {
+  const {el, root, inspects} = await mount();
+  const before = inspects().length;
+  root.querySelector<HTMLElement>('wa-button.live')!.click();
+  await flush(el);
+  expect(inspects().slice(before)).toEqual([
+    {type: 'observe', enabled: false},
+    {type: 'tree'},
+  ]);
+  expect(localStorage.getItem(LIVE_LS_KEY)).toBe('false');
+});
+
 test('re-arms Live when the runtime announces ready', async () => {
-  localStorage.setItem(LIVE_LS_KEY, 'true');
   const {el, inspects} = await mount();
   const armed = () =>
     inspects().filter((c) => JSON.stringify(c) === JSON.stringify(observeOn))
@@ -146,7 +157,6 @@ test('re-arms Live when the runtime announces ready', async () => {
 
 test('never arms Live in a snapshot', async () => {
   setSnapshot(true);
-  localStorage.setItem(LIVE_LS_KEY, 'true');
   const {inspects} = await mount();
   expect(inspects()).toEqual([]);
 });

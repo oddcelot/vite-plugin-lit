@@ -33,7 +33,10 @@ import {openInEditor} from './open-in-editor.js';
 import {inPageChannel, inPageConnected} from './in-page.js';
 import {overrides} from './settings-override.js';
 
-/** localStorage key remembering the opt-in live-tree toggle. */
+/**
+ * localStorage key remembering a paused live tree. Live is the default, so
+ * only an explicit `'false'` turns it off.
+ */
 const LIVE_LS_KEY = 'lit-devtools-components-live';
 
 /** localStorage key remembering the details pane's width in pixels. */
@@ -314,7 +317,7 @@ export class ComponentsView extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
-    this._live = localStorage.getItem(LIVE_LS_KEY) === 'true';
+    this._live = localStorage.getItem(LIVE_LS_KEY) !== 'false';
     this._flash = overrides.get().flashUpdates ?? false;
     this._unsubscribeOverride = overrides.subscribe((o) => {
       this._flash = o.flashUpdates ?? false;
@@ -618,8 +621,9 @@ export class ComponentsView extends LitElement {
     }
     // Connect the lazy in-page channel so the page can see the panel leave.
     if (this._live && !isSnapshot()) inPageConnected();
+    // Resuming pushes a fresh tree on its own; pausing pulls one, so the
+    // frozen tree is the page as of now.
     this._call({type: 'observe', enabled: this._live});
-    // Leaving live mode, pull one fresh tree so it doesn't go stale silently.
     if (!this._live) this._call({type: 'tree'});
   }
 
@@ -981,7 +985,9 @@ export class ComponentsView extends LitElement {
         ${this._renderToggle(
           'live',
           this._live,
-          'Update the tree automatically as the page changes',
+          this._live
+            ? 'Pause: stop updating the tree as the page changes'
+            : 'Resume updating the tree as the page changes',
           this._toggleLive,
           html`<wa-icon
             slot="start"
@@ -997,15 +1003,6 @@ export class ComponentsView extends LitElement {
           html`<wa-icon slot="start" name="lightning"></wa-icon>`,
           'Flash'
         )}
-        <wa-button
-          size="small"
-          appearance="outlined"
-          @click=${this._refresh}
-          ?disabled=${this._live}
-        >
-          <wa-icon slot="start" name="arrow-clockwise"></wa-icon>
-          Refresh
-        </wa-button>
       </div>
       ${this._renderHmrBanner()}${this._renderLastPatch()}
       <wa-split-panel
