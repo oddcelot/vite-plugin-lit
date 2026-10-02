@@ -7,6 +7,8 @@ import {resolveOptions, toFeatureSettings} from '../../lib/options.js';
 vi.mock('../../panel/client.js', () => import('./fakes/client.js'));
 
 beforeAll(async () => {
+  // The bundled icon set, so wa-icon never reaches for the CDN.
+  await import('../../panel/wa-icons.js');
   await import('../../panel/devtools-settings.js');
 });
 
@@ -116,4 +118,14 @@ test('origin badges skip defaults, and the open select marks the baseline', asyn
   expect(child.querySelector('.key')!.getAttribute('data-tip')).toContain(
     'Default: transfer'
   );
+});
+
+test('the chrome tracks row links to the guide on where the tracks appear', async () => {
+  meta.features = toFeatureSettings(resolveOptions({timeline: true}, {}));
+  const root = await mount();
+  const link = root.querySelector('wa-button.docs-link')!;
+  expect(link.getAttribute('href')).toMatch(
+    /\/guides\/devtools\/timeline\/#see-it-in-chromes-performance-panel$/
+  );
+  expect(link.getAttribute('target')).toBe('_blank');
 });

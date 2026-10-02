@@ -27,6 +27,10 @@ import type {LitGetMetaResult} from '../lib/devframe/protocol.js';
 import {configValues, type OverridableKey} from '../lib/settings-override.js';
 import {overrides} from './settings-override.js';
 
+/** The guide section that shows where the Lit tracks appear in Chrome. */
+const CHROME_TRACKS_DOCS =
+  'https://oddcelot.github.io/vite-plugin-lit/guides/devtools/timeline/#see-it-in-chromes-performance-panel';
+
 /** The settings this panel persists, as `DevframeSettingsRegistry.lit`. */
 type LitSettings = Awaited<ReturnType<LitClient['settings']['global']['all']>>;
 
@@ -123,6 +127,10 @@ export class DevtoolsSettings extends LitElement {
         vertical-align: middle;
       }
       .src {
+        margin-left: var(--lit-devtools-space-3);
+        vertical-align: middle;
+      }
+      .docs-link {
         margin-left: var(--lit-devtools-space-3);
         vertical-align: middle;
       }
@@ -752,6 +760,17 @@ export class DevtoolsSettings extends LitElement {
             >
               ${chrome ? 'on' : 'off'}
             </wa-switch>
+            <wa-button
+              class="docs-link"
+              appearance="plain"
+              size="small"
+              href=${CHROME_TRACKS_DOCS}
+              target="_blank"
+              data-tip="Open the guide with a screenshot of the Lit tracks in Chrome"
+            >
+              <wa-icon slot="end" name="arrow-square-out"></wa-icon>
+              Where to find them
+            </wa-button>
           </td>
         </tr>
       </table>
