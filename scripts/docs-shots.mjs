@@ -300,7 +300,12 @@ const SHOTS = [
           await sleep(30);
         }
       }
-      await tracks.locator('css=.mark').first().click();
+      // Not `.click()`: the zoom is anchored on this mark, so it ends up on
+      // the plot's left edge, clipped at -1px beside the gutter's border.
+      // Depending on sub-pixel rounding the hit test at its centre lands on
+      // the gutter, and the click retries until it times out. The shot only
+      // needs the mark selected.
+      await tracks.locator('css=.mark').first().dispatchEvent('click');
       await sleep(400);
       await ctx.shot(panel);
     },
