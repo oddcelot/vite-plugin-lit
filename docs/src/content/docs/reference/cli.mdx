@@ -85,6 +85,26 @@ DevTools.
   source locations and open-in-editor are unavailable: the picker shows a tag
   name, not a file. The tree, inspector and timeline work.
 
+### Production builds
+
+The script tag also attaches to a minified production build, with Lit resolved
+to its production condition. An end-to-end test
+(`src/test/e2e/standalone-production_test.ts`) covers it.
+
+- **Works.** The component tree, the inspector (properties, controllers and
+  `@lit/task` instances, although Lit mangles its private controller set in
+  production) and Record with the lifecycle layer: `performUpdate`,
+  `willUpdate`, `update` and `updated` are all captured.
+- **Empty.** The render layers. Lit's production build never dispatches
+  `lit-debug` events, so there is nothing to record.
+- **Unavailable.** Source locations, open-in-editor and HMR, as for any page
+  Vite does not serve.
+- **Blocked.** A page whose Content Security Policy does not allow the server's
+  origin in `script-src` (for instance `script-src 'self'`) refuses the script,
+  and nothing attaches.
+- **Cosmetic.** Names the minifier renamed show as it left them: a plain
+  controller's type reads as a short identifier.
+
 A page served by a Vite dev server can also connect from its own code:
 
 ```ts
