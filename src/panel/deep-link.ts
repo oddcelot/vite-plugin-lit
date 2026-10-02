@@ -105,7 +105,8 @@ export const writeHashLink = (link: DeepLink): void => {
   history.replaceState(
     history.state,
     '',
-    next === '' ? location.pathname : `#${next}`
+    // Keep the query: the extension's panel page can be addressed by one.
+    next === '' ? location.pathname + location.search : `#${next}`
   );
 };
 

@@ -1,0 +1,93 @@
+/*
+ * The Lit tab's own chrome around the panel SPA: the setup screen shown
+ * until the site is enabled, and the status bar under the panel once it is.
+ * The bar uses the panel's tokens, which only exist once the SPA has loaded;
+ * the setup screen never shows next to it and gets by on system defaults.
+ *
+ * Also the SPA's document reset, which its own index.html carries inline.
+ */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#setup {
+  padding: 12px;
+  font:
+    13px system-ui,
+    sans-serif;
+}
+
+#setup dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin-bottom: 12px;
+}
+
+#setup button {
+  padding: 2px 8px;
+}
+
+/* The element sizes itself to the viewport; leave room for the bar. */
+lit-devtools-panel {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+#bar {
+  display: flex;
+  align-items: center;
+  gap: var(--lit-devtools-space-2, 8px);
+  padding: var(--lit-devtools-space-1, 4px) var(--lit-devtools-space-2, 8px);
+  border-top: 1px solid var(--lit-devtools-border, GrayText);
+  background: var(--lit-devtools-surface, Canvas);
+  color: var(--lit-devtools-text-muted, GrayText);
+  font-family: var(--lit-devtools-font-sans, system-ui, sans-serif);
+  font-size: var(--lit-devtools-text-xs, 11px);
+}
+
+#bar[hidden],
+#bar [hidden] {
+  display: none;
+}
+
+#bar.disconnected {
+  background: var(--lit-devtools-warning-soft, Mark);
+  color: var(--lit-devtools-text, CanvasText);
+}
+
+#page {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#bar button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--lit-devtools-text-link, LinkText);
+  font: inherit;
+  cursor: pointer;
+}
+
+#bar button:hover {
+  text-decoration: underline;
+}

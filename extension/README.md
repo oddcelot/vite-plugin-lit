@@ -27,14 +27,21 @@ host access at install.
    change that origin's pages; allow it, and the page reloads.
 3. From then on, every page load on that origin gets the runtime at
    `document_start`, before the page's own scripts run, until you click
-   **Disable** or remove the permission in the extension's details.
+   **Disable on this site** (bottom right of the Lit tab) or remove the
+   permission in the extension's details.
+
+Once enabled, the Lit tab is the same panel `lit-devtools dev` and the Vite
+plugin serve: Components, Updates, Timeline and Settings, running inside the
+extension with no server behind it. A bar under it says whether the page has
+the runtime; a page loaded before you enabled the site, or one the extension
+couldn't inject into, gets a **Reload page** link there. Panel settings are
+kept in the extension's local storage and shared by every tab.
 
 ## Current limits
 
-- The Lit tab is a placeholder. It shows the site's status and counts messages
-  from the page; the real panel hasn't moved in yet.
-- The page's runtime doesn't send anything yet. The window-to-port transport
-  that carries its traffic is still being written, so the count stays at 0.
+- What needs a dev server doesn't work yet: opening a component's source in
+  your editor, exporting a timeline snapshot, and the plugin settings in the
+  Settings tab.
 - Top frames only: components inside iframes aren't seen.
 - Only `http:` and `https:` pages.
 - Chrome 114 or later.
