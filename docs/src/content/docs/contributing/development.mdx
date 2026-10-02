@@ -80,6 +80,21 @@ pnpm run docs:shots   # regenerate the screenshots
 section, fails on a dead internal link or anchor, and asserts every redirect
 target exists. Run it before you open a docs PR.
 
+Screenshots or recordings that need the real browser window, such as Chrome's
+own DevTools or a screen capture for a demo, start Chrome through
+`pnpm run chrome:clean`. It opens installed Google Chrome on a throwaway
+profile with an English UI and none of the usual on-screen noise: no
+translate offer, automation banner, sign-in or password prompt, first-run or
+restore page. Add `--app` for a window with no tabs or address bar, or
+`--kiosk` for full screen:
+
+```sh frame="terminal"
+pnpm run chrome:clean --app http://localhost:5179/
+```
+
+Scripts import `launchCleanChrome()` from `scripts/chrome-profile.mjs`, which
+returns the Playwright page to drive.
+
 <Aside type="caution" title="Links carry the base path">
   The site deploys under the `/vite-plugin-lit` GitHub Pages path, and Astro
   does not rewrite hrefs written in Markdown. Internal links are therefore
