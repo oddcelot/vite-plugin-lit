@@ -29,8 +29,8 @@ row to outline that element in the page.
   alt="The Components tab: the element tree on the left, hmr-properties selected, its reactive properties on the right."
 />
 
-**Refresh** re-reads the tree on demand. The tree also refreshes whenever you
-pick an element.
+The tree follows the page as components appear and disappear; see
+[Follow changes live](#follow-changes-live) to pause it.
 
 When an edit is hot-patched in place, a line above the tree reads
 `Patched <tag> ×N in M ms (childState: …)` for the most recent patch. It is not
@@ -90,14 +90,16 @@ tree; hold Ctrl or ⌘ while clicking to open it in your editor instead.
 
 ## Follow changes live
 
-Toggle **Live** to keep the tree current without pressing Refresh. It starts an
-opt-in `MutationObserver` in the page that re-pushes the tree as the component
-hierarchy changes, including inside shadow roots.
+**Live** is on by default: a `MutationObserver` in the page re-pushes the tree
+as the component hierarchy changes, including inside shadow roots. Changes to
+text and plain markup are ignored, so they cost no tree rebuild.
 
-It is off by default and remembered per browser. Refresh is disabled while it
-is on, because there is nothing left to ask for.
+Toggle Live off to pause the tree, for example to click through a list that
+keeps re-rendering, or to keep the observer's work out of a timeline recording
+on a heavy page. Pausing takes one last snapshot of the tree; turning Live back
+on brings it up to date. The choice is remembered per browser.
 
-Closing the panel stops the page observer, and reopening it with Live still on
+Closing the panel stops the page observer, and reopening it with Live on
 starts it again. A panel opened as its own tab, rather than docked in the page,
 cannot tell the page it closed, so there Live keeps observing until the page
 reloads or you toggle Live off.
