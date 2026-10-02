@@ -5,10 +5,10 @@
  * to boot on scroll, so the iframe is only created on a click. StackBlitz's
  * `ctl=1` click-to-load does not apply to GitHub imports.
  *
- * The first load of a GitHub import in an embed can stall at "Cloning repo
- * from GitHub" and finish on a reload, so the caption has a button that
- * reloads just the iframe, next to a link that opens the project in a full
- * StackBlitz tab.
+ * The embed needs a cross-origin isolated page, which `coi-sw.js` provides
+ * from the page's next load: the first Run reloads the page once, then
+ * starts the embed. The caption has a button that reloads just the iframe,
+ * next to a link that opens the project in a full StackBlitz tab.
  */
 interface Props {
   /** Directory in the repo, such as `examples/flame`. */
@@ -48,13 +48,22 @@ const query = (extra: Record<string, string>) => {
 </figure>
 
 <script>
-  // Embedded WebContainers need the `credentialless` cross-origin isolation
-  // only Chromium implements; elsewhere StackBlitz shows "Unable to run
-  // Embedded Project". A full StackBlitz tab runs in more browsers.
-  const brands = (
-    navigator as Navigator & {userAgentData?: {brands: {brand: string}[]}}
-  ).userAgentData?.brands;
-  const canEmbed = brands?.some(({brand}) => brand === 'Chromium') ?? false;
+  // A WebContainer embed runs only on a cross-origin isolated page, in a
+  // `credentialless` iframe; otherwise StackBlitz shows "Unable to run
+  // Embedded Project". Only Chromium has `credentialless` iframes. The
+  // isolation headers come from coi-sw.js, a service worker next to this
+  // page, which takes effect from the next load of the page.
+  const canEmbed =
+    'credentialless' in HTMLIFrameElement.prototype &&
+    'serviceWorker' in navigator;
+  // The embed to start once the page comes back isolated.
+  const PENDING = 'stackblitz-embed:pending';
+
+  if (canEmbed) {
+    void navigator.serviceWorker.register(
+      `${import.meta.env.BASE_URL.replace(/\/$/, '')}/start/demos/coi-sw.js`,
+    );
+  }
 
   class StackBlitzEmbed extends HTMLElement {
     connectedCallback() {
@@ -62,23 +71,56 @@ const query = (extra: Record<string, string>) => {
       const reload =
         this.closest('figure')?.querySelector<HTMLButtonElement>('.reload');
       if (run === null || reload === null || reload === undefined) return;
-      if (!canEmbed) {
-        const note = document.createElement('p');
-        note.className = 'unsupported';
-        note.textContent =
-          'StackBlitz runs embedded demos only in Chromium-based browsers. Open this one in StackBlitz instead.';
-        run.replaceWith(note);
-        return;
-      }
-      run.addEventListener('click', () => {
+      const src = this.dataset.src ?? '';
+
+      const start = () => {
         const frame = document.createElement('iframe');
-        frame.src = this.dataset.src ?? '';
+        frame.setAttribute('credentialless', '');
+        frame.allow = 'cross-origin-isolated';
+        frame.src = src;
         frame.title = run.dataset.title ?? '';
         run.replaceWith(frame);
         reload.hidden = false;
         reload.addEventListener('click', () => {
-          frame.src = this.dataset.src ?? '';
+          frame.src = src;
         });
+      };
+      const unsupported = (text: string) => {
+        const note = document.createElement('p');
+        note.className = 'unsupported';
+        note.textContent = text;
+        run.replaceWith(note);
+      };
+
+      if (!canEmbed) {
+        unsupported(
+          'StackBlitz runs embedded demos only in Chromium-based browsers. Open this one in StackBlitz instead.',
+        );
+        return;
+      }
+      if (sessionStorage.getItem(PENDING) === src) {
+        sessionStorage.removeItem(PENDING);
+        // Reloaded for this embed; if the worker still did not isolate the
+        // page, say so instead of reloading again.
+        if (crossOriginIsolated) {
+          start();
+          this.scrollIntoView({block: 'center'});
+        } else {
+          unsupported(
+            'This page could not enable the isolation the embed needs. Open this demo in StackBlitz instead.',
+          );
+        }
+        return;
+      }
+      run.addEventListener('click', async () => {
+        if (crossOriginIsolated) {
+          start();
+          return;
+        }
+        run.disabled = true;
+        sessionStorage.setItem(PENDING, src);
+        await navigator.serviceWorker.ready;
+        location.reload();
       });
     }
   }
