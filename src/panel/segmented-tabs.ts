@@ -51,8 +51,18 @@ export class SegmentedTabs extends LitElement {
         display: flex;
         height: 100%;
       }
+      /* Web Awesome underlines the active tab with a bottom border (and a
+         matching negative margin) set only on [active]. On a full-height tab
+         that border eats into the box the label is centred in, so the active
+         label rode higher than its siblings. Every tab carries the same
+         border, transparent unless active, so the boxes stay identical. */
       wa-tab {
         height: 100%;
+        border-block-end: solid var(--safe-track-width) transparent;
+        margin-block-end: calc(-1 * var(--safe-track-width));
+      }
+      wa-tab[active] {
+        border-block-end-color: var(--indicator-color);
       }
       wa-tab-group::part(body) {
         display: none;

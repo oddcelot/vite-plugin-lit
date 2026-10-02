@@ -192,8 +192,14 @@ test('shows old and new values and flags a new reference with equal content', as
   list.row.click();
   await settle();
   const change = root.querySelector('.cycles .change')!;
+  const values = [...change.querySelectorAll('.value')];
+  expect(values.map((v) => v.textContent)).toEqual(['[1, 2]', '[1, 2]']);
+  const arrow = change.querySelector('wa-icon[name="arrow-right"]')!;
+  expect(arrow).not.toBeNull();
+  expect(arrow.previousElementSibling).toBe(values[0]);
+  expect(arrow.nextElementSibling).toBe(values[1]);
   expect(change.textContent!.replace(/\s+/g, ' ')).toContain(
-    'items [1, 2] → [1, 2] new reference, same value'
+    'new reference, same value'
   );
 });
 

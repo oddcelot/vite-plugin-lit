@@ -2,6 +2,7 @@ import {LitElement, html, css, nothing} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
 import '@awesome.me/webawesome/dist/components/badge/badge.js';
 import '@awesome.me/webawesome/dist/components/button/button.js';
+import '@awesome.me/webawesome/dist/components/icon/icon.js';
 import {tokens} from '../lib/tokens.js';
 import type {TimelineSpan} from '../lib/timeline/derive.js';
 import {openInEditor} from './open-in-editor.js';
@@ -45,6 +46,9 @@ export class TimelineSpanDetail extends LitElement {
       .key {
         color: var(--lit-devtools-text-muted);
         white-space: nowrap;
+      }
+      .arrow {
+        vertical-align: text-bottom;
       }
       .val {
         color: var(--lit-devtools-text);
@@ -115,7 +119,8 @@ export class TimelineSpanDetail extends LitElement {
                 <td class="val">
                   ${row.changedDetail.map(
                     (c) => html`<div>
-                      ${c.key}: ${c.prev} →
+                      ${c.key}: ${c.prev}
+                      <wa-icon class="arrow" name="arrow-right"></wa-icon>
                       ${c.next}${
                         c.sameRef
                           ? html`<wa-badge

@@ -101,7 +101,7 @@ test('the source link opens the file at its line', async () => {
 });
 
 test('lists old and new values when the span has them', async () => {
-  const {value} = await mount({
+  const {value, root} = await mount({
     span: {
       ...span,
       changedDetail: [
@@ -111,8 +111,30 @@ test('lists old and new values when the span has them', async () => {
     },
   });
   expect(value('values')).toBe(
-    'count: 0 → 1 items: [1] → [1]new reference, same value'
+    'count: 0 1 items: [1] [1]new reference, same value'
   );
+  // An icon, not a text glyph, sits between each prev and next.
+  const arrows = root.querySelectorAll('wa-icon.arrow[name="arrow-right"]');
+  expect(arrows).toHaveLength(2);
+  const around = (arrow: Element) => {
+    const row = arrow.parentElement!;
+    const text = (side: 'before' | 'after') => {
+      const range = document.createRange();
+      if (side === 'before') {
+        range.setStart(row, 0);
+        range.setEndBefore(arrow);
+      } else {
+        range.setStartAfter(arrow);
+        range.setEnd(row, row.childNodes.length);
+      }
+      return range.toString().replace(/\s+/g, ' ').trim();
+    };
+    return [text('before'), text('after')];
+  };
+  expect(around(arrows[0]!)[0]).toBe('count: 0');
+  expect(around(arrows[0]!)[1]).toBe('1');
+  expect(around(arrows[1]!)[0]).toBe('items: [1]');
+  expect(around(arrows[1]!)[1]).toMatch(/^\[1\]/);
 });
 
 test('has no values row without detail', async () => {
