@@ -1,4 +1,4 @@
-import {describe, expect, test} from 'vite-plus/test';
+import {describe, expect, test, vi} from 'vite-plus/test';
 import {
   ENABLED_ORIGINS_KEY,
   createRegistry,
@@ -46,6 +46,15 @@ const fakeChrome = (granted: string[] = []) => {
     granted,
     async contains({origins}: {origins: string[]}) {
       return origins.every((o) => granted.includes(o));
+    },
+    removeFails: false,
+    async remove({origins}: {origins: string[]}) {
+      if (this.removeFails) throw new Error('cannot remove');
+      for (const o of origins) {
+        const i = granted.indexOf(o);
+        if (i >= 0) granted.splice(i, 1);
+      }
+      return true;
     },
   };
   return {
@@ -136,7 +145,7 @@ describe('extension registry', () => {
     expect(status).toEqual({
       origin: 'https://a.test',
       enabled: false,
-      permitted: true,
+      permitted: false,
     });
     expect([...scripting.scripts.keys()]).toEqual([
       'lit-page@https://b.test',
@@ -146,6 +155,31 @@ describe('extension registry', () => {
     // Nothing registered: still no rejection.
     await expect(registry.disable('https://a.test')).resolves.toMatchObject({
       enabled: false,
+    });
+  });
+
+  test('disabling gives the host permission back, and forget() then has nothing to do', async () => {
+    const {registry, scripting, permissions} = fakeChrome([
+      'https://a.test/*',
+      'https://b.test/*',
+    ]);
+    await registry.enable('https://a.test');
+    await registry.disable('https://a.test');
+    expect(permissions.granted).toEqual(['https://b.test/*']);
+    // What `permissions.onRemoved` reports back: no second unregister.
+    const unregister = vi.spyOn(scripting, 'unregisterContentScripts');
+    await registry.forget(['https://a.test/*']);
+    expect(unregister).not.toHaveBeenCalled();
+  });
+
+  test('a permission that cannot be removed does not fail disabling', async () => {
+    const {registry, permissions} = fakeChrome(['https://a.test/*']);
+    await registry.enable('https://a.test');
+    permissions.removeFails = true;
+    await expect(registry.disable('https://a.test')).resolves.toEqual({
+      origin: 'https://a.test',
+      enabled: false,
+      permitted: true,
     });
   });
 
