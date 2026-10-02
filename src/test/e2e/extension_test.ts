@@ -393,11 +393,73 @@ test('the Lit tab leaves out what needs a dev server', async () => {
   // The Settings tab says why the plugin settings are missing.
   await panel.locator('segmented-tabs').getByText('Settings').click();
   await expect
-    .poll(() => panel.locator('devtools-settings .empty').textContent())
+    .poll(async () =>
+      (await panel.locator('devtools-settings .empty').textContent())?.trim()
+    )
     .toBe(
       'Plugin settings need the Vite plugin; this page is inspected without a Vite dev server.'
     );
 
+  await panel.close();
+  await page.close();
+}, 60_000);
+
+test("the Lit tab's switch puts Lit tracks in Chrome's Performance panel", async () => {
+  const page = await context.newPage();
+  await page.goto(appOrigin);
+  // `console.timeStamp` is what the runtime mirrors the timeline through.
+  // CDP doesn't report its six-argument track form (that goes to the trace,
+  // not `Runtime.consoleAPICalled`), so count calls in the page instead; the
+  // runtime looks the function up on every call.
+  await page.evaluate(() => {
+    const w = window as unknown as {__stamps: string[]};
+    w.__stamps = [];
+    const c = console as unknown as {timeStamp: (...a: unknown[]) => void};
+    const original = c.timeStamp.bind(console);
+    c.timeStamp = (...args) => {
+      w.__stamps.push(String(args[0]));
+      original(...args);
+    };
+  });
+  const stamps = () =>
+    page.evaluate(() => (window as unknown as {__stamps: string[]}).__stamps);
+  const nudge = () =>
+    page.evaluate(() => {
+      const el = document.querySelector('probe-hello') as unknown as {
+        requestUpdate(): void;
+      };
+      el.requestUpdate();
+    });
+
+  const tabId = await extensionPage.evaluate(
+    async (origin) => (await chrome.tabs.query({url: `${origin}/*`}))[0]?.id,
+    appOrigin
+  );
+  const panel = await context.newPage();
+  await panel.goto(
+    `chrome-extension://${extensionId}/panel.html?tabId=${tabId}#tab=settings`
+  );
+  const tracks = panel
+    .locator('devtools-settings tr')
+    .filter({hasText: 'chrome performance tracks'})
+    .locator('wa-switch');
+  await tracks.waitFor({timeout: 15_000});
+
+  // Off by default: an update stamps nothing.
+  await nudge();
+  await page.waitForTimeout(300);
+  expect(await stamps()).toEqual([]);
+
+  await tracks.click();
+  await expect
+    .poll(async () => {
+      await nudge();
+      return stamps();
+    })
+    .toContainEqual(expect.stringContaining('<probe-hello>'));
+
+  // Leave the stored preference as the other tests found it.
+  await tracks.click();
   await panel.close();
   await page.close();
 }, 60_000);

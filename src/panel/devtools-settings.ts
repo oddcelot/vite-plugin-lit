@@ -843,13 +843,34 @@ export class DevtoolsSettings extends LitElement {
     const appearance = this._renderAppearance();
     if (s === null) {
       // Off the Vite plugin there are no plugin options or env to resolve;
-      // saying so beats a bare "unavailable" that reads like a fault.
-      const why =
-        this._meta?.capabilities.pluginSettings === false
-          ? 'Plugin settings need the Vite plugin; this page is inspected without a Vite dev server.'
-          : 'Settings unavailable.';
+      // saying so beats a bare "unavailable" that reads like a fault. The
+      // page-side preferences still apply there: they have no config-time
+      // baseline, and the runtime those hosts inject always has the timeline.
+      const offPlugin = this._meta?.capabilities.pluginSettings === false;
       return html`${appearance}
-        <p class="empty">${why}</p>
+        <p class="empty">
+          ${
+            offPlugin
+              ? 'Plugin settings need the Vite plugin; this page is inspected without a Vite dev server.'
+              : 'Settings unavailable.'
+          }
+        </p>
+        ${
+          offPlugin
+            ? html`<section>
+                  <wa-card>
+                    <h3 slot="header">Components</h3>
+                    ${this._renderComponents()}
+                  </wa-card>
+                </section>
+                <section>
+                  <wa-card>
+                    <h3 slot="header">Timeline</h3>
+                    ${this._renderTimelinePrefs()}
+                  </wa-card>
+                </section>`
+            : nothing
+        }
         ${this._renderAbout()}`;
     }
     const hasOverride = Object.keys(this._override).length > 0;

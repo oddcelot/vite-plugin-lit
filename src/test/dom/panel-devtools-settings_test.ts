@@ -1,6 +1,6 @@
 import {afterEach, beforeAll, expect, test, vi} from 'vite-plus/test';
 import type {DevtoolsSettings} from '../../panel/devtools-settings.js';
-import {meta, resetClient} from './fakes/client.js';
+import {calls, meta, resetClient} from './fakes/client.js';
 import {overrides} from '../../panel/settings-override.js';
 import {resolveOptions, toFeatureSettings} from '../../lib/options.js';
 
@@ -135,14 +135,35 @@ test('the chrome tracks row links to the guide on where the tracks appear', asyn
 
 test('explains missing plugin settings off the Vite plugin', async () => {
   meta.capabilities.pluginSettings = false;
-  const text = (await mount()).querySelector('.empty')!.textContent;
+  const text = (await mount()).querySelector('.empty')!.textContent!.trim();
   expect(text).toBe(
     'Plugin settings need the Vite plugin; this page is inspected without a Vite dev server.'
   );
 });
 
 test('keeps the plain message when the plugin simply sent no settings', async () => {
-  expect((await mount()).querySelector('.empty')!.textContent).toBe(
+  const root = await mount();
+  expect(root.querySelector('.empty')!.textContent!.trim()).toBe(
     'Settings unavailable.'
   );
+  expect(root.querySelector('wa-switch')).toBeNull();
+});
+
+test('off the Vite plugin, the page-side preferences still switch on', async () => {
+  meta.capabilities.pluginSettings = false;
+  const root = await mount();
+  const row = (key: string) =>
+    [...root.querySelectorAll('tr')].find(
+      (tr) => tr.querySelector('.key')?.textContent?.trim() === key
+    );
+  expect(row('flash updates')).toBeDefined();
+  const tracks = row('chrome performance tracks')!.querySelector('wa-switch')!;
+  tracks.checked = true;
+  tracks.dispatchEvent(new Event('change'));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(
+    calls
+      .filter((c) => c.name === 'set-settings-override')
+      .map((c) => c.args[0])
+  ).toContainEqual(expect.objectContaining({chromeTracks: true}));
 });
