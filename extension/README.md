@@ -1,11 +1,39 @@
-# Lit DevTools for Chrome
+# Lit Inspector for Chrome
 
-A Chrome DevTools extension that inspects the Lit components on any page:
+Lit Inspector is a Chrome DevTools extension that inspects the Lit components on any page:
 production builds, sites you don't serve, pages whose CSP would refuse the
 `<script>` tag `lit-devtools dev` prints. Chrome injects the runtime itself,
 so the page's `script-src` doesn't apply.
 
 Work in progress. It isn't published, and it isn't part of the npm package.
+It is an independent tool, not affiliated with Google or the Lit project.
+Its privacy policy is on the docs site:
+https://oddcelot.github.io/vite-plugin-lit/reference/extension-privacy/
+
+The extension is named Lit Inspector in Chrome (`chrome://extensions`, the
+Web Store), and the tab it adds to DevTools is titled **Lit**: a short name
+fits the DevTools tab strip next to Elements and Console, and inside DevTools
+there is nothing else it could be confused with.
+
+## Package for the Web Store
+
+```sh
+pnpm run package:extension
+```
+
+This builds the extension and writes `dist/lit-inspector-<version>.zip`:
+the contents of `dist/extension/` with `manifest.json` at the root and the
+source maps left out. It needs the `zip` command. The listing copy, the store
+icon, the screenshots and the promo tiles are in `store/`; see
+`store/listing.md`.
+
+## Version
+
+`manifest.json` here has no `version`. The build writes
+`dist/extension/manifest.json` with the package's version from the root
+`package.json`, so the extension and the package can't drift apart. Chrome
+takes one to four dot-separated integers, so a prerelease version such as
+`1.0.0-beta.1` fails the extension build.
 
 ## Build and load
 
@@ -31,6 +59,23 @@ Chrome ignores `--load-extension`) with the extension loaded and DevTools
 open, in a throwaway profile. Closing the window stops the server and deletes
 the profile. Don't point `--url` at a dev server running the Vite plugin: that
 page already has the runtime.
+
+## Icons
+
+The mark is `public/icon.svg`: a component tree with its selected node, on a
+flame-blue tile so it reads on light and dark toolbars. It is original
+artwork, not the Lit logo, which the extension may not use as its own. The
+DevTools tab shows the SVG; the manifest lists PNGs in `public/icons/`,
+rendered from it by
+
+```sh
+pnpm run extension:assets icons
+```
+
+At 16px the tree is redrawn on the pixel grid (`store/icon-16.svg`). The
+128px icon has 96px of artwork and 16px of transparent padding, which is what
+the Web Store asks of its icon. The PNGs are committed; rerun the script after
+changing either SVG.
 
 ## Enable it on a site
 

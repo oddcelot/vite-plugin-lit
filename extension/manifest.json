@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Lit Inspector",
+  "description": "Inspect Lit web components on any page, production builds included: component tree, properties, updates and a timeline.",
+  "minimum_chrome_version": "114",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "devtools_page": "devtools.html",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["scripting", "storage"],
+  "optional_host_permissions": ["<all_urls>"]
+}
