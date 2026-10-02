@@ -3,6 +3,89 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.10.0 — 2026-10-02
+
+The DevTools panel has a new look built on Web Awesome, and it now follows one
+tab at a time, so a second tab of the app no longer wipes the recording or
+leaks into what you are looking at. Updates and the timeline show what changed
+in a re-render and which updates threw, the Components tab stays live by
+default and shows task, signal and controller state and the last HMR patch,
+and agents can query by tag name. Nothing needs action to upgrade.
+
+### Added
+
+- **See what changed in a re-render.** Turn on the Changed values layer and
+  each update records the old and new value of every changed property. The
+  Updates tab lists them and flags a new reference that holds the same value,
+  and `lit_update-summary` lists, per component, the properties reassigned to
+  an equal new reference, so an agent can say which props re-render for
+  nothing.
+- **Errors thrown during an update are visible.** A phase that throws is
+  marked in the timeline, counted per component in Updates, and reported
+  through `lit_update-summary`, instead of looking like a normal update.
+- **See tasks, signals and controllers in the Components tab.** The details
+  pane now lists an element's `@lit/task` state, signals, reactive
+  controllers and plain fields in an Instance table below its properties.
+- **Pick a component library's elements, and step out to the one around.**
+  Set `sourceOverlay.hosts` to `'lit'` and the picker also picks Lit elements
+  you didn't write, such as `<wa-button>`, into the Components tab. While
+  picking, ↑ and ↓ move the outline out to the enclosing element and back.
+- **Agents can query by tag name and bound the tree.** `lit_recent-events`
+  and `lit_component-details` accept `tagName`, the latter returning every
+  matching element, so an agent no longer has to find an element id first.
+  `lit_list-components` accepts `maxDepth`, and nodes it cuts off report how
+  many children were left out.
+- **See whether an HMR edit landed.** After an edit the Components tab reads
+  which component was patched, how many instances it touched and how long it
+  took. `lit_hmr-history` gives agents the recent patches with child-state
+  mode, interleaved with the components that could not be patched.
+- **The Components tab says why it is empty.** Instead of one generic line,
+  it now tells you when the page runtime has not connected, when more than
+  one copy of lit is loaded, or when the runtime is inside an iframe, with
+  the next step for each.
+- **Settings has an About section.** It shows the plugin version, the lit
+  version the page loaded (and a warning for duplicate copies), the timeline
+  layers, picker availability, and the order in which settings resolve.
+- **The dev server tells you when the DevTools panel cannot mount.** With
+  `timeline` on and `DevTools()` missing from `plugins`, the terminal now
+  prints a one-time warning with the fix instead of staying silent.
+- **Resize the component details pane.** Drag the divider between the
+  component tree and the details; the width is remembered across reloads.
+
+### Changed
+
+- **The DevTools panel has a new look built on Web Awesome.** Buttons, tabs,
+  switches, selects and badges are Web Awesome components with square
+  corners and the Lit blue as the accent, and the text glyphs that stood in
+  for icons, including the arrow between old and new values, are Phosphor
+  icons now. The panel still works fully offline.
+- **The Components tree follows the page by default.** **Live** starts on, so
+  components that appear or go away show up without a click. Toggle it off
+  to pause the tree; the Refresh button is gone, because turning Live back on
+  brings the tree up to date.
+
+### Fixed
+
+- **A second tab no longer wipes the recording or leaks into the panel.** The
+  session follows one page at a time, the one that loaded last, and a banner
+  says when it switches. Events, picks, custom layers and HMR notices from
+  any other tab are ignored, and the previous page's recording, component
+  tree and HMR notices are cleared on a switch; reloading the same tab clears
+  them without the banner.
+- **`update` spans close for components that override `update()`.** A
+  subclass calling `super.update()` no longer produces a nested duplicate
+  bracket that left the outer span open and skewed Updates durations.
+- **Agents see the live component tree.** `lit_list-components` and
+  `lit_component-details` now ask the page instead of returning what the
+  panel last fetched, so they work with no panel open.
+- **Live mode follows the panel.** Closing the panel no longer leaves the
+  page observing the DOM and rebuilding the tree, and after a panel or page
+  reload the Live toggle no longer shows as on while the page has stopped
+  pushing tree updates.
+- **The active tab label no longer jumps up.** The selected panel tab now
+  sits on the same baseline as the others instead of a couple of pixels
+  higher.
+
 ## 0.9.0 — 2026-10-01
 
 Pick now works on pages connected to the standalone `lit-devtools dev` server,
