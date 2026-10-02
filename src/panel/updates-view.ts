@@ -14,7 +14,7 @@ import {
 import '@awesome.me/webawesome/dist/components/badge/badge.js';
 import '@awesome.me/webawesome/dist/components/button/button.js';
 import './wa-icons.js';
-import {openInEditor} from './open-in-editor.js';
+import {canOpenInEditor, openInEditor} from './open-in-editor.js';
 
 /**
  * The Updates view: which components re-rendered, how often, how long for, and
@@ -190,6 +190,10 @@ export class UpdatesView extends LitElement {
         flex-shrink: 0;
         font-size: var(--lit-devtools-text-2xs);
       }
+      .src-text {
+        font-family: var(--lit-devtools-font-mono);
+        color: var(--lit-devtools-text-muted);
+      }
     `,
   ];
 
@@ -197,6 +201,8 @@ export class UpdatesView extends LitElement {
   @state() private _error: string | null = null;
   /** Tag of the selected component row, or null for "none picked yet". */
   @state() private _selectedTag: string | null = null;
+  /** Whether source locations open in the editor; plain text otherwise. */
+  @state() private _canOpen = false;
 
   private _storeOff: (() => void) | null = null;
   /** Derivation is memoised on the event array's identity: the store replaces
@@ -214,6 +220,9 @@ export class UpdatesView extends LitElement {
     super.connectedCallback();
     this._storeOff = subscribeTimeline(() => this._readStore());
     this._readStore();
+    void canOpenInEditor().then((can) => {
+      this._canOpen = can;
+    });
   }
 
   override disconnectedCallback() {
@@ -400,7 +409,14 @@ export class UpdatesView extends LitElement {
         <div class="head">
           <span>&lt;${this._selectedTag}&gt; updates</span>
           ${
-            source
+            source && !this._canOpen
+              ? html`<span class="link src-text"
+                  >${source.file}:${source.line}</span
+                >`
+              : nothing
+          }
+          ${
+            source && this._canOpen
               ? html`<wa-button
                   class="link"
                   appearance="plain"

@@ -17,7 +17,20 @@
  * Both end up in `launch-editor`, so the user-visible result is the same.
  */
 
-import {litRpc} from './client.js';
+import {getMeta, litRpc} from './client.js';
+
+/**
+ * Whether this host can open a file at all (`capabilities.openInEditor`).
+ * Under `lit-devtools dev`, in the extension and in a frozen snapshot it
+ * can't, and a source link would only log a failure; views ask once on
+ * connect and render the location as plain text instead. False when the meta
+ * can't be read, which is the safe way to be wrong.
+ */
+export const canOpenInEditor = (): Promise<boolean> =>
+  getMeta().then(
+    (meta) => meta.capabilities.openInEditor,
+    () => false
+  );
 
 /** Today's endpoint. The fallback, and what the source overlay always uses. */
 const openViaEndpoint = async (file: string, line: number): Promise<void> => {

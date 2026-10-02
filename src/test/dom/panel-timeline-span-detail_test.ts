@@ -2,7 +2,11 @@ import {afterEach, beforeAll, expect, test, vi} from 'vite-plus/test';
 import type {TimelineSpan} from '../../lib/timeline/derive.js';
 
 const opened = vi.hoisted(() => vi.fn());
-vi.mock('../../panel/open-in-editor.js', () => ({openInEditor: opened}));
+const editor = vi.hoisted(() => ({available: true}));
+vi.mock('../../panel/open-in-editor.js', () => ({
+  openInEditor: opened,
+  canOpenInEditor: async () => editor.available,
+}));
 
 beforeAll(async () => {
   await import('../../panel/timeline-span-detail.js');
@@ -29,6 +33,9 @@ const mount = async (props: {span?: TimelineSpan; filterable?: boolean}) => {
   Object.assign(el, props);
   document.body.append(el);
   await el.updateComplete;
+  // `canOpenInEditor()` settles a microtask later.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await el.updateComplete;
   const root = el.shadowRoot!;
   const value = (key: string) =>
     [...root.querySelectorAll('tr')]
@@ -46,6 +53,7 @@ const mount = async (props: {span?: TimelineSpan; filterable?: boolean}) => {
 afterEach(() => {
   document.body.replaceChildren();
   opened.mockClear();
+  editor.available = true;
 });
 
 test('renders nothing without a span', async () => {
@@ -140,4 +148,11 @@ test('lists old and new values when the span has them', async () => {
 test('has no values row without detail', async () => {
   const {value} = await mount({span});
   expect(value('values')).toBeUndefined();
+});
+
+test('shows the source as plain text where the host has no editor', async () => {
+  editor.available = false;
+  const {value, link} = await mount({span});
+  expect(value('source')).toBe('src/counter.ts:12');
+  expect(link('src/counter.ts:12')).toBeUndefined();
 });

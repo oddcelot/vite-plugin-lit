@@ -1,8 +1,12 @@
-import {afterEach, beforeAll, expect, test} from 'vite-plus/test';
+import {afterEach, beforeAll, expect, test, vi} from 'vite-plus/test';
 import type {TimelineEventList} from '../../panel/timeline-event-list.js';
 import type {LayerState} from '../../panel/timeline-layers.js';
 import {toSpans} from '../../lib/timeline/derive.js';
 import type {TimelineEvent} from '../../types/timeline.js';
+
+// The span detail asks the host whether source links can open; without a
+// fake it would go looking for a real devframe server.
+vi.mock('../../panel/client.js', () => import('./fakes/client.js'));
 
 beforeAll(async () => {
   // The virtualizer observes sizes; happy-dom has no ResizeObserver.

@@ -178,6 +178,13 @@ export class ComponentsView extends LitElement {
       .src {
         max-width: 100%;
       }
+      .src-text {
+        display: block;
+        font-family: var(--lit-devtools-font-mono);
+        font-size: var(--lit-devtools-text-xs);
+        color: var(--lit-devtools-text-muted);
+        word-break: break-all;
+      }
       .src::part(base) {
         padding-inline: 0;
         font-family: var(--lit-devtools-font-mono);
@@ -298,6 +305,9 @@ export class ComponentsView extends LitElement {
    * a Pick button with no picker behind it would light up and do nothing.
    */
   @state() private _canPick = false;
+  /** Whether a source location opens in the editor, as `get-meta` reports
+   *  it; otherwise the location is shown as plain text. */
+  @state() private _canOpen = false;
   /**
    * What the page runtime announced, from `get-meta` on connect and from each
    * `ready` push. `null` until known. Only used to explain an empty tree.
@@ -396,6 +406,7 @@ export class ComponentsView extends LitElement {
       void getMeta().then(
         (meta) => {
           this._canPick = !isSnapshot() && meta.picker;
+          this._canOpen = meta.capabilities.openInEditor;
           this._runtime = meta.runtime;
         },
         () => {
@@ -849,18 +860,23 @@ export class ComponentsView extends LitElement {
         }
       </div>
       ${
-        d.source !== undefined
-          ? html`<wa-button
-              class="src"
-              appearance="plain"
-              size="small"
-              data-tip="Open this file in your editor"
-              @click=${this._openSource}
-            >
-              ${d.source.file}:${d.source.line}
-              <wa-icon slot="end" name="arrow-square-out"></wa-icon>
-            </wa-button>`
-          : nothing
+        d.source === undefined
+          ? nothing
+          : this._canOpen
+            ? html`<wa-button
+                class="src"
+                appearance="plain"
+                size="small"
+                data-tip="Open this file in your editor"
+                @click=${this._openSource}
+              >
+                ${d.source.file}:${d.source.line}
+                <wa-icon slot="end" name="arrow-square-out"></wa-icon>
+              </wa-button>`
+            : // No editor on this host: still worth knowing where it lives.
+              html`<span class="src src-text"
+                >${d.source.file}:${d.source.line}</span
+              >`
       }
       <section>
         <div class="flags">

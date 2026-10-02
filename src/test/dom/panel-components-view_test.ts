@@ -383,3 +383,29 @@ test('remembers the details width after a drag', async () => {
   split.dispatchEvent(new Event('wa-reposition'));
   expect(localStorage.getItem(WIDTH_LS_KEY)).toBe('275');
 });
+
+test('a source location opens in the editor where the host has one', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {...detailsFor(), source: {file: 'src/b.ts', line: 4}},
+  });
+  await flush(el);
+  expect(root.querySelector('wa-button.src')!.textContent).toContain(
+    'src/b.ts:4'
+  );
+});
+
+test('a source location is plain text where the host has no editor', async () => {
+  meta.capabilities.openInEditor = false;
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {...detailsFor(), source: {file: 'src/b.ts', line: 4}},
+  });
+  await flush(el);
+  expect(root.querySelector('wa-button.src')).toBeNull();
+  expect(root.querySelector('.src-text')!.textContent).toBe('src/b.ts:4');
+});

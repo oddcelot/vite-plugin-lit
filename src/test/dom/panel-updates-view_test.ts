@@ -6,6 +6,8 @@ vi.mock(
   '../../panel/timeline-store.js',
   () => import('./fakes/timeline-store.js')
 );
+// Source links ask the host whether they can open; see `fakes/client.ts`.
+vi.mock('../../panel/client.js', () => import('./fakes/client.js'));
 
 beforeAll(async () => {
   await import('../../panel/updates-view.js');

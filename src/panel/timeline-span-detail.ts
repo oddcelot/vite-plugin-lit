@@ -1,11 +1,11 @@
 import {LitElement, html, css, nothing} from 'lit';
-import {customElement, property} from 'lit/decorators.js';
+import {customElement, property, state} from 'lit/decorators.js';
 import '@awesome.me/webawesome/dist/components/badge/badge.js';
 import '@awesome.me/webawesome/dist/components/button/button.js';
 import './wa-icons.js';
 import {tokens} from '../lib/tokens.js';
 import type {TimelineSpan} from '../lib/timeline/derive.js';
-import {openInEditor} from './open-in-editor.js';
+import {canOpenInEditor, openInEditor} from './open-in-editor.js';
 
 /**
  * Detail pane for one selected timeline span: layer, time, duration, changed
@@ -66,6 +66,16 @@ export class TimelineSpanDetail extends LitElement {
   @property({attribute: false}) span: TimelineSpan | undefined;
   /** Offer the **filter** link (both presentations honour the element filter). */
   @property({type: Boolean}) filterable = false;
+
+  /** Whether `source` opens in the editor; plain text otherwise. */
+  @state() private _canOpen = false;
+
+  override connectedCallback() {
+    super.connectedCallback();
+    void canOpenInEditor().then((can) => {
+      this._canOpen = can;
+    });
+  }
 
   private _emit(type: 'element-filter' | 'inspect-element', id: number) {
     this.dispatchEvent(
@@ -182,14 +192,18 @@ export class TimelineSpanDetail extends LitElement {
             ? html`<tr>
                 <td class="key">source</td>
                 <td class="val">
-                  <wa-button
-                    class="src-link"
-                    size="small"
-                    appearance="plain"
-                    data-tip="Open this file in your editor"
-                    @click=${() => openInEditor(src.file, src.line)}
-                    >${src.file}:${src.line}</wa-button
-                  >
+                  ${
+                    this._canOpen
+                      ? html`<wa-button
+                          class="src-link"
+                          size="small"
+                          appearance="plain"
+                          data-tip="Open this file in your editor"
+                          @click=${() => openInEditor(src.file, src.line)}
+                          >${src.file}:${src.line}</wa-button
+                        >`
+                      : `${src.file}:${src.line}`
+                  }
                 </td>
               </tr>`
             : nothing

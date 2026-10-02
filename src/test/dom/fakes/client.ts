@@ -91,6 +91,13 @@ export const meta: {
     topFrame: boolean;
   };
   version: string;
+  capabilities: {
+    openInEditor: boolean;
+    exportSnapshot: boolean;
+    pluginSettings: boolean;
+    hmr: boolean;
+    sourceLocations: boolean;
+  };
 } = {
   layers: [],
   features: null,
@@ -102,6 +109,14 @@ export const meta: {
     topFrame: true,
   },
   version: '9.9.9',
+  // The Vite host's: everything on, so a test opts out of what it checks.
+  capabilities: {
+    openInEditor: true,
+    exportSnapshot: true,
+    pluginSettings: true,
+    hmr: true,
+    sourceLocations: true,
+  },
 };
 
 export const litRpc = async () => client;
@@ -125,5 +140,12 @@ export const resetClient = (): void => {
     topFrame: true,
   };
   meta.version = '9.9.9';
+  meta.capabilities = {
+    openInEditor: true,
+    exportSnapshot: true,
+    pluginSettings: true,
+    hmr: true,
+    sourceLocations: true,
+  };
   snapshot = false;
 };
