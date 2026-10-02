@@ -7,6 +7,8 @@ so the page's `script-src` doesn't apply.
 
 Work in progress. It isn't published, and it isn't part of the npm package.
 It is an independent tool, not affiliated with Google or the Lit project.
+Its privacy policy is on the docs site:
+https://oddcelot.github.io/vite-plugin-lit/reference/extension-privacy/
 
 The extension is named Lit Inspector in Chrome (`chrome://extensions`, the
 Web Store), and the tab it adds to DevTools is titled **Lit**: a short name

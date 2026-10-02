@@ -1,0 +1,82 @@
+---
+title: Lit Inspector privacy policy
+description: What the Lit Inspector Chrome extension stores, what it never collects or sends, the permissions it asks for, and how to remove its data.
+sidebar:
+  order: 9
+  label: Extension privacy policy
+---
+
+This page is the privacy policy of Lit Inspector, the Chrome extension that
+inspects Lit components from DevTools. It covers the extension only; the Vite
+plugin and the `lit-devtools` CLI run on your own machine and are not part of
+it.
+
+Last updated: 2 October 2026.
+
+Lit Inspector is an independent, unofficial tool. It is not affiliated with,
+endorsed by, or produced by Google or the Lit project.
+
+## Summary
+
+Lit Inspector collects no personal data and sends nothing anywhere. It has no
+server, no analytics, no telemetry and no accounts. Everything it keeps stays
+in your browser, and removing the extension removes it.
+
+## What it stores
+
+| What                     | Where                                               | Why                                                                                                     |
+| ------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Enabled sites            | `chrome.storage.local`, key `enabledOrigins`        | The origins (for example `https://example.com`) you clicked **Enable on this site** for.                |
+| Panel settings           | `chrome.storage.local`, keys `devframe:settings:*`  | Your preferences in the Lit tab, such as appearance and Chrome performance tracks.                      |
+| Panel preferences mirror | The extension's own `localStorage`                  | A synchronous copy of the same preferences, so the panel paints with them before storage answers.       |
+| Page-side preferences    | The enabled site's `localStorage`, `lit-devtools-*` | The preferences the injected runtime applies in the page, such as update flashing and the color scheme. |
+| Tab identifiers          | The enabled site's `sessionStorage`                 | A random id per browser tab, so a panel talks to the right tab. Cleared when the tab closes.            |
+
+`chrome.storage.local` is local to your browser profile; the extension does
+not use `chrome.storage.sync`. The two page-side rows apply only to sites you
+enabled, and hold only the values listed.
+
+## What it does not collect
+
+The extension reads the Lit components of a page you enabled (their tag
+names, properties, state and update timings) to show them in the Lit tab.
+That data stays in memory in DevTools and is gone when you close it. A
+timeline recording is not saved.
+
+The extension does not:
+
+- send any data to the developer or to anyone else, and makes no network
+  requests of its own;
+- collect personal information, browsing history, page content, form input,
+  cookies or credentials;
+- run analytics, telemetry, crash reporting or advertising;
+- load or execute code from outside the extension package.
+
+## Permissions
+
+| Permission                                     | Why                                                                                                                                                                                           |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripting`                                    | Registers two content scripts on the sites you enabled: one in the page's main world that reads Lit component state for the panel, and one in the isolated world that relays it to the panel. |
+| `storage`                                      | Keeps the enabled sites and the panel settings listed above.                                                                                                                                  |
+| Host access (`<all_urls>`, optional, per site) | Not granted at install. When you click **Enable on this site**, Chrome asks for that one origin. The grant is used only to register the content scripts there.                                |
+
+## Remove its data
+
+- **One site.** In the Lit tab, click **Disable on this site**. The extension
+  unregisters its scripts and forgets the origin. Removing the site's
+  permission in the extension's details does the same.
+- **Everything.** Remove the extension at `chrome://extensions`. Chrome
+  deletes its `chrome.storage.local` data and its own `localStorage`.
+- **Page-side keys.** Keys the runtime left in an enabled site's storage stay
+  with that site. Clear them from the site's data in Chrome's settings, or
+  in DevTools under **Application** > **Storage**.
+
+## Changes
+
+Changes to this policy are published on this page, with a new date above, and
+recorded in the repository's history.
+
+## Contact
+
+Open an issue at
+[github.com/oddcelot/vite-plugin-lit/issues](https://github.com/oddcelot/vite-plugin-lit/issues).
