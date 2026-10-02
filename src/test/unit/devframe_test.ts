@@ -3,6 +3,7 @@ import {initDevframe} from 'devframe/initiate';
 import type {DevframeInstance} from 'devframe/initiate';
 import {TIMELINE_LAYERS} from '../../types/timeline.js';
 import {createLitDevframe} from '../../lib/devframe/definition.js';
+import {createStandaloneLitDevframe} from '../../lib/devframe/rpc-source.js';
 import {createSourceLocator} from '../../lib/source-locator.js';
 import type {SessionState} from '../../lib/devframe/protocol.js';
 import type {TimelineSink, TimelineSource} from '../../lib/devframe/source.js';
@@ -719,6 +720,53 @@ describe('lit devframe definition', () => {
     const ctx = await instance.context;
     await instance.ready;
     expect((await ctx.rpc.invokeLocal('lit:get-meta')).picker).toBe(true);
+  });
+
+  test('get-meta reports what a vite-like host can do', async () => {
+    // Plugin settings, a source locator and a filesystem: everything but the
+    // editor, which waits for the hub's open service.
+    const {ctx} = await boot({roots: [appRoot]});
+    expect((await ctx.rpc.invokeLocal('lit:get-meta')).capabilities).toEqual({
+      openInEditor: false,
+      exportSnapshot: true,
+      pluginSettings: true,
+      hmr: true,
+      sourceLocations: true,
+    });
+    ctx.services.provide('@devframes/service-open', {
+      openInEditor: async () => {},
+      openInFinder: async () => {},
+    });
+    expect(
+      (await ctx.rpc.invokeLocal('lit:get-meta')).capabilities.openInEditor
+    ).toBe(true);
+  });
+
+  test('get-meta lets a host without a server say what it lacks', async () => {
+    // What the extension's local host passes, on top of the standalone
+    // wrapper's own "no Vite": with no settings either, nothing is left.
+    instance = initDevframe(
+      createStandaloneLitDevframe({
+        version: '9.9.9',
+        capabilities: {openInEditor: false, exportSnapshot: false},
+      }),
+      {
+        base: '/__lit/',
+        distDir: false,
+        ws: false,
+        sse: false,
+        getStorageDir: () => './node_modules/.tmp-lit-devframe-test',
+      }
+    );
+    const ctx = await instance.context;
+    await instance.ready;
+    expect((await ctx.rpc.invokeLocal('lit:get-meta')).capabilities).toEqual({
+      openInEditor: false,
+      exportSnapshot: false,
+      pluginSettings: false,
+      hmr: false,
+      sourceLocations: false,
+    });
   });
 
   test('actions mutate the session and reach the page runtime', async () => {

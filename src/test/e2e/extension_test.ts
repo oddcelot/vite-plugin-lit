@@ -363,6 +363,45 @@ test("the Lit tab shows the page's components, picks, and follows a reload", asy
   await page.close();
 }, 60_000);
 
+test('the Lit tab leaves out what needs a dev server', async () => {
+  const page = await context.newPage();
+  await page.goto(appOrigin);
+  const tabId = await extensionPage.evaluate(
+    async (origin) => (await chrome.tabs.query({url: `${origin}/*`}))[0]?.id,
+    appOrigin
+  );
+  const panel = await context.newPage();
+  await panel.goto(
+    `chrome-extension://${extensionId}/panel.html?tabId=${tabId}#tab=components`
+  );
+  await panel
+    .locator('components-view .row')
+    .filter({hasText: 'probe-hello'})
+    .first()
+    .click({timeout: 15_000});
+  // Details shown, and no source link: no transform stamped one, and there
+  // is no editor to open it in.
+  await panel.locator('components-view .details h2').waitFor();
+  expect(await panel.locator('components-view .src').count()).toBe(0);
+
+  // No disk to write a snapshot to, so no button that could only fail.
+  await panel.locator('timeline-view wa-button.record').waitFor({
+    state: 'attached',
+  });
+  expect(await panel.locator('timeline-view wa-button.export').count()).toBe(0);
+
+  // The Settings tab says why the plugin settings are missing.
+  await panel.locator('segmented-tabs').getByText('Settings').click();
+  await expect
+    .poll(() => panel.locator('devtools-settings .empty').textContent())
+    .toBe(
+      'Plugin settings need the Vite plugin; this page is inspected without a Vite dev server.'
+    );
+
+  await panel.close();
+  await page.close();
+}, 60_000);
+
 test('disabling stops the injection', async () => {
   expect(await registry('lit:disable')).toEqual({
     origin: appOrigin,

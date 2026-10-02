@@ -63,6 +63,7 @@ import {
   type ComponentDetailsByTagResult,
   type HmrHistoryResult,
   type ListComponentsArgs,
+  type LitCapabilities,
   type LitGetMetaResult,
   type RecentEventsArgs,
   type RecentEventsResult,
@@ -131,9 +132,27 @@ export interface CreateLitDevframeOptions {
    * answers, and an agent call must not hang. Tests lower it.
    */
   inspectorTimeoutMs?: number;
+  /**
+   * What this host can do, for the parts `get-meta` can't infer. The
+   * definition works out what it can see -- an open service, a source
+   * locator, a filesystem, plugin settings -- and these win over it. Hosts
+   * without Vite say so here: nothing else tells the definition that no
+   * transform stamped source locations and no HMR will ever patch a
+   * component. See {@link LitCapabilities}.
+   */
+  capabilities?: Partial<LitCapabilities>;
 }
 
 const DEFAULT_INSPECTOR_TIMEOUT_MS = 500;
+
+/**
+ * Whether this realm is Node, so `export-snapshot` could reach `node:fs`.
+ * Read off `globalThis` rather than a bare `process`, which a browser bundle
+ * may not define at all.
+ */
+const isNodeRuntime = (): boolean =>
+  typeof (globalThis as {process?: {versions?: {node?: unknown}}}).process
+    ?.versions?.node === 'string';
 
 /**
  * Builds the Lit devframe definition. Framework-neutral: everything here
@@ -213,6 +232,23 @@ export function createLitDevframe(
       // which only holds what the panel last requested.
       const requester = createInspectorRequester(source);
       const live = ctx.mode === 'dev' && replay === undefined;
+
+      // Read per call, like `features`: the open service is a hub-wide
+      // install a Vite host may finish after this setup has run. A frozen
+      // snapshot has neither an editor to open nor a server to export from.
+      // `hmr` and `sourceLocations` default to what the Vite plugin gives;
+      // hosts without it override them (see `createStandaloneLitDevframe`).
+      const capabilities = (): LitCapabilities => ({
+        openInEditor:
+          live &&
+          sourceLocator !== undefined &&
+          ctx.services.get('@devframes/service-open') !== undefined,
+        exportSnapshot: live && isNodeRuntime(),
+        pluginSettings: features !== undefined,
+        hmr: true,
+        sourceLocations: true,
+        ...options.capabilities,
+      });
       const inspectorTimeout =
         options.inspectorTimeoutMs ?? DEFAULT_INSPECTOR_TIMEOUT_MS;
 
@@ -442,7 +478,7 @@ export function createLitDevframe(
           snapshot: true,
           agent: {
             description:
-              'Get the plugin version, active timeline layers, and resolved feature settings. Call once at the start of a session to learn what timeline layers exist before asking about events.',
+              'Get the plugin version, active timeline layers, resolved feature settings, and the capabilities of the host (whether it can open files in an editor, export a snapshot, hot-patch components). Call once at the start of a session to learn what timeline layers exist before asking about events.',
           },
           handler: async (): Promise<LitGetMetaResult> => ({
             version,
@@ -457,6 +493,7 @@ export function createLitDevframe(
               id: TIMELINE_STREAM_ID,
             },
             activePageId: recording.activePageId(),
+            capabilities: capabilities(),
           }),
         })
       );

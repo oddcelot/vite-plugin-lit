@@ -842,8 +842,14 @@ export class DevtoolsSettings extends LitElement {
     const s = this._settings;
     const appearance = this._renderAppearance();
     if (s === null) {
+      // Off the Vite plugin there are no plugin options or env to resolve;
+      // saying so beats a bare "unavailable" that reads like a fault.
+      const why =
+        this._meta?.capabilities.pluginSettings === false
+          ? 'Plugin settings need the Vite plugin; this page is inspected without a Vite dev server.'
+          : 'Settings unavailable.';
       return html`${appearance}
-        <p class="empty">Settings unavailable.</p>
+        <p class="empty">${why}</p>
         ${this._renderAbout()}`;
     }
     const hasOverride = Object.keys(this._override).length > 0;

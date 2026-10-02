@@ -40,6 +40,9 @@ type ViewMode = 'list' | 'tracks';
  *  to toggle but never a lane. */
 const EVENTLESS_LAYERS = new Set(['lit-changed-values']);
 
+/** Layers fed by Lit's own `lit-debug` events, which only its dev build emits. */
+const LIT_DEBUG_LAYERS = new Set(['lit-render', 'lit-render-verbose']);
+
 const MODE_LS_KEY = 'lit-devtools-timeline-mode';
 /** localStorage key remembering which tracks the user hid. Stored as the
  *  hidden set, not the shown one, so a layer seen for the first time (a
@@ -130,6 +133,12 @@ export class TimelineView extends LitElement {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .hint {
+        margin: 0;
+        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-4);
+        color: var(--lit-devtools-text-muted);
+        font-size: var(--lit-devtools-text-2xs);
+      }
       .record:not(.active) wa-icon {
         color: var(--wa-color-danger-fill-loud);
       }
@@ -181,6 +190,13 @@ export class TimelineView extends LitElement {
   @state() private _exporting = false;
   /** Result or failure of the last export; `null` until one is attempted. */
   @state() private _exportNote: string | null = null;
+  /** Whether the host can write a snapshot (`capabilities.exportSnapshot`);
+   *  without it the button is left out rather than left to fail. */
+  @state() private _canExport = false;
+  /** Whether the page is served by Vite (`capabilities.hmr`). Off the Vite
+   *  plugin the page's Lit may well be a production build, which emits no
+   *  `lit-debug` events, so an empty render layer needs explaining. */
+  @state() private _vite = true;
   @state() private _events: TimelineEvent[] = [];
   @state() private _layers: LayerState[] = [];
   @state() private _error: string | null = null;
@@ -289,6 +305,8 @@ export class TimelineView extends LitElement {
       if (!this._active) return;
       this._rpc = rpc;
       this._baseLayers = meta.layers;
+      this._canExport = meta.capabilities.exportSnapshot;
+      this._vite = meta.capabilities.hmr;
 
       const session =
         await rpc.rpc.sharedState<SessionState>(SESSION_STATE_KEY);
@@ -443,6 +461,27 @@ export class TimelineView extends LitElement {
     this.requestUpdate();
   }
 
+  /**
+   * One line under the layers when the render layers are on, other events
+   * have arrived, and none of them came from Lit: off the Vite plugin that
+   * almost always means the page runs Lit's production build. Under Vite the
+   * dev build is what gets served, so an empty layer there means something
+   * else and no hint is shown.
+   */
+  private _renderDebugHint() {
+    if (this._vite || this._events.length === 0) return nothing;
+    const on = this._layers.some(
+      (l) => l.enabled && LIT_DEBUG_LAYERS.has(l.id)
+    );
+    if (!on || this._events.some((e) => LIT_DEBUG_LAYERS.has(e.layerId))) {
+      return nothing;
+    }
+    return html`<p class="hint">
+      No Lit render events yet. Lit emits them only from its development build;
+      a production build leaves these layers empty.
+    </p>`;
+  }
+
   override render() {
     if (this._error !== null) {
       return html`<div class="error">${this._error}</div>`;
@@ -468,16 +507,21 @@ export class TimelineView extends LitElement {
             : html`<span class="export-note">${this._exportNote}</span>`
         }
         <span class="spacer"></span>
-        <wa-button
-          size="small"
-          appearance="outlined"
-          ?disabled=${this._exporting || isSnapshot()}
-          data-tip="Write this session to a static panel directory you can attach to a bug report"
-          @click=${this._exportSnapshot}
-        >
-          <wa-icon slot="start" name="export"></wa-icon>
-          Export snapshot
-        </wa-button>
+        ${
+          this._canExport
+            ? html`<wa-button
+                class="export"
+                size="small"
+                appearance="outlined"
+                ?disabled=${this._exporting}
+                data-tip="Write this session to a static panel directory you can attach to a bug report"
+                @click=${this._exportSnapshot}
+              >
+                <wa-icon slot="start" name="export"></wa-icon>
+                Export snapshot
+              </wa-button>`
+            : nothing
+        }
         <wa-button
           size="small"
           appearance="outlined"
@@ -511,6 +555,7 @@ export class TimelineView extends LitElement {
         .layers=${this._layers}
         @layer-toggle=${this._onLayerToggle}
       ></timeline-layers>
+      ${this._renderDebugHint()}
       ${
         tracks
           ? html`<timeline-layers

@@ -132,3 +132,17 @@ test('the chrome tracks row links to the guide on where the tracks appear', asyn
   );
   expect(link.getAttribute('target')).toBe('_blank');
 });
+
+test('explains missing plugin settings off the Vite plugin', async () => {
+  meta.capabilities.pluginSettings = false;
+  const text = (await mount()).querySelector('.empty')!.textContent;
+  expect(text).toBe(
+    'Plugin settings need the Vite plugin; this page is inspected without a Vite dev server.'
+  );
+});
+
+test('keeps the plain message when the plugin simply sent no settings', async () => {
+  expect((await mount()).querySelector('.empty')!.textContent).toBe(
+    'Settings unavailable.'
+  );
+});

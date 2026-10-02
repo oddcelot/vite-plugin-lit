@@ -189,3 +189,41 @@ test('the element filter reaches the tracks, and Clear drops it', async () => {
   // Element 2 was gone in between, so the filter no longer applies.
   expect(tracks().spans).toHaveLength(2);
 });
+
+test('offers Export snapshot only where the host can write one', async () => {
+  expect((await mount()).root.querySelector('wa-button.export')).not.toBeNull();
+  document.body.replaceChildren();
+  meta.capabilities.exportSnapshot = false;
+  expect((await mount()).root.querySelector('wa-button.export')).toBeNull();
+});
+
+/** One `lit-lifecycle` event with no render event beside it. */
+const lifecycleOnly = (): TimelineEvent[] => pair(1, 0);
+const renderLayers = (): TimelineLayer[] => [
+  ...LAYERS,
+  {id: 'lit-render', label: 'Render', color: 0x325cff},
+];
+
+test('off Vite, explains render layers that stay empty', async () => {
+  meta.capabilities.hmr = false;
+  setEvents(lifecycleOnly());
+  const {el, root} = await mount(true);
+  // `mount` sets its own layers; add the render one and let it apply.
+  meta.layers = renderLayers();
+  el.remove();
+  document.body.append(el);
+  await flush(el);
+  expect(root.querySelector('.hint')!.textContent).toContain(
+    'production build'
+  );
+});
+
+test('says nothing about render layers under Vite', async () => {
+  setEvents(lifecycleOnly());
+  const {el, root} = await mount(true);
+  meta.layers = renderLayers();
+  el.remove();
+  document.body.append(el);
+  await flush(el);
+  expect(root.querySelector('.hint')).toBeNull();
+});

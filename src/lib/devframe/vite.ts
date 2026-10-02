@@ -332,6 +332,10 @@ export function createLitDevframePlugin(
     configuredEditor: options.configuredEditor,
     clientAssets: options.clientAssets ?? PANEL_DIST_DIR,
     sourceLocator: options.sourceLocator,
+    // The plugin serves `/__lit-open-in-editor` itself, which the panel
+    // falls back to when the hub has no open service, so source links work
+    // here either way.
+    capabilities: {openInEditor: true},
   });
 
   return {
