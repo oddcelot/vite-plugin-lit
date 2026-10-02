@@ -5,6 +5,7 @@ import type {UpdatesView} from '../../panel/updates-view.js';
 import type {TimelineEvent} from '../../types/timeline.js';
 import {
   answers,
+  calls,
   push,
   resetClient,
   setSnapshot,
@@ -204,6 +205,20 @@ test('a reload clears the timeline without a banner', async () => {
   await flush(el);
   expect(getTimelineEvents()).toEqual([]);
   expect(root.querySelector('.page-changed')).toBeNull();
+});
+
+test('a page change drops the Components tree and asks the new page', async () => {
+  const {el, view} = await mount();
+  const components = view<ComponentsView>('components-view')!;
+  const rows = () => components.shadowRoot!.querySelectorAll('.row').length;
+  expect(rows()).toBe(1);
+  calls.length = 0;
+  push('page-changed', {...pageChanged, reload: true});
+  await flush(el);
+  expect(rows()).toBe(0);
+  expect(
+    calls.filter((c) => c.name === 'inspect').map((c) => c.args[0])
+  ).toEqual([{type: 'tree'}]);
 });
 
 test('a frozen session has no page to follow', async () => {

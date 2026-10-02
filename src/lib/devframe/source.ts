@@ -24,9 +24,9 @@ import type {HmrPatchEvent} from '../../types/hmr-patch.js';
 /** The definition's sink for events arriving from the page runtime. */
 export interface TimelineSink {
   pushEvents(events: TimelineEvent[], pageId?: string): void;
-  addLayer(layer: TimelineLayer): void;
+  addLayer(layer: TimelineLayer, pageId?: string): void;
   inspectorMessage(msg: InspectorMessage, pageId?: string): void;
-  hmrIncompatible(event: HmrIncompatibilityEvent): void;
+  hmrIncompatible(event: HmrIncompatibilityEvent, pageId?: string): void;
   /** A patch that landed. `pageId` stamps the document that applied it. */
   hmrPatched(event: HmrPatchEvent, pageId?: string): void;
   /**

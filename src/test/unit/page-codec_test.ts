@@ -31,15 +31,17 @@ class RecordingSink implements TimelineSink {
     this.calls.push(['pushEvents', events]);
     this.pageIds.push(pageId);
   }
-  addLayer(layer: TimelineLayer) {
+  addLayer(layer: TimelineLayer, pageId?: string) {
     this.calls.push(['addLayer', layer]);
+    this.pageIds.push(pageId);
   }
   inspectorMessage(msg: InspectorMessage, pageId?: string) {
     this.calls.push(['inspectorMessage', msg]);
     this.pageIds.push(pageId);
   }
-  hmrIncompatible(event: HmrIncompatibilityEvent) {
+  hmrIncompatible(event: HmrIncompatibilityEvent, pageId?: string) {
     this.calls.push(['hmrIncompatible', event]);
+    this.pageIds.push(pageId);
   }
   hmrPatched(event: HmrPatchEvent, pageId?: string) {
     this.calls.push(['hmrPatched', event]);
@@ -150,6 +152,21 @@ describe('TimelineChannelCodec inbound', () => {
     deliver(CHANNEL_RUNTIME_READY, {pageId: 'a'});
     deliver(INSPECT_DATA_CHANNEL, {type: 'tree', roots: [], pageId: 'b'});
     expect(sink.pageIds).toEqual(['a', 'a', 'b']);
+  });
+
+  test('strips the page id off picks, custom layers and incompatibilities', () => {
+    const {sink, deliver} = setup();
+    const layer = {id: 'mine'} as TimelineLayer;
+    const incompatible = {reason: 'x'} as unknown as HmrIncompatibilityEvent;
+    deliver(INSPECT_DATA_CHANNEL, {type: 'pick', id: 7, pageId: 'a'});
+    deliver(CHANNEL_CUSTOM_LAYER, {layer, pageId: 'b'});
+    deliver(HMR_INCOMPATIBLE_CHANNEL, {...incompatible, pageId: 'c'});
+    expect(sink.calls).toEqual([
+      ['inspectorMessage', {type: 'pick', id: 7}],
+      ['addLayer', layer],
+      ['hmrIncompatible', incompatible],
+    ]);
+    expect(sink.pageIds).toEqual(['a', 'b', 'c']);
   });
 
   test('hands the tab id of a ready to the sink', () => {

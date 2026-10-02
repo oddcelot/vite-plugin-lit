@@ -283,7 +283,8 @@ export function createLitDevframe(
             if (incoming.length === 0) return;
             ensureStream().write(recording.push(incoming));
           },
-          addLayer(layer) {
+          addLayer(layer, pageId) {
+            if (!recording.accepts(pageId)) return;
             session.mutate((state) => {
               if (
                 !state.customLayers.some((existing) => existing.id === layer.id)
@@ -320,6 +321,9 @@ export function createLitDevframe(
             // followed is only its socket reconnecting: its clock did not
             // restart, so its buffer stays.
             if (outcome !== 'same') recording.clear();
+            // Element ids are minted per document, so the old page's tree and
+            // details would answer for ids that mean nothing on the new one.
+            if (outcome === 'switched') recording.forgetInspector();
             if (
               outcome === 'switched' &&
               previous !== undefined &&
@@ -375,7 +379,8 @@ export function createLitDevframe(
               optional: true,
             });
           },
-          hmrIncompatible(event) {
+          hmrIncompatible(event, pageId) {
+            if (!recording.accepts(pageId)) return;
             recording.pushHmrIncompatibility(event);
             void ctx.rpc.broadcast({
               method: `${LIT_DEVFRAME_ID}:${RPC_HMR_INCOMPATIBLE}`,

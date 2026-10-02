@@ -539,6 +539,17 @@ export class ComponentsView extends LitElement {
     this._select(id);
   }
 
+  /**
+   * Another page took over (see the shell's `page-changed` listener). Drops
+   * the tree it described and asks the new page for its own. The selection
+   * stays: a reloaded tab mints the same ids in the same order, and on
+   * another tab the details request answers for whatever holds the id now.
+   */
+  pageChanged(): void {
+    this._roots = [];
+    this._refresh();
+  }
+
   /** The currently selected element id, for the shell's URL sync. */
   get selectedId(): number | null {
     return this._selectedId;

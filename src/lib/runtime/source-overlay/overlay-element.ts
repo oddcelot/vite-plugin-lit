@@ -14,6 +14,7 @@ import {OVERLAY_HTML} from './template.js';
 import {observeEdgeInsets} from '../edge-panel.js';
 import {subscribeOverrideKeys} from '../overrides.js';
 import {pageChannel} from '../page-channel.js';
+import {PAGE_ID} from '../page-id.js';
 import {injectTokens} from '../../tokens.js';
 import {idOf} from '../timeline/identity.js';
 import {
@@ -466,7 +467,11 @@ class LitSourceOverlay extends HTMLElement {
     // Components tree. Identity matches the inspector runtime via idOf().
     if (target !== null) {
       const id = idOf(target);
-      pageChannel.send(INSPECT_DATA_CHANNEL, {type: 'pick', id});
+      pageChannel.send(INSPECT_DATA_CHANNEL, {
+        type: 'pick',
+        id,
+        pageId: PAGE_ID,
+      });
       this.#openDevtoolsPanel();
       this.#options.onPick?.(id);
     }

@@ -73,6 +73,8 @@ export interface RecordingSession {
   hmrHistory(): HmrHistoryEntry[];
   /** Fold a runtime inspector message into the caches. */
   applyInspector(message: InspectorMessage): void;
+  /** Forget the cached tree and details (another page took over). */
+  forgetInspector(): void;
   roots(): InspectorTreeNode[];
   details(id: number): InspectorDetails | null;
   /** The page runtime's last `ready` announcement; `ready: false` before it. */
@@ -322,6 +324,10 @@ export function createRecordingSession(
           topFrame: message.topFrame ?? true,
         };
       }
+    },
+    forgetInspector() {
+      roots = [];
+      details.clear();
     },
     roots: () => roots,
     runtime: () => runtime,
