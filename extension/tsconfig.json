@@ -1,0 +1,15 @@
+{
+  // The extension is bundled by Vite (extension/vite.config.ts), not emitted
+  // by the package's `tsc`, which would write it next to the npm output. Its
+  // own config also keeps the `chrome` globals out of the package's types.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "rootDir": "..",
+    "types": ["chrome", "node"]
+  },
+  "include": ["src", "vite.config.ts"],
+  "exclude": []
+}
