@@ -9,7 +9,11 @@
  * the bundle, and an unlisted name renders nothing.
  *
  * Names are Phosphor's, all in the regular weight.
+ *
+ * This module also defines `<wa-icon>`, and views import it instead of Web
+ * Awesome's icon.js, so the element never exists without the library above.
  */
+import '@awesome.me/webawesome/dist/components/icon/icon.js';
 import {
   getIconLibrary,
   registerIconLibrary,

@@ -62,6 +62,29 @@ export default defineConfig({
         rules: {'typescript/unbound-method': 'off'},
       },
       {
+        // `<wa-icon>` without the bundled library fetches from a CDN; views
+        // get the element from src/panel/wa-icons.ts, the only importer.
+        files: ['src/**'],
+        rules: {
+          'no-restricted-imports': [
+            'error',
+            {
+              paths: [
+                {
+                  name: '@awesome.me/webawesome/dist/components/icon/icon.js',
+                  message:
+                    "Import './wa-icons.js', which registers the bundled icons.",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        files: ['src/panel/wa-icons.ts'],
+        rules: {'no-restricted-imports': 'off'},
+      },
+      {
         // `const {page, edit} = fixture` destructures arrow closures off the
         // object literal startFixture returns; none of them reference `this`.
         files: ['src/test/e2e/**'],

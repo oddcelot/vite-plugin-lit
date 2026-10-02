@@ -30,7 +30,7 @@ import './devtools-settings.js';
 import './segmented-tabs.js';
 import '@awesome.me/webawesome/dist/components/button/button.js';
 import '@awesome.me/webawesome/dist/components/callout/callout.js';
-import '@awesome.me/webawesome/dist/components/icon/icon.js';
+import './wa-icons.js';
 import type {TabItem} from './segmented-tabs.js';
 
 /**
