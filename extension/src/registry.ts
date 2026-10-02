@@ -50,6 +50,7 @@ export interface StorageAreaLike {
 
 export interface PermissionsLike {
   contains(permissions: {origins: string[]}): Promise<boolean>;
+  remove(permissions: {origins: string[]}): Promise<boolean>;
 }
 
 export interface RegistryOptions {
@@ -191,6 +192,14 @@ export const createRegistry = (options: RegistryOptions): Registry => {
       if (enabled.includes(origin)) {
         await writeEnabled(enabled.filter((o) => o !== origin));
       }
+      // Give the access back too. Last, once the origin is no longer
+      // enabled: the `permissions.onRemoved` this triggers (`forget`) then
+      // finds nothing left to unregister. Best effort: Chrome resolves false
+      // for a permission it cannot remove (one the manifest requires) and
+      // may reject.
+      await permissions
+        .remove({origins: [originPattern(origin)]})
+        .catch(() => false);
       return status(origin);
     },
 
