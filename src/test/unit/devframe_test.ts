@@ -325,23 +325,49 @@ describe('lit devframe definition', () => {
     );
   });
 
-  test('a ready from another page forgets the cached tree and details', async () => {
+  test('a ready from another page forgets the cached tree, details and HMR history', async () => {
     const {source, ctx} = await boot({inspectorTimeoutMs: 20});
     const details = detailsFor(1);
+    const history = async () =>
+      ((await ctx.rpc.invokeLocal('lit:hmr-history')) as {entries: unknown[]})
+        .entries;
     source.sink!.runtimeReady('a');
     source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]}, 'a');
     source.sink!.inspectorMessage({type: 'details', details}, 'a');
+    source.sink!.hmrPatched(
+      {
+        tagName: 'x-a',
+        instances: 1,
+        generation: 1,
+        durationMs: 1,
+        childState: 'transfer',
+        at: 1,
+      },
+      'a'
+    );
+    source.sink!.hmrIncompatible(
+      {
+        tagName: 'x-a',
+        time: 2,
+        reason: {code: 'accessor-decorators'},
+        action: 'reload',
+      } as unknown as HmrIncompatibilityEvent,
+      'a'
+    );
     // A reconnect of the same page keeps them.
     source.sink!.runtimeReady('a');
     expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([
       treeNode,
     ]);
+    expect(await history()).toHaveLength(2);
 
     source.sink!.runtimeReady('b');
     expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([]);
     expect(
       await ctx.rpc.invokeLocal('lit:component-details', {id: 1})
     ).toBeNull();
+    expect(await history()).toEqual([]);
+    expect(await ctx.rpc.invokeLocal('lit:hmr-incompatibilities')).toEqual([]);
   });
 
   test('a stale page cannot answer an agent query', async () => {

@@ -207,15 +207,36 @@ test('a reload clears the timeline without a banner', async () => {
   expect(root.querySelector('.page-changed')).toBeNull();
 });
 
-test('a page change drops the Components tree and asks the new page', async () => {
+test('a page change drops the Components tree and HMR history, and asks the new page', async () => {
   const {el, view} = await mount();
   const components = view<ComponentsView>('components-view')!;
   const rows = () => components.shadowRoot!.querySelectorAll('.row').length;
+  const patchLine = () =>
+    components.shadowRoot!.querySelector('.hmr-last-patch');
+  push('hmr-patched', {
+    tagName: 'x-app',
+    instances: 1,
+    generation: 1,
+    durationMs: 1,
+    childState: 'transfer',
+    at: Date.now(),
+  });
+  push('hmr-incompatible', {
+    tagName: 'x-app',
+    time: Date.now(),
+    reason: {code: 'accessor-decorators'},
+    action: 'reload',
+  });
+  await flush(el);
   expect(rows()).toBe(1);
+  expect(patchLine()).not.toBeNull();
+  expect(components.hmrIncompatibilityCount).toBe(1);
   calls.length = 0;
   push('page-changed', {...pageChanged, reload: true});
   await flush(el);
   expect(rows()).toBe(0);
+  expect(patchLine()).toBeNull();
+  expect(components.hmrIncompatibilityCount).toBe(0);
   expect(
     calls.filter((c) => c.name === 'inspect').map((c) => c.args[0])
   ).toEqual([{type: 'tree'}]);
