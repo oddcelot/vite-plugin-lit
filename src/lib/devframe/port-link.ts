@@ -127,8 +127,15 @@ export const createLocalLitHost = (
   options: LocalLitHostOptions
 ): Promise<LocalDevframeClient> =>
   createLocalHost(
-    createStandaloneLitDevframe({version: options.version}, () =>
-      portPageLink(options.port)
+    createStandaloneLitDevframe(
+      {
+        version: options.version,
+        // No server behind this host: no editor to launch and no disk to
+        // write a snapshot to. Said outright rather than inferred, since a
+        // bundler may well shim `process` in this realm.
+        capabilities: {openInEditor: false, exportSnapshot: false},
+      },
+      () => portPageLink(options.port)
     ),
     {storage: options.storage}
   );

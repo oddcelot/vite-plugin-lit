@@ -219,7 +219,6 @@ export const DEFAULT_SESSION_STATE: SessionState = {
   customLayers: [],
 };
 
-/** Result of the `get-meta` query. */
 /** What the page runtime last announced about itself in its `ready` message. */
 export interface LitRuntimeInfo {
   /**
@@ -237,6 +236,33 @@ export interface LitRuntimeInfo {
   topFrame: boolean;
 }
 
+/**
+ * What the host behind this panel can actually do. The same panel runs under
+ * the Vite plugin, `lit-devtools dev`, the browser extension (no server at
+ * all) and a frozen snapshot, and a control whose host can't serve it can
+ * only fail; the panel reads these to leave such controls out. Flat booleans
+ * on purpose: each one answers "show this or not".
+ */
+export interface LitCapabilities {
+  /**
+   * Source locations open in the developer's editor: the host has the open
+   * service and knows where the app's files live.
+   */
+  openInEditor: boolean;
+  /** `export-snapshot` can write a directory to disk (a node host). */
+  exportSnapshot: boolean;
+  /** Plugin settings resolved from Vite config and env exist to show. */
+  pluginSettings: boolean;
+  /** Vite hot-patches components, so HMR history and notices can occur. */
+  hmr: boolean;
+  /**
+   * The Vite transform stamps components with `ElementSource` file and line;
+   * without it, details and spans carry no `source`.
+   */
+  sourceLocations: boolean;
+}
+
+/** Result of the `get-meta` query. */
 export interface LitGetMetaResult {
   version: string;
   /** Built-in layers followed by any runtime-announced custom ones. */
@@ -250,6 +276,8 @@ export interface LitGetMetaResult {
   stream: {channel: string; id: string};
   /** The page the session follows; absent until a runtime has announced itself. */
   activePageId?: string;
+  /** What this host can do; see {@link LitCapabilities}. */
+  capabilities: LitCapabilities;
 }
 
 /** Argument of the `list-components` query. */
