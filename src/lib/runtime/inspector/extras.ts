@@ -15,6 +15,7 @@ const MAX_EXTRAS = 24;
 const MAX_NAME = 80;
 
 const TASK_STATUS = ['initial', 'pending', 'complete', 'error'];
+const TASK_ERROR = TASK_STATUS.indexOf('error');
 
 /**
  * Own fields that belong to Lit or the DOM rather than to the component. The
@@ -105,6 +106,54 @@ const preview = (read: () => unknown): string => {
   }
 };
 
+/** `@lit/task` duck type: a controller with a numeric status, run() and render(). */
+const taskStatus = (v: Dict): number | undefined => {
+  if (!hasFn(v, 'run') || !hasFn(v, 'render')) return undefined;
+  try {
+    const status = v['status'];
+    return typeof status === 'number' ? status : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/**
+ * Every `@lit/task` controller the element holds that is currently in its
+ * error state, with the field it is stored in (else its class name). Read-only
+ * and never throws, so the lifecycle layer can call it after each update.
+ */
+export const erroredTasks = (
+  el: Element
+): Array<{task: object; name: string; error: unknown}> => {
+  const out: Array<{task: object; name: string; error: unknown}> = [];
+  try {
+    const controllers = controllersOf(el);
+    if (controllers.length === 0) return out;
+    const host = el as unknown as Dict;
+    for (const c of controllers) {
+      if (taskStatus(c as Dict) !== TASK_ERROR) continue;
+      let name: string | undefined;
+      for (const key of Object.keys(host)) {
+        const desc = Object.getOwnPropertyDescriptor(host, key);
+        if (desc !== undefined && 'value' in desc && desc.value === c) {
+          name = clip(key);
+          break;
+        }
+      }
+      let error: unknown;
+      try {
+        error = (c as Dict)['error'];
+      } catch {
+        error = undefined;
+      }
+      out.push({task: c, name: name ?? ctorName(c), error});
+    }
+  } catch {
+    // dev tool — an unreadable element reports no tasks
+  }
+  return out;
+};
+
 /** Classify one object the element holds; `undefined` if it is none of ours. */
 const classify = (
   v: Dict,
@@ -112,22 +161,15 @@ const classify = (
   controller: boolean
 ): InspectorExtra | undefined => {
   // @lit/task: a controller with a numeric status, run() and render().
-  if (hasFn(v, 'run') && hasFn(v, 'render')) {
-    let status: unknown;
-    try {
-      status = v['status'];
-    } catch {
-      status = undefined;
-    }
-    if (typeof status === 'number') {
-      return {
-        kind: 'task',
-        name,
-        value: preview(() => (status === 3 ? v['error'] : v['value'])),
-        type: 'Task',
-        status: TASK_STATUS[status] ?? String(status),
-      };
-    }
+  const status = taskStatus(v);
+  if (status !== undefined) {
+    return {
+      kind: 'task',
+      name,
+      value: preview(() => (status === TASK_ERROR ? v['error'] : v['value'])),
+      type: 'Task',
+      status: TASK_STATUS[status] ?? String(status),
+    };
   }
   // Signals (signal-polyfill): State reads are side-effect free, but Computed
   // runs user code and lazily recomputes, so it is reported without reading.

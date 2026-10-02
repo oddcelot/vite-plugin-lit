@@ -391,4 +391,125 @@ describe('installLifecycleLayer', () => {
     expect(next).toHaveLength(1);
     expect(next[0].logType).toBeUndefined();
   });
+
+  describe('async failures', () => {
+    // jsdom/happy-dom may not construct PromiseRejectionEvent; the layer only
+    // reads `promise` and `reason`.
+    const reject = (promise: Promise<unknown>, reason: unknown) => {
+      const e = new Event('unhandledrejection');
+      Object.assign(e, {promise, reason});
+      window.dispatchEvent(e);
+    };
+
+    test('a rejected async phase emits <phase>:rejected in its cycle group', async () => {
+      const base = freshBase();
+      let pending: Promise<unknown> | undefined;
+      base.prototype.updated = function () {
+        pending = Promise.reject(new RangeError('late'));
+        pending.catch(() => {});
+        return pending;
+      };
+      const m = await load();
+      install(m);
+      const {tag} = define(base);
+      const el = document.createElement(tag) as FakeReactiveElement;
+      document.body.append(el);
+      events.length = 0;
+      el.performUpdate();
+      const groupId = events.find((e) => e.title === 'updated:start')!.groupId;
+
+      reject(pending!, new RangeError('late'));
+
+      const rejected = events.filter((e) => e.title === 'updated:rejected');
+      expect(rejected).toHaveLength(1);
+      expect(rejected[0]).toMatchObject({
+        groupId,
+        logType: 'error',
+        data: {
+          phase: 'updated',
+          async: true,
+          error: {name: 'RangeError', message: 'late'},
+        },
+        meta: {tagName: tag},
+      });
+    });
+
+    test("a component's own async updated() is attributed, not just the base's", async () => {
+      // The real shape: the override replaces the wrapped base method instead
+      // of calling through it.
+      const m = await load();
+      install(m);
+      const {tag, Comp} = define();
+      let pending: Promise<unknown> | undefined;
+      (Comp.prototype as unknown as {updated: () => unknown}).updated =
+        function () {
+          pending = (async () => {
+            null;
+            throw new RangeError('after await');
+          })();
+          // Handled here only so the test runner sees no stray rejection;
+          // the layer is driven by the synthetic event below.
+          pending.catch(() => {});
+          return pending;
+        };
+      const el = document.createElement(tag) as FakeReactiveElement;
+      document.body.append(el);
+      events.length = 0;
+      el.performUpdate();
+      const groupId = events.find(
+        (e) => e.title === 'performUpdate:start'
+      )!.groupId;
+      reject(pending!, new RangeError('after await'));
+      const rejected = events.filter((e) => e.title === 'updated:rejected');
+      expect(rejected).toHaveLength(1);
+      expect(rejected[0]).toMatchObject({
+        groupId,
+        data: {phase: 'updated', async: true},
+        meta: {tagName: tag},
+      });
+    });
+
+    test('a rejection of an unrelated promise emits nothing', async () => {
+      const m = await load();
+      install(m);
+      events.length = 0;
+      const other = Promise.reject(new Error('x'));
+      other.catch(() => {});
+      reject(other, new Error('x'));
+      expect(events).toEqual([]);
+    });
+
+    test('a failed task is reported once across updates', async () => {
+      const base = freshBase();
+      const m = await load();
+      install(m);
+      const {tag} = define(base);
+      const el = document.createElement(tag) as FakeReactiveElement;
+      const boom = new TypeError('fetch failed');
+      // Shaped as extras.ts expects: run(), render(), numeric status 3.
+      const task = {run() {}, render() {}, status: 3, error: boom};
+      (el as unknown as Record<string, unknown>)['userTask'] = task;
+      (el as unknown as Record<string, unknown>)['__controllers'] = new Set([
+        task,
+      ]);
+      document.body.append(el);
+      events.length = 0;
+
+      el.performUpdate();
+      el.performUpdate();
+
+      const failed = events.filter((e) => e.title === 'task:error');
+      expect(failed).toHaveLength(1);
+      expect(failed[0]).toMatchObject({
+        logType: 'error',
+        groupId: events.find((e) => e.title === 'performUpdate:start')!.groupId,
+        data: {
+          phase: 'task',
+          task: 'userTask',
+          async: true,
+          error: {name: 'TypeError', message: 'fetch failed'},
+        },
+      });
+    });
+  });
 });

@@ -201,6 +201,68 @@ describe('thrown errors', () => {
     expect(entries[0]!.updates).toBe(2);
     expect(entries[0]!.errors).toBe(1);
   });
+
+  const late = (
+    data: Record<string, unknown>,
+    options: {tick?: number; title?: string} = {}
+  ): TimelineEvent => ({
+    layerId: 'lit-lifecycle',
+    time: 50,
+    groupId: `1:${options.tick ?? 1}`,
+    title: options.title ?? 'updated:rejected',
+    subtitle: 'hmr-counter',
+    data,
+    logType: 'error',
+    meta: {elementId: 1, tagName: 'hmr-counter'},
+  });
+  const rejected = late({phase: 'updated', error: boom, async: true});
+
+  test('an async error joins its cycle without becoming a phase', () => {
+    const [cycle] = toUpdateCycles(toSpans([...tick(0), rejected]));
+    expect(cycle!.error).toEqual({phase: 'updated', ...boom, async: true});
+    expect(cycle!.phases.map((p) => p.name)).toEqual([
+      'performUpdate',
+      'willUpdate',
+      'update',
+    ]);
+  });
+
+  test('a failed task is named on the cycle error', () => {
+    const task = late(
+      {phase: 'task', task: 'userTask', error: boom, async: true},
+      {title: 'task:error'}
+    );
+    const [cycle] = toUpdateCycles(toSpans([...tick(0), task]));
+    expect(cycle!.error).toEqual({
+      phase: 'task',
+      ...boom,
+      async: true,
+      task: 'userTask',
+    });
+  });
+
+  test('an async error does not replace a synchronous one', () => {
+    const [cycle] = toUpdateCycles(
+      toSpans([...tick(0, {error: boom}), rejected])
+    );
+    expect(cycle!.error).toEqual({phase: 'update', ...boom});
+  });
+
+  test('an async error for a cycle outside the window is skipped', () => {
+    const cycles = toUpdateCycles(
+      toSpans([
+        ...tick(0),
+        late(rejected.data as Record<string, unknown>, {tick: 9}),
+      ])
+    );
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0]!.error).toBeUndefined();
+  });
+
+  test('rollup counts a cycle with an async error', () => {
+    const entries = rollup(toUpdateCycles(toSpans([...tick(0), rejected])));
+    expect(entries[0]!.errors).toBe(1);
+  });
 });
 
 describe('toUpdateCycles', () => {

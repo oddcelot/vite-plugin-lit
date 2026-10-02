@@ -66,10 +66,20 @@ export interface TimelineSpan {
   subtitle?: string;
   logType?: TimelineEvent['logType'];
   /** Set when the phase threw; from the end event. */
-  error?: {name: string; message: string};
+  error?: SpanError;
   meta?: TimelineEvent['meta'];
   /** The events this span was built from, for the detail pane. */
   events: TimelineEvent[];
+}
+
+/** A recorded failure; `async` and `task` are set when it did not throw synchronously. */
+export interface SpanError {
+  name: string;
+  message: string;
+  /** Rejected promise or failed task rather than a synchronous throw. */
+  async?: true;
+  /** The `@lit/task` field (or class) that failed. */
+  task?: string;
 }
 
 /** One component's complete update tick. */
@@ -90,7 +100,7 @@ export interface UpdateCycle {
   /** The input event this update followed, if any. See {@link attributeInput}. */
   cause?: {layerId: string; type: string; detail?: string; time: number};
   /** The first phase in this tick that threw, if any. */
-  error?: {phase: string; name: string; message: string};
+  error?: {phase: string} & SpanError;
 }
 
 /** Per-component totals over a set of update cycles. */
@@ -144,18 +154,32 @@ const changedDetailOf = (event: TimelineEvent): ChangedValue[] | undefined => {
 };
 
 /** Reads `data.error` defensively — `data` is `unknown` on the wire. */
-const errorOf = (
-  event: TimelineEvent
-): {name: string; message: string} | undefined => {
+const errorOf = (event: TimelineEvent): SpanError | undefined => {
   if (event.logType !== 'error') return undefined;
   const data = event.data;
   if (data === null || typeof data !== 'object') return undefined;
-  const error = (data as {error?: unknown}).error;
+  const {error, ...flags} = data as {
+    error?: unknown;
+    async?: unknown;
+    task?: unknown;
+  };
   if (error === null || typeof error !== 'object') return undefined;
   const {name, message} = error as {name?: unknown; message?: unknown};
-  return typeof message === 'string'
-    ? {name: typeof name === 'string' ? name : 'Error', message}
-    : undefined;
+  if (typeof message !== 'string') return undefined;
+  return {
+    name: typeof name === 'string' ? name : 'Error',
+    message,
+    ...(flags.async === true ? {async: true as const} : {}),
+    ...(typeof flags.task === 'string' ? {task: flags.task} : {}),
+  };
+};
+
+/** The phase an async error belongs to: `updated`, or `task` for a failed task. */
+const phaseOf = (span: TimelineSpan): string => {
+  const data = span.events[0]?.data as {phase?: unknown} | null | undefined;
+  return typeof data?.phase === 'string'
+    ? data.phase
+    : span.name.replace(/:rejected$/, '');
 };
 
 const pointSpan = (event: TimelineEvent, index: number): TimelineSpan => ({
@@ -267,8 +291,19 @@ export const toUpdateCycles = (
   spans: readonly TimelineSpan[]
 ): UpdateCycle[] => {
   const byGroup = new Map<string, UpdateCycle>();
+  const lateErrors: TimelineSpan[] = [];
 
   for (const span of spans) {
+    // A rejection or failed task lands after its cycle closed. It is a point
+    // span, so it joins the cycle's error without becoming one of its phases.
+    if (
+      span.layerId === LIFECYCLE_LAYER_ID &&
+      span.error?.async === true &&
+      span.events[0]?.groupId !== undefined
+    ) {
+      lateErrors.push(span);
+      continue;
+    }
     const elementId = span.meta?.elementId;
     if (
       span.layerId !== LIFECYCLE_LAYER_ID ||
@@ -313,6 +348,14 @@ export const toUpdateCycles = (
         cycle.error = {phase: span.name, ...span.error};
       }
     }
+  }
+
+  for (const span of lateErrors) {
+    const cycle = byGroup.get(String(span.events[0]!.groupId));
+    // Not in the window (the ring dropped its phases), or already failed
+    // synchronously: the earlier, sync error stays.
+    if (cycle === undefined || cycle.error !== undefined) continue;
+    cycle.error = {phase: phaseOf(span), ...span.error!};
   }
 
   return [...byGroup.values()].sort((a, b) => a.start - b.start);

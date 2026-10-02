@@ -358,7 +358,7 @@ export class UpdatesView extends LitElement {
             ? html`<wa-badge
                 class="errors"
                 variant="danger"
-                title="Updates in which a phase threw"
+                title="Updates in which a phase threw or rejected, or a task failed"
               >
                 <wa-icon name="warning"></wa-icon>
                 ${entry.errors}
@@ -437,7 +437,13 @@ export class UpdatesView extends LitElement {
                         class="threw"
                         variant="danger"
                         title=${cycle.error.message}
-                        >threw in ${cycle.error.phase}:
+                        >${
+                          cycle.error.task !== undefined
+                            ? `task ${cycle.error.task} failed:`
+                            : cycle.error.async
+                              ? `rejected in ${cycle.error.phase}:`
+                              : `threw in ${cycle.error.phase}:`
+                        }
                         ${cycle.error.name}</wa-badge
                       >`
                     : nothing

@@ -17,6 +17,7 @@
 import {idOf, sourceOf, changedKeys} from './identity.js';
 import {now} from './clock.js';
 import {captureChangedValues} from './changed-values.js';
+import {erroredTasks} from '../inspector/extras.js';
 import type {TimelineEvent} from '../../../types/timeline.js';
 
 type EmitFn = (event: TimelineEvent) => void;
@@ -91,8 +92,129 @@ const describeError = (e: unknown): {name: string; message: string} => {
   }
 };
 
+interface PendingAttribution {
+  phase: string;
+  /** Absent for point phases, which belong to no update cycle. */
+  groupId?: string;
+  elementId: number;
+  tagName: string;
+  source: ReturnType<typeof sourceOf>;
+}
+
+/**
+ * Promises returned by recorded phases. Only remembered, never subscribed to:
+ * a `.catch` here would mark the rejection handled and the app would lose its
+ * own `unhandledrejection`. The weak key lets settled promises go.
+ */
+const returned = new WeakMap<Promise<unknown>, PendingAttribution>();
+
+/** Last error reported per `@lit/task`, so one failure is one event. */
+const reportedTaskErrors = new WeakMap<object, unknown>();
+
 type AnyFn = (...args: unknown[]) => unknown;
 type Proto = Record<string | symbol, AnyFn | undefined>;
+
+/**
+ * Reports `@lit/task` instances that failed since the last look. A task catches
+ * its own rejection, so neither the phase's throw nor `unhandledrejection`
+ * sees it; the only trace is its `error` status once the update has run.
+ */
+const reportTaskErrors = (
+  el: object,
+  groupId: string,
+  elementId: number,
+  tagName: string,
+  source: PendingAttribution['source'],
+  emit: EmitFn
+): void => {
+  try {
+    const failing = erroredTasks(el as Element);
+    for (const {task, name, error} of failing) {
+      if (
+        reportedTaskErrors.has(task) &&
+        reportedTaskErrors.get(task) === error
+      )
+        continue;
+      reportedTaskErrors.set(task, error);
+      emit({
+        layerId: 'lit-lifecycle',
+        time: now(),
+        groupId,
+        title: 'task:error',
+        subtitle: tagName,
+        data: {
+          phase: 'task',
+          task: name,
+          error: describeError(error),
+          async: true,
+        },
+        logType: 'error',
+        meta: {elementId, tagName, source},
+      });
+    }
+  } catch {
+    // dev tool — never let reporting break the app's update
+  }
+};
+
+/** Phases an app commonly makes `async`; their promise is what can reject. */
+const ASYNC_PHASES = ['willUpdate', 'updated', 'firstUpdated'] as const;
+const CAPTURE = Symbol.for('@oddsquad/vite-plugin-lit#timeline-async-capture');
+
+/**
+ * Wrap a component's own async-capable phases so their returned promise can
+ * be matched to an `unhandledrejection`. The base wrappers never see it: a
+ * subclass `async updated()` replaces the base method rather than calling
+ * through it. These wrappers emit nothing and only remember the promise.
+ * Checked on every recorded update rather than once per class, because an
+ * HMR patch copies fresh, unwrapped methods onto the prototype.
+ */
+const captureOwnPhases = (
+  el: object,
+  base: object,
+  recording: RecordingFn
+): void => {
+  let p = Object.getPrototypeOf(el) as Proto | null;
+  while (p !== null && p !== base) {
+    for (const name of ASYNC_PHASES) {
+      if (!Object.prototype.hasOwnProperty.call(p, name)) continue;
+      const orig = p[name];
+      if (typeof orig !== 'function') continue;
+      if ((orig as AnyFn & {[CAPTURE]?: true})[CAPTURE] === true) continue;
+      if ((orig as AnyFn & {[BRAND]?: true})[BRAND] === true) continue;
+      const capture: AnyFn & {[CAPTURE]?: true} = function (
+        this: object,
+        ...args: unknown[]
+      ) {
+        const result = orig.apply(this, args);
+        // Unrecorded updates do not advance the tick, so a promise from one
+        // would be pinned to an older cycle.
+        if (recording() && result instanceof Promise && !returned.has(result)) {
+          const tagName = (this as Element).localName ?? 'unknown';
+          returned.set(result, {
+            phase: name,
+            groupId: `${idOf(this)}:${tickOf(this)}`,
+            elementId: idOf(this),
+            tagName,
+            source: sourceOf(this),
+          });
+        }
+        return result;
+      };
+      capture[CAPTURE] = true;
+      try {
+        Object.defineProperty(p, name, {
+          value: capture,
+          writable: true,
+          configurable: true,
+        });
+      } catch {
+        // Non-configurable slot; that phase's rejections go unattributed.
+      }
+    }
+    p = Object.getPrototypeOf(p) as Proto | null;
+  }
+};
 
 /** Returns true if `proto[name]` is already our wrapper (idempotent install). */
 const isWrapped = (proto: Proto, name: string): boolean => {
@@ -175,6 +297,14 @@ const wrap = (
       });
     }
 
+    if (isUpdate) {
+      try {
+        captureOwnPhases(this, proto, recording);
+      } catch {
+        // dev tool — attribution is best-effort
+      }
+    }
+
     let result: unknown;
     let error: {name: string; message: string} | undefined;
     running.add(name);
@@ -213,6 +343,17 @@ const wrap = (
     // After the bracket, not in it: a throwing update never completed, so it
     // doesn't count as one.
     if (isUpdate) notifyUpdated(this, first);
+    if (result instanceof Promise && !returned.has(result)) {
+      returned.set(result, {
+        phase: name,
+        ...(isPoint ? {} : {groupId}),
+        elementId,
+        tagName,
+        source,
+      });
+    }
+    if (isUpdate)
+      reportTaskErrors(this, groupId, elementId, tagName, source, emit);
     return result;
   };
   wrapper[BRAND] = true;
@@ -298,6 +439,38 @@ export const installLifecycleLayer = (
 ): void => {
   if (installed) return;
   installed = true;
+
+  // Async phases fail as rejections the wrapper cannot see. Listening (rather
+  // than subscribing to each returned promise) leaves the app's own handling
+  // and the console's "Uncaught (in promise)" report untouched.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('unhandledrejection', (event) => {
+      try {
+        const info = returned.get(event.promise);
+        if (info === undefined || !recording() || !enabled()) return;
+        emit({
+          layerId: 'lit-lifecycle',
+          time: now(),
+          ...(info.groupId === undefined ? {} : {groupId: info.groupId}),
+          title: info.phase + ':rejected',
+          subtitle: info.tagName,
+          data: {
+            phase: info.phase,
+            error: describeError(event.reason),
+            async: true,
+          },
+          logType: 'error',
+          meta: {
+            elementId: info.elementId,
+            tagName: info.tagName,
+            source: info.source,
+          },
+        });
+      } catch {
+        // dev tool — never throw from the app's rejection path
+      }
+    });
+  }
 
   // Instrument from a sample already on the page (covers components defined
   // before the runtime installed — the common case, since the runtime is
