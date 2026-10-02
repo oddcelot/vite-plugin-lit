@@ -1,11 +1,25 @@
-# Lit DevTools for Chrome
+# Lit Inspector for Chrome
 
-A Chrome DevTools extension that inspects the Lit components on any page:
+Lit Inspector is a Chrome DevTools extension that inspects the Lit components on any page:
 production builds, sites you don't serve, pages whose CSP would refuse the
 `<script>` tag `lit-devtools dev` prints. Chrome injects the runtime itself,
 so the page's `script-src` doesn't apply.
 
 Work in progress. It isn't published, and it isn't part of the npm package.
+It is an independent tool, not affiliated with Google or the Lit project.
+
+The extension is named Lit Inspector in Chrome (`chrome://extensions`, the
+Web Store), and the tab it adds to DevTools is titled **Lit**: a short name
+fits the DevTools tab strip next to Elements and Console, and inside DevTools
+there is nothing else it could be confused with.
+
+## Version
+
+`manifest.json` here has no `version`. The build writes
+`dist/extension/manifest.json` with the package's version from the root
+`package.json`, so the extension and the package can't drift apart. Chrome
+takes one to four dot-separated integers, so a prerelease version such as
+`1.0.0-beta.1` fails the extension build.
 
 ## Build and load
 

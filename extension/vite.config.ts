@@ -1,6 +1,7 @@
+import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {defineConfig} from 'vite-plus';
-import type {UserConfig} from 'vite-plus';
+import type {Plugin, UserConfig} from 'vite-plus';
 
 /**
  * Build config for the Chrome extension, written to `dist/extension/` to be
@@ -9,8 +10,9 @@ import type {UserConfig} from 'vite-plus';
  *
  * - the default one builds the extension pages (`devtools.html`,
  *   `panel.html`) and the service worker, an ES module (`"type": "module"` in
- *   the manifest) at the fixed name the manifest gives, and copies `public/`
- *   (the manifest, the icon). It runs first and clears the out dir;
+ *   the manifest) at the fixed name the manifest gives, copies `public/`
+ *   (the icons) and writes the manifest (see {@link manifest}). It runs first
+ *   and clears the out dir;
  * - `page` and `content` each build one content script. Content scripts are
  *   classic scripts that cannot import, so each is a single self-contained
  *   IIFE, which one build cannot produce for two entries.
@@ -22,6 +24,37 @@ import type {UserConfig} from 'vite-plus';
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
 const outDir = here('../dist/extension');
+
+const readJson = (path: string): Record<string, unknown> =>
+  JSON.parse(readFileSync(here(path), 'utf8')) as Record<string, unknown>;
+
+/**
+ * Writes `manifest.json` from `extension/manifest.json`, with the package's
+ * version added. The source has no `version` on purpose: the extension ships
+ * with the package's number, and one place to bump keeps the two from
+ * drifting. A Chrome version is one to four dot-separated integers, so a
+ * prerelease suffix (`1.0.0-beta.1`) fails the build here rather than at the
+ * store.
+ */
+const manifest = (): Plugin => ({
+  name: 'lit-extension-manifest',
+  generateBundle() {
+    const {version} = readJson('../package.json');
+    if (
+      typeof version !== 'string' ||
+      !/^(0|[1-9]\d*)(\.(0|[1-9]\d*)){0,3}$/.test(version)
+    ) {
+      throw new Error(
+        `package.json version ${String(version)} is not a valid Chrome extension version`
+      );
+    }
+    this.emitFile({
+      type: 'asset',
+      fileName: 'manifest.json',
+      source: `${JSON.stringify({...readJson('manifest.json'), version}, null, 2)}\n`,
+    });
+  },
+});
 
 const contentScript = (name: 'page' | 'content'): UserConfig => ({
   root: here('.'),
@@ -44,6 +77,7 @@ export default defineConfig(({mode}) =>
     : {
         root: here('.'),
         base: './',
+        plugins: [manifest()],
         build: {
           outDir,
           emptyOutDir: true,

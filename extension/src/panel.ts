@@ -1,6 +1,7 @@
 /**
- * The Lit DevTools tab: the panel SPA the dev server serves, hosted here with
- * no server behind it. The Lit devframe runs in this page
+ * The Lit tab Lit Inspector adds to DevTools: the panel SPA the dev server
+ * serves, hosted here with no server behind it. The Lit devframe runs in this
+ * page
  * (`createLocalLitHost`) and reads the inspected page over the extension's
  * port, so the views get the same RPC client they get from a dev server.
  *
