@@ -15,7 +15,9 @@
  * everything after the grant runs as shipped. And the panel's runtime
  * messages and port are sent from an extension page the test opens, since
  * DevTools itself is not scriptable here: `devtools.html` is that page, whose
- * own script fails outside DevTools, which does not matter.
+ * own script fails outside DevTools, which does not matter. The Lit tab
+ * itself, `panel.html`, is opened the same way, in a tab, told which tab it
+ * inspects by the `?tabId=` seam `panel.ts` keeps for this.
  *
  * Extensions need Playwright's Chromium (`channel: 'chromium'`, which also
  * runs them headless): Chrome-branded builds ignore `--load-extension`.
@@ -59,6 +61,7 @@ let server: Server;
 let appOrigin: string;
 let context: BrowserContext;
 let worker: Worker;
+let extensionId: string;
 let extensionPage: Page;
 
 // Runs first in <head>, under the page's CSP like every page script: notes
@@ -138,7 +141,7 @@ beforeAll(async () => {
   worker =
     context.serviceWorkers()[0] ??
     (await context.waitForEvent('serviceworker'));
-  const extensionId = new URL(worker.url()).host;
+  extensionId = new URL(worker.url()).host;
   extensionPage = await context.newPage();
   await extensionPage.goto(`chrome-extension://${extensionId}/devtools.html`);
 }, 60_000);
@@ -289,6 +292,76 @@ test("the page's runtime reaches a panel through the relay, per document", async
     .poll(async () => (await statuses('second')).at(-1))
     .toEqual({channel: 'lit-ext:page', data: {connected: false}});
 });
+
+test("the Lit tab shows the page's components, picks, and follows a reload", async () => {
+  const page = await context.newPage();
+  await page.goto(appOrigin);
+  const tabId = await extensionPage.evaluate(
+    async (origin) => (await chrome.tabs.query({url: `${origin}/*`}))[0]?.id,
+    appOrigin
+  );
+  expect(tabId).toBeTypeOf('number');
+
+  // The panel as DevTools would host it, in a tab of its own (see panel.ts
+  // for the `tabId` seam). Anything it fails to load, or the extension's CSP
+  // refuses, surfaces as a console error or a failed request.
+  const panel = await context.newPage();
+  const problems: string[] = [];
+  panel.on('console', (message) => {
+    if (message.type() === 'error') problems.push(message.text());
+  });
+  panel.on('pageerror', (error) => problems.push(error.message));
+  panel.on('requestfailed', (request) =>
+    problems.push(`${request.url()}: ${request.failure()?.errorText}`)
+  );
+  await panel.goto(
+    `chrome-extension://${extensionId}/panel.html?tabId=${tabId}#tab=components`
+  );
+  const rows = panel.locator('components-view .row').filter({
+    hasText: 'probe-hello',
+  });
+  await rows.first().waitFor({timeout: 15_000});
+  await expect
+    .poll(() => panel.locator('#page').textContent())
+    .toContain('Lit runtime connected');
+
+  // Pick: the panel's toggle reaches the page's picker through the port, and
+  // the pick comes back the same way and selects the element.
+  await panel.locator('components-view wa-button.pick').click();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        [...document.head.querySelectorAll('style')].some((s) =>
+          s.textContent?.includes('crosshair')
+        )
+      )
+    )
+    .toBe(true);
+  const box = (await page.locator('probe-hello').boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  // Past the picker's hover throttle.
+  await page.waitForTimeout(150);
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await panel
+    .locator('components-view .row.selected')
+    .filter({hasText: 'probe-hello'})
+    .waitFor({timeout: 10_000});
+
+  // A reload is a new document; the panel follows it. A second element added
+  // to the new document shows up, so the tree is the new page's, live.
+  await page.reload();
+  await expect
+    .poll(() => panel.locator('#page').textContent())
+    .toContain('Lit runtime connected');
+  await page.evaluate(() =>
+    document.body.append(document.createElement('probe-hello'))
+  );
+  await expect.poll(() => rows.count(), {timeout: 15_000}).toBe(2);
+
+  expect(problems).toEqual([]);
+  await panel.close();
+  await page.close();
+}, 60_000);
 
 test('disabling stops the injection', async () => {
   expect(await registry('lit:disable')).toEqual({

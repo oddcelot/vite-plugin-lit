@@ -7,6 +7,8 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "noEmit": true,
+    // The panel reports the package's version, read from package.json.
+    "resolveJsonModule": true,
     "rootDir": "..",
     "types": ["chrome", "node"]
   },
