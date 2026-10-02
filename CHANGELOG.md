@@ -3,6 +3,41 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.12.0 — 2026-10-02
+
+The Lit panel now reaches pages no dev server is watching. Lit Inspector, a
+Chrome extension attached to every GitHub release, injects it into any site
+you enable, production builds and strict Content Security Policies included.
+`lit-devtools dev` stops showing controls it can't serve and gains the Chrome
+Performance tracks switch, and the selected component keeps updating across a
+reload. Nothing needs action to upgrade.
+
+### Added
+
+- **Lit Inspector, a Chrome extension, comes with every GitHub release.**
+  Download `lit-inspector-<version>.zip` from the release and load it unpacked
+  to inspect Lit components on any page, production builds and sites you don't
+  serve included, with no dev server.
+
+### Changed
+
+- **The panel hides what `lit-devtools dev` can't do.** Open-in-editor links
+  and the snapshot Export button no longer appear as controls that fail, the
+  Settings tab explains why plugin settings are missing, and the timeline notes
+  when render layers stay empty because the page's Lit is a production build.
+
+### Fixed
+
+- **The panel no longer reports the DevTools' own Lit as a duplicate.** Pages
+  loading `lit-devtools.js` showed "(duplicate copies)" in Settings and a
+  warning in the components view even with a single Lit of their own.
+- **The selected component keeps updating after the page reloads.** Its
+  details used to freeze on the old page's values, marked "update pending",
+  until you selected another row.
+- **Chrome Performance tracks and update flashing can be switched on under
+  `lit-devtools dev`.** The Settings tab hid both whenever the page wasn't
+  served by the Vite plugin.
+
 ## 0.11.0 — 2026-10-02
 
 A smaller release that makes the panel easier to read. The Components tab can
