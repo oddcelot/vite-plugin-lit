@@ -152,6 +152,25 @@ test('a relay announcing itself makes the page re-announce', async () => {
   stop();
 });
 
+test('a panel joining an open port makes the page re-announce, without forwarding the signal', async () => {
+  const onPeerConnected = vi.fn();
+  const transport = windowPageTransport({onPeerConnected});
+  const seen = vi.fn();
+  transport.on('lit:peer-connected', seen);
+  const {ports} = portPair();
+  const stop = relayWindowToPort(window, ports[0]);
+  await settle();
+  // The relay's start-up announcement (and its answer to the page's hello).
+  const before = onPeerConnected.mock.calls.length;
+  expect(before).toBeGreaterThan(0);
+
+  ports[1].postMessage({channel: 'lit:peer-connected'});
+  await settle();
+  expect(onPeerConnected).toHaveBeenCalledTimes(before + 1);
+  expect(seen).not.toHaveBeenCalled();
+  stop();
+});
+
 class WindowGreeting extends LitElement {
   override render() {
     return html`<p>Hello</p>`;

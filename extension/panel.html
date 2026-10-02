@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lit</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font:
+          13px system-ui,
+          sans-serif;
+      }
+      body {
+        margin: 12px;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 4px 12px;
+      }
+      dd {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <dl>
+      <dt>Site</dt>
+      <dd><code id="origin">…</code></dd>
+      <dt>Status</dt>
+      <dd id="status">…</dd>
+      <dt>Page</dt>
+      <dd id="page">not connected</dd>
+      <dt>Messages from the page</dt>
+      <dd><output id="count">0</output></dd>
+    </dl>
+    <button id="enable" disabled>Enable on this site</button>
+    <button id="disable" disabled>Disable</button>
+    <script type="module" src="./src/panel.ts"></script>
+  </body>
+</html>

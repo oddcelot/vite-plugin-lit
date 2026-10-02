@@ -58,7 +58,7 @@
     "dev": "pnpm run build && vp dev playground",
     "test": "pnpm run test:unit && pnpm run test:e2e",
     "test:unit": "node scripts/check-client-types.mjs && vp test run --project unit --project dom",
-    "test:e2e": "pnpm run build && vp test run --project e2e",
+    "test:e2e": "pnpm run build && pnpm run build:extension && vp test run --project e2e",
     "changelog": "git-cliff --unreleased",
     "bench": "node bench/run.mjs",
     "bench:serve": "node bench/run.mjs --serve",
@@ -72,7 +72,8 @@
     "prepare": "vp config",
     "build:panel": "vp build src/panel",
     "build:standalone": "vp build src/standalone",
-    "standalone:demo": "pnpm run build && pnpm --dir playground run standalone"
+    "standalone:demo": "pnpm run build && pnpm --dir playground run standalone",
+    "build:extension": "vp build extension && vp build extension --mode page && vp build extension --mode content"
   },
   "dependencies": {
     "devframe": "^1.1.0",
@@ -111,6 +112,7 @@
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
     "@phosphor-icons/core": "^2.1.1",
+    "@types/chrome": "^0.3.4",
     "@types/node": "^26.6.3",
     "@vitejs/devtools-kit": "0.7.6",
     "cac": "7.0.0",

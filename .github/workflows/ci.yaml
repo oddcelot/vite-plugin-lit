@@ -72,4 +72,7 @@ jobs:
           node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The runner's Google Chrome ignores --load-extension; the extension
+      # test needs Playwright's own Chromium.
+      - run: pnpm exec playwright-core install chromium
       - run: pnpm run test:e2e --shard=${{ matrix.shard }}/3

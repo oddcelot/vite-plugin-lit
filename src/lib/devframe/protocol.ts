@@ -189,6 +189,16 @@ export const RPC_PAGE_SEND = 'page-send';
 export const RPC_PAGE_RECEIVE = 'page-receive';
 
 /**
+ * Port message the browser extension's background sends a page when a panel
+ * starts listening to it. The page's port is opened when the document loads,
+ * usually long before DevTools is, so the relay's own `connected` has already
+ * gone by; this one makes it say `connected` again (see
+ * `runtime/window-transport.ts`) and the runtime re-announce itself to the new
+ * panel. Never forwarded to the page as data.
+ */
+export const PEER_CONNECTED_CHANNEL = 'lit:peer-connected';
+
+/**
  * Recording/layers snapshot shared between every surface (panel, page
  * runtime, MCP). Survives reconnect; mutated either by the `set-recording` /
  * `toggle-layer` actions below or directly by a panel through the generic

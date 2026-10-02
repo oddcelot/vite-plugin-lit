@@ -388,7 +388,7 @@ export const mountElement = async (page: Page, tag: string): Promise<void> => {
  * staged test without `@types/node` and rejects a plain `node:fs/promises`
  * import. This module already needs one, so tests borrow it from here.
  */
-export const fsp = {mkdir, readdir, readFile, rm, symlink, writeFile};
+export const fsp = {cp, mkdir, readdir, readFile, rm, symlink, writeFile};
 
 /** `path.join`, borrowed for the same reason as `fsp`. */
 export const joinPath = path.join;
