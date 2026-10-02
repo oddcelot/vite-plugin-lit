@@ -322,6 +322,8 @@ export class LitDevtoolsPanel extends LitElement {
               <wa-button
                 appearance="plain"
                 size="small"
+                aria-label="Dismiss"
+                data-tip="Dismiss"
                 @click=${() => (this._pageChange = null)}
               >
                 <wa-icon name="x" label="Dismiss"></wa-icon>

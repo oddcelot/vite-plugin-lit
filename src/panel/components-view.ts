@@ -758,7 +758,7 @@ export class ComponentsView extends LitElement {
                         class="badge"
                         variant="neutral"
                         appearance="outlined"
-                        title="reflects to attribute"
+                        data-tip="Reflects to an attribute"
                         >${
                           typeof p.attribute === 'string' ? p.attribute : 'attr'
                         }</wa-badge
@@ -840,7 +840,7 @@ export class ComponentsView extends LitElement {
                 class="reveal"
                 appearance="plain"
                 size="small"
-                title="Scroll into view"
+                data-tip="Scroll this element into view on the page"
                 aria-label="Scroll into view"
                 @click=${this._reveal}
               >
@@ -854,6 +854,7 @@ export class ComponentsView extends LitElement {
               class="src"
               appearance="plain"
               size="small"
+              data-tip="Open this file in your editor"
               @click=${this._openSource}
             >
               ${d.source.file}:${d.source.line}
@@ -990,7 +991,7 @@ export class ComponentsView extends LitElement {
   private _renderToggle(
     kind: string,
     on: boolean,
-    title: string,
+    tip: string,
     onClick: () => void,
     icon: TemplateResult,
     label: string
@@ -1000,7 +1001,7 @@ export class ComponentsView extends LitElement {
       size="small"
       variant=${on ? 'brand' : 'neutral'}
       appearance=${on ? 'filled' : 'outlined'}
-      title=${title}
+      data-tip=${tip}
       @click=${onClick}
     >
       ${icon} ${label}

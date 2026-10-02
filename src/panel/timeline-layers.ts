@@ -89,7 +89,7 @@ export class TimelineLayers extends LitElement {
           size="small"
           pill
           appearance=${l.enabled ? 'filled' : 'outlined'}
-          title=${l.enabled ? `Hide ${l.label}` : `Show ${l.label}`}
+          data-tip=${l.enabled ? `Hide ${l.label}` : `Show ${l.label}`}
           @click=${() => this._toggle(l.id)}
         >
           <span

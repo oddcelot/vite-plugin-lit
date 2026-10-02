@@ -472,13 +472,18 @@ export class TimelineView extends LitElement {
           size="small"
           appearance="outlined"
           ?disabled=${this._exporting || isSnapshot()}
-          title="Write this session to a static panel directory you can attach to a bug report"
+          data-tip="Write this session to a static panel directory you can attach to a bug report"
           @click=${this._exportSnapshot}
         >
           <wa-icon slot="start" name="export"></wa-icon>
           Export snapshot
         </wa-button>
-        <wa-button size="small" appearance="outlined" @click=${this._clear}>
+        <wa-button
+          size="small"
+          appearance="outlined"
+          data-tip="Delete every recorded event"
+          @click=${this._clear}
+        >
           <wa-icon slot="start" name="trash"></wa-icon>
           Clear
         </wa-button>
@@ -491,6 +496,7 @@ export class TimelineView extends LitElement {
                 size="small"
                 variant=${this._recording ? 'danger' : 'neutral'}
                 appearance=${this._recording ? 'filled' : 'outlined'}
+                data-tip=${this._recording ? 'Stop recording' : 'Start recording'}
                 @click=${this._toggleRecord}
               >
                 <wa-icon
@@ -551,7 +557,7 @@ export class TimelineView extends LitElement {
                 type="text"
                 spellcheck="false"
                 placeholder="filter regex…"
-                title="Case-insensitive regex matched against element tag, title and subtitle"
+                data-tip="Case-insensitive regex matched against element tag, title and subtitle"
                 .value=${filter.regex}
                 @input=${this._onRegexInput}
               ></wa-input>

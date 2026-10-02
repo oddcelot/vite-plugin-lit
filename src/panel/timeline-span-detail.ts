@@ -156,6 +156,7 @@ export class TimelineSpanDetail extends LitElement {
                           class="filter-link"
                           size="small"
                           appearance="plain"
+                          data-tip="Show only events from this element"
                           @click=${() => this._emit('element-filter', id)}
                           >filter</wa-button
                         >`
@@ -166,7 +167,7 @@ export class TimelineSpanDetail extends LitElement {
                           class="filter-link"
                           size="small"
                           appearance="plain"
-                          title="Open this element in the Components tab"
+                          data-tip="Open this element in the Components tab"
                           @click=${() => this._emit('inspect-element', id)}
                           >inspect</wa-button
                         >`
@@ -185,7 +186,7 @@ export class TimelineSpanDetail extends LitElement {
                     class="src-link"
                     size="small"
                     appearance="plain"
-                    title="Open this file in your editor"
+                    data-tip="Open this file in your editor"
                     @click=${() => openInEditor(src.file, src.line)}
                     >${src.file}:${src.line}</wa-button
                   >
