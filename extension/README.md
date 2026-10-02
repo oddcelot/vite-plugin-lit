@@ -39,9 +39,15 @@ kept in the extension's local storage and shared by every tab.
 
 ## Current limits
 
-- What needs a dev server doesn't work yet: opening a component's source in
-  your editor, exporting a timeline snapshot, and the plugin settings in the
-  Settings tab.
+- What needs a dev server isn't there. The panel leaves out the **Export
+  snapshot** button, and components have no source location, since no Vite
+  transform stamped one, so there is nothing to open in your editor. The
+  Settings tab keeps appearance and the About table and says plugin settings
+  need the Vite plugin.
+- HMR history and patch notices never appear: nothing hot-patches the page.
+- The **Lit Render** timeline layers need Lit's development build. A
+  production build emits no render events; the Timeline says so under the
+  layers once other events have arrived and none came from Lit.
 - Top frames only: components inside iframes aren't seen.
 - Only `http:` and `https:` pages.
 - Chrome 114 or later.
