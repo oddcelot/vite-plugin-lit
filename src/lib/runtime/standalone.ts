@@ -23,12 +23,16 @@
  * pick opens the panel by a fixed window name instead (see {@link pickInto}).
  */
 
+import {forgetOwnLit} from './own-lit.js';
 import './timeline/install.js';
 import './inspector/install.js';
 import {initSourceOverlay} from './source-overlay/overlay-element.js';
 import {pickInto} from './panel-window.js';
 import {connectToDevServer} from './rpc-transport.js';
 import type {ConnectOptions} from './rpc-transport.js';
+
+// The picker's LitElement brought a Lit of our own: not the page's to count.
+forgetOwnLit();
 
 interface StandaloneConfig {
   url?: string;

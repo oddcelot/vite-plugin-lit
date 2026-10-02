@@ -15,11 +15,14 @@
  * scripts define anything.
  */
 
+import {forgetOwnLit} from '../../src/lib/runtime/own-lit.js';
 import '../../src/lib/runtime/timeline/install.js';
 import '../../src/lib/runtime/inspector/install.js';
 import {initSourceOverlay} from '../../src/lib/runtime/source-overlay/overlay-element.js';
 import {attachWindowTransport} from '../../src/lib/runtime/window-transport.js';
 
+// The picker's LitElement brought a Lit of our own: not the page's to count.
+forgetOwnLit();
 attachWindowTransport();
 
 // The picker reports a pick on the page channel; the panel is the DevTools
