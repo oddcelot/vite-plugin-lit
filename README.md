@@ -164,6 +164,23 @@ locations and open-in-editor do not work there; the tree, inspector and timeline
 do. A page that Vite serves can instead call `connectToDevServer()` from
 `@oddsquad/vite-plugin-lit/connect.js`.
 
+**Production builds.** The script tag also attaches to a minified build with
+Lit's production condition, checked by
+`src/test/e2e/standalone-production_test.ts`:
+
+- Works: the component tree, the inspector (properties, controllers and
+  `@lit/task` instances, even though Lit mangles its private controller set)
+  and Record with the lifecycle layer (`performUpdate`, `willUpdate`,
+  `update`, `updated`).
+- Empty: the render layers, because Lit's production build never dispatches
+  `lit-debug` events.
+- Missing: source locations and open-in-editor (no build-time transform), HMR.
+- Blocked: a page whose Content Security Policy does not allow the dev server's
+  origin in `script-src` (for example `script-src 'self'`) refuses the tag, so
+  nothing attaches.
+- Cosmetic: names the minifier renamed show as it left them, so a plain
+  controller's type reads as a short mangled identifier.
+
 To try it from this repo, run `pnpm run standalone:demo`; see
 [Playground](#playground).
 
