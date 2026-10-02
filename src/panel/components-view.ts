@@ -572,13 +572,22 @@ export class ComponentsView extends LitElement {
    * the tree and HMR history the old page reported, as the node side does,
    * and asks the new page for its tree. The selection stays: a reloaded tab
    * mints the same ids in the same order, and on another tab the details
-   * request answers for whatever holds the id now.
+   * request answers for whatever holds the id now. Its details do not: they
+   * describe the old document, so they are cleared until the new page
+   * answers, and the watch went with the old document, so the new page is
+   * told to watch the id or the pane never hears of its updates.
    */
   pageChanged(): void {
     this._roots = [];
     this._lastPatch = null;
     this._hmrIncompatibilities = [];
+    const id = this._selectedId;
+    if (id !== null) {
+      this._details = null;
+      this._gone = false;
+    }
     this._refresh();
+    if (id !== null) this._call({type: 'watch', id});
   }
 
   /** The currently selected element id, for the shell's URL sync. */
