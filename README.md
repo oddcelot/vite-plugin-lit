@@ -14,24 +14,23 @@ https://github.com/user-attachments/assets/4e94a449-6c08-40db-8d78-37dc85ec6823
 
 **[Documentation →](https://oddcelot.github.io/vite-plugin-lit/)**
 
-**[Try it on StackBlitz →](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?startScript=stackblitz)**
-The playground with HMR and the Vite DevTools dock: click the counter, edit
-`src/hmr-counter.ts`, and the count stays.
-[Standalone mode](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?file=package.json&startScript=standalone)
-runs the same page as static files, without Vite, next to the DevTools panel
-on its own port.
-For the short version, the
-[Lit flame example](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/examples/flame?file=src/lit-flame.ts)
-is one component: turn its colours, stoke it and blow it out, then edit it and
-watch its state, `#private` field and colours survive. The
-[Web Awesome example](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/examples/web-awesome?file=src/packing-list.ts)
-builds a component from a third-party Lit library: edit it, and the library's
-elements keep their checked boxes and half-typed text.
-
 Started life in a fork of the [lit monorepo](https://github.com/lit/lit) as a
 proposed `@lit-labs/vite-hmr` package, and now lives here on its own. Lit is
 kept checked out as a read-only [submodule](./lit) for reference and opt-in
 canary testing against lit `main`.
+
+## Try it
+
+Each demo opens on StackBlitz and runs the latest release of the plugin in
+your browser. The [Demos page](https://oddcelot.github.io/vite-plugin-lit/start/demos/)
+embeds them, so you can try one without leaving the docs.
+
+| Demo                                                                                               | What to try                                                                                                                         |                                                                                                                                                                                                                  |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Playground](https://github.com/oddcelot/vite-plugin-lit/tree/main/playground)                     | HMR and the Vite DevTools dock: click the counter, edit `src/hmr-counter.ts`, and the count stays.                                  | [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?startScript=stackblitz)                   |
+| [Standalone mode](https://github.com/oddcelot/vite-plugin-lit/tree/main/playground/standalone.mjs) | The same page as static files, without Vite, next to the DevTools panel on its own port.                                            | [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?file=package.json&startScript=standalone) |
+| [Lit flame](https://github.com/oddcelot/vite-plugin-lit/tree/main/examples/flame)                  | One component: turn its colours, stoke it and blow it out, then edit it and watch its state, `#private` field and colours survive.  | [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/examples/flame?file=src/lit-flame.ts)                |
+| [Web Awesome](https://github.com/oddcelot/vite-plugin-lit/tree/main/examples/web-awesome)          | A component built from a third-party Lit library: edit it, and the library's elements keep their checked boxes and half-typed text. | [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/examples/web-awesome?file=src/packing-list.ts)       |
 
 ## Why
 

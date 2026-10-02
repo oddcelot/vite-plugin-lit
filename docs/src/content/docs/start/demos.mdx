@@ -1,0 +1,71 @@
+---
+title: Demos
+description: Try the plugin in the browser. StackBlitz embeds of the Lit flame and Web Awesome examples and the playground, each running the latest release.
+sidebar:
+  order: 3
+---
+
+import StackBlitzEmbed from '../../../components/StackBlitzEmbed.astro';
+
+Each demo runs on StackBlitz, in your browser, against the latest release of
+the plugin. Press **Run this demo** to boot one: StackBlitz installs the
+dependencies and starts the dev server, which takes a moment. If it stops at
+"Cloning repo from GitHub", press **Stuck? Reload the demo** below it. Edit the open file
+and save, and the component updates in the preview without losing what you
+did to it.
+
+## Lit flame
+
+One component, edited while it runs. Turn its colours, stoke it and blow it
+out, then edit `src/lit-flame.ts` and watch its state, `#private` field and
+colours survive. The
+[example's README](https://github.com/oddcelot/vite-plugin-lit/tree/main/examples/flame)
+lists edits to try.
+
+<StackBlitzEmbed
+  path="examples/flame"
+  file="src/lit-flame.ts"
+  title="The Lit flame example running on StackBlitz"
+/>
+
+## Web Awesome
+
+A component built from [Web Awesome](https://webawesome.com) elements, a
+third-party Lit library. Add items to the packing list, tick a few and type
+into the input, then edit `src/packing-list.ts`: the plugin patches your
+component and leaves the library's elements alone, so their checked boxes and
+half-typed text survive too. See the
+[example's README](https://github.com/oddcelot/vite-plugin-lit/tree/main/examples/web-awesome).
+
+<StackBlitzEmbed
+  path="examples/web-awesome"
+  file="src/packing-list.ts"
+  title="The Web Awesome example running on StackBlitz"
+/>
+
+## Playground
+
+The repo's playground, with the Vite DevTools dock. Click the counter, edit
+`src/hmr-counter.ts`, and the count stays. The rest of the page has one
+component per case the plugin handles, from shared stylesheets to signals and
+context, to edit the same way.
+
+<StackBlitzEmbed
+  path="playground"
+  file="src/hmr-counter.ts"
+  title="The playground running on StackBlitz"
+/>
+
+## Standalone mode
+
+The same playground built to static files and served without Vite, next to
+the DevTools panel on its own port.
+[`lit-devtools dev`](/vite-plugin-lit/reference/cli/#lit-devtools-dev) is how
+the panel inspects a page that Vite does not serve.
+
+<StackBlitzEmbed
+  path="playground"
+  file="package.json"
+  startScript="standalone"
+  title="The playground in standalone mode running on StackBlitz"
+/>

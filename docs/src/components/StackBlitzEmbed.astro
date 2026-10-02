@@ -1,0 +1,116 @@
+---
+/**
+ * A directory of this repo running on StackBlitz, embedded in the page. Each
+ * embed is a WebContainer that installs and starts a dev server, too heavy
+ * to boot on scroll, so the iframe is only created on a click. StackBlitz's
+ * `ctl=1` click-to-load does not apply to GitHub imports.
+ *
+ * The first load of a GitHub import in an embed can stall at "Cloning repo
+ * from GitHub" and finish on a reload, so the caption has a button that
+ * reloads just the iframe, next to a link that opens the project in a full
+ * StackBlitz tab.
+ */
+interface Props {
+  /** Directory in the repo, such as `examples/flame`. */
+  path: string;
+  /** What the embed shows, for screen readers. */
+  title: string;
+  /** File open in the editor. */
+  file?: string;
+  /** npm script to run instead of the project's `startCommand`. */
+  startScript?: string;
+}
+
+const {path, title, file, startScript} = Astro.props;
+
+const project = `https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/${path}`;
+const query = (extra: Record<string, string>) => {
+  const params = new URLSearchParams(extra);
+  if (file !== undefined) params.set('file', file);
+  if (startScript !== undefined) params.set('startScript', startScript);
+  const search = params.toString();
+  return search === '' ? project : `${project}?${search}`;
+};
+---
+
+<figure class="stackblitz-embed">
+  <stackblitz-embed data-src={query({embed: '1', hideExplorer: '1'})}>
+    <button type="button" class="run" data-title={title}>
+      Run this demo
+    </button>
+  </stackblitz-embed>
+  <figcaption>
+    <button type="button" class="reload" hidden>
+      Stuck? Reload the demo
+    </button>
+    <a href={query({})}>Open in StackBlitz</a>
+  </figcaption>
+</figure>
+
+<script>
+  class StackBlitzEmbed extends HTMLElement {
+    connectedCallback() {
+      const run = this.querySelector<HTMLButtonElement>('.run');
+      const reload =
+        this.closest('figure')?.querySelector<HTMLButtonElement>('.reload');
+      if (run === null || reload === null || reload === undefined) return;
+      run.addEventListener('click', () => {
+        const frame = document.createElement('iframe');
+        frame.src = this.dataset.src ?? '';
+        frame.title = run.dataset.title ?? '';
+        run.replaceWith(frame);
+        reload.hidden = false;
+        reload.addEventListener('click', () => {
+          frame.src = this.dataset.src ?? '';
+        });
+      });
+    }
+  }
+  customElements.define('stackblitz-embed', StackBlitzEmbed);
+</script>
+
+<style>
+  .stackblitz-embed {
+    margin: 1.5rem 0;
+  }
+  stackblitz-embed {
+    display: grid;
+    place-items: center;
+    height: 32rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: var(--sl-color-gray-6);
+  }
+  stackblitz-embed :global(iframe) {
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+  .run {
+    padding: 0.5rem 1.25rem;
+    border: 0;
+    border-radius: 999rem;
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .stackblitz-embed figcaption {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-top: 0.5rem;
+    font-size: var(--sl-text-sm);
+  }
+  .reload {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--sl-color-text-accent);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+</style>
