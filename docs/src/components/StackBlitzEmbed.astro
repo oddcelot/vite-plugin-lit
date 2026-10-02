@@ -48,12 +48,28 @@ const query = (extra: Record<string, string>) => {
 </figure>
 
 <script>
+  // Embedded WebContainers need the `credentialless` cross-origin isolation
+  // only Chromium implements; elsewhere StackBlitz shows "Unable to run
+  // Embedded Project". A full StackBlitz tab runs in more browsers.
+  const brands = (
+    navigator as Navigator & {userAgentData?: {brands: {brand: string}[]}}
+  ).userAgentData?.brands;
+  const canEmbed = brands?.some(({brand}) => brand === 'Chromium') ?? false;
+
   class StackBlitzEmbed extends HTMLElement {
     connectedCallback() {
       const run = this.querySelector<HTMLButtonElement>('.run');
       const reload =
         this.closest('figure')?.querySelector<HTMLButtonElement>('.reload');
       if (run === null || reload === null || reload === undefined) return;
+      if (!canEmbed) {
+        const note = document.createElement('p');
+        note.className = 'unsupported';
+        note.textContent =
+          'StackBlitz runs embedded demos only in Chromium-based browsers. Open this one in StackBlitz instead.';
+        run.replaceWith(note);
+        return;
+      }
       run.addEventListener('click', () => {
         const frame = document.createElement('iframe');
         frame.src = this.dataset.src ?? '';
@@ -96,6 +112,12 @@ const query = (extra: Record<string, string>) => {
     font: inherit;
     font-weight: 600;
     cursor: pointer;
+  }
+  stackblitz-embed :global(.unsupported) {
+    max-width: 28rem;
+    margin: 0;
+    padding: 1rem;
+    text-align: center;
   }
   .stackblitz-embed figcaption {
     display: flex;
