@@ -118,10 +118,6 @@ export class DevtoolsSettings extends LitElement {
         font-family: var(--lit-devtools-font-mono);
         font-size: var(--lit-devtools-text-2xs);
       }
-      .ovr {
-        margin-left: var(--lit-devtools-space-3);
-        vertical-align: middle;
-      }
       wa-badge.env {
         font-family: var(--lit-devtools-font-mono);
         vertical-align: middle;
@@ -336,8 +332,8 @@ export class DevtoolsSettings extends LitElement {
 
   /**
    * Badge for an overridable row. Without an override it's the plain origin
-   * badge; with one it's "(overridden)", the baseline it replaced
-   * ("env: Zed") and a reset for just this row. `baseline` is the config
+   * badge; with one it's the baseline it replaced ("env: Zed"), in the brand
+   * colour, and a reset for just this row. `baseline` is the config
    * value as the row displays it, `fmt` renders a recorded raw value the same
    * way. When the config value moved since the override was made, a second
    * line says so and offers Reset or Keep.
@@ -353,13 +349,10 @@ export class DevtoolsSettings extends LitElement {
     const current = s === null ? undefined : configValues(s)[key];
     const changed = baselineChanged(key, this._recorded[key], current);
     return html`<wa-badge
-        class="ovr"
+        class="env src ovr"
         size="small"
         appearance="outlined"
         variant="brand"
-        >(overridden)</wa-badge
-      >
-      <wa-badge class="env" size="small" appearance="outlined" variant="neutral"
         >${src}: ${baseline}</wa-badge
       >
       <wa-button

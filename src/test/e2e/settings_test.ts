@@ -50,7 +50,7 @@ test('an override whose config value moved shows the nudge, and Keep hides it', 
   await nudge.getByRole('button', {name: 'Keep'}).click();
   await expect.poll(() => nudge.count()).toBe(0);
   // Keep re-stamps the baseline; the override itself stays.
-  expect(await page.getByText('(overridden)').count()).toBe(1);
+  expect(await page.locator('devtools-settings .ovr').count()).toBe(1);
   expect(panel.errors).toEqual([]);
 });
 
