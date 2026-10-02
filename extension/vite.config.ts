@@ -56,6 +56,30 @@ const manifest = (): Plugin => ({
   },
 });
 
+/**
+ * Swaps `src/lib/snapshot.ts` for `src/snapshot-stub.ts`. Export snapshot
+ * needs a disk the extension doesn't have (the panel hides the button), and
+ * the real module drags in devframe's build adapter, whose remote-asset
+ * fetching names unpkg and jsDelivr; the store's review reads the package
+ * for remote code, so none of it should be in there.
+ */
+const noSnapshot = (): Plugin => {
+  const real = here('../src/lib/snapshot.ts');
+  const stub = here('src/snapshot-stub.ts');
+  return {
+    name: 'lit-extension-no-snapshot',
+    enforce: 'pre',
+    async resolveId(source, importer, options) {
+      if (!source.endsWith('snapshot.js') || importer === stub) return null;
+      const resolved = await this.resolve(source, importer, {
+        ...options,
+        skipSelf: true,
+      });
+      return resolved?.id === real ? stub : null;
+    },
+  };
+};
+
 const contentScript = (name: 'page' | 'content'): UserConfig => ({
   root: here('.'),
   publicDir: false,
@@ -77,7 +101,7 @@ export default defineConfig(({mode}) =>
     : {
         root: here('.'),
         base: './',
-        plugins: [manifest()],
+        plugins: [manifest(), noSnapshot()],
         build: {
           outDir,
           emptyOutDir: true,

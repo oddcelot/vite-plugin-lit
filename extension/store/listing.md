@@ -108,6 +108,12 @@ page the user has enabled: their tree, properties, state and update timings.
 No, I am not using remote code. All JavaScript ships in the package, and the
 extension pages run under Manifest V3's default `script-src 'self'`.
 
+(Not for the form: the extension build replaces the panel's snapshot export
+with a stub, so the dev-server code that fetches assets from unpkg and
+jsDelivr is not in the package. Nothing else about the listing changes. The
+one CDN URL left in the bundle is Web Awesome's Font Awesome icon library,
+which the panel replaces with bundled icons before any icon renders.)
+
 **Data usage**
 
 What user data does the extension collect? None of the listed categories:
