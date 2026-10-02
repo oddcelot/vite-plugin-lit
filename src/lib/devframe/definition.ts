@@ -5,6 +5,11 @@
  * `createBuild()`, or an MCP server with no Vite in the loop. `vite.ts` wires
  * the real page-runtime bridge and mounts this via `createPluginFromDevframe`.
  *
+ * Nothing reachable from here at module scope may import a `node:` module:
+ * the definition also runs in a browser, with no server at all. Node-only
+ * work (`open-source`, `export-snapshot`) imports what it needs inside its
+ * handler, and a browser host never gets that far.
+ *
  * @see plans/devframe-foundation.md
  */
 
@@ -24,7 +29,6 @@ import {TIMELINE_LAYERS} from '../../types/timeline.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 import type {SourceLocator} from '../source-locator.js';
 import {LIT_LOGO_ICON} from './icon.js';
-import {PANEL_DIST_DIR} from './paths.js';
 import type {
   FeatureSettings,
   SettingsOverride,
@@ -92,8 +96,11 @@ export interface CreateLitDevframeOptions {
    */
   picker?: () => boolean;
   /**
-   * Directory holding the built panel SPA. Defaults to the package's own
-   * `dist/client`; the dev-time panel build points it elsewhere.
+   * Directory holding the built panel SPA, for hosts that serve it. No
+   * default here: resolving the package's own `dist/client` takes `node:fs`,
+   * and this module also has to load in a browser bundle (a host with no
+   * dev server, where the panel is already the page). Node hosts pass
+   * `PANEL_DIST_DIR` from `paths.ts` themselves.
    */
   clientAssets?: string;
   /**
@@ -151,7 +158,7 @@ export function createLitDevframe(
     importMetaUrl: import.meta.url,
     icon: LIT_LOGO_ICON,
     dock: {category: 'framework'},
-    clientAssets: options.clientAssets ?? PANEL_DIST_DIR,
+    clientAssets: options.clientAssets,
 
     // `component-details` takes an id, so `snapshot: true` (which bakes the
     // no-argument call) cannot express it. Bake one record per component the

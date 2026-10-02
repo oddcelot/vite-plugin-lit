@@ -11,7 +11,7 @@
  * differs. The page half is
  * `runtime/rpc-transport.ts`.
  *
- * Like `definition.ts`, nothing here imports Vite. The devframe-specific
+ * Like `definition.ts`, nothing here imports Vite or a `node:` module. The devframe-specific
  * wiring lives in {@link createStandaloneLitDevframe}; the class itself takes a
  * tiny {@link PageLinkNode}, so its carrier is testable
  * without a running server.
