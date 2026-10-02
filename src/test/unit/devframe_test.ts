@@ -685,17 +685,17 @@ describe('lit devframe definition', () => {
     const {ctx, source} = await boot();
     expect((await ctx.rpc.invokeLocal('lit:get-meta')).runtime).toEqual({
       ready: false,
-      litVersions: [],
+      litPackages: {},
       topFrame: true,
     });
     source.sink!.inspectorMessage({
       type: 'ready',
-      litVersions: ['3.3.3', '3.2.0'],
+      litPackages: {'lit-element': ['4.2.2', '4.1.0']},
       topFrame: false,
     });
     expect((await ctx.rpc.invokeLocal('lit:get-meta')).runtime).toEqual({
       ready: true,
-      litVersions: ['3.3.3', '3.2.0'],
+      litPackages: {'lit-element': ['4.2.2', '4.1.0']},
       topFrame: false,
     });
   });

@@ -651,12 +651,9 @@ export class DevtoolsSettings extends LitElement {
   private _renderAbout() {
     const meta = this._meta;
     if (meta === null) return nothing;
-    const versions = meta.runtime.litVersions;
-    const lit =
-      !meta.runtime.ready || versions.length === 0
-        ? 'not detected'
-        : versions.join(', ') +
-          (versions.length > 1 ? ' (duplicate copies)' : '');
+    const packages = Object.entries(
+      meta.runtime.ready ? meta.runtime.litPackages : {}
+    );
     return html`
       <section>
         <wa-card>
@@ -666,10 +663,24 @@ export class DevtoolsSettings extends LitElement {
               <td class="key">plugin version</td>
               <td class="val">${meta.version}</td>
             </tr>
-            <tr>
-              <td class="key">lit</td>
-              <td class="val">${lit}</td>
-            </tr>
+            ${
+              packages.length === 0
+                ? html`<tr>
+                    <td class="key">lit</td>
+                    <td class="val">not detected</td>
+                  </tr>`
+                : packages.map(
+                    ([name, versions]) => html`<tr>
+                      <td class="key">${name}</td>
+                      <td class="val">
+                        ${
+                          versions.join(', ') +
+                          (versions.length > 1 ? ' (duplicate copies)' : '')
+                        }
+                      </td>
+                    </tr>`
+                  )
+            }
             <tr>
               <td class="key">timeline layers</td>
               <td class="val">${meta.layers.map((l) => l.label).join(', ')}</td>

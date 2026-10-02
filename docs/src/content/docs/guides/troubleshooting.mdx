@@ -383,12 +383,13 @@ announced itself.
 
 **Fix.** Wait or navigate (with **Live** on, the tree picks up components as
 they render; if you paused it, turn it back on), and check Settings, About, for
-the lit version the runtime detected.
+the Lit packages (`lit-html`, `lit-element`, `@lit/reactive-element`) the
+runtime detected.
 
 ### The Components tab warns about more than one copy of lit
 
-**Symptom.** The tab says more than one copy of lit is loaded and lists two
-versions.
+**Symptom.** The tab says more than one copy of lit is loaded and names the
+duplicated package with its versions.
 
 **Cause.** Two copies of `lit`, `lit-element` or `@lit/reactive-element`
 resolve, typically a dependency with its own nested lit. Components registered

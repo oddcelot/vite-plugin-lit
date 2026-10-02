@@ -27,10 +27,11 @@ const about = async () => {
   return section?.textContent?.replace(/\s+/g, ' ');
 };
 
-test('About lists the plugin version, lit version and precedence', async () => {
+test('About lists the plugin version, Lit package versions and precedence', async () => {
   const text = await about();
   expect(text).toContain('9.9.9');
-  expect(text).toContain('3.3.3');
+  expect(text).toContain('lit-html 3.3.3');
+  expect(text).toContain('lit-element 4.2.2');
   expect(text).toContain('unavailable (enable sourceOverlay)');
   expect(text).toContain(
     'panel override, then plugin option, then LIT_PLUGIN_* env, then default'
@@ -38,8 +39,14 @@ test('About lists the plugin version, lit version and precedence', async () => {
 });
 
 test('About flags duplicate lit copies', async () => {
-  meta.runtime = {ready: true, litVersions: ['3.3.3', '3.2.0'], topFrame: true};
-  expect(await about()).toContain('3.3.3, 3.2.0 (duplicate copies)');
+  meta.runtime = {
+    ready: true,
+    litPackages: {'lit-element': ['4.2.2', '4.1.0']},
+    topFrame: true,
+  };
+  expect(await about()).toContain(
+    'lit-element 4.2.2, 4.1.0 (duplicate copies)'
+  );
 });
 
 test('the color scheme wa-select writes the choice through the settings store', async () => {
@@ -64,6 +71,6 @@ test('the color scheme wa-select writes the choice through the settings store', 
 });
 
 test('About says lit was not detected before a runtime connects', async () => {
-  meta.runtime = {ready: false, litVersions: [], topFrame: true};
+  meta.runtime = {ready: false, litPackages: {}, topFrame: true};
   expect(await about()).toContain('not detected');
 });

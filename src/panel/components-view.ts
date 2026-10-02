@@ -447,9 +447,14 @@ export class ComponentsView extends LitElement {
         look for a failed script in the browser console.
       </div>`;
     }
-    if (runtime !== null && runtime.litVersions.length > 1) {
+    const duplicate =
+      runtime === null
+        ? undefined
+        : Object.entries(runtime.litPackages).find(([, v]) => v.length > 1);
+    if (duplicate !== undefined) {
+      const [name, versions] = duplicate;
       return html`<div class="empty">
-        More than one copy of lit is loaded (${runtime.litVersions.join(', ')}).
+        More than one copy of lit is loaded (${name} ${versions.join(', ')}).
         Components registered against a different copy cannot be inspected or
         patched. Dedupe lit in your bundler with
         <code>resolve.dedupe: ['lit']</code>.
@@ -469,7 +474,7 @@ export class ComponentsView extends LitElement {
       case 'ready':
         this._runtime = {
           ready: true,
-          litVersions: msg.litVersions ?? [],
+          litPackages: msg.litPackages ?? {},
           topFrame: msg.topFrame ?? true,
         };
         // Runtime (re)connected — refresh the tree and re-arm any selection.

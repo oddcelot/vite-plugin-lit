@@ -21,6 +21,7 @@ import type {
   InspectorDetails,
   InspectorMessage,
   InspectorTreeNode,
+  LitPackageVersions,
 } from '../../types/inspector.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 import type {HmrPatchEvent} from '../../types/hmr-patch.js';
@@ -216,8 +217,12 @@ export interface LitRuntimeInfo {
    * panel tells "no components" from "no runtime".
    */
   ready: boolean;
-  /** One entry per loaded copy of lit; more than one means duplicates. */
-  litVersions: string[];
+  /**
+   * Loaded versions per Lit package (`lit-html`, `lit-element`,
+   * `@lit/reactive-element`); more than one entry for a package means
+   * duplicate copies.
+   */
+  litPackages: LitPackageVersions;
   /** False when the runtime runs inside an iframe. */
   topFrame: boolean;
 }
