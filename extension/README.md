@@ -13,6 +13,18 @@ Web Store), and the tab it adds to DevTools is titled **Lit**: a short name
 fits the DevTools tab strip next to Elements and Console, and inside DevTools
 there is nothing else it could be confused with.
 
+## Package for the Web Store
+
+```sh
+pnpm run package:extension
+```
+
+This builds the extension and writes `dist/lit-inspector-<version>.zip`:
+the contents of `dist/extension/` with `manifest.json` at the root and the
+source maps left out. It needs the `zip` command. The listing copy, the store
+icon, the screenshots and the promo tiles are in `store/`; see
+`store/listing.md`.
+
 ## Version
 
 `manifest.json` here has no `version`. The build writes
