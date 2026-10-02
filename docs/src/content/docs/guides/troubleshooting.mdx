@@ -445,9 +445,11 @@ toggles are remembered in `localStorage` across sessions.
 ### A component shows ⚠ in Updates
 
 **Symptom.** The component table shows a ⚠ count, and an update row reads
-_threw in update_ (or `willUpdate`, `updated`).
+_threw in update_ (or `willUpdate`, `updated`), _rejected in updated_, or
+_task … failed_.
 
-**Cause.** That lifecycle phase threw. The component usually renders blank or
+**Cause.** That lifecycle phase threw, an async phase's promise rejected
+unhandled, or a `@lit/task` failed. The component usually renders blank or
 stays stale, and the error also appears in the browser console. The panel
 records the error's name and message only, never a stack.
 
