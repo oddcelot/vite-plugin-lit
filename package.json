@@ -73,7 +73,8 @@
     "build:panel": "vp build src/panel",
     "build:standalone": "vp build src/standalone",
     "standalone:demo": "pnpm run build && pnpm --dir playground run standalone",
-    "build:extension": "vp build extension && vp build extension --mode page && vp build extension --mode content"
+    "build:extension": "vp build extension && vp build extension --mode page && vp build extension --mode content",
+    "extension:try": "node scripts/extension-try.mjs"
   },
   "dependencies": {
     "devframe": "^1.1.0",

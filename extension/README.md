@@ -17,6 +17,21 @@ This writes `dist/extension/`. In Chrome, open `chrome://extensions`, turn on
 Developer mode, choose **Load unpacked** and pick that directory. Rebuild and
 press the extension's reload button to pick up changes.
 
+Or let a script do all of it:
+
+```sh
+pnpm run extension:try                        # build, then open the playground
+pnpm run extension:try --no-build             # reuse the last builds
+pnpm run extension:try --url https://lit.dev  # any other site
+```
+
+It builds the package, the extension and a production build of the
+playground, serves that build, and opens Playwright's Chromium (branded
+Chrome ignores `--load-extension`) with the extension loaded and DevTools
+open, in a throwaway profile. Closing the window stops the server and deletes
+the profile. Don't point `--url` at a dev server running the Vite plugin: that
+page already has the runtime.
+
 ## Enable it on a site
 
 The extension does nothing until you turn it on for a site, and it asks for no
