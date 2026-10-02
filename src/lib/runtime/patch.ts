@@ -311,10 +311,10 @@ const incompatible = (
 ): void => {
   const message = describeHmrReason(reason);
   const action = state.options.onIncompatible === 'warn' ? 'warn' : 'reload';
-  state.hot?.send(
-    HMR_INCOMPATIBLE_CHANNEL,
-    buildHmrIncompatibleEvent(tagName, reason, action)
-  );
+  state.hot?.send(HMR_INCOMPATIBLE_CHANNEL, {
+    ...buildHmrIncompatibleEvent(tagName, reason, action),
+    pageId: PAGE_ID,
+  });
   if (state.options.onIncompatible === 'warn') {
     console.warn(
       `[lit-plugin] <${tagName}> can't be hot-patched (${message}). ` +

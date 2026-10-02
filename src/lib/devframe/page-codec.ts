@@ -93,8 +93,9 @@ export class TimelineChannelCodec implements TimelineSource {
       );
     });
     carrier.on(CHANNEL_CUSTOM_LAYER, (data) => {
-      const layer = isRecord(data) ? (data.layer as TimelineLayer) : undefined;
-      if (layer?.id) this.#sink?.addLayer(layer);
+      if (!isRecord(data)) return;
+      const layer = data.layer as TimelineLayer | undefined;
+      if (layer?.id) this.#sink?.addLayer(layer, pageIdOf(data));
     });
     carrier.on(INSPECT_DATA_CHANNEL, (data) => {
       if (!isRecord(data) || typeof data.type !== 'string') return;
@@ -110,8 +111,12 @@ export class TimelineChannelCodec implements TimelineSource {
       );
     });
     carrier.on(HMR_INCOMPATIBLE_CHANNEL, (data) => {
-      if (isRecord(data))
-        this.#sink?.hmrIncompatible(data as unknown as HmrIncompatibilityEvent);
+      if (!isRecord(data)) return;
+      const {pageId, ...event} = data;
+      this.#sink?.hmrIncompatible(
+        event as unknown as HmrIncompatibilityEvent,
+        typeof pageId === 'string' ? pageId : undefined
+      );
     });
     carrier.on(HMR_PATCH_CHANNEL, (data) => {
       // Stricter than the incompatibility channel: the node side does

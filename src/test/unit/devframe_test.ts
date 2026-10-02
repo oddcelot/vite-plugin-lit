@@ -295,6 +295,36 @@ describe('lit devframe definition', () => {
     ]);
   });
 
+  test('drops picks, custom layers and incompatibilities from a page that is not followed', async () => {
+    const {source, ctx} = await boot();
+    const spy = vi.spyOn(ctx.rpc, 'broadcast');
+    source.sink!.runtimeReady('a');
+    source.sink!.runtimeReady('b');
+    source.sink!.inspectorMessage({type: 'pick', id: 3}, 'a');
+    source.sink!.addLayer({id: 'mine', label: 'Mine', color: 0xffffff}, 'a');
+    source.sink!.hmrIncompatible(
+      {
+        tagName: 'x-a',
+        time: 1,
+        reason: {code: 'accessor-decorators'},
+        action: 'reload',
+      } as unknown as HmrIncompatibilityEvent,
+      'a'
+    );
+    expect(
+      spy.mock.calls.filter(([call]) => call.method !== 'lit:page-changed')
+    ).toEqual([]);
+    expect((await ctx.rpc.invokeLocal('lit:get-meta')).layers).toEqual(
+      TIMELINE_LAYERS
+    );
+    expect(await ctx.rpc.invokeLocal('lit:hmr-incompatibilities')).toEqual([]);
+
+    source.sink!.addLayer({id: 'mine', label: 'Mine', color: 0xffffff}, 'b');
+    expect((await ctx.rpc.invokeLocal('lit:get-meta')).layers).toHaveLength(
+      TIMELINE_LAYERS.length + 1
+    );
+  });
+
   test('a stale page cannot answer an agent query', async () => {
     const {source, ctx} = await boot({inspectorTimeoutMs: 1000});
     source.sink!.runtimeReady('a');

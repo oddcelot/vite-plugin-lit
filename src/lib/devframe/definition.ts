@@ -283,7 +283,8 @@ export function createLitDevframe(
             if (incoming.length === 0) return;
             ensureStream().write(recording.push(incoming));
           },
-          addLayer(layer) {
+          addLayer(layer, pageId) {
+            if (!recording.accepts(pageId)) return;
             session.mutate((state) => {
               if (
                 !state.customLayers.some((existing) => existing.id === layer.id)
@@ -375,7 +376,8 @@ export function createLitDevframe(
               optional: true,
             });
           },
-          hmrIncompatible(event) {
+          hmrIncompatible(event, pageId) {
+            if (!recording.accepts(pageId)) return;
             recording.pushHmrIncompatibility(event);
             void ctx.rpc.broadcast({
               method: `${LIT_DEVFRAME_ID}:${RPC_HMR_INCOMPATIBLE}`,
