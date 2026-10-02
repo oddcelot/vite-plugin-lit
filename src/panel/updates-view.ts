@@ -458,7 +458,7 @@ export class UpdatesView extends LitElement {
                         (c) => html`<div class="change">
                           <span class="key">${c.key}</span>
                           <span class="value" title=${c.prev}>${c.prev}</span>
-                          <span>→</span>
+                          <wa-icon name="arrow-right"></wa-icon>
                           <span class="value" title=${c.next}>${c.next}</span>
                           ${
                             c.sameRef
