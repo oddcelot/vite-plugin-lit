@@ -3,6 +3,48 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.11.0 — 2026-10-02
+
+A smaller release that makes the panel easier to read. The Components tab can
+scroll the selected element into view, async failures now count in Updates,
+every button has a tooltip, and Settings drops its row-by-row origin labels in
+favour of showing the default where you choose a value. About also lists the
+right Lit versions. Nothing needs action to upgrade.
+
+### Added
+
+- **Scroll a component into view from the Components tab.** A target button
+  next to the selected element's tag scrolls it to the middle of the page and
+  outlines it for a moment, so you no longer have to hunt for elements below
+  the fold.
+- **Async failures show up in Updates.** An async `updated()` whose promise
+  rejects unhandled, or a `@lit/task` that fails, now marks the update that
+  started it (_rejected in updated_, _task userTask failed_) and counts toward
+  the component's ⚠, where before it left no trace in the panel.
+- **Panel buttons explain themselves.** Hovering or tabbing to a button now
+  shows a tooltip naming what it does, including the icon-only ones that
+  previously had no hint at all.
+- **Settings links to where the Chrome tracks show up.** The Chrome
+  performance tracks row links to the timeline guide, which now shows the
+  expanded Lit group in Chrome's Performance panel and how far to zoom to
+  read it.
+
+### Changed
+
+- **Settings rows lose their "(default)" and "(overridden)" labels.** Only
+  values set by an option or env var keep an origin badge, and an overridden
+  row is marked by the highlighted value it replaced, such as `env: Zed`, and
+  the × that resets it. Open a dropdown to see the default beside your value:
+  with `LIT_PLUGIN_HMR_ON_INCOMPATIBLE=warn` the list reads `warn env` and
+  `reload default`. Hover a setting's name for what it does.
+
+### Fixed
+
+- **About shows the right Lit versions.** Settings > About used to show
+  lit-element's version labelled as "lit" (for example "lit 4.2.2" next to lit
+  3.3.3). It now lists lit-html, lit-element and @lit/reactive-element by
+  name, and the duplicate-copies warning says which package is duplicated.
+
 ## 0.10.0 — 2026-10-02
 
 The DevTools panel has a new look built on Web Awesome, and it now follows one
