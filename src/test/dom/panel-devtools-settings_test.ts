@@ -7,8 +7,6 @@ import {resolveOptions, toFeatureSettings} from '../../lib/options.js';
 vi.mock('../../panel/client.js', () => import('./fakes/client.js'));
 
 beforeAll(async () => {
-  // The bundled icon set, so wa-icon never reaches for the CDN.
-  await import('../../panel/wa-icons.js');
   await import('../../panel/devtools-settings.js');
 });
 

@@ -13,7 +13,7 @@ import {
 } from './timeline-store.js';
 import '@awesome.me/webawesome/dist/components/badge/badge.js';
 import '@awesome.me/webawesome/dist/components/button/button.js';
-import '@awesome.me/webawesome/dist/components/icon/icon.js';
+import './wa-icons.js';
 import {openInEditor} from './open-in-editor.js';
 
 /**
