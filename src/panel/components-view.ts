@@ -681,7 +681,7 @@ export class ComponentsView extends LitElement {
           >${
             hasChildren
               ? html`<wa-icon
-                  name=${expanded ? 'chevron-down' : 'chevron-right'}
+                  name=${expanded ? 'caret-down' : 'caret-right'}
                 ></wa-icon>`
               : nothing
           }</span
@@ -798,7 +798,7 @@ export class ComponentsView extends LitElement {
               @click=${this._openSource}
             >
               ${d.source.file}:${d.source.line}
-              <wa-icon slot="end" name="external-link"></wa-icon>
+              <wa-icon slot="end" name="arrow-square-out"></wa-icon>
             </wa-button>`
           : nothing
       }
@@ -885,8 +885,8 @@ export class ComponentsView extends LitElement {
             >${this._hmrIncompatibilities.length}</wa-badge
           >
         </span>
-        <wa-icon slot="expand-icon" name="chevron-right"></wa-icon>
-        <wa-icon slot="collapse-icon" name="chevron-down"></wa-icon>
+        <wa-icon slot="expand-icon" name="caret-right"></wa-icon>
+        <wa-icon slot="collapse-icon" name="caret-down"></wa-icon>
         ${
           this._hmrExpanded
             ? html`
@@ -958,7 +958,7 @@ export class ComponentsView extends LitElement {
                 this._picking,
                 'Pick an element on the page (Meta+Shift+E)',
                 this._togglePick,
-                html`<wa-icon slot="start" name="target"></wa-icon>`,
+                html`<wa-icon slot="start" name="crosshair"></wa-icon>`,
                 'Pick'
               )
             : nothing
@@ -971,7 +971,7 @@ export class ComponentsView extends LitElement {
           this._toggleLive,
           html`<wa-icon
             slot="start"
-            name=${this._live ? 'eye' : 'eye-off'}
+            name=${this._live ? 'eye' : 'eye-slash'}
           ></wa-icon>`,
           'Live'
         )}
@@ -980,7 +980,7 @@ export class ComponentsView extends LitElement {
           this._flash,
           'Flash elements on the page when they update',
           this._toggleFlash,
-          html`<wa-icon slot="start" name="zap"></wa-icon>`,
+          html`<wa-icon slot="start" name="lightning"></wa-icon>`,
           'Flash'
         )}
         <wa-button
@@ -989,7 +989,7 @@ export class ComponentsView extends LitElement {
           @click=${this._refresh}
           ?disabled=${this._live}
         >
-          <wa-icon slot="start" name="reload"></wa-icon>
+          <wa-icon slot="start" name="arrow-clockwise"></wa-icon>
           Refresh
         </wa-button>
       </div>

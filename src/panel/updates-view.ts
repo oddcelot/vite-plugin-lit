@@ -343,7 +343,7 @@ export class UpdatesView extends LitElement {
                   .map((c) => `${c.key} ×${c.count}`)
                   .join(', ')}`}
                 
-                <wa-icon name="repeat"></wa-icon>
+                <wa-icon name="equals"></wa-icon>
                 ${entry.redundantChanges.length}
               </wa-badge>`
             : nothing
@@ -360,7 +360,7 @@ export class UpdatesView extends LitElement {
                 variant="danger"
                 title="Updates in which a phase threw"
               >
-                <wa-icon name="warning-diamond"></wa-icon>
+                <wa-icon name="warning"></wa-icon>
                 ${entry.errors}
               </wa-badge>`
             : nothing
@@ -409,7 +409,7 @@ export class UpdatesView extends LitElement {
                   @click=${() => openInEditor(source.file, source.line)}
                 >
                   ${source.file}:${source.line}
-                  <wa-icon slot="end" name="external-link"></wa-icon>
+                  <wa-icon slot="end" name="arrow-square-out"></wa-icon>
                 </wa-button>`
               : nothing
           }

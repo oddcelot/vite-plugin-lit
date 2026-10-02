@@ -329,7 +329,7 @@ export class DevtoolsSettings extends LitElement {
         title="Reset to the ${src} value"
         @click=${() => this._resetKey(key)}
       >
-        <wa-icon name="close" label="Reset to the ${src} value"></wa-icon>
+        <wa-icon name="x" label="Reset to the ${src} value"></wa-icon>
       </wa-button>
       ${
         changed
@@ -718,7 +718,7 @@ export class DevtoolsSettings extends LitElement {
                 appearance="outlined"
                 @click=${this._reset}
               >
-                <wa-icon slot="start" name="undo"></wa-icon>
+                <wa-icon slot="start" name="arrow-counter-clockwise"></wa-icon>
                 Reset to env
               </wa-button>`
             : nothing

@@ -69,10 +69,8 @@ export class SegmentedTabs extends LitElement {
         padding-inline: var(--wa-space-xs);
         font-size: var(--wa-font-size-s);
       }
-      /* A whole multiple of the icons' 12-pixel grid's half-steps keeps the
-         pixel art crisp: 18px is 3 device pixels per icon pixel at 2x. */
       wa-icon {
-        font-size: 18px;
+        font-size: 1.15em;
       }
     `,
   ];

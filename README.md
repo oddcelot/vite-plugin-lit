@@ -208,5 +208,5 @@ Issues and pull requests are welcome; see [CONTRIBUTING.md](./CONTRIBUTING.md).
 BSD-3-Clause. See [LICENSE](./LICENSE).
 
 The DevTools bundle [Web Awesome](https://webawesome.com) components (MIT)
-in the panel and [Pixelarticons](https://pixelarticons.com) icons by Gerrit
-Halfmann (MIT) in the panel and the in-page overlay.
+in the panel and [Phosphor](https://phosphoricons.com) icons (MIT) in the
+panel and the in-page overlay.
