@@ -2,6 +2,7 @@ import {afterEach, beforeAll, expect, test, vi} from 'vite-plus/test';
 import type {DevtoolsSettings} from '../../panel/devtools-settings.js';
 import {meta, resetClient} from './fakes/client.js';
 import {overrides} from '../../panel/settings-override.js';
+import {resolveOptions, toFeatureSettings} from '../../lib/options.js';
 
 vi.mock('../../panel/client.js', () => import('./fakes/client.js'));
 
@@ -13,6 +14,16 @@ afterEach(() => {
   document.body.replaceChildren();
   resetClient();
 });
+
+const mount = async () => {
+  const el = document.createElement('devtools-settings') as DevtoolsSettings;
+  document.body.append(el);
+  for (let i = 0; i < 5; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await el.updateComplete;
+  }
+  return el.shadowRoot!;
+};
 
 const about = async () => {
   const el = document.createElement('devtools-settings') as DevtoolsSettings;
@@ -73,4 +84,36 @@ test('the color scheme wa-select writes the choice through the settings store', 
 test('About says lit was not detected before a runtime connects', async () => {
   meta.runtime = {ready: false, litPackages: {}, topFrame: true};
   expect(await about()).toContain('not detected');
+});
+
+test('origin badges skip defaults, and the open select marks the baseline', async () => {
+  meta.features = toFeatureSettings(
+    resolveOptions(
+      {sourceOverlay: true},
+      {LIT_PLUGIN_HMR_ON_INCOMPATIBLE: 'warn'}
+    )
+  );
+  const root = await mount();
+  const row = (key: string) =>
+    [...root.querySelectorAll('tr')].find(
+      (tr) => tr.querySelector('.key')?.textContent?.trim() === key
+    )!;
+
+  // childState is a built-in default: no badge, but the option says so.
+  const child = row('child state');
+  expect(child.querySelector('.src')).toBeNull();
+  const marked = child.querySelector('wa-option .opt-src')!;
+  expect(marked.closest('wa-option')!.getAttribute('value')).toBe('transfer');
+  expect(marked.textContent).toBe('default');
+
+  // onIncompatible came from env: the badge stays and the marker names env.
+  const incompatible = row('on incompatible');
+  expect(incompatible.querySelector('.src')?.textContent).toBe('(env)');
+  expect(incompatible.querySelector('wa-option .opt-src')!.textContent).toBe(
+    'env'
+  );
+
+  expect(child.querySelector('.key')!.getAttribute('data-tip')).toContain(
+    'Default: transfer'
+  );
 });

@@ -1,4 +1,5 @@
 import {LitElement, html, css, nothing} from 'lit';
+import {ifDefined} from 'lit/directives/if-defined.js';
 import {customElement, state} from 'lit/decorators.js';
 import '@awesome.me/webawesome/dist/components/badge/badge.js';
 import '@awesome.me/webawesome/dist/components/button/button.js';
@@ -94,6 +95,15 @@ export class DevtoolsSettings extends LitElement {
         color: var(--lit-devtools-text-muted);
         white-space: nowrap;
         width: 1%;
+      }
+      .key[data-tip] {
+        cursor: help;
+        text-decoration: underline dotted;
+        text-underline-offset: 3px;
+      }
+      .opt-src {
+        opacity: 0.7;
+        font-size: var(--lit-devtools-text-2xs);
       }
       .val {
         color: var(--lit-devtools-text);
@@ -278,18 +288,37 @@ export class DevtoolsSettings extends LitElement {
   }
 
   /**
-   * Origin badge behind a value, from the server-side provenance:
-   * "(env)", "(option)" or "(default)". Nothing when the server sent none.
+   * Origin badge behind a value, from the server-side provenance: "(env)" or
+   * "(option)". Nothing for a built-in default, which is most rows and would
+   * only be noise, or when the server sent no provenance.
    */
   private _source(key: keyof SettingSources) {
     const src = this._settings?.sources?.[key];
-    return src
+    return src && src !== 'default'
       ? html`<wa-badge
           class="env src"
           size="small"
           appearance="outlined"
           variant="neutral"
           >(${src})</wa-badge
+        >`
+      : nothing;
+  }
+
+  /**
+   * Marker trailing the select option that holds the config baseline, naming
+   * where it came from, so the open list shows which choice is the default.
+   * Option labels come from the default slot only, so the closed select
+   * doesn't repeat it.
+   */
+  private _optSource(
+    key: keyof SettingSources,
+    value: string,
+    baseline: string
+  ) {
+    return value === baseline
+      ? html`<span slot="end" class="opt-src"
+          >${this._settings?.sources?.[key] ?? 'default'}</span
         >`
       : nothing;
   }
@@ -366,11 +395,12 @@ export class DevtoolsSettings extends LitElement {
     key: string,
     value: unknown,
     env?: string,
-    source?: keyof SettingSources
+    source?: keyof SettingSources,
+    tip?: string
   ) {
     return html`
       <tr>
-        <td class="key">${key}</td>
+        <td class="key" data-tip=${ifDefined(tip)}>${key}</td>
         <td class="val">
           ${String(value)} ${source ? this._source(source) : nothing}
           ${env ? html`<span class="env">${env}</span>` : nothing}
@@ -386,7 +416,12 @@ export class DevtoolsSettings extends LitElement {
           <h3 slot="header">Appearance</h3>
           <table>
             <tr>
-              <td class="key">color scheme</td>
+              <td
+                class="key"
+                data-tip="Light or dark panel. Auto follows the system. Default: Auto"
+              >
+                color scheme
+              </td>
               <td class="val">
                 <wa-select
                   size="small"
@@ -404,7 +439,15 @@ export class DevtoolsSettings extends LitElement {
                     ] as Array<[ColorSchemePreference, string]>
                   ).map(
                     ([value, label]) =>
-                      html`<wa-option value=${value}>${label}</wa-option>`
+                      html`<wa-option value=${value} .label=${label}
+                        >${label}${
+                          value === 'auto'
+                            ? html`<span slot="end" class="opt-src"
+                                >default</span
+                              >`
+                            : nothing
+                        }</wa-option
+                      >`
                   )}
                 </wa-select>
               </td>
@@ -432,7 +475,12 @@ export class DevtoolsSettings extends LitElement {
     return html`
       <table>
         <tr>
-          <td class="key">reconnect</td>
+          <td
+            class="key"
+            data-tip="Run disconnectedCallback and connectedCallback on live instances after a hot patch. Default: off"
+          >
+            reconnect
+          </td>
           <td class="val">
             <wa-switch
               size="small"
@@ -450,7 +498,12 @@ export class DevtoolsSettings extends LitElement {
           </td>
         </tr>
         <tr>
-          <td class="key">on incompatible</td>
+          <td
+            class="key"
+            data-tip="What to do when a component can't be hot-patched in place: reload the page, or only warn. Default: reload"
+          >
+            on incompatible
+          </td>
           <td class="val">
             <wa-select
               size="small"
@@ -461,14 +514,27 @@ export class DevtoolsSettings extends LitElement {
                   (e.target as WaSelect).value as 'reload' | 'warn'
                 )}
             >
-              <wa-option value="reload">reload</wa-option>
-              <wa-option value="warn">warn</wa-option>
+              ${(['reload', 'warn'] as const).map(
+                (mode) =>
+                  html`<wa-option value=${mode} .label=${mode}
+                    >${mode}${this._optSource(
+                      'hmrOnIncompatible',
+                      mode,
+                      s.hmr.onIncompatible
+                    )}</wa-option
+                  >`
+              )}
             </wa-select>
             ${this._ovrSource('hmrOnIncompatible', s.hmr.onIncompatible)}
           </td>
         </tr>
         <tr>
-          <td class="key">child state</td>
+          <td
+            class="key"
+            data-tip="What happens to custom elements inside an edited template: transfer hands them the old properties and private state, reuse puts the old element back where it has no bindings, reset starts them fresh. Default: transfer"
+          >
+            child state
+          </td>
           <td class="val">
             <wa-select
               size="small"
@@ -481,14 +547,26 @@ export class DevtoolsSettings extends LitElement {
                 )}
             >
               ${(['transfer', 'reuse', 'reset'] as const).map(
-                (mode) => html`<wa-option value=${mode}>${mode}</wa-option>`
+                (mode) =>
+                  html`<wa-option value=${mode} .label=${mode}
+                    >${mode}${this._optSource(
+                      'hmrChildState',
+                      mode,
+                      s.hmr.childState
+                    )}</wa-option
+                  >`
               )}
             </wa-select>
             ${this._ovrSource('hmrChildState', s.hmr.childState)}
           </td>
         </tr>
         <tr class=${s.hmr.indicatorEnabled ? '' : 'row-disabled'}>
-          <td class="key">indicator</td>
+          <td
+            class="key"
+            data-tip="The dot on the page that pulses on each HMR update. Default: shown"
+          >
+            indicator
+          </td>
           <td class="val">
             <wa-switch
               size="small"
@@ -516,7 +594,12 @@ export class DevtoolsSettings extends LitElement {
           </td>
         </tr>
         <tr class=${s.hmr.indicatorEnabled ? '' : 'row-disabled'}>
-          <td class="key">indicator count</td>
+          <td
+            class="key"
+            data-tip="Show a running update count next to the indicator. Default: hidden"
+          >
+            indicator count
+          </td>
           <td class="val">
             <wa-switch
               size="small"
@@ -553,7 +636,12 @@ export class DevtoolsSettings extends LitElement {
     const label = editorLabel(baseline);
     return html`
       <tr>
-        <td class="key">editor</td>
+        <td
+          class="key"
+          data-tip="The editor that source links and the overlay open files in"
+        >
+          editor
+        </td>
         <td class="val">
           <wa-select
             size="small"
@@ -570,7 +658,13 @@ export class DevtoolsSettings extends LitElement {
                 ? html`<wa-option value="custom" disabled>Custom</wa-option>`
                 : SOURCE_OVERLAY_EDITORS.map(
                     (ed) =>
-                      html`<wa-option value=${ed.value}>${ed.label}</wa-option>`
+                      html`<wa-option value=${ed.value} .label=${ed.label}
+                        >${ed.label}${this._optSource(
+                          'sourceOverlayEditor',
+                          ed.value,
+                          baseline
+                        )}</wa-option
+                      >`
                   )
             }
           </wa-select>
@@ -594,7 +688,12 @@ export class DevtoolsSettings extends LitElement {
     return html`
       <table>
         <tr>
-          <td class="key">flash updates</td>
+          <td
+            class="key"
+            data-tip="Outline elements on the page each time they update. Default: off"
+          >
+            flash updates
+          </td>
           <td class="val">
             <wa-switch
               size="small"
@@ -607,7 +706,12 @@ export class DevtoolsSettings extends LitElement {
           </td>
         </tr>
         <tr class=${flash ? '' : 'row-disabled'}>
-          <td class="key">colour by frequency</td>
+          <td
+            class="key"
+            data-tip="Tint each flash by how often the element updates, from calm to hot, instead of one colour. Default: off"
+          >
+            colour by frequency
+          </td>
           <td class="val">
             <wa-switch
               size="small"
@@ -633,7 +737,12 @@ export class DevtoolsSettings extends LitElement {
     return html`
       <table>
         <tr>
-          <td class="key">chrome performance tracks</td>
+          <td
+            class="key"
+            data-tip="Mirror the timeline into Chrome DevTools' Performance panel as a Lit track group. Default: off"
+          >
+            chrome performance tracks
+          </td>
           <td class="val">
             <wa-switch
               size="small"
@@ -763,14 +872,16 @@ export class DevtoolsSettings extends LitElement {
                     'hotkey',
                     `Ctrl+Shift+${s.sourceOverlay.key.toUpperCase()}`,
                     'LIT_PLUGIN_SOURCE_OVERLAY_KEY',
-                    'sourceOverlayKey'
+                    'sourceOverlayKey',
+                    'Toggles the source overlay on the page. Default: Ctrl+Shift+S'
                   )}
                   ${this._renderEditorRow(s)}
                   ${this._readonlyRow(
                     'throttle (ms)',
                     s.sourceOverlay.throttleMs,
                     'LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS',
-                    'sourceOverlayThrottleMs'
+                    'sourceOverlayThrottleMs',
+                    'Minimum time between overlay updates while the pointer moves. Default: 50'
                   )}
                 </table>`
               : html`<p class="empty">
