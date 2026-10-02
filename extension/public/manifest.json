@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Lit DevTools",
+  "description": "Inspect the Lit components on any page, production builds included.",
+  "version": "0.1.0",
+  "minimum_chrome_version": "114",
+  "devtools_page": "devtools.html",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["scripting", "storage"],
+  "optional_host_permissions": ["<all_urls>"]
+}
