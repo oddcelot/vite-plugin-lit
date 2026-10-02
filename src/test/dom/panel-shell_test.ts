@@ -242,6 +242,20 @@ test('a page change drops the Components tree and HMR history, and asks the new 
   ).toEqual([{type: 'tree'}]);
 });
 
+test('a page change asks the new page for the selection, not the old details', async () => {
+  const {el, view} = await mount();
+  const components = view<ComponentsView>('components-view')!;
+  components.selectById(7);
+  await flush(el);
+  calls.length = 0;
+  push('page-changed', {...pageChanged, reload: true});
+  await flush(el);
+  expect(components.selectedId).toBe(7);
+  expect(
+    calls.filter((c) => c.name === 'inspect').map((c) => c.args[0])
+  ).toEqual([{type: 'tree'}, {type: 'details', id: 7}, {type: 'watch', id: 7}]);
+});
+
 test('a frozen session has no page to follow', async () => {
   setSnapshot(true);
   const {el, root} = await mount();
