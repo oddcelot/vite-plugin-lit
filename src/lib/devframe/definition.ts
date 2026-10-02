@@ -323,7 +323,10 @@ export function createLitDevframe(
             if (outcome !== 'same') recording.clear();
             // Element ids are minted per document, so the old page's tree and
             // details would answer for ids that mean nothing on the new one.
-            if (outcome === 'switched') recording.forgetInspector();
+            // Its HMR history goes too: the new page loaded the edited code
+            // fresh, so a "reload to pick up the change" no longer applies
+            // and the patches never ran there.
+            if (outcome === 'switched') recording.forgetPage();
             if (
               outcome === 'switched' &&
               previous !== undefined &&

@@ -541,12 +541,15 @@ export class ComponentsView extends LitElement {
 
   /**
    * Another page took over (see the shell's `page-changed` listener). Drops
-   * the tree it described and asks the new page for its own. The selection
-   * stays: a reloaded tab mints the same ids in the same order, and on
-   * another tab the details request answers for whatever holds the id now.
+   * the tree and HMR history the old page reported, as the node side does,
+   * and asks the new page for its tree. The selection stays: a reloaded tab
+   * mints the same ids in the same order, and on another tab the details
+   * request answers for whatever holds the id now.
    */
   pageChanged(): void {
     this._roots = [];
+    this._lastPatch = null;
+    this._hmrIncompatibilities = [];
     this._refresh();
   }
 
