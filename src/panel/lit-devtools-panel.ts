@@ -6,6 +6,7 @@ import {
   readColorSchemePreference,
 } from '../lib/color-scheme.js';
 import './timeline-view.js';
+import {panelBrand} from './brand.js';
 import {isSnapshot, litRpc} from './client.js';
 import {clearTimelineEvents} from './timeline-store.js';
 import type {PageChangedEvent} from '../lib/devframe/protocol.js';
@@ -107,7 +108,8 @@ export class LitDevtoolsPanel extends LitElement {
         text-transform: uppercase;
         padding: var(--lit-devtools-space-5) 0;
       }
-      .brand svg {
+      .brand svg,
+      .brand img {
         display: block;
       }
       .page-changed {
@@ -294,10 +296,19 @@ export class LitDevtoolsPanel extends LitElement {
     this._syncHash();
   }
 
+  private _renderBrand() {
+    const {name, iconUrl} = panelBrand();
+    const mark =
+      iconUrl === undefined
+        ? LIT_LOGO_SVG
+        : html`<img src=${iconUrl} width="20" height="20" alt="" />`;
+    return html`<span class="brand">${mark} ${name}</span>`;
+  }
+
   override render() {
     return html`
       <header>
-        <span class="brand">${LIT_LOGO_SVG} Lit DevTools</span>
+        ${this._renderBrand()}
         <segmented-tabs
           .items=${this._tabs}
           .value=${this._tab}

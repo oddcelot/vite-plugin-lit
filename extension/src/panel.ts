@@ -18,7 +18,8 @@
  *    is listening before anything can arrive (the runtime announces itself
  *    once, and the host drops what comes before its `setup()` is done);
  * 2. `useLocalClient()` hands its client to the panel, before any view can
- *    call `litRpc()` and look for a dev server instead;
+ *    call `litRpc()` and look for a dev server instead, and `useBrand()` puts
+ *    the extension's name and mark in the header;
  * 3. the SPA is imported and `<lit-devtools-panel>` mounted;
  * 4. the port dials and says hello, and the background has the page
  *    re-announce itself.
@@ -38,6 +39,7 @@
 import {version} from '../../package.json';
 import {createLocalLitHost} from '../../src/lib/devframe/port-link.js';
 import type {PortLike} from '../../src/lib/devframe/port-link.js';
+import {useBrand} from '../../src/panel/brand.js';
 import {useLocalClient} from '../../src/panel/client.js';
 import {CHANNEL_PAGE_STATUS, PANEL_PORT} from './protocol.js';
 import type {
@@ -156,6 +158,8 @@ const boot = async (): Promise<void> => {
     storage: createChromeStorage(chrome.storage.local),
   });
   useLocalClient(client);
+  // The extension's own name and mark, not the Lit project's.
+  useBrand({name: 'Lit Inspector', iconUrl: chrome.runtime.getURL('icon.svg')});
   await import('../../src/panel/main.js');
   document.body.prepend(document.createElement('lit-devtools-panel'));
   barEl.hidden = false;

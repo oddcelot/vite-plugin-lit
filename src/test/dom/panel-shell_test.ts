@@ -1,4 +1,5 @@
 import {afterEach, beforeAll, expect, test, vi} from 'vite-plus/test';
+import {panelBrand, useBrand} from '../../panel/brand.js';
 import type {ComponentsView} from '../../panel/components-view.js';
 import type {TimelineView} from '../../panel/timeline-view.js';
 import type {UpdatesView} from '../../panel/updates-view.js';
@@ -116,6 +117,30 @@ afterEach(async () => {
   resetStore();
   resetClient();
   history.replaceState(null, '', location.pathname);
+});
+
+test('the header shows the Lit flame and "Lit DevTools" by default', async () => {
+  const {root} = await mount();
+  const brand = root.querySelector('header .brand')!;
+  expect(brand.textContent?.trim()).toBe('Lit DevTools');
+  expect(brand.querySelector('svg')).not.toBeNull();
+  expect(brand.querySelector('img')).toBeNull();
+});
+
+test("a host's brand replaces the header's name and mark", async () => {
+  const before = panelBrand();
+  useBrand({name: 'Lit Inspector', iconUrl: 'chrome-extension://x/icon.svg'});
+  try {
+    const {root} = await mount();
+    const brand = root.querySelector('header .brand')!;
+    expect(brand.textContent?.trim()).toBe('Lit Inspector');
+    expect(brand.querySelector('svg')).toBeNull();
+    expect(brand.querySelector('img')?.getAttribute('src')).toBe(
+      'chrome-extension://x/icon.svg'
+    );
+  } finally {
+    useBrand(before);
+  }
 });
 
 test('opens on Components with no link', async () => {
