@@ -85,14 +85,22 @@ export const meta: {
   layers: TimelineLayer[];
   features: unknown;
   picker: boolean;
-  runtime: {ready: boolean; litVersions: string[]; topFrame: boolean};
+  runtime: {
+    ready: boolean;
+    litPackages: Record<string, string[]>;
+    topFrame: boolean;
+  };
   version: string;
 } = {
   layers: [],
   features: null,
   picker: false,
   // Healthy by default, so empty-tree tests see the plain "no components" text.
-  runtime: {ready: true, litVersions: ['3.3.3'], topFrame: true},
+  runtime: {
+    ready: true,
+    litPackages: {'lit-html': ['3.3.3'], 'lit-element': ['4.2.2']},
+    topFrame: true,
+  },
   version: '9.9.9',
 };
 
@@ -111,7 +119,11 @@ export const resetClient = (): void => {
   meta.layers = [];
   meta.features = null;
   meta.picker = false;
-  meta.runtime = {ready: true, litVersions: ['3.3.3'], topFrame: true};
+  meta.runtime = {
+    ready: true,
+    litPackages: {'lit-html': ['3.3.3'], 'lit-element': ['4.2.2']},
+    topFrame: true,
+  };
   meta.version = '9.9.9';
   snapshot = false;
 };

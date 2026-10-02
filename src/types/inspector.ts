@@ -90,6 +90,14 @@ export interface InspectorDetails {
   extras?: InspectorExtra[];
 }
 
+/**
+ * Loaded versions per Lit package (`lit-html`, `lit-element`,
+ * `@lit/reactive-element`), one entry per loaded copy; more than one entry
+ * means duplicates. The `lit` package itself pushes no version, and its
+ * version differs from `lit-element`'s, so each package is named.
+ */
+export type LitPackageVersions = Record<string, string[]>;
+
 /** App runtime → panel messages, carried on SSE `event: inspect`. */
 export type InspectorMessage =
   /**
@@ -97,7 +105,7 @@ export type InspectorMessage =
    * what the page can say about itself, so an empty tree can be explained.
    * Both fields are optional: an older runtime sends a bare `ready`.
    */
-  | {type: 'ready'; litVersions?: string[]; topFrame?: boolean}
+  | {type: 'ready'; litPackages?: LitPackageVersions; topFrame?: boolean}
   | {type: 'tree'; roots: InspectorTreeNode[]}
   | {type: 'details'; details: InspectorDetails}
   /** The requested element id couldn't be resolved (removed / GC'd). */

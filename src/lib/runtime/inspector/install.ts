@@ -23,7 +23,15 @@ import {
   INSPECT_DATA_CHANNEL,
   type InspectorCommand,
   type InspectorMessage,
+  type LitPackageVersions,
 } from '../../../types/inspector.js';
+
+/** Lit packages and the global each pushes its version onto when loaded. */
+const LIT_VERSION_GLOBALS = [
+  ['lit-html', 'litHtmlVersions'],
+  ['lit-element', 'litElementVersions'],
+  ['@lit/reactive-element', 'reactiveElementVersions'],
+] as const;
 
 const hot = (import.meta as {hot?: ViteHotLike}).hot;
 if (hot !== undefined) pageChannel.useViteHot(hot);
@@ -86,20 +94,18 @@ if (typeof window !== 'undefined') {
 
   /**
    * What the page can say about itself, for the panel's empty state. Reads
-   * the version sentinels Lit pushes once per loaded copy of the package, so
+   * the version sentinels each Lit package pushes once per loaded copy, so
    * more than one entry means duplicate copies. Never throws.
    */
   const readyMessage = (): InspectorMessage => {
-    const g = globalThis as {
-      litElementVersions?: unknown;
-      reactiveElementVersions?: unknown;
-    };
-    const lists = [g.litElementVersions, g.reactiveElementVersions].filter(
-      (v): v is unknown[] => Array.isArray(v)
-    );
-    // Duplicates may show up in only one of the two packages; report the
-    // longer list.
-    const longest = lists.sort((a, b) => b.length - a.length)[0] ?? [];
+    const g = globalThis as Record<string, unknown>;
+    const litPackages: LitPackageVersions = {};
+    for (const [name, global] of LIT_VERSION_GLOBALS) {
+      const list = g[global];
+      if (!Array.isArray(list)) continue;
+      const versions = list.filter((v): v is string => typeof v === 'string');
+      if (versions.length > 0) litPackages[name] = versions;
+    }
     let topFrame = true;
     try {
       topFrame = window.top === window;
@@ -109,7 +115,7 @@ if (typeof window !== 'undefined') {
     }
     return {
       type: 'ready',
-      litVersions: longest.filter((v): v is string => typeof v === 'string'),
+      litPackages,
       topFrame,
     };
   };

@@ -218,14 +218,14 @@ const emptyText = async () => {
 };
 
 test('says the runtime has not connected when no runtime ever announced', async () => {
-  meta.runtime = {ready: false, litVersions: [], topFrame: true};
+  meta.runtime = {ready: false, litPackages: {}, topFrame: true};
   const {el, text} = await emptyText();
   expect(text()).toContain('has not connected');
 
   // The runtime arriving later replaces the diagnosis.
   push('inspector-message', {
     type: 'ready',
-    litVersions: ['3.3.3'],
+    litPackages: {'lit-element': ['4.2.2']},
     topFrame: true,
   });
   await flush(el);
@@ -233,14 +233,22 @@ test('says the runtime has not connected when no runtime ever announced', async 
 });
 
 test('names both versions when more than one copy of lit is loaded', async () => {
-  meta.runtime = {ready: true, litVersions: ['3.3.3', '3.2.0'], topFrame: true};
+  meta.runtime = {
+    ready: true,
+    litPackages: {'lit-element': ['4.2.2', '4.1.0']},
+    topFrame: true,
+  };
   const {text} = await emptyText();
   expect(text()).toContain('More than one copy of lit');
-  expect(text()).toContain('3.3.3, 3.2.0');
+  expect(text()).toContain('lit-element 4.2.2, 4.1.0');
 });
 
 test('explains an empty tree inside an iframe', async () => {
-  meta.runtime = {ready: true, litVersions: ['3.3.3'], topFrame: false};
+  meta.runtime = {
+    ready: true,
+    litPackages: {'lit-element': ['4.2.2']},
+    topFrame: false,
+  };
   expect((await emptyText()).text()).toContain('iframe');
 });
 
@@ -252,14 +260,14 @@ test('keeps the plain message for a healthy runtime with no components', async (
 
 test('never blames the runtime in a snapshot', async () => {
   setSnapshot(true);
-  meta.runtime = {ready: false, litVersions: [], topFrame: true};
+  meta.runtime = {ready: false, litPackages: {}, topFrame: true};
   expect((await emptyText()).text()).toBe(
     'No Lit components found on the page.'
   );
 });
 
 test('does not add a diagnosis to a tree that has components', async () => {
-  meta.runtime = {ready: false, litVersions: [], topFrame: true};
+  meta.runtime = {ready: false, litPackages: {}, topFrame: true};
   const {root} = await mount();
   expect(root.querySelector('.empty')).toBeNull();
 });

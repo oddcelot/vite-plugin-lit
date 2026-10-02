@@ -485,26 +485,30 @@ describe('inspector caches and capture', () => {
     const s = createRecordingSession();
     expect(s.runtime()).toEqual({
       ready: false,
-      litVersions: [],
+      litPackages: {},
       topFrame: true,
     });
 
     s.applyInspector({
       type: 'ready',
-      litVersions: ['3.3.3', '3.2.0'],
+      litPackages: {'lit-element': ['4.2.2', '4.1.0']},
       topFrame: false,
     });
     expect(s.runtime()).toEqual({
       ready: true,
-      litVersions: ['3.3.3', '3.2.0'],
+      litPackages: {'lit-element': ['4.2.2', '4.1.0']},
       topFrame: false,
     });
 
     // A page reload with fewer copies replaces the announcement.
-    s.applyInspector({type: 'ready', litVersions: ['3.3.3'], topFrame: true});
+    s.applyInspector({
+      type: 'ready',
+      litPackages: {'lit-element': ['4.2.2']},
+      topFrame: true,
+    });
     expect(s.runtime()).toEqual({
       ready: true,
-      litVersions: ['3.3.3'],
+      litPackages: {'lit-element': ['4.2.2']},
       topFrame: true,
     });
   });
@@ -512,7 +516,7 @@ describe('inspector caches and capture', () => {
   test('a bare ready from an older runtime reads as ready, nothing known', () => {
     const s = createRecordingSession();
     s.applyInspector({type: 'ready'});
-    expect(s.runtime()).toEqual({ready: true, litVersions: [], topFrame: true});
+    expect(s.runtime()).toEqual({ready: true, litPackages: {}, topFrame: true});
   });
 
   test('capture freezes the buffers and replay round-trips it', () => {

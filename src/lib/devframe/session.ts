@@ -212,7 +212,7 @@ export function createRecordingSession(
     ? [...replay.hmrPatches]
     : [];
   let roots: InspectorTreeNode[] = replay ? [...replay.roots] : [];
-  let runtime: LitRuntimeInfo = {ready: false, litVersions: [], topFrame: true};
+  let runtime: LitRuntimeInfo = {ready: false, litPackages: {}, topFrame: true};
   const details = new Map<number, InspectorDetails>(
     replay?.details.map((d) => [d.id, d])
   );
@@ -323,7 +323,12 @@ export function createRecordingSession(
       } else if (message.type === 'ready') {
         runtime = {
           ready: true,
-          litVersions: [...(message.litVersions ?? [])],
+          litPackages: Object.fromEntries(
+            Object.entries(message.litPackages ?? {}).map(([k, v]) => [
+              k,
+              [...v],
+            ])
+          ),
           topFrame: message.topFrame ?? true,
         };
       }
