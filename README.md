@@ -206,3 +206,7 @@ Issues and pull requests are welcome; see [CONTRIBUTING.md](./CONTRIBUTING.md).
 ## License
 
 BSD-3-Clause. See [LICENSE](./LICENSE).
+
+The DevTools bundle [Web Awesome](https://webawesome.com) components (MIT)
+in the panel and [Phosphor](https://phosphoricons.com) icons (MIT) in the
+panel and the in-page overlay.

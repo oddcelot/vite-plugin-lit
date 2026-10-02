@@ -62,9 +62,10 @@ test('the color scheme is adopted from the store and written back to it', async 
   await expect.poll(rootClass).toContain('color-scheme-dark');
 
   await page
-    .locator('devtools-settings select')
-    .filter({has: page.locator('option[value="light"]')})
-    .selectOption('light');
+    .locator('devtools-settings wa-select')
+    .filter({has: page.locator('wa-option[value="light"]')})
+    .click();
+  await page.locator('devtools-settings wa-option[value="light"]').click();
   await expect.poll(rootClass).toContain('color-scheme-light');
   const store = joinPath(
     fixture.home,
@@ -81,5 +82,5 @@ test('the color scheme is adopted from the store and written back to it', async 
 test('Pick is offered when the source overlay is on', async () => {
   const {page} = panel;
   await page.getByText('Components', {exact: true}).first().click();
-  await page.locator('components-view button.pick').waitFor();
+  await page.locator('components-view wa-button.pick').waitFor();
 });

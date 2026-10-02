@@ -102,12 +102,14 @@
     }
   },
   "devDependencies": {
+    "@awesome.me/webawesome": "^3.14.0",
     "@devframes/agentic": "1.1.0",
     "@devframes/service-open": "1.1.0",
     "@lit-labs/signals": "^0.3.0",
     "@lit-labs/virtualizer": "^2.1.1",
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
+    "@phosphor-icons/core": "^2.1.1",
     "@types/node": "^26.6.3",
     "@vitejs/devtools-kit": "0.7.6",
     "cac": "7.0.0",

@@ -12,7 +12,7 @@ const mount = async (props: {layers: LayerState[]; caption?: string}) => {
   Object.assign(el, props);
   document.body.append(el);
   await el.updateComplete;
-  return {el, buttons: [...el.shadowRoot!.querySelectorAll('button')]};
+  return {el, buttons: [...el.shadowRoot!.querySelectorAll('wa-button')]};
 };
 
 afterEach(() => {

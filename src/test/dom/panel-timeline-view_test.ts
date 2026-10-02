@@ -1,4 +1,5 @@
 import {afterEach, beforeAll, expect, test, vi} from 'vite-plus/test';
+import type WaSelect from '@awesome.me/webawesome/dist/components/select/select.js';
 import type {TimelineView} from '../../panel/timeline-view.js';
 import {
   DEFAULT_LAYERS_STATE,
@@ -76,7 +77,7 @@ const mount = async (recording = false) => {
   await flush(el);
   const root = el.shadowRoot!;
   const button = (text: string) =>
-    [...root.querySelectorAll('button')].find((b) =>
+    [...root.querySelectorAll('wa-button')].find((b) =>
       b.textContent!.includes(text)
     )!;
   return {
@@ -123,7 +124,7 @@ test('a layer toggle goes to the server, except for custom layers', async () => 
   const {root} = await mount();
   const pills = root
     .querySelector('timeline-layers')!
-    .shadowRoot!.querySelectorAll('button');
+    .shadowRoot!.querySelectorAll('wa-button');
   pills[1]!.click(); // mouse, off by default
   pills[2]!.click(); // custom: always on, nothing to toggle
   expect(calls.filter((c) => c.name === 'toggle-layer')).toEqual([
@@ -175,7 +176,7 @@ test('the element filter reaches the tracks, and Clear drops it', async () => {
   const {el, root, button, tracks} = await mount();
   setEvents(events);
   await flush(el);
-  const select = root.querySelector<HTMLSelectElement>('.filterbar select')!;
+  const select = root.querySelector<WaSelect>('.filterbar wa-select')!;
   select.value = '2';
   select.dispatchEvent(new Event('change'));
   await flush(el);

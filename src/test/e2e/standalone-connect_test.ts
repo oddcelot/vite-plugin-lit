@@ -196,7 +196,7 @@ test('Pick picks on the page and raises a panel on the element', async () => {
       )
     );
   const pickHello = async () => {
-    await panel.locator('components-view button.pick').click();
+    await panel.locator('components-view wa-button.pick').click();
     // The toggle goes panel -> server -> page; the picker is up once the
     // page has its crosshair cursor.
     await expect.poll(picking).toBe(true);
@@ -283,7 +283,7 @@ test('a panel setting survives a reload of the page it never served', async () =
   const panel = await browser.newPage();
   await panel.goto(`${devOrigin}/`);
   await panel.waitForSelector('lit-devtools-panel');
-  const flash = panel.getByRole('button', {name: /Flash/});
+  const flash = panel.locator('components-view wa-button.flash');
   await flash.click();
   await expect.poll(() => flash.getAttribute('class')).toContain('active');
   // Durable once the server's store file has it (written after a debounce).

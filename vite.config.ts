@@ -30,6 +30,7 @@ export default defineConfig({
           name: 'dom',
           environment: 'happy-dom',
           include: ['src/test/dom/**/*_test.ts'],
+          setupFiles: ['src/test/dom/element-internals.ts'],
         },
       },
       {

@@ -1,0 +1,52 @@
+/*
+ * Web Awesome theme for the panel: WA's default theme owns spacing and form
+ * controls; this file swaps in what makes it Lit DevTools — the brand ramp
+ * built from the Lit blues, square corners everywhere, and the panel's own
+ * surfaces and text (`--lit-devtools-*`, see src/lib/tokens.ts), so WA
+ * controls and the custom views sit on the same backgrounds in both schemes.
+ *
+ * Only the panel document loads this. The in-page UI (src/lib/runtime) never
+ * does: registering `wa-*` or WA's `:root` tokens in the user's app would
+ * collide with apps that use Web Awesome themselves.
+ */
+@import '@awesome.me/webawesome/dist/styles/themes/default.css';
+
+@layer wa-theme-overrides {
+  :root,
+  .wa-light,
+  .wa-dark {
+    /* Lit blue at 50 (#324fff, the light accent), hue held across the ramp. */
+    --wa-color-brand-95: oklch(0.96 0.02 268);
+    --wa-color-brand-90: oklch(0.92 0.045 268);
+    --wa-color-brand-80: oklch(0.84 0.09 268);
+    --wa-color-brand-70: oklch(0.74 0.15 268);
+    --wa-color-brand-60: oklch(0.64 0.21 268);
+    --wa-color-brand-50: var(--lit-devtools-lit-blue);
+    --wa-color-brand-40: oklch(0.44 0.23 268);
+    --wa-color-brand-30: oklch(0.36 0.19 268);
+    --wa-color-brand-20: oklch(0.28 0.13 268);
+    --wa-color-brand-10: oklch(0.2 0.08 268);
+    --wa-color-brand-05: oklch(0.15 0.05 268);
+    --wa-color-brand: var(--lit-devtools-lit-blue);
+    --wa-color-brand-on: white;
+
+    --wa-color-surface-default: var(--lit-devtools-surface);
+    --wa-color-surface-raised: var(--lit-devtools-surface-elevated);
+    --wa-color-surface-lowered: var(--lit-devtools-surface-low);
+    --wa-color-surface-border: var(--lit-devtools-border);
+    --wa-color-text-normal: var(--lit-devtools-text);
+    --wa-color-text-quiet: var(--lit-devtools-text-secondary);
+    --wa-color-text-link: var(--lit-devtools-text-link);
+
+    --wa-font-family-body: var(--lit-devtools-font-sans);
+    --wa-font-family-heading: var(--lit-devtools-font-sans);
+    --wa-font-family-code: var(--lit-devtools-font-mono);
+    /* 13px body (WA's `m`), 12px `s` for small controls — DevTools density. */
+    --wa-font-size-scale: 0.8125;
+
+    /* No rounded corners anywhere: buttons, inputs, cards, pills, switches. */
+    --wa-border-radius-scale: 0;
+    --wa-border-radius-pill: 0;
+    --wa-border-radius-circle: 0;
+  }
+}

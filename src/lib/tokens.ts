@@ -87,14 +87,6 @@ const baseTokenCSS = `
   --lit-devtools-space-8:  24px;
   --lit-devtools-space-9:  32px;
 
-  /* ---- Radius ---- */
-  --lit-devtools-radius-xs:   3px;
-  --lit-devtools-radius-sm:   5px;
-  --lit-devtools-radius-md:   8px;
-  --lit-devtools-radius-lg:   12px;
-  --lit-devtools-radius-xl:   16px;
-  --lit-devtools-radius-pill: 999px;
-
   /* ---- Elevation ---- */
   --lit-devtools-shadow-xs: 0 1px 2px hsl(0 0% 0% / 0.30);
   --lit-devtools-shadow-sm: 0 1px 5px hsl(0 0% 0% / 0.35);
@@ -109,6 +101,22 @@ const baseTokenCSS = `
   --lit-devtools-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --lit-devtools-dur-fast:    140ms;
   --lit-devtools-dur-normal:  220ms;
+`;
+
+/**
+ * Radius scale: the DevTools draw square corners everywhere, in the panel
+ * and in the in-page UI. Kept as tokens (and out of the `:host` copy in
+ * {@link tokens}, so components inherit it from `:root`) so a surface can
+ * still opt into a radius in one place.
+ */
+const radiusTokenCSS = `
+  /* ---- Radius · square corners throughout ---- */
+  --lit-devtools-radius-xs:   0;
+  --lit-devtools-radius-sm:   0;
+  --lit-devtools-radius-md:   0;
+  --lit-devtools-radius-lg:   0;
+  --lit-devtools-radius-xl:   0;
+  --lit-devtools-radius-pill: 0;
 `;
 
 const darkThemeCSS = `
@@ -204,7 +212,7 @@ const lightSchemeCSS = `color-scheme: light;`;
  * {@link injectTokens}. Prefer importing `tokens` for Lit components so the
  * semantic aliases are inherited from `:root`.
  */
-export const tokenCSS = `${baseTokenCSS}\n${darkThemeCSS}`;
+export const tokenCSS = `${baseTokenCSS}\n${radiusTokenCSS}\n${darkThemeCSS}`;
 
 /**
  * Lit `css` template for use in panel component shadow roots.
@@ -262,6 +270,7 @@ export const tokenStyleText = ({
   return `
     :root {
       ${baseTokenCSS}
+      ${radiusTokenCSS}
       ${dark}
     }
     @media (prefers-color-scheme: light) {

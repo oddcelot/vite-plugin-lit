@@ -117,7 +117,7 @@ const exercise = async (app) => {
 const recordSession = async (ctx) => {
   const app = await ctx.openApp();
   const panel = await ctx.openPanel('#tab=timeline');
-  const record = timelineView(panel).locator('css=button.record');
+  const record = timelineView(panel).locator('css=wa-button.record');
   await record.waitFor();
   await record.click();
   await record.and(panel.locator('css=.active')).waitFor();
@@ -207,7 +207,7 @@ const SHOTS = [
     capture: async (ctx) => {
       const app = await ctx.openApp();
       const panel = await ctx.openPanel('#tab=components');
-      const pick = componentsView(panel).locator('css=button.pick');
+      const pick = componentsView(panel).locator('css=wa-button.pick');
       await pick.waitFor();
       await pick.click();
       await app.bringToFront();
@@ -261,7 +261,7 @@ const SHOTS = [
     name: 'devtools-timeline-raw',
     capture: async (ctx) => {
       const {panel} = await recordSession(ctx);
-      await eventList(panel).locator('css=.filterbar button').click();
+      await eventList(panel).locator('css=.filterbar wa-switch').click();
       await sleep(400);
       await ctx.shot(panel);
     },
@@ -284,7 +284,7 @@ const SHOTS = [
     capture: async (ctx) => {
       const {panel} = await recordSession(ctx);
       await timelineView(panel)
-        .locator('css=segmented-tabs button', {hasText: 'Tracks'})
+        .locator('css=segmented-tabs wa-tab', {hasText: 'Tracks'})
         .click();
       const tracks = timelineView(panel).locator('css=timeline-tracks');
       // Zoom in on the start of the recording, anchored at the left edge,
@@ -311,7 +311,9 @@ const SHOTS = [
       const {panel} = await recordSession(ctx);
       // The Router layer's events are the only ones titled `navigate …`, and
       // custom layers have no toggle chip — the regex box is the filter.
-      await timelineView(panel).locator('css=input.regex').fill('navigate');
+      await timelineView(panel)
+        .locator('css=wa-input.regex input')
+        .fill('navigate');
       await sleep(400);
       await ctx.shot(panel);
     },
@@ -356,7 +358,9 @@ const SHOTS = [
     capture: async (ctx) => {
       const {panel} = await recordSession(ctx);
       const toolbar = timelineView(panel).locator('css=.toolbar');
-      await toolbar.locator('css=button', {hasText: 'Export snapshot'}).click();
+      await toolbar
+        .locator('css=wa-button', {hasText: 'Export snapshot'})
+        .click();
       const note = timelineView(panel).locator('css=.export-note');
       await note.waitFor();
       await note.filter({hasText: 'Wrote'}).waitFor({timeout: 60_000});

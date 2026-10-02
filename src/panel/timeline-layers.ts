@@ -1,5 +1,6 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, property} from 'lit/decorators.js';
+import '@awesome.me/webawesome/dist/components/button/button.js';
 import {tokens} from '../lib/tokens.js';
 
 export interface LayerState {
@@ -43,27 +44,6 @@ export class TimelineLayers extends LitElement {
         flex-shrink: 0;
         flex-wrap: wrap;
       }
-      button {
-        display: flex;
-        align-items: center;
-        gap: var(--lit-devtools-space-2);
-        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-4);
-        border-radius: var(--lit-devtools-radius-pill);
-        background: var(--lit-devtools-surface-elevated);
-        border: 1px solid transparent;
-        color: var(--lit-devtools-text-secondary);
-        font-size: var(--lit-devtools-text-2xs);
-        cursor: pointer;
-        user-select: none;
-        transition: opacity var(--lit-devtools-dur-fast)
-          var(--lit-devtools-ease-standard);
-      }
-      button.on {
-        color: var(--lit-devtools-text);
-      }
-      button:hover {
-        background: var(--lit-devtools-surface-hover);
-      }
       .caption {
         align-self: center;
         color: var(--lit-devtools-text-muted);
@@ -73,11 +53,11 @@ export class TimelineLayers extends LitElement {
       .dot {
         width: 8px;
         height: 8px;
-        border-radius: 50%;
+        border-radius: 0;
         flex-shrink: 0;
         opacity: 0.4;
       }
-      button.on .dot {
+      wa-button.on .dot {
         opacity: 1;
       }
     `,
@@ -104,14 +84,21 @@ export class TimelineLayers extends LitElement {
         : nothing
     }${this.layers.map(
       (l) => html`
-        <button
+        <wa-button
           class=${l.enabled ? 'on' : ''}
+          size="small"
+          pill
+          appearance=${l.enabled ? 'filled' : 'outlined'}
           title=${l.enabled ? `Hide ${l.label}` : `Show ${l.label}`}
           @click=${() => this._toggle(l.id)}
         >
-          <span class="dot" style=${'background:' + hexColor(l.color)}></span>
+          <span
+            slot="start"
+            class="dot"
+            style=${'background:' + hexColor(l.color)}
+          ></span>
           ${l.label}
-        </button>
+        </wa-button>
       `
     )}`;
   }

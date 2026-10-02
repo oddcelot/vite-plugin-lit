@@ -274,7 +274,8 @@ class LitSourceOverlay extends HTMLElement {
       rect.top - r,
       rect.width + 2 * r,
       rect.height + 2 * r,
-      r
+      // Square corners, like the rest of the DevTools; `r` is only padding.
+      0
     );
   }
 

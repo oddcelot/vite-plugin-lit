@@ -3,7 +3,9 @@ import {customElement, property, state} from 'lit/decorators.js';
 import {ref, createRef} from 'lit/directives/ref.js';
 import {virtualize, virtualizerRef} from '@lit-labs/virtualizer/virtualize.js';
 import type {VirtualizerHostElement} from '@lit-labs/virtualizer/virtualize.js';
+import '@awesome.me/webawesome/dist/components/switch/switch.js';
 import {tokens} from '../lib/tokens.js';
+import {waSquare} from './wa-square.js';
 import type {TimelineEvent} from '../types/timeline.js';
 import type {TimelineSpan} from '../lib/timeline/derive.js';
 import {layerColor} from './timeline-layers.js';
@@ -44,6 +46,7 @@ const renderDuration = (row: TimelineSpan): string => {
 export class TimelineEventList extends LitElement {
   static override styles = [
     tokens,
+    waSquare,
     css`
       :host {
         display: flex;
@@ -60,20 +63,6 @@ export class TimelineEventList extends LitElement {
         font-size: var(--lit-devtools-text-2xs);
         color: var(--lit-devtools-text-muted);
         flex-shrink: 0;
-      }
-      .filterbar button {
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text-muted);
-        border: 1px solid var(--lit-devtools-border-strong);
-        border-radius: var(--lit-devtools-radius-sm);
-        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-3);
-        font-size: var(--lit-devtools-text-2xs);
-        font-family: var(--lit-devtools-font-mono);
-        cursor: pointer;
-      }
-      .filterbar button.on {
-        color: var(--lit-devtools-text);
-        border-color: var(--lit-devtools-accent);
       }
       .filterbar .count {
         margin-left: auto;
@@ -126,7 +115,7 @@ export class TimelineEventList extends LitElement {
       .dot {
         width: 8px;
         height: 8px;
-        border-radius: 50%;
+        border-radius: 0;
         flex-shrink: 0;
         margin-top: 2px;
       }
@@ -287,10 +276,12 @@ export class TimelineEventList extends LitElement {
         this.events.length > 0
           ? html`
               <div class="filterbar">
-                <button
+                <wa-switch
                   class=${this._raw ? 'on' : ''}
+                  size="small"
+                  ?checked=${this._raw}
                   title="Show one row per recorded event instead of collapsing start/end pairs"
-                  @click=${() => {
+                  @change=${() => {
                     this._raw = !this._raw;
                     // Raw and collapsed rows have different keys, so the
                     // selection cannot carry across the switch.
@@ -298,7 +289,7 @@ export class TimelineEventList extends LitElement {
                   }}
                 >
                   Raw
-                </button>
+                </wa-switch>
                 <span class="count"
                   >${visible.length} / ${this._rowsCache.length}</span
                 >

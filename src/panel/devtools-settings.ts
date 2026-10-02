@@ -1,6 +1,17 @@
 import {LitElement, html, css, nothing} from 'lit';
 import {customElement, state} from 'lit/decorators.js';
+import '@awesome.me/webawesome/dist/components/badge/badge.js';
+import '@awesome.me/webawesome/dist/components/button/button.js';
+import '@awesome.me/webawesome/dist/components/callout/callout.js';
+import '@awesome.me/webawesome/dist/components/card/card.js';
+import '@awesome.me/webawesome/dist/components/icon/icon.js';
+import '@awesome.me/webawesome/dist/components/option/option.js';
+import '@awesome.me/webawesome/dist/components/select/select.js';
+import '@awesome.me/webawesome/dist/components/switch/switch.js';
+import type WaSelect from '@awesome.me/webawesome/dist/components/select/select.js';
+import type WaSwitch from '@awesome.me/webawesome/dist/components/switch/switch.js';
 import {tokens} from '../lib/tokens.js';
+import {waSquare} from './wa-square.js';
 import type {ColorSchemePreference} from '../lib/color-scheme.js';
 import {
   SOURCE_OVERLAY_EDITORS,
@@ -29,6 +40,7 @@ type LitSettings = Awaited<ReturnType<LitClient['settings']['global']['all']>>;
 export class DevtoolsSettings extends LitElement {
   static override styles = [
     tokens,
+    waSquare,
     css`
       :host {
         display: block;
@@ -47,50 +59,25 @@ export class DevtoolsSettings extends LitElement {
         font-family: var(--lit-devtools-font-mono);
       }
       section {
-        border: 1px solid var(--lit-devtools-border);
-        border-radius: var(--lit-devtools-radius-md);
         margin-bottom: var(--lit-devtools-space-5);
-        overflow: hidden;
+      }
+      wa-card {
+        --spacing: 0;
+      }
+      wa-card::part(header) {
+        padding: var(--lit-devtools-space-3) var(--lit-devtools-space-5);
       }
       h3 {
         display: flex;
         align-items: center;
         gap: var(--lit-devtools-space-4);
         margin: 0;
-        padding: var(--lit-devtools-space-3) var(--lit-devtools-space-5);
         font-size: var(--lit-devtools-text-xs);
-        background: var(--lit-devtools-surface-low);
-        border-bottom: 1px solid var(--lit-devtools-border);
-      }
-      .pill {
-        font-size: var(--lit-devtools-text-2xs);
-        font-weight: var(--lit-devtools-weight-semibold);
-        text-transform: uppercase;
-        letter-spacing: var(--lit-devtools-tracking-caps);
-        padding: 1px var(--lit-devtools-space-4);
-        border-radius: var(--lit-devtools-radius-pill);
-        border: 1px solid var(--lit-devtools-border-strong);
-        color: var(--lit-devtools-text-muted);
-      }
-      .pill.on {
-        color: var(--lit-devtools-accent);
-        border-color: var(--lit-devtools-accent);
-        background: var(--lit-devtools-accent-soft);
       }
       .reset {
-        margin-left: auto;
-        appearance: none;
-        border: 1px solid var(--lit-devtools-border-strong);
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text);
-        border-radius: var(--lit-devtools-radius-sm);
-        font: inherit;
-        font-size: var(--lit-devtools-text-2xs);
-        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-4);
-        cursor: pointer;
-      }
-      .reset:hover {
-        background: var(--lit-devtools-surface-hover);
+        display: block;
+        width: fit-content;
+        margin-top: var(--wa-space-xs);
       }
       table {
         width: 100%;
@@ -118,9 +105,11 @@ export class DevtoolsSettings extends LitElement {
         font-size: var(--lit-devtools-text-2xs);
       }
       .ovr {
-        color: var(--lit-devtools-warning);
-        font-size: var(--lit-devtools-text-2xs);
         margin-left: var(--lit-devtools-space-3);
+        vertical-align: middle;
+      }
+      wa-badge.env {
+        font-family: var(--lit-devtools-font-mono);
         vertical-align: middle;
       }
       .src {
@@ -128,67 +117,22 @@ export class DevtoolsSettings extends LitElement {
         vertical-align: middle;
       }
       .row-reset {
-        appearance: none;
-        border: 1px solid var(--lit-devtools-border-strong);
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text-muted);
-        border-radius: var(--lit-devtools-radius-sm);
-        font: inherit;
-        font-size: var(--lit-devtools-text-2xs);
-        line-height: 1;
-        padding: 1px var(--lit-devtools-space-2);
         margin-left: var(--lit-devtools-space-3);
         vertical-align: middle;
-        cursor: pointer;
-      }
-      .row-reset:hover {
-        background: var(--lit-devtools-surface-hover);
-        color: var(--lit-devtools-text);
       }
       .nudge {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: var(--lit-devtools-space-3);
+        display: block;
         margin-top: var(--lit-devtools-space-2);
-        color: var(--lit-devtools-warning);
-        font-family: inherit;
         font-size: var(--lit-devtools-text-2xs);
       }
-      .nudge button {
-        appearance: none;
-        border: 1px solid var(--lit-devtools-border-strong);
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text);
-        border-radius: var(--lit-devtools-radius-sm);
-        font: inherit;
-        line-height: 1;
-        padding: 1px var(--lit-devtools-space-3);
-        cursor: pointer;
-      }
-      .nudge button:hover {
-        background: var(--lit-devtools-surface-hover);
-      }
-      label.toggle {
-        display: inline-flex;
-        align-items: center;
-        gap: var(--lit-devtools-space-3);
-        cursor: pointer;
+      wa-switch,
+      wa-select {
         vertical-align: middle;
       }
-      input,
-      select {
-        accent-color: var(--lit-devtools-accent);
-        font: inherit;
+      wa-select {
+        display: inline-block;
+        min-width: 9em;
         font-family: var(--lit-devtools-font-mono);
-        vertical-align: middle;
-      }
-      select {
-        background: var(--lit-devtools-surface-elevated);
-        color: var(--lit-devtools-text);
-        border: 1px solid var(--lit-devtools-border-strong);
-        border-radius: var(--lit-devtools-radius-sm);
-        padding: 1px var(--lit-devtools-space-2);
       }
       .row-disabled {
         opacity: 0.5;
@@ -325,8 +269,11 @@ export class DevtoolsSettings extends LitElement {
   }
 
   private _pill(on: boolean) {
-    return html`<span class="pill ${on ? 'on' : ''}"
-      >${on ? 'enabled' : 'disabled'}</span
+    return html`<wa-badge
+      class="pill ${on ? 'on' : ''}"
+      size="small"
+      variant=${on ? 'success' : 'neutral'}
+      >${on ? 'enabled' : 'disabled'}</wa-badge
     >`;
   }
 
@@ -336,7 +283,15 @@ export class DevtoolsSettings extends LitElement {
    */
   private _source(key: keyof SettingSources) {
     const src = this._settings?.sources?.[key];
-    return src ? html`<span class="env src">(${src})</span>` : nothing;
+    return src
+      ? html`<wa-badge
+          class="env src"
+          size="small"
+          appearance="outlined"
+          variant="neutral"
+          >(${src})</wa-badge
+        >`
+      : nothing;
   }
 
   /**
@@ -357,28 +312,47 @@ export class DevtoolsSettings extends LitElement {
     const s = this._settings;
     const current = s === null ? undefined : configValues(s)[key];
     const changed = baselineChanged(key, this._recorded[key], current);
-    return html`<span class="ovr">(overridden)</span>
-      <span class="env">${src}: ${baseline}</span>
-      <button
+    return html`<wa-badge
+        class="ovr"
+        size="small"
+        appearance="outlined"
+        variant="brand"
+        >(overridden)</wa-badge
+      >
+      <wa-badge class="env" size="small" appearance="outlined" variant="neutral"
+        >${src}: ${baseline}</wa-badge
+      >
+      <wa-button
         class="row-reset"
+        appearance="plain"
+        size="small"
         title="Reset to the ${src} value"
-        aria-label="Reset to the ${src} value"
         @click=${() => this._resetKey(key)}
       >
-        ×
-      </button>
+        <wa-icon name="x" label="Reset to the ${src} value"></wa-icon>
+      </wa-button>
       ${
         changed
-          ? html`<div class="nudge" data-nudge=${key}>
+          ? html`<wa-callout
+              class="nudge"
+              data-nudge=${key}
+              variant="warning"
+              size="small"
+            >
               <span
                 >Config changed since you overrode this: was
                 ${fmt(this._recorded[key])}, now ${baseline}</span
               >
-              <button @click=${() => this._resetKey(key)}>Reset</button>
-              <button @click=${() => s !== null && overrides.keep(key, s)}>
+              <wa-button size="small" @click=${() => this._resetKey(key)}
+                >Reset</wa-button
+              >
+              <wa-button
+                size="small"
+                @click=${() => s !== null && overrides.keep(key, s)}
+              >
                 Keep
-              </button>
-            </div>`
+              </wa-button>
+            </wa-callout>`
           : nothing
       }`;
   }
@@ -403,37 +377,35 @@ export class DevtoolsSettings extends LitElement {
   private _renderAppearance() {
     return html`
       <section>
-        <h3>Appearance</h3>
-        <table>
-          <tr>
-            <td class="key">color scheme</td>
-            <td class="val">
-              <select
-                @change=${(e: Event) =>
-                  this._setColorScheme(
-                    (e.target as HTMLSelectElement)
-                      .value as ColorSchemePreference
+        <wa-card>
+          <h3 slot="header">Appearance</h3>
+          <table>
+            <tr>
+              <td class="key">color scheme</td>
+              <td class="val">
+                <wa-select
+                  size="small"
+                  .value=${this._colorScheme}
+                  @change=${(e: Event) =>
+                    this._setColorScheme(
+                      (e.target as WaSelect).value as ColorSchemePreference
+                    )}
+                >
+                  ${(
+                    [
+                      ['auto', 'Auto'],
+                      ['dark', 'Dark'],
+                      ['light', 'Light'],
+                    ] as Array<[ColorSchemePreference, string]>
+                  ).map(
+                    ([value, label]) =>
+                      html`<wa-option value=${value}>${label}</wa-option>`
                   )}
-              >
-                ${(
-                  [
-                    ['auto', 'Auto'],
-                    ['dark', 'Dark'],
-                    ['light', 'Light'],
-                  ] as Array<[ColorSchemePreference, string]>
-                ).map(
-                  ([value, label]) =>
-                    html`<option
-                      value=${value}
-                      ?selected=${this._colorScheme === value}
-                    >
-                      ${label}
-                    </option>`
-                )}
-              </select>
-            </td>
-          </tr>
-        </table>
+                </wa-select>
+              </td>
+            </tr>
+          </table>
+        </wa-card>
       </section>
     `;
   }
@@ -457,18 +429,14 @@ export class DevtoolsSettings extends LitElement {
         <tr>
           <td class="key">reconnect</td>
           <td class="val">
-            <label class="toggle">
-              <input
-                type="checkbox"
-                .checked=${reconnect}
-                @change=${(e: Event) =>
-                  this._set(
-                    'hmrReconnect',
-                    (e.target as HTMLInputElement).checked
-                  )}
-              />
+            <wa-switch
+              size="small"
+              .checked=${reconnect}
+              @change=${(e: Event) =>
+                this._set('hmrReconnect', (e.target as WaSwitch).checked)}
+            >
               ${reconnect ? 'on' : 'off'}
-            </label>
+            </wa-switch>
             ${this._ovrSource(
               'hmrReconnect',
               s.hmr.reconnect ? 'on' : 'off',
@@ -479,58 +447,54 @@ export class DevtoolsSettings extends LitElement {
         <tr>
           <td class="key">on incompatible</td>
           <td class="val">
-            <select
+            <wa-select
+              size="small"
+              .value=${onIncompatible}
               @change=${(e: Event) =>
                 this._set(
                   'hmrOnIncompatible',
-                  (e.target as HTMLSelectElement).value as 'reload' | 'warn'
+                  (e.target as WaSelect).value as 'reload' | 'warn'
                 )}
             >
-              <option value="reload" ?selected=${onIncompatible === 'reload'}>
-                reload
-              </option>
-              <option value="warn" ?selected=${onIncompatible === 'warn'}>
-                warn
-              </option>
-            </select>
+              <wa-option value="reload">reload</wa-option>
+              <wa-option value="warn">warn</wa-option>
+            </wa-select>
             ${this._ovrSource('hmrOnIncompatible', s.hmr.onIncompatible)}
           </td>
         </tr>
         <tr>
           <td class="key">child state</td>
           <td class="val">
-            <select
+            <wa-select
+              size="small"
+              .value=${childState}
               @change=${(e: Event) =>
                 this._set(
                   'hmrChildState',
-                  (e.target as HTMLSelectElement)
+                  (e.target as WaSelect)
                     .value as FeatureSettings['hmr']['childState']
                 )}
             >
               ${(['transfer', 'reuse', 'reset'] as const).map(
-                (mode) =>
-                  html`<option value=${mode} ?selected=${childState === mode}>
-                    ${mode}
-                  </option>`
+                (mode) => html`<wa-option value=${mode}>${mode}</wa-option>`
               )}
-            </select>
+            </wa-select>
             ${this._ovrSource('hmrChildState', s.hmr.childState)}
           </td>
         </tr>
         <tr class=${s.hmr.indicatorEnabled ? '' : 'row-disabled'}>
           <td class="key">indicator</td>
           <td class="val">
-            <label class="toggle">
-              <input
-                type="checkbox"
-                .checked=${indicatorVisible}
-                ?disabled=${!s.hmr.indicatorEnabled}
-                @change=${(e: Event) =>
-                  this._set(
-                    'hmrIndicatorVisible',
-                    (e.target as HTMLInputElement).checked
-                  )}
-              />
+            <wa-switch
+              size="small"
+              .checked=${indicatorVisible}
+              ?disabled=${!s.hmr.indicatorEnabled}
+              @change=${(e: Event) =>
+                this._set(
+                  'hmrIndicatorVisible',
+                  (e.target as WaSwitch).checked
+                )}
+            >
               ${
                 s.hmr.indicatorEnabled
                   ? indicatorVisible
@@ -538,7 +502,7 @@ export class DevtoolsSettings extends LitElement {
                     : 'hidden'
                   : 'off (config)'
               }
-            </label>
+            </wa-switch>
             ${this._ovrSource(
               'hmrIndicatorVisible',
               s.hmr.indicatorEnabled ? 'shown' : 'off (config)',
@@ -549,19 +513,15 @@ export class DevtoolsSettings extends LitElement {
         <tr class=${s.hmr.indicatorEnabled ? '' : 'row-disabled'}>
           <td class="key">indicator count</td>
           <td class="val">
-            <label class="toggle">
-              <input
-                type="checkbox"
-                .checked=${indicatorCount}
-                ?disabled=${!s.hmr.indicatorEnabled}
-                @change=${(e: Event) =>
-                  this._set(
-                    'hmrIndicatorCount',
-                    (e.target as HTMLInputElement).checked
-                  )}
-              />
+            <wa-switch
+              size="small"
+              .checked=${indicatorCount}
+              ?disabled=${!s.hmr.indicatorEnabled}
+              @change=${(e: Event) =>
+                this._set('hmrIndicatorCount', (e.target as WaSwitch).checked)}
+            >
               ${indicatorCount ? 'shown' : 'hidden'}
-            </label>
+            </wa-switch>
             ${this._ovrSource(
               'hmrIndicatorCount',
               s.hmr.indicatorCount ? 'shown' : 'hidden',
@@ -590,28 +550,25 @@ export class DevtoolsSettings extends LitElement {
       <tr>
         <td class="key">editor</td>
         <td class="val">
-          <select
+          <wa-select
+            size="small"
             ?disabled=${custom}
+            .value=${custom ? 'custom' : current}
             @change=${(e: Event) =>
               this._set(
                 'sourceOverlayEditor',
-                (e.target as HTMLSelectElement).value
+                String((e.target as WaSelect).value)
               )}
           >
             ${
               custom
-                ? html`<option value="custom" selected>Custom</option>`
+                ? html`<wa-option value="custom" disabled>Custom</wa-option>`
                 : SOURCE_OVERLAY_EDITORS.map(
                     (ed) =>
-                      html`<option
-                        value=${ed.value}
-                        ?selected=${ed.value === current}
-                      >
-                        ${ed.label}
-                      </option>`
+                      html`<wa-option value=${ed.value}>${ed.label}</wa-option>`
                   )
             }
-          </select>
+          </wa-select>
           ${this._ovrSource('sourceOverlayEditor', label, (v) =>
             editorLabel(String(v))
           )}
@@ -634,36 +591,28 @@ export class DevtoolsSettings extends LitElement {
         <tr>
           <td class="key">flash updates</td>
           <td class="val">
-            <label class="toggle">
-              <input
-                type="checkbox"
-                .checked=${flash}
-                @change=${(e: Event) =>
-                  this._set(
-                    'flashUpdates',
-                    (e.target as HTMLInputElement).checked
-                  )}
-              />
+            <wa-switch
+              size="small"
+              .checked=${flash}
+              @change=${(e: Event) =>
+                this._set('flashUpdates', (e.target as WaSwitch).checked)}
+            >
               ${flash ? 'on' : 'off'}
-            </label>
+            </wa-switch>
           </td>
         </tr>
         <tr class=${flash ? '' : 'row-disabled'}>
           <td class="key">colour by frequency</td>
           <td class="val">
-            <label class="toggle">
-              <input
-                type="checkbox"
-                .checked=${ramp}
-                ?disabled=${!flash}
-                @change=${(e: Event) =>
-                  this._set(
-                    'flashUpdatesRamp',
-                    (e.target as HTMLInputElement).checked
-                  )}
-              />
+            <wa-switch
+              size="small"
+              .checked=${ramp}
+              ?disabled=${!flash}
+              @change=${(e: Event) =>
+                this._set('flashUpdatesRamp', (e.target as WaSwitch).checked)}
+            >
               ${ramp ? 'calm → hot' : 'single colour'}
-            </label>
+            </wa-switch>
           </td>
         </tr>
       </table>
@@ -681,18 +630,14 @@ export class DevtoolsSettings extends LitElement {
         <tr>
           <td class="key">chrome performance tracks</td>
           <td class="val">
-            <label class="toggle">
-              <input
-                type="checkbox"
-                .checked=${chrome}
-                @change=${(e: Event) =>
-                  this._set(
-                    'chromeTracks',
-                    (e.target as HTMLInputElement).checked
-                  )}
-              />
+            <wa-switch
+              size="small"
+              .checked=${chrome}
+              @change=${(e: Event) =>
+                this._set('chromeTracks', (e.target as WaSwitch).checked)}
+            >
               ${chrome ? 'on' : 'off'}
-            </label>
+            </wa-switch>
           </td>
         </tr>
       </table>
@@ -714,33 +659,35 @@ export class DevtoolsSettings extends LitElement {
           (versions.length > 1 ? ' (duplicate copies)' : '');
     return html`
       <section>
-        <h3>About</h3>
-        <table>
-          <tr>
-            <td class="key">plugin version</td>
-            <td class="val">${meta.version}</td>
-          </tr>
-          <tr>
-            <td class="key">lit</td>
-            <td class="val">${lit}</td>
-          </tr>
-          <tr>
-            <td class="key">timeline layers</td>
-            <td class="val">${meta.layers.map((l) => l.label).join(', ')}</td>
-          </tr>
-          <tr>
-            <td class="key">element picker</td>
-            <td class="val">
-              ${meta.picker ? 'available' : 'unavailable (enable sourceOverlay)'}
-            </td>
-          </tr>
-        </table>
-        <p class="note">
-          Settings resolve in this order: panel override, then plugin option,
-          then <code>LIT_PLUGIN_*</code> env, then default. An explicit
-          <code>timeline: false</code> in the plugin options is final and
-          ignores env.
-        </p>
+        <wa-card>
+          <h3 slot="header">About</h3>
+          <table>
+            <tr>
+              <td class="key">plugin version</td>
+              <td class="val">${meta.version}</td>
+            </tr>
+            <tr>
+              <td class="key">lit</td>
+              <td class="val">${lit}</td>
+            </tr>
+            <tr>
+              <td class="key">timeline layers</td>
+              <td class="val">${meta.layers.map((l) => l.label).join(', ')}</td>
+            </tr>
+            <tr>
+              <td class="key">element picker</td>
+              <td class="val">
+                ${meta.picker ? 'available' : 'unavailable (enable sourceOverlay)'}
+              </td>
+            </tr>
+          </table>
+          <p class="note">
+            Settings resolve in this order: panel override, then plugin option,
+            then <code>LIT_PLUGIN_*</code> env, then default. An explicit
+            <code>timeline: false</code> in the plugin options is final and
+            ignores env.
+          </p>
+        </wa-card>
       </section>
     `;
   }
@@ -765,9 +712,15 @@ export class DevtoolsSettings extends LitElement {
         restart).
         ${
           hasOverride
-            ? html`<button class="reset" @click=${this._reset}>
+            ? html`<wa-button
+                class="reset"
+                size="small"
+                appearance="outlined"
+                @click=${this._reset}
+              >
+                <wa-icon slot="start" name="arrow-counter-clockwise"></wa-icon>
                 Reset to env
-              </button>`
+              </wa-button>`
             : nothing
         }
       </p>
@@ -775,55 +728,65 @@ export class DevtoolsSettings extends LitElement {
       ${appearance}
 
       <section>
-        <h3>HMR ${this._pill(s.hmr.enabled)}</h3>
-        ${this._renderHmr(s)}
+        <wa-card>
+          <h3 slot="header">HMR ${this._pill(s.hmr.enabled)}</h3>
+          ${this._renderHmr(s)}
+        </wa-card>
       </section>
 
       <section>
-        <h3>Source Overlay ${this._pill(s.sourceOverlay.enabled)}</h3>
-        ${
-          s.sourceOverlay.enabled
-            ? html`<table>
-                ${this._readonlyRow(
-                  'hotkey',
-                  `Ctrl+Shift+${s.sourceOverlay.key.toUpperCase()}`,
-                  'LIT_PLUGIN_SOURCE_OVERLAY_KEY',
-                  'sourceOverlayKey'
-                )}
-                ${this._renderEditorRow(s)}
-                ${this._readonlyRow(
-                  'throttle (ms)',
-                  s.sourceOverlay.throttleMs,
-                  'LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS',
-                  'sourceOverlayThrottleMs'
-                )}
-              </table>`
-            : html`<p class="empty">
-                Enable with <code>sourceOverlay: true</code> or
-                <code>LIT_PLUGIN_SOURCE_OVERLAY=true</code>.
-              </p>`
-        }
+        <wa-card>
+          <h3 slot="header">
+            Source Overlay ${this._pill(s.sourceOverlay.enabled)}
+          </h3>
+          ${
+            s.sourceOverlay.enabled
+              ? html`<table>
+                  ${this._readonlyRow(
+                    'hotkey',
+                    `Ctrl+Shift+${s.sourceOverlay.key.toUpperCase()}`,
+                    'LIT_PLUGIN_SOURCE_OVERLAY_KEY',
+                    'sourceOverlayKey'
+                  )}
+                  ${this._renderEditorRow(s)}
+                  ${this._readonlyRow(
+                    'throttle (ms)',
+                    s.sourceOverlay.throttleMs,
+                    'LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS',
+                    'sourceOverlayThrottleMs'
+                  )}
+                </table>`
+              : html`<p class="empty">
+                  Enable with <code>sourceOverlay: true</code> or
+                  <code>LIT_PLUGIN_SOURCE_OVERLAY=true</code>.
+                </p>`
+          }
+        </wa-card>
       </section>
 
       <section>
-        <h3>Components ${this._pill(s.timeline)}</h3>
-        ${
-          s.timeline
-            ? this._renderComponents()
-            : html`<p class="empty">
-                Needs the timeline runtime: enable with
-                <code>timeline: true</code> or
-                <code>LIT_PLUGIN_TIMELINE=true</code>.
-              </p>`
-        }
+        <wa-card>
+          <h3 slot="header">Components ${this._pill(s.timeline)}</h3>
+          ${
+            s.timeline
+              ? this._renderComponents()
+              : html`<p class="empty">
+                  Needs the timeline runtime: enable with
+                  <code>timeline: true</code> or
+                  <code>LIT_PLUGIN_TIMELINE=true</code>.
+                </p>`
+          }
+        </wa-card>
       </section>
 
       <section>
-        <h3>Timeline ${this._pill(s.timeline)}</h3>
-        <p class="empty">
-          Layers and recording are controlled in the Timeline tab.
-        </p>
-        ${s.timeline ? this._renderTimelinePrefs() : nothing}
+        <wa-card>
+          <h3 slot="header">Timeline ${this._pill(s.timeline)}</h3>
+          <p class="empty">
+            Layers and recording are controlled in the Timeline tab.
+          </p>
+          ${s.timeline ? this._renderTimelinePrefs() : nothing}
+        </wa-card>
       </section>
 
       ${this._renderAbout()}

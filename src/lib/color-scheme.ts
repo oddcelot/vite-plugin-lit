@@ -31,12 +31,35 @@ export const readColorSchemePreference = (): ColorSchemePreference => {
 };
 
 /**
+ * Web Awesome switches schemes by class only (`.wa-dark`), never by media
+ * query, so mirror the resolved scheme onto it — including `auto`, which
+ * follows `prefers-color-scheme` live through the listener below.
+ */
+let current: ColorSchemePreference = 'auto';
+let lightQuery: MediaQueryList | undefined;
+
+const syncWebAwesomeScheme = (): void => {
+  // Ask for light, as tokens.ts does: dark is the default when the host
+  // states no preference.
+  if (!lightQuery && typeof matchMedia === 'function') {
+    lightQuery = matchMedia('(prefers-color-scheme: light)');
+    lightQuery.addEventListener('change', syncWebAwesomeScheme);
+  }
+  const dark =
+    current === 'dark' || (current === 'auto' && !lightQuery?.matches);
+  document.documentElement.classList.toggle('wa-dark', dark);
+};
+
+/**
  * Apply a preference to the document root. `light`/`dark` pin the matching
  * class; `auto` removes both and lets the `prefers-color-scheme` `@media` rule
  * in the injected tokens own the scheme (and live-update on OS changes).
+ * Either way the resolved scheme is mirrored onto `.wa-dark`.
  */
 export const applyColorScheme = (pref: ColorSchemePreference): void => {
   const root = document.documentElement;
   root.classList.remove('color-scheme-light', 'color-scheme-dark');
   if (pref !== 'auto') root.classList.add('color-scheme-' + pref);
+  current = pref;
+  syncWebAwesomeScheme();
 };

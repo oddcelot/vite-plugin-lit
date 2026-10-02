@@ -65,7 +65,7 @@ const mount = async (props: Partial<TimelineEventList> = {}) => {
   return {
     el,
     count: () => root.querySelector('.count')?.textContent?.trim(),
-    raw: () => root.querySelector<HTMLButtonElement>('.filterbar button')!,
+    raw: () => root.querySelector<HTMLElement>('.filterbar wa-switch')!,
     detail: () => root.querySelector('timeline-span-detail'),
   };
 };
@@ -105,7 +105,10 @@ test('Raw lists every event and drops the selection', async () => {
   el.addEventListener('span-select', (e) =>
     selected.push((e as CustomEvent<{key: string | null}>).detail.key)
   );
-  raw().click();
+  // The switch's own handler lives on its inner input and announces `change`
+  // after the switch has re-rendered.
+  raw().shadowRoot!.querySelector('input')!.click();
+  await new Promise((r) => setTimeout(r));
   await el.updateComplete;
   expect(count()).toBe('5 / 5');
   expect(raw().classList.contains('on')).toBe(true);
