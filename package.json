@@ -58,7 +58,7 @@
     "dev": "pnpm run build && vp dev playground",
     "test": "pnpm run test:unit && pnpm run test:e2e",
     "test:unit": "node scripts/check-client-types.mjs && vp test run --project unit --project dom",
-    "test:e2e": "pnpm run build && vp test run --project e2e",
+    "test:e2e": "pnpm run build && pnpm run build:extension && vp test run --project e2e",
     "changelog": "git-cliff --unreleased",
     "bench": "node bench/run.mjs",
     "bench:serve": "node bench/run.mjs --serve",
