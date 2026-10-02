@@ -326,7 +326,8 @@ export class DevtoolsSettings extends LitElement {
         class="row-reset"
         appearance="plain"
         size="small"
-        title="Reset to the ${src} value"
+        aria-label="Reset to the ${src} value"
+        data-tip="Reset to the ${src} value"
         @click=${() => this._resetKey(key)}
       >
         <wa-icon name="x" label="Reset to the ${src} value"></wa-icon>
@@ -343,11 +344,15 @@ export class DevtoolsSettings extends LitElement {
                 >Config changed since you overrode this: was
                 ${fmt(this._recorded[key])}, now ${baseline}</span
               >
-              <wa-button size="small" @click=${() => this._resetKey(key)}
+              <wa-button
+                size="small"
+                data-tip="Discard your override and use the new ${src} value"
+                @click=${() => this._resetKey(key)}
                 >Reset</wa-button
               >
               <wa-button
                 size="small"
+                data-tip="Keep your override and stop flagging the config change"
                 @click=${() => s !== null && overrides.keep(key, s)}
               >
                 Keep
@@ -727,6 +732,7 @@ export class DevtoolsSettings extends LitElement {
                 class="reset"
                 size="small"
                 appearance="outlined"
+                data-tip="Discard every override and use the env and config values"
                 @click=${this._reset}
               >
                 <wa-icon slot="start" name="arrow-counter-clockwise"></wa-icon>

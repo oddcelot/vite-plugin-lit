@@ -217,9 +217,9 @@ test('shows old and new values and flags a new reference with equal content', as
   setEvents([...detailed, ...tick(1, 'x-counter', 1, 10)]);
   await settle();
   const list = rows().find((r) => r.tag === '<x-list>')!;
-  expect(list.row.querySelector('.redundant')?.getAttribute('title')).toContain(
-    'items ×1'
-  );
+  expect(
+    list.row.querySelector('.redundant')?.getAttribute('data-tip')
+  ).toContain('items ×1');
   expect(
     rows()
       .find((r) => r.tag === '<x-counter>')!

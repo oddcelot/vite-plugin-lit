@@ -10,3 +10,6 @@
 import './wa-theme.css';
 import './wa-icons.js';
 import './lit-devtools-panel.js';
+import {installTooltips} from './tooltip.js';
+
+installTooltips();

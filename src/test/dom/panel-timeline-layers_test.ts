@@ -26,8 +26,8 @@ test('one pill per layer, marked on when enabled', async () => {
     'Mouse',
   ]);
   expect(buttons.map((b) => b.classList.contains('on'))).toEqual([true, false]);
-  expect(buttons[0]!.title).toBe('Hide Lifecycle');
-  expect(buttons[1]!.title).toBe('Show Mouse');
+  expect(buttons[0]!.dataset.tip).toBe('Hide Lifecycle');
+  expect(buttons[1]!.dataset.tip).toBe('Show Mouse');
 });
 
 test('a click asks the view to toggle that layer', async () => {

@@ -339,7 +339,7 @@ export class UpdatesView extends LitElement {
             ? html`<wa-badge
                 class="redundant"
                 variant="warning"
-                title=${`Changed to a new reference with equal content in these updates: ${entry.redundantChanges
+                data-tip=${`Changed to a new reference with equal content in these updates: ${entry.redundantChanges
                   .map((c) => `${c.key} ×${c.count}`)
                   .join(', ')}`}
                 
@@ -348,7 +348,7 @@ export class UpdatesView extends LitElement {
               </wa-badge>`
             : nothing
         }
-        <span class="num" title="Updates recorded"
+        <span class="num" data-tip="Updates recorded"
           ><wa-badge appearance="outlined" variant="neutral"
             >${entry.updates}×</wa-badge
           ></span
@@ -358,19 +358,19 @@ export class UpdatesView extends LitElement {
             ? html`<wa-badge
                 class="errors"
                 variant="danger"
-                title="Updates in which a phase threw or rejected, or a task failed"
+                data-tip="Updates in which a phase threw or rejected, or a task failed"
               >
                 <wa-icon name="warning"></wa-icon>
                 ${entry.errors}
               </wa-badge>`
             : nothing
         }
-        <span class="num" title="Total time in performUpdate"
+        <span class="num" data-tip="Total time in performUpdate"
           ><wa-badge appearance="outlined" variant="neutral"
             >${formatMs(entry.totalMs)}</wa-badge
           ></span
         >
-        <span class="num" title="Slowest single update"
+        <span class="num" data-tip="Slowest single update"
           ><wa-badge appearance="outlined" variant="neutral"
             >${formatMs(entry.maxMs)}</wa-badge
           ></span
@@ -405,7 +405,7 @@ export class UpdatesView extends LitElement {
                   class="link"
                   appearance="plain"
                   size="small"
-                  title="Open this file in your editor"
+                  data-tip="Open this file in your editor"
                   @click=${() => openInEditor(source.file, source.line)}
                 >
                   ${source.file}:${source.line}
@@ -452,7 +452,7 @@ export class UpdatesView extends LitElement {
                   class="link"
                   appearance="plain"
                   size="small"
-                  title="Open this instance in the Components tab"
+                  data-tip="Open this instance in the Components tab"
                   @click=${() => this._inspect(cycle.elementId)}
                   >#${cycle.elementId}</wa-button
                 >

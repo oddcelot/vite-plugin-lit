@@ -383,7 +383,7 @@ export class TimelineTracks extends LitElement {
       </div>
       <div
         class="lanes ${this._drag?.moved ? 'dragging' : ''}"
-        title="Wheel to zoom, drag to pan, double-click to fit"
+        data-tip="Wheel to zoom, drag to pan, double-click to fit"
         @wheel=${this._onWheel}
         @pointerdown=${this._onPointerDown}
         @pointermove=${this._onPointerMove}

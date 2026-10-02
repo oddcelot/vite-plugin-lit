@@ -280,7 +280,7 @@ export class TimelineEventList extends LitElement {
                   class=${this._raw ? 'on' : ''}
                   size="small"
                   ?checked=${this._raw}
-                  title="Show one row per recorded event instead of collapsing start/end pairs"
+                  data-tip="Show one row per recorded event instead of collapsing start/end pairs"
                   @change=${() => {
                     this._raw = !this._raw;
                     // Raw and collapsed rows have different keys, so the
