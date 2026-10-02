@@ -35,6 +35,24 @@ icon, the screenshots and the promo tiles are in `store/`; see
 takes one to four dot-separated integers, so a prerelease version such as
 `1.0.0-beta.1` fails the extension build.
 
+## Install from a release
+
+Every [GitHub release](https://github.com/oddcelot/vite-plugin-lit/releases)
+carries a `lit-inspector-<version>.zip`. Until the extension is on the Chrome
+Web Store, that's the way to install it without building from source:
+
+1. Download the zip and unzip it into a folder you'll keep: Chrome loads the
+   extension from that folder every time it starts.
+2. Open `chrome://extensions` and turn on **Developer mode** (top right).
+3. Click **Load unpacked** and pick the unzipped folder, the one with
+   `manifest.json` in it.
+
+An unpacked extension doesn't update itself. For a new release, download its
+zip, replace the folder's contents, and press the extension's reload button on
+`chrome://extensions`. The sites you enabled and your panel settings carry
+over, because they belong to the extension's id, which comes from that folder's
+path.
+
 ## Build and load
 
 ```sh

@@ -114,6 +114,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - run: corepack enable
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+      # No dependency cache, as in `publish`.
+      - run: pnpm install --frozen-lockfile
+      # The Chrome extension, for loading unpacked until (and alongside) the
+      # Web Store listing. Builds straight from src/; needs no package build.
+      - run: pnpm run package:extension
       - run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > notes.md
       - name: Create the release
         env:
@@ -122,4 +131,5 @@ jobs:
           prerelease=()
           case "$GITHUB_REF_NAME" in *-*) prerelease=(--prerelease) ;; esac
           gh release create "$GITHUB_REF_NAME" --verify-tag \
-            --title "$GITHUB_REF_NAME" --notes-file notes.md "${prerelease[@]}"
+            --title "$GITHUB_REF_NAME" --notes-file notes.md "${prerelease[@]}" \
+            dist/lit-inspector-*.zip
