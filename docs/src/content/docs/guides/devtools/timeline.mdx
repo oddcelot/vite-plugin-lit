@@ -17,6 +17,8 @@ import devtoolsTimelineRowDetailsLight from '../../../../assets/shots/devtools-t
 import devtoolsTimelineRowDetailsDark from '../../../../assets/shots/devtools-timeline-row-details.dark.png';
 import devtoolsTimelineTracksLight from '../../../../assets/shots/devtools-timeline-tracks.light.png';
 import devtoolsTimelineTracksDark from '../../../../assets/shots/devtools-timeline-tracks.dark.png';
+import devtoolsChromeTracksLight from '../../../../assets/shots/devtools-chrome-performance-tracks.light.png';
+import devtoolsChromeTracksDark from '../../../../assets/shots/devtools-chrome-performance-tracks.dark.png';
 import devtoolsExportSnapshotLight from '../../../../assets/shots/devtools-export-snapshot.light.png';
 import devtoolsExportSnapshotDark from '../../../../assets/shots/devtools-export-snapshot.dark.png';
 
@@ -147,9 +149,23 @@ in Chrome as usual.
 
 The recording gets a **Lit** track group with a **Lifecycle** and a
 **Render** track, plus **Render (verbose)** and **Input** when those layers
-are on. Each update tick is one entry named after its element, such as
-`<hmr-counter> performUpdate`, with `willUpdate`, `update`, `updated` and the
-render nested beneath it. Traces captured with an agent through
+are on. Chrome lists it among the tracks as **Lit — Custom**, below
+**Interactions** and above **Main**, and starts it collapsed: click its
+arrow to open it. Each update tick is one entry named after its element, such
+as `<hmr-counter> performUpdate`, with `willUpdate`, `update`, `updated` and
+the render nested beneath it.
+
+<ThemedImage
+  light={devtoolsChromeTracksLight}
+  dark={devtoolsChromeTracksDark}
+  alt="Chrome's Performance panel zoomed to one click: the expanded Lit — Custom group shows <hmr-counter> performUpdate with update nested under it on the Lifecycle track and <hmr-counter> render on the Render track, lined up above the Event: click task on Main."
+/>
+
+An update takes well under a millisecond, so at the default zoom an entry is
+a sliver. Drag across the overview strip to select a stretch around an
+interaction, then zoom in with the wheel or <kbd>W</kbd> until the labels
+show. Entries shorter than a pixel, often `willUpdate` and `updated`, stay
+hidden until you zoom further. Traces captured with an agent through
 chrome-devtools-mcp contain the same entries, so an agent reading a trace
 sees Lit's work too.
 
