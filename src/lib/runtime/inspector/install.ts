@@ -13,7 +13,7 @@ import {pageChannel} from '../page-channel.js';
 import {PAGE_ID} from '../page-id.js';
 import type {ViteHotLike} from '../page-channel.js';
 import {buildTree, collectDetails} from './collect.js';
-import {clearHighlight, highlightById} from './highlight.js';
+import {clearHighlight, highlightById, revealById} from './highlight.js';
 import {
   LIT_IN_PAGE_CHANNEL,
   type LitInPageProtocol,
@@ -57,6 +57,7 @@ if (typeof window !== 'undefined') {
     functions: {},
     events: {
       highlight: {handler: (id) => highlightById(id)},
+      reveal: {handler: (id) => revealById(id)},
     },
   });
   channel.events.on('panel:connected', (panel) => {
@@ -369,6 +370,9 @@ if (typeof window !== 'undefined') {
         // Fallback path. A panel that handshaked over the in-page channel
         // emits there instead and never reaches this.
         highlightById(cmd.id);
+        break;
+      case 'reveal':
+        revealById(cmd.id);
         break;
       case 'observe':
         setObserving(cmd.enabled);

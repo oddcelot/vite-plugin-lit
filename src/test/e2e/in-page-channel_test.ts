@@ -58,7 +58,8 @@ afterAll(async () => {
   await fixture?.close();
 });
 
-test('a panel iframe drives the page highlight with no server in the path', async () => {
+/** The runtime's element id for the fixture's `<hmr-counter>`. */
+const counterId = async (): Promise<number> => {
   const {page} = fixture;
 
   // The inspector runtime is injected as a `/@fs/` module; importing the same
@@ -88,6 +89,12 @@ test('a panel iframe drives the page highlight with no server in the path', asyn
     return identity.idOf(el);
   })()`);
   expect(typeof id).toBe('number');
+  return id;
+};
+
+test('a panel iframe drives the page highlight with no server in the path', async () => {
+  const {page} = fixture;
+  const id = await counterId();
 
   // Nothing is drawn before a panel asks for it.
   expect(await page.locator('[data-lit-devtools-highlight]').count()).toBe(0);
@@ -142,4 +149,46 @@ test('a panel iframe drives the page highlight with no server in the path', asyn
       timeout: 5_000,
     })
     .toBe('none');
+});
+
+test('a panel iframe scrolls an element into view with reveal', async () => {
+  const {page} = fixture;
+  const id = await counterId();
+  // Push the counter well below the fold, then start from the top.
+  await page.evaluate(() => {
+    const spacer = document.createElement('div');
+    spacer.id = 'reveal-spacer';
+    spacer.style.height = '3000px';
+    document.querySelector('hmr-counter')!.before(spacer);
+    window.scrollTo(0, 0);
+  });
+  const inView = () =>
+    page.locator('hmr-counter').evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return r.top >= 0 && r.bottom <= window.innerHeight;
+    });
+  expect(await inView()).toBe(false);
+
+  // The in-page channel, from the panel stub the previous test attached.
+  await page
+    .frameLocator('iframe')
+    .locator('body')
+    .evaluate(
+      (_el, elementId) =>
+        (window as any).__panelChannel.emit('reveal', elementId),
+      id
+    );
+  await expect.poll(inView, {timeout: 5_000}).toBe(true);
+  const box = page.locator('[data-lit-devtools-highlight]');
+  expect(await box.evaluate((el) => getComputedStyle(el).display)).toBe(
+    'block'
+  );
+
+  // The outline lets go once the scroll has settled.
+  await expect
+    .poll(() => box.evaluate((el) => getComputedStyle(el).display), {
+      timeout: 5_000,
+    })
+    .toBe('none');
+  await page.evaluate(() => document.getElementById('reveal-spacer')?.remove());
 });

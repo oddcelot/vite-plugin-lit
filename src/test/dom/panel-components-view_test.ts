@@ -199,6 +199,25 @@ test('lists instance state below the other tables', async () => {
   expect(rows).toEqual(['userTasktaskcomplete [1, 2]', 'countsignal 7']);
 });
 
+test('Scroll into view reveals the selected element in the page', async () => {
+  const {el, root, inspects} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: detailsFor([])});
+  await flush(el);
+  root.querySelector<HTMLElement>('.details wa-button.reveal')!.click();
+  expect(inspects()).toContainEqual({type: 'reveal', id: 2});
+});
+
+test('never offers Scroll into view in a snapshot', async () => {
+  setSnapshot(true);
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: detailsFor([])});
+  await flush(el);
+  expect(root.querySelector('.details h2')).not.toBeNull();
+  expect(root.querySelector('wa-button.reveal')).toBeNull();
+});
+
 test('shows no Instance section without extras', async () => {
   const {el, root} = await mount(true);
   push('inspector-message', {type: 'pick', id: 2});

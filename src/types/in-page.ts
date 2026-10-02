@@ -34,12 +34,14 @@ export const LIT_IN_PAGE_CHANNEL = 'lit:in-page';
  * a fire-and-forget emit is what keeps a hover cheap. `id` is the same stable
  * numeric element id used everywhere else (the timeline's `idOf()` WeakMap),
  * so a tree node, a details payload, and an outline all agree on identity.
- * `null` clears the outline.
+ * `null` clears the outline. `reveal` scrolls an element into view and
+ * outlines it for a moment, for the details pane's "Scroll into view".
  */
 export interface LitInPageProtocol {
   events: {
     pageScript: {
       highlight: (id: number | null) => void;
+      reveal: (id: number) => void;
     };
   };
 }

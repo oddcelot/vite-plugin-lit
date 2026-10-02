@@ -64,3 +64,37 @@ export const highlightById = (id: number | null): void => {
   if (el !== undefined) showHighlight(el);
   else clearHighlight();
 };
+
+/** How long the outline follows a revealed element, scroll included. */
+const REVEAL_MS = 1200;
+let revealFrame = 0;
+
+/**
+ * Scroll the element with this id into view and outline it until the scroll
+ * has settled. The box is `position: fixed`, so it is redrawn every frame
+ * while the page scrolls rather than once at the start. Unknown ids do
+ * nothing.
+ */
+export const revealById = (id: number): void => {
+  const el = elementById(id);
+  if (el === undefined) return;
+  const reduce = window.matchMedia?.(
+    '(prefers-reduced-motion: reduce)'
+  ).matches;
+  el.scrollIntoView({
+    block: 'center',
+    inline: 'nearest',
+    behavior: reduce === true ? 'auto' : 'smooth',
+  });
+  cancelAnimationFrame(revealFrame);
+  const end = performance.now() + REVEAL_MS;
+  const follow = (): void => {
+    if (!el.isConnected || performance.now() > end) {
+      clearHighlight();
+      return;
+    }
+    showHighlight(el);
+    revealFrame = requestAnimationFrame(follow);
+  };
+  follow();
+};
