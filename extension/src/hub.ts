@@ -23,6 +23,7 @@
  */
 
 import type {PortLike, PortMessage} from '../../src/lib/devframe/port-link.js';
+import {PEER_CONNECTED_CHANNEL} from '../../src/lib/devframe/protocol.js';
 import {
   CHANNEL_PAGE_STATUS,
   PAGE_PORT,
@@ -95,7 +96,10 @@ export const createHub = (): Hub => {
         let set = panels.get(tabId);
         if (set === undefined) panels.set(tabId, (set = new Set()));
         set.add(port);
-        status(port, pages.has(tabId));
+        const page = pages.get(tabId);
+        status(port, page !== undefined);
+        // The page's port predates this panel; have it re-announce itself.
+        if (page !== undefined) post(page, {channel: PEER_CONNECTED_CHANNEL});
         return;
       }
       const page = pages.get(tabId);

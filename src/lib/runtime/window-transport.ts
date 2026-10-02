@@ -29,12 +29,15 @@
  * starts, and answers the page's `hello` the same way, so the page re-attaches
  * and the runtime re-announces itself ({@link attachWindowTransport}). Page
  * sends made before any relay exists are dropped, which that re-announce
- * covers.
+ * covers. A relay whose port outlives a panel (the extension opens it per
+ * document, not per panel) says `connected` again whenever the port brings
+ * {@link PEER_CONNECTED_CHANNEL}.
  */
 
 import {pageChannel} from './page-channel.js';
 import type {PageTransport} from './page-channel.js';
 import type {PortLike, PortMessage} from '../devframe/port-link.js';
+import {PEER_CONNECTED_CHANNEL} from '../devframe/protocol.js';
 
 /** Marks window messages as ours among all other `postMessage` traffic. */
 export const SOURCE = '@oddsquad/vite-plugin-lit';
@@ -189,6 +192,7 @@ export const relayWindowToPort = (
     if (stopped) return;
     const {channel, data} = (message ?? {}) as Partial<PortMessage>;
     if (typeof channel !== 'string') return;
+    if (channel === PEER_CONNECTED_CHANNEL) return announce();
     post(target, {source: SOURCE, dir: 'to-page', channel, data});
   });
   port.onDisconnect?.addListener(stop);

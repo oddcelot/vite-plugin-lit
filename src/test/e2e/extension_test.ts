@@ -42,6 +42,7 @@ declare const chrome: {
     connect(info: {name: string}): {
       postMessage(message: unknown): void;
       onMessage: {addListener(callback: (message: unknown) => void): void};
+      disconnect(): void;
     };
   };
   tabs: {query(info: {url: string}): Promise<Array<{id?: number}>>};
@@ -211,32 +212,81 @@ test('once enabled, the runtime is in the page before its first script', async (
   await page.close();
 });
 
-test("the page's relay port reaches the background, per document", async () => {
+test("the page's runtime reaches a panel through the relay, per document", async () => {
   const page = await context.newPage();
   await page.goto(appOrigin);
-  await extensionPage.evaluate(async (origin) => {
-    const [tab] = await chrome.tabs.query({url: `${origin}/*`});
-    const w = window as unknown as {statuses: unknown[]};
-    w.statuses = [];
-    const port = chrome.runtime.connect({name: 'lit-panel'});
-    port.onMessage.addListener((message) => w.statuses.push(message));
-    port.postMessage({tabId: tab.id});
-  }, appOrigin);
-  const statuses = () =>
+  type Message = {
+    channel: string;
+    data?: {connected?: boolean; pageId?: string};
+  };
+  // A panel opens after the page booted, as it usually does: the page has to
+  // re-announce itself through MAIN world, window, relay and background.
+  const openPanel = (name: string) =>
     extensionPage.evaluate(
-      () => (window as unknown as {statuses: unknown[]}).statuses
+      async ([origin, name]) => {
+        const [tab] = await chrome.tabs.query({url: `${origin}/*`});
+        const w = window as unknown as {
+          panels: Record<string, {port: {disconnect(): void}; got: unknown[]}>;
+        };
+        w.panels ??= {};
+        const port = chrome.runtime.connect({name: 'lit-panel'});
+        const got: unknown[] = [];
+        port.onMessage.addListener((message) => got.push(message));
+        port.postMessage({tabId: tab.id});
+        w.panels[name] = {port, got};
+      },
+      [appOrigin, name] as const
     );
+  const closePanel = (name: string) =>
+    extensionPage.evaluate((name) => {
+      const w = window as unknown as {
+        panels: Record<string, {port: {disconnect(): void}}>;
+      };
+      w.panels[name]?.port.disconnect();
+    }, name);
+  const received = (name: string, channel: string) =>
+    extensionPage.evaluate(
+      ([name, channel]) =>
+        (
+          window as unknown as {panels: Record<string, {got: Message[]}>}
+        ).panels[name]!.got.filter((message) => message.channel === channel),
+      [name, channel] as const
+    );
+  const statuses = (name: string) => received(name, 'lit-ext:page');
+  const readies = (name: string) =>
+    received(name, 'lit:timeline:runtime-ready');
   const connected = {channel: 'lit-ext:page', data: {connected: true}};
-  await expect.poll(statuses).toEqual([connected]);
 
-  // A reload is a new document with a new port; the panel keeps its own.
+  await openPanel('first');
+  await expect.poll(() => statuses('first')).toEqual([connected]);
+  await expect
+    .poll(async () => (await readies('first')).length)
+    .toBeGreaterThan(0);
+  const firstPageId = (await readies('first'))[0]?.data?.pageId;
+  expect(firstPageId).toBeTypeOf('string');
+
+  // DevTools closed and opened again on the same document. Its start-up
+  // traffic is long gone, so only the re-announce can reach this panel.
+  await closePanel('first');
+  await openPanel('second');
+  await expect
+    .poll(async () => (await readies('second')).map((m) => m.data?.pageId))
+    .toContain(firstPageId);
+
+  // A reload is a new document with a new port and a new page id; the panel
+  // keeps its own port.
   await page.reload();
-  await expect.poll(async () => (await statuses()).at(-1)).toEqual(connected);
-  expect((await statuses()).length).toBeGreaterThan(1);
+  await expect
+    .poll(async () => (await statuses('second')).at(-1))
+    .toEqual(connected);
+  expect((await statuses('second')).length).toBeGreaterThan(1);
+  await expect
+    .poll(async () => (await readies('second')).at(-1)?.data?.pageId)
+    .not.toBe(firstPageId);
 
   await page.close();
   await expect
-    .poll(async () => (await statuses()).at(-1))
+    .poll(async () => (await statuses('second')).at(-1))
     .toEqual({channel: 'lit-ext:page', data: {connected: false}});
 });
 

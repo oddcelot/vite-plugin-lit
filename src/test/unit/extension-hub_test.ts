@@ -53,6 +53,8 @@ const panel = (tabId: number) => {
   return {port, hello: () => port.send({tabId})};
 };
 
+const peerConnected = {channel: 'lit:peer-connected'};
+
 const status = (connected: boolean) => ({
   channel: 'lit-ext:page',
   data: {connected},
@@ -75,8 +77,28 @@ describe('extension hub', () => {
     });
     q.send({channel: 'lit:inspect-cmd', data: {type: 'tree'}});
     expect(p.received).toEqual([
+      peerConnected,
       {channel: 'lit:inspect-cmd', data: {type: 'tree'}},
     ]);
+  });
+
+  test('asks a page that was already up to re-announce itself to a new panel', () => {
+    const hub = createHub();
+    const p = page(1);
+    hub.connect(p);
+    expect(p.received).toEqual([]);
+
+    const first = panel(1);
+    hub.connect(first.port);
+    first.hello();
+    expect(p.received).toEqual([peerConnected]);
+
+    // DevTools closed and opened again: same document, same page port.
+    first.port.hangUp();
+    const second = panel(1);
+    hub.connect(second.port);
+    second.hello();
+    expect(p.received).toEqual([peerConnected, peerConnected]);
   });
 
   test('tells a panel that came first when the page connects', () => {
@@ -116,7 +138,7 @@ describe('extension hub', () => {
     expect(q.received).toEqual([status(true), status(true)]);
 
     q.send({channel: 'lit:inspect-cmd'});
-    expect(before.received).toEqual([]);
+    expect(before.received).toEqual([peerConnected]);
     expect(after.received).toEqual([{channel: 'lit:inspect-cmd'}]);
 
     after.hangUp();
@@ -160,8 +182,8 @@ describe('extension hub', () => {
     q2.port.send({channel: 'to-two'});
     expect(q1.port.received).toEqual([status(true), {channel: 'one'}]);
     expect(q2.port.received).toEqual([status(true), {channel: 'two'}]);
-    expect(p1.received).toEqual([]);
-    expect(p2.received).toEqual([{channel: 'to-two'}]);
+    expect(p1.received).toEqual([peerConnected]);
+    expect(p2.received).toEqual([peerConnected, {channel: 'to-two'}]);
 
     p1.hangUp();
     expect(q2.port.received.at(-1)).toEqual({channel: 'two'});

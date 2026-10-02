@@ -12,9 +12,9 @@
  * Bundled as a self-contained classic script, like `page.ts`.
  */
 
+import {relayWindowToPort} from '../../src/lib/runtime/window-transport.js';
 import {PAGE_PORT} from './protocol.js';
 
 const port = chrome.runtime.connect({name: PAGE_PORT});
 
-// vej.3: relayWindowToPort(window, port);
-void port;
+relayWindowToPort(window, port);
