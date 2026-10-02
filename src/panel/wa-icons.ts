@@ -34,6 +34,7 @@ import lightning from '@phosphor-icons/core/assets/regular/lightning.svg?raw';
 import notification from '@phosphor-icons/core/assets/regular/notification.svg?raw';
 import record from '@phosphor-icons/core/assets/regular/record.svg?raw';
 import stop from '@phosphor-icons/core/assets/regular/stop.svg?raw';
+import target from '@phosphor-icons/core/assets/regular/target.svg?raw';
 import trash from '@phosphor-icons/core/assets/regular/trash.svg?raw';
 import warning from '@phosphor-icons/core/assets/regular/warning.svg?raw';
 import x from '@phosphor-icons/core/assets/regular/x.svg?raw';
@@ -56,6 +57,7 @@ const ICONS = {
   notification,
   record,
   stop,
+  target,
   trash,
   warning,
   x,

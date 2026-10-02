@@ -160,11 +160,20 @@ export class ComponentsView extends LitElement {
         padding: var(--lit-devtools-space-5) var(--lit-devtools-space-5);
         font-size: var(--lit-devtools-text-xs);
       }
+      .details .head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--lit-devtools-space-2);
+        margin: 0 0 var(--lit-devtools-space-1);
+      }
       .details h2 {
         font-size: var(--lit-devtools-text-xs);
         font-family: var(--lit-devtools-font-mono);
         color: var(--lit-devtools-accent);
-        margin: 0 0 var(--lit-devtools-space-1);
+        margin: 0;
+        min-width: 0;
+        overflow-wrap: anywhere;
       }
       .src {
         max-width: 100%;
@@ -659,6 +668,17 @@ export class ComponentsView extends LitElement {
     this._call({type: 'highlight', id});
   }
 
+  /** Scroll the selected element into view in the page, same routes as {@link _highlight}. */
+  private _reveal(): void {
+    const id = this._details?.id;
+    if (id === undefined) return;
+    if (inPageConnected()) {
+      inPageChannel().emit('reveal', id);
+      return;
+    }
+    this._call({type: 'reveal', id});
+  }
+
   private _saveDetailsWidth(e: Event): void {
     const width = Math.round((e.target as WaSplitPanel).positionInPixels);
     if (!(width >= DETAILS_WIDTH_MIN)) return;
@@ -811,7 +831,23 @@ export class ComponentsView extends LitElement {
     const stateProps = d.properties.filter((p) => p.state);
     const extras = d.extras ?? [];
     return html`
-      <h2>&lt;${d.tagName}&gt;</h2>
+      <div class="head">
+        <h2>&lt;${d.tagName}&gt;</h2>
+        ${
+          isSnapshot()
+            ? nothing
+            : html`<wa-button
+                class="reveal"
+                appearance="plain"
+                size="small"
+                title="Scroll into view"
+                aria-label="Scroll into view"
+                @click=${this._reveal}
+              >
+                <wa-icon name="target"></wa-icon>
+              </wa-button>`
+        }
+      </div>
       ${
         d.source !== undefined
           ? html`<wa-button

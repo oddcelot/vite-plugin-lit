@@ -121,6 +121,8 @@ export type InspectorCommand =
   | {type: 'watch'; id: number | null}
   /** Outline element `id` in the page on tree hover; `null` clears it. */
   | {type: 'highlight'; id: number | null}
+  /** Scroll element `id` into view in the page and outline it briefly. */
+  | {type: 'reveal'; id: number}
   /**
    * Opt-in live tree: when enabled, the runtime watches the DOM and pushes a
    * fresh `tree` message whenever the component hierarchy changes. Off by

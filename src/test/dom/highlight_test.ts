@@ -1,7 +1,15 @@
-import {afterEach, beforeEach, describe, expect, test} from 'vite-plus/test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from 'vite-plus/test';
 import {
   clearHighlight,
   highlightById,
+  revealById,
   showHighlight,
 } from '../../lib/runtime/inspector/highlight.js';
 import {idOf} from '../../lib/runtime/timeline/identity.js';
@@ -85,5 +93,34 @@ describe('highlightById', () => {
     highlightById(idOf(target));
     highlightById(987654321);
     expect(box()!.style.display).toBe('none');
+  });
+});
+
+describe('revealById', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test('scrolls the element to the middle and outlines it until the scroll settles', () => {
+    vi.useFakeTimers({toFake: ['requestAnimationFrame', 'performance']});
+    const scrolled: ScrollIntoViewOptions[] = [];
+    target.scrollIntoView = (opts) => {
+      scrolled.push(opts as ScrollIntoViewOptions);
+    };
+    revealById(idOf(target));
+    expect(scrolled).toEqual([
+      expect.objectContaining({block: 'center', inline: 'nearest'}),
+    ]);
+    expect(box()!.style.display).toBe('block');
+    // The box follows the element while it moves.
+    rectOf(target, {l: 10, t: 300, w: 100, h: 50});
+    vi.advanceTimersByTime(100);
+    expect(box()!.style.top).toBe('300px');
+    vi.advanceTimersByTime(2000);
+    expect(box()!.style.display).toBe('none');
+  });
+
+  test('ignores an id that does not resolve', () => {
+    expect(() => revealById(987654321)).not.toThrow();
   });
 });
