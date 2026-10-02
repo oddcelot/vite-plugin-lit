@@ -111,9 +111,14 @@ test('origin badges skip defaults, and the open select marks the baseline', asyn
   // onIncompatible came from env: the badge stays and the marker names env.
   const incompatible = row('on incompatible');
   expect(incompatible.querySelector('.src')?.textContent).toBe('(env)');
-  expect(incompatible.querySelector('wa-option .opt-src')!.textContent).toBe(
-    'env'
+  // ...and the built-in default keeps its own marker beside it.
+  const markers = Object.fromEntries(
+    [...incompatible.querySelectorAll('wa-option .opt-src')].map((m) => [
+      m.closest('wa-option')!.getAttribute('value'),
+      m.textContent,
+    ])
   );
+  expect(markers).toEqual({warn: 'env', reload: 'default'});
 
   expect(child.querySelector('.key')!.getAttribute('data-tip')).toContain(
     'Default: transfer'
