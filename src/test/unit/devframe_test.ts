@@ -233,142 +233,87 @@ describe('lit devframe definition', () => {
     ]);
   });
 
-  test('a ready from the page already followed keeps its buffer', async () => {
-    const {source, ctx} = await boot();
-    source.sink!.runtimeReady('a');
-    source.sink!.pushEvents([pageEvent(1), pageEvent(2)], 'a');
-    source.sink!.runtimeReady('a');
-    expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toHaveLength(2);
-  });
-
-  test('a ready from another page clears the buffer and says so', async () => {
+  // The rules themselves are `followed-page_test.ts`'s; these check that the
+  // followed page's effects reach the panel, the shared state and the
+  // terminal.
+  test('page traffic reaches the panel as broadcasts', async () => {
     const {source, ctx} = await boot();
     const spy = vi.spyOn(ctx.rpc, 'broadcast');
-    // The event stream broadcasts too; only the notice matters here.
-    const notices = () =>
-      spy.mock.calls.filter(([call]) => call.method === 'lit:page-changed');
-    source.sink!.runtimeReady('a');
-    source.sink!.pushEvents([pageEvent(1), pageEvent(2)], 'a');
-    expect(notices()).toHaveLength(0);
-
-    source.sink!.runtimeReady('b');
-    expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toEqual([]);
-    expect(notices()).toHaveLength(1);
-    expect(notices()[0]![0]).toMatchObject({
-      args: [{previousPageId: 'a', pageId: 'b'}],
-    });
+    const broadcasts = () =>
+      spy.mock.calls.map(([call]) => [call.method, call.args![0]]);
+    const patched = {
+      tagName: 'x-a',
+      instances: 1,
+      generation: 1,
+      durationMs: 1,
+      childState: 'transfer' as const,
+      at: 1,
+    };
+    const failed: HmrIncompatibilityEvent = {
+      tagName: 'x-a',
+      time: 2,
+      reason: {code: 'accessor-decorators'},
+      action: 'reload',
+    };
+    source.sink!.runtimeReady('a', 'tab-1');
+    source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]}, 'a');
+    source.sink!.hmrPatched(patched, 'a');
+    source.sink!.hmrIncompatible(failed, 'a');
+    source.sink!.runtimeReady('b', 'tab-1');
+    expect(broadcasts()).toEqual([
+      ['lit:inspector-message', {type: 'tree', roots: [treeNode]}],
+      ['lit:hmr-patched', patched],
+      ['lit:hmr-incompatible', failed],
+      [
+        'lit:page-changed',
+        expect.objectContaining({
+          previousPageId: 'a',
+          pageId: 'b',
+          reload: true,
+        }),
+      ],
+    ]);
     expect((await ctx.rpc.invokeLocal('lit:get-meta')).activePageId).toBe('b');
   });
 
-  test('a new page in the same tab is a reload: cleared, flagged, same tab', async () => {
+  test('page events reach the timeline stream and history', async () => {
     const {source, ctx} = await boot();
-    const spy = vi.spyOn(ctx.rpc, 'broadcast');
-    const notices = () =>
-      spy.mock.calls
-        .filter(([call]) => call.method === 'lit:page-changed')
-        .map(([call]) => call.args![0]);
-    source.sink!.runtimeReady('a', 'tab-1');
-    source.sink!.pushEvents([pageEvent(1)], 'a');
-    source.sink!.runtimeReady('b', 'tab-1');
-    expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toEqual([]);
-    expect(notices()).toMatchObject([
-      {previousPageId: 'a', pageId: 'b', reload: true},
-    ]);
-
-    source.sink!.runtimeReady('c', 'tab-2');
-    expect(notices()[1]).toMatchObject({pageId: 'c', reload: false});
+    source.sink!.pushEvents([pageEvent(1), pageEvent(2)]);
+    const history = await ctx.rpc.invokeLocal('lit:timeline-history');
+    expect(history.map((e) => e.time)).toEqual([1, 2]);
+    expect(history.every((e) => typeof e.id === 'string')).toBe(true);
   });
 
-  test('drops events and inspector messages from a page that is not followed', async () => {
+  test('a custom layer from the page is added to the shared state once', async () => {
     const {source, ctx} = await boot();
-    source.sink!.runtimeReady('a');
-    source.sink!.runtimeReady('b');
-    source.sink!.pushEvents([pageEvent(1)], 'a');
-    source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]}, 'a');
-    expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toEqual([]);
-    expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([]);
-
-    source.sink!.pushEvents([pageEvent(2)], 'b');
-    source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]}, 'b');
-    expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toHaveLength(1);
-    expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([
-      treeNode,
+    const layer = {id: 'mine', label: 'Mine', color: 0xffffff};
+    source.sink!.addLayer(layer);
+    source.sink!.addLayer(layer);
+    expect((await ctx.rpc.invokeLocal('lit:get-meta')).layers).toEqual([
+      ...TIMELINE_LAYERS,
+      layer,
     ]);
   });
 
-  test('drops picks, custom layers and incompatibilities from a page that is not followed', async () => {
-    const {source, ctx} = await boot();
-    const spy = vi.spyOn(ctx.rpc, 'broadcast');
-    source.sink!.runtimeReady('a');
-    source.sink!.runtimeReady('b');
-    source.sink!.inspectorMessage({type: 'pick', id: 3}, 'a');
-    source.sink!.addLayer({id: 'mine', label: 'Mine', color: 0xffffff}, 'a');
-    source.sink!.hmrIncompatible(
-      {
+  test('an HMR incompatibility is echoed to the terminal', async () => {
+    const {source} = await boot();
+    const logged: string[] = [];
+    for (const method of ['log', 'info', 'warn', 'error'] as const) {
+      vi.spyOn(console, method).mockImplementation((...args: unknown[]) => {
+        logged.push(args.map(String).join(' '));
+      });
+    }
+    try {
+      source.sink!.hmrIncompatible({
         tagName: 'x-a',
         time: 1,
-        reason: {code: 'accessor-decorators'},
+        reason: {code: 'patch-failed', detail: 'boom'},
         action: 'reload',
-      } as unknown as HmrIncompatibilityEvent,
-      'a'
-    );
-    expect(
-      spy.mock.calls.filter(([call]) => call.method !== 'lit:page-changed')
-    ).toEqual([]);
-    expect((await ctx.rpc.invokeLocal('lit:get-meta')).layers).toEqual(
-      TIMELINE_LAYERS
-    );
-    expect(await ctx.rpc.invokeLocal('lit:hmr-incompatibilities')).toEqual([]);
-
-    source.sink!.addLayer({id: 'mine', label: 'Mine', color: 0xffffff}, 'b');
-    expect((await ctx.rpc.invokeLocal('lit:get-meta')).layers).toHaveLength(
-      TIMELINE_LAYERS.length + 1
-    );
-  });
-
-  test('a ready from another page forgets the cached tree, details and HMR history', async () => {
-    const {source, ctx} = await boot({inspectorTimeoutMs: 20});
-    const details = detailsFor(1);
-    const history = async () =>
-      ((await ctx.rpc.invokeLocal('lit:hmr-history')) as {entries: unknown[]})
-        .entries;
-    source.sink!.runtimeReady('a');
-    source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]}, 'a');
-    source.sink!.inspectorMessage({type: 'details', details}, 'a');
-    source.sink!.hmrPatched(
-      {
-        tagName: 'x-a',
-        instances: 1,
-        generation: 1,
-        durationMs: 1,
-        childState: 'transfer',
-        at: 1,
-      },
-      'a'
-    );
-    source.sink!.hmrIncompatible(
-      {
-        tagName: 'x-a',
-        time: 2,
-        reason: {code: 'accessor-decorators'},
-        action: 'reload',
-      } as unknown as HmrIncompatibilityEvent,
-      'a'
-    );
-    // A reconnect of the same page keeps them.
-    source.sink!.runtimeReady('a');
-    expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([
-      treeNode,
-    ]);
-    expect(await history()).toHaveLength(2);
-
-    source.sink!.runtimeReady('b');
-    expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([]);
-    expect(
-      await ctx.rpc.invokeLocal('lit:component-details', {id: 1})
-    ).toBeNull();
-    expect(await history()).toEqual([]);
-    expect(await ctx.rpc.invokeLocal('lit:hmr-incompatibilities')).toEqual([]);
+      });
+      expect(logged.join('\n')).toMatch(/LIT_HMR_PATCH_FAILED[\s\S]*boom/);
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 
   test('a stale page cannot answer an agent query', async () => {
@@ -383,19 +328,6 @@ describe('lit devframe definition', () => {
     const other: InspectorTreeNode = {id: 9, tagName: 'x-b', children: []};
     source.sink!.inspectorMessage({type: 'tree', roots: [other]}, 'b');
     expect(await pending).toEqual([other]);
-  });
-
-  test('runtimes without a page id are never filtered', async () => {
-    const {source, ctx} = await boot();
-    source.sink!.runtimeReady(undefined);
-    source.sink!.pushEvents([pageEvent(1)]);
-    source.sink!.runtimeReady(undefined);
-    source.sink!.pushEvents([pageEvent(2)]);
-    expect(await ctx.rpc.invokeLocal('lit:timeline-history')).toHaveLength(1);
-    source.sink!.inspectorMessage({type: 'tree', roots: [treeNode]});
-    expect(await ctx.rpc.invokeLocal('lit:list-components')).toEqual([
-      treeNode,
-    ]);
   });
 
   test('hmr-history merges patches and failures, oldest first', async () => {
@@ -429,25 +361,6 @@ describe('lit devframe definition', () => {
     expect(await ctx.rpc.invokeLocal('lit:hmr-incompatibilities')).toEqual([
       failed,
     ]);
-  });
-
-  test('hmr-history ignores patches from a page that is not followed', async () => {
-    const {source, ctx} = await boot();
-    const event = {
-      tagName: 'x-a',
-      instances: 1,
-      generation: 1,
-      durationMs: 1,
-      childState: 'transfer' as const,
-      at: 1,
-    };
-    source.sink!.runtimeReady('a');
-    source.sink!.hmrPatched(event, 'a');
-    source.sink!.hmrPatched({...event, at: 2}, 'other-tab');
-    const result = (await ctx.rpc.invokeLocal('lit:hmr-history')) as {
-      entries: Array<{at: number}>;
-    };
-    expect(result.entries.map((e) => e.at)).toEqual([1]);
   });
 
   test('registers the scoped rpc surface', async () => {
@@ -895,23 +808,6 @@ describe('lit devframe definition', () => {
     expect(result.events[0]!.id).toBe('old-0');
   });
 
-  test('replays recording state to a runtime that just connected', async () => {
-    const {ctx, source} = await boot();
-    await ctx.rpc.invokeLocal('lit:set-recording', {recording: true});
-    // Ignore the pushes caused by the toggle itself; we care about what a
-    // page gets when it connects afterwards.
-    source.recording.length = 0;
-    source.layers.length = 0;
-
-    // A page loads or reloads while recording is already on. Without this
-    // replay it boots with `recordingState: false` and captures nothing,
-    // while every surface still reports `recording: true`.
-    source.sink!.runtimeReady();
-
-    expect(source.recording).toEqual([true]);
-    expect(source.layers[0]?.recordingState).toBe(true);
-  });
-
   test('replays the stored settings override to a runtime that just connected', async () => {
     const {ctx, source} = await boot();
     const settings = ctx.scope('lit').settings.global;
@@ -926,56 +822,6 @@ describe('lit devframe definition', () => {
     } finally {
       await settings.delete('override');
     }
-  });
-
-  test('sends no settings override when none is stored', async () => {
-    const {ctx, source} = await boot();
-    await ctx.scope('lit').settings.global.delete('override');
-    source.sink!.runtimeReady();
-    // The replay is async; let the store read settle before asserting.
-    await ctx.scope('lit').settings.global.get('override');
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(source.overrides).toEqual([]);
-  });
-
-  test('drops buffered events from the previous page on reconnect', async () => {
-    const {ctx, source} = await boot();
-    source.sink!.pushEvents([{layerId: 'mouse', time: 4000, data: {}}]);
-    expect((await ctx.rpc.invokeLocal('lit:recent-events')).bufferSize).toBe(1);
-
-    // The runtime re-zeroes its clock per page, so keeping the old page's
-    // events would put two time origins in one buffer and make `sinceMs`
-    // meaningless.
-    source.sink!.runtimeReady();
-
-    const after = await ctx.rpc.invokeLocal('lit:recent-events');
-    expect(after.bufferSize).toBe(0);
-    expect(after.events).toEqual([]);
-  });
-
-  test('drops buffered events when a new recording starts', async () => {
-    const {ctx, source} = await boot();
-    await ctx.rpc.invokeLocal('lit:set-recording', {recording: true});
-    // Shared-state `updated` is emitted asynchronously, and the rising-edge
-    // clear rides on it.
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    source.sink!.pushEvents([{layerId: 'mouse', time: 4000, data: {}}]);
-
-    // Stopping keeps the recording readable — that is the point of stopping.
-    await ctx.rpc.invokeLocal('lit:set-recording', {recording: false});
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect((await ctx.rpc.invokeLocal('lit:recent-events')).bufferSize).toBe(1);
-
-    // Starting again re-zeroes the page's timeline clock, so the previous
-    // recording's times would sit *above* everything captured afterwards:
-    // `sinceMs` reads them as the future and a start/end pair spanning the
-    // seam has a negative duration.
-    await ctx.rpc.invokeLocal('lit:set-recording', {recording: true});
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const after = await ctx.rpc.invokeLocal('lit:recent-events');
-    expect(after.bufferSize).toBe(0);
-    expect(after.events).toEqual([]);
   });
 
   test('update-summary summarizes the buffer and forwards tagName', async () => {

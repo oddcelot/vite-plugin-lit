@@ -2,8 +2,9 @@
  * The recording session behind the {@link TimelineSink}: ring buffers, event
  * id stamping, the rising-edge clear, the `sinceMs`/`limit` window and the
  * inspector caches. Plain state and pure queries -- no devframe, no Vite, no
- * streams -- so `definition.ts` is left registering thin RPC adapters over it
- * and the window semantics can be unit-tested without booting anything.
+ * streams -- so the window semantics can be unit-tested without booting
+ * anything. Private to `followed-page.ts`, which decides when to clear, forget
+ * and accept; nothing else drives it.
  *
  * @see plans/devframe-foundation.md
  */
