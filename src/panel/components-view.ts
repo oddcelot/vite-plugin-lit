@@ -8,7 +8,6 @@ import '@awesome.me/webawesome/dist/components/split-panel/split-panel.js';
 import type WaSplitPanel from '@awesome.me/webawesome/dist/components/split-panel/split-panel.js';
 import {tokens} from '../lib/tokens.js';
 import {
-  type InspectorCommand,
   type InspectorDetails,
   type InspectorExtra,
   type InspectorMessage,
@@ -19,16 +18,10 @@ import {
   type HmrIncompatibilityEvent,
 } from '../types/hmr-incompatibility.js';
 import type {HmrPatchEvent} from '../types/hmr-patch.js';
-import {
-  describeError,
-  getMeta,
-  isSnapshot,
-  litRpc,
-  type LitClient,
-} from './client.js';
+import {describeError, getMeta, litRpc} from './client.js';
 import {ComponentsSession} from './components-session.js';
 import {openInEditor} from './open-in-editor.js';
-import {inPageChannel, inPageConnected} from './in-page.js';
+import {hostInfo, sendToPage, touchPageChannel} from './host.js';
 import {overrides} from './settings-override.js';
 
 /**
@@ -292,7 +285,7 @@ export class ComponentsView extends LitElement {
    * rules that keep the page in step with them. This element renders it.
    */
   private readonly _session = new ComponentsSession({
-    send: (command) => this._call(command),
+    send: sendToPage,
     storage: {
       getItem: (key) => localStorage.getItem(key),
       setItem: (key, value) => localStorage.setItem(key, value),
@@ -319,6 +312,8 @@ export class ComponentsView extends LitElement {
   /** Whether a source location opens in the editor, as `get-meta` reports
    *  it; otherwise the location is shown as plain text. */
   @state() private _canOpen = false;
+  /** A frozen snapshot: no page to reveal elements in or explain. */
+  @state() private _snapshot = false;
   /** Mirror of the `flashUpdates` override; the Settings tab shows it too. */
   @state() private _flash = false;
   /** Set when the devframe connection fails; rendered in place of the tree. */
@@ -328,7 +323,6 @@ export class ComponentsView extends LitElement {
   /** Details pane width in pixels, restored once; the split panel owns it
    *  after that and `_saveDetailsWidth` persists each drag. */
   private readonly _detailsWidth = readDetailsWidth();
-  private _rpc: LitClient | null = null;
   private _unsubscribeOverride: (() => void) | null = null;
   private _unsubscribeSession: (() => void) | null = null;
   private _reportedIncompatibilities: unknown = null;
@@ -393,7 +387,6 @@ export class ComponentsView extends LitElement {
   private async _connect(): Promise<void> {
     try {
       const rpc = await litRpc();
-      this._rpc = rpc;
       rpc.rpc.register({
         name: 'inspector-message',
         type: 'event',
@@ -410,14 +403,15 @@ export class ComponentsView extends LitElement {
         type: 'event',
         handler: (event: HmrPatchEvent) => this._session.hmrPatched(event),
       });
+      void hostInfo().then((host) => {
+        this._canPick = host.picker;
+        this._canOpen = host.openInEditor;
+        this._snapshot = host.snapshot;
+      });
       void getMeta().then(
-        (meta) => {
-          this._canPick = !isSnapshot() && meta.picker;
-          this._canOpen = meta.capabilities.openInEditor;
-          this._session.setRuntime(meta.runtime);
-        },
+        (meta) => this._session.setRuntime(meta.runtime),
         () => {
-          // No meta, no picker to offer.
+          // No meta: the empty tree goes unexplained.
         }
       );
       const roots = await rpc.rpc.call('list-components');
@@ -428,27 +422,13 @@ export class ComponentsView extends LitElement {
         (history) => history.entries,
         () => undefined
       );
-      // The tree baked into a frozen session is all it has: `_call` drops the
+      // The tree baked into a frozen session is all it has: `sendToPage` drops the
       // commands this sends, since asking the page would reject.
       this._session.connected({roots, hmrIncompatibilities, hmrHistory});
-      // The page only learns the panel is gone over the in-page channel, which
-      // connects lazily on first use. Touch it so Live mode is covered even if
-      // the user never hovers the tree.
-      if (this._session.live && !isSnapshot()) inPageConnected();
+      if (this._session.live) touchPageChannel();
     } catch (err) {
       this._error = describeError(err);
     }
-  }
-
-  /** Send an {@link InspectorCommand}; a no-op until the client connects. */
-  private _call(cmd: InspectorCommand): void {
-    if (this._rpc === null) return;
-    // Nothing to command in a frozen session: there is no page, and the
-    // action is not in the dump.
-    if (isSnapshot()) return;
-    this._rpc.rpc.call('inspect', cmd).catch((err: unknown) => {
-      console.warn('[lit-devtools] inspector call failed', err);
-    });
   }
 
   /**
@@ -456,7 +436,7 @@ export class ComponentsView extends LitElement {
    * announcement allows. A frozen snapshot has no runtime to ask about.
    */
   private _renderEmpty() {
-    const runtime = isSnapshot() ? null : this._session.runtime;
+    const runtime = this._snapshot ? null : this._session.runtime;
     if (runtime !== null && !runtime.ready) {
       return html`<div class="empty">
         The page runtime has not connected to this dev server. Open the page
@@ -520,7 +500,7 @@ export class ComponentsView extends LitElement {
   private _toggleLive(): void {
     this._session.toggleLive();
     // Connect the lazy in-page channel so the page can see the panel leave.
-    if (this._session.live && !isSnapshot()) inPageConnected();
+    if (this._session.live) touchPageChannel();
   }
 
   /**
@@ -532,33 +512,15 @@ export class ComponentsView extends LitElement {
     overrides.set('flashUpdates', !this._flash);
   }
 
-  /**
-   * Outline an element in the page. Fires on every `mouseenter` in the tree,
-   * which is why it prefers the direct page channel: the RPC route is
-   * panel -> node -> HMR -> page, a full round trip through the dev server
-   * for something the page could have drawn itself.
-   *
-   * The channel is not always there — a panel opened as its own tab has no
-   * page script in its ancestry — so the RPC route stays as the fallback and
-   * is still the only path when the page predates this version.
-   */
+  /** Outline an element in the page; fires on every `mouseenter` in the tree. */
   private _highlight(id: number | null): void {
-    if (inPageConnected()) {
-      inPageChannel().emit('highlight', id);
-      return;
-    }
-    this._call({type: 'highlight', id});
+    sendToPage({type: 'highlight', id});
   }
 
-  /** Scroll the selected element into view in the page, same routes as {@link _highlight}. */
+  /** Scroll the selected element into view in the page. */
   private _reveal(): void {
     const id = this._session.details?.id;
-    if (id === undefined) return;
-    if (inPageConnected()) {
-      inPageChannel().emit('reveal', id);
-      return;
-    }
-    this._call({type: 'reveal', id});
+    if (id !== undefined) sendToPage({type: 'reveal', id});
   }
 
   private _saveDetailsWidth(e: Event): void {
@@ -716,7 +678,7 @@ export class ComponentsView extends LitElement {
       <div class="head">
         <h2>&lt;${d.tagName}&gt;</h2>
         ${
-          isSnapshot()
+          this._snapshot
             ? nothing
             : html`<wa-button
                 class="reveal"

@@ -11,6 +11,7 @@ import {
 } from './fakes/client.js';
 
 vi.mock('../../panel/client.js', () => import('./fakes/client.js'));
+import {resetHostInfo} from '../../panel/host.js';
 vi.mock('../../panel/in-page.js', () => import('./fakes/in-page.js'));
 
 beforeAll(async () => {
@@ -34,6 +35,8 @@ const flush = async (el: ComponentsView) => {
 
 const mount = async (picker = false, roots: InspectorTreeNode[] = tree) => {
   meta.picker = picker;
+  // A fresh mount is a fresh panel: read the host again.
+  resetHostInfo();
   answers.set('list-components', roots);
   answers.set('hmr-incompatibilities', []);
   if (!answers.has('hmr-history')) answers.set('hmr-history', {entries: []});
@@ -59,6 +62,7 @@ afterEach(() => {
   localStorage.removeItem(LIVE_LS_KEY);
   localStorage.removeItem(WIDTH_LS_KEY);
   resetClient();
+  resetHostInfo();
 });
 
 test('offers Pick only when the page has a picker', async () => {

@@ -19,6 +19,7 @@ import {
 } from './fakes/timeline-store.js';
 
 vi.mock('../../panel/client.js', () => import('./fakes/client.js'));
+import {resetHostInfo} from '../../panel/host.js';
 vi.mock(
   '../../panel/timeline-store.js',
   () => import('./fakes/timeline-store.js')
@@ -116,6 +117,7 @@ afterEach(async () => {
   }
   resetStore();
   resetClient();
+  resetHostInfo();
   history.replaceState(null, '', location.pathname);
 });
 

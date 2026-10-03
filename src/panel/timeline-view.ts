@@ -22,7 +22,8 @@ import './timeline-layers.js';
 import './timeline-event-list.js';
 import type {TimelineEventList} from './timeline-event-list.js';
 import './timeline-tracks.js';
-import {litRpc, getMeta, describeError, isSnapshot} from './client.js';
+import {litRpc, getMeta, describeError} from './client.js';
+import {hostInfo} from './host.js';
 import {
   clearTimelineEvents,
   getTimelineError,
@@ -197,6 +198,8 @@ export class TimelineView extends LitElement {
    *  plugin the page's Lit may well be a production build, which emits no
    *  `lit-debug` events, so an empty render layer needs explaining. */
   @state() private _vite = true;
+  /** A frozen snapshot: nothing to record, and no server to tell. */
+  @state() private _snapshot = false;
   @state() private _events: TimelineEvent[] = [];
   @state() private _layers: LayerState[] = [];
   @state() private _error: string | null = null;
@@ -301,12 +304,17 @@ export class TimelineView extends LitElement {
    */
   private async _connect(): Promise<void> {
     try {
-      const [rpc, meta] = await Promise.all([litRpc(), getMeta()]);
+      const [rpc, meta, host] = await Promise.all([
+        litRpc(),
+        getMeta(),
+        hostInfo(),
+      ]);
       if (!this._active) return;
       this._rpc = rpc;
       this._baseLayers = meta.layers;
-      this._canExport = meta.capabilities.exportSnapshot;
-      this._vite = meta.capabilities.hmr;
+      this._canExport = host.exportSnapshot;
+      this._vite = host.hmr;
+      this._snapshot = host.snapshot;
 
       const session =
         await rpc.rpc.sharedState<SessionState>(SESSION_STATE_KEY);
@@ -533,7 +541,7 @@ export class TimelineView extends LitElement {
         </wa-button>
         ${
           // A frozen session has nothing to record and no server to tell.
-          isSnapshot()
+          this._snapshot
             ? nothing
             : html`<wa-button
                 class="record ${this._recording ? 'active' : ''}"
