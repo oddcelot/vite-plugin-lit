@@ -12,6 +12,8 @@
  * told), so the ordering rules can be tested by driving the sink directly,
  * with no devframe booted. The {@link RecordingSession} behind it holds the
  * buffers and answers the read-side queries.
+ *
+ * @see CONTEXT.md for the page vocabulary.
  */
 
 import type {InspectorMessage} from '../../types/inspector.js';
