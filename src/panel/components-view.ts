@@ -14,14 +14,11 @@ import {
   type InspectorMessage,
   type InspectorTreeNode,
 } from '../types/inspector.js';
-import type {LitRuntimeInfo} from '../lib/devframe/protocol.js';
 import {
   describeHmrReason,
-  MAX_HMR_INCOMPATIBILITIES,
   type HmrIncompatibilityEvent,
 } from '../types/hmr-incompatibility.js';
 import type {HmrPatchEvent} from '../types/hmr-patch.js';
-import type {HmrHistoryEntry} from '../lib/devframe/protocol.js';
 import {
   describeError,
   getMeta,
@@ -29,6 +26,7 @@ import {
   litRpc,
   type LitClient,
 } from './client.js';
+import {ComponentsSession} from './components-session.js';
 import {openInEditor} from './open-in-editor.js';
 import {inPageChannel, inPageConnected} from './in-page.js';
 import {overrides} from './settings-override.js';
@@ -37,8 +35,6 @@ import {overrides} from './settings-override.js';
  * localStorage key remembering a paused live tree. Live is the default, so
  * only an explicit `'false'` turns it off.
  */
-const LIVE_LS_KEY = 'lit-devtools-components-live';
-
 /** localStorage key remembering the details pane's width in pixels. */
 const DETAILS_WIDTH_LS_KEY = 'lit-devtools-components-details-width';
 const DETAILS_WIDTH_DEFAULT = 340;
@@ -291,13 +287,28 @@ export class ComponentsView extends LitElement {
     `,
   ];
 
-  @state() private _roots: InspectorTreeNode[] = [];
-  @state() private _selectedId: number | null = null;
-  @state() private _details: InspectorDetails | null = null;
-  /** True when the selected element is no longer in the page (removed / GC'd). */
-  @state() private _gone = false;
-  @state() private _expanded = new Set<number>();
-  @state() private _picking = false;
+  /**
+   * The tree, the selection, Live, the picker and the HMR notices, and the
+   * rules that keep the page in step with them. This element renders it.
+   */
+  private readonly _session = new ComponentsSession({
+    send: (command) => this._call(command),
+    storage: {
+      getItem: (key) => localStorage.getItem(key),
+      setItem: (key, value) => localStorage.setItem(key, value),
+    },
+    // Let the shell re-sync the URL hash: a selection is part of "where the
+    // panel is", and a link that drops it would reopen the wrong view.
+    onSelect: (id) =>
+      this.dispatchEvent(
+        new CustomEvent('selection-change', {detail: {id}, bubbles: true})
+      ),
+    // Bring this tab to the front so the pick is visible.
+    onPicked: () =>
+      this.dispatchEvent(
+        new CustomEvent('inspector-activate', {bubbles: true, composed: true})
+      ),
+  });
   /**
    * Whether the page has a picker to toggle, as `get-meta` reports it: the
    * source overlay under Vite (only with `sourceOverlay` on), the standalone
@@ -308,35 +319,26 @@ export class ComponentsView extends LitElement {
   /** Whether a source location opens in the editor, as `get-meta` reports
    *  it; otherwise the location is shown as plain text. */
   @state() private _canOpen = false;
-  /**
-   * What the page runtime announced, from `get-meta` on connect and from each
-   * `ready` push. `null` until known. Only used to explain an empty tree.
-   */
-  @state() private _runtime: LitRuntimeInfo | null = null;
-  /** Opt-in live tree (MutationObserver in the page); persisted, default off. */
-  @state() private _live = false;
   /** Mirror of the `flashUpdates` override; the Settings tab shows it too. */
   @state() private _flash = false;
   /** Set when the devframe connection fails; rendered in place of the tree. */
   @state() private _error: string | null = null;
-  /** Cached HMR-incompatibility events, most recent last; primed from the
-   *  node side's cache, then appended to as `hmr-incompatible` pushes arrive. */
-  @state() private _hmrIncompatibilities: HmrIncompatibilityEvent[] = [];
   /** Collapse state of the banner; the events themselves are never cleared. */
   @state() private _hmrExpanded = true;
   /** Details pane width in pixels, restored once; the split panel owns it
    *  after that and `_saveDetailsWidth` persists each drag. */
   private readonly _detailsWidth = readDetailsWidth();
-  /** The most recent HMR patch that landed. Not an issue, so it never counts
-   *  toward the tab badge. */
-  @state() private _lastPatch: HmrPatchEvent | null = null;
-
   private _rpc: LitClient | null = null;
   private _unsubscribeOverride: (() => void) | null = null;
+  private _unsubscribeSession: (() => void) | null = null;
+  private _reportedIncompatibilities: unknown = null;
 
   override connectedCallback() {
     super.connectedCallback();
-    this._live = localStorage.getItem(LIVE_LS_KEY) !== 'false';
+    this._unsubscribeSession = this._session.subscribe(() => {
+      this.requestUpdate();
+      this._reportIncompatibilities();
+    });
     this._flash = overrides.get().flashUpdates ?? false;
     this._unsubscribeOverride = overrides.subscribe((o) => {
       this._flash = o.flashUpdates ?? false;
@@ -348,28 +350,32 @@ export class ComponentsView extends LitElement {
     super.disconnectedCallback();
     this._unsubscribeOverride?.();
     this._unsubscribeOverride = null;
-    this._call({type: 'watch', id: null});
-    if (this._live) this._call({type: 'observe', enabled: false});
+    this._unsubscribeSession?.();
+    this._unsubscribeSession = null;
+    this._session.dispose();
   }
 
-  override updated(changed: Map<string, unknown>) {
-    if (changed.has('_hmrIncompatibilities')) {
-      // Let the panel shell badge the Components tab even while another tab
-      // is in front — same cross-tab-visibility need `inspector-activate`
-      // solves for overlay picks, but passive: no tab switch.
-      this.dispatchEvent(
-        new CustomEvent('hmr-count-change', {
-          detail: {count: this._hmrIncompatibilities.length},
-          bubbles: true,
-          composed: true,
-        })
-      );
-    }
+  /**
+   * Let the panel shell badge the Components tab even while another tab is
+   * in front — same cross-tab-visibility need `inspector-activate` solves
+   * for overlay picks, but passive: no tab switch.
+   */
+  private _reportIncompatibilities(): void {
+    const list = this._session.hmrIncompatibilities;
+    if (list === this._reportedIncompatibilities) return;
+    this._reportedIncompatibilities = list;
+    this.dispatchEvent(
+      new CustomEvent('hmr-count-change', {
+        detail: {count: list.length},
+        bubbles: true,
+        composed: true,
+      })
+    );
   }
 
   /** Count of cached HMR-incompatibility events; the panel shell's tab badge. */
   get hmrIncompatibilityCount(): number {
-    return this._hmrIncompatibilities.length;
+    return this._session.hmrIncompatibilities.length;
   }
 
   // ---------------------------------------------------------------------------
@@ -391,52 +397,44 @@ export class ComponentsView extends LitElement {
       rpc.rpc.register({
         name: 'inspector-message',
         type: 'event',
-        handler: this._onMessage,
+        handler: (message: InspectorMessage) => this._session.receive(message),
       });
       rpc.rpc.register({
         name: 'hmr-incompatible',
         type: 'event',
-        handler: this._onHmrIncompatible,
+        handler: (event: HmrIncompatibilityEvent) =>
+          this._session.hmrIncompatible(event),
       });
       rpc.rpc.register({
         name: 'hmr-patched',
         type: 'event',
-        handler: this._onHmrPatched,
+        handler: (event: HmrPatchEvent) => this._session.hmrPatched(event),
       });
       void getMeta().then(
         (meta) => {
           this._canPick = !isSnapshot() && meta.picker;
           this._canOpen = meta.capabilities.openInEditor;
-          this._runtime = meta.runtime;
+          this._session.setRuntime(meta.runtime);
         },
         () => {
           // No meta, no picker to offer.
         }
       );
-      this._roots = await rpc.rpc.call('list-components');
-      this._hmrIncompatibilities = await rpc.rpc.call('hmr-incompatibilities');
-      try {
-        const history = await rpc.rpc.call('hmr-history');
-        this._lastPatch = lastPatchOf(history.entries);
-      } catch {
-        // A session dumped by an earlier version has no history baked in; the
-        // line simply stays hidden.
-      }
-      // The baked tree above is all a frozen session has; asking the page for
-      // a fresh one would reject (`inspect` is an action, so it is not in the
-      // dump) and surface as an unhandled rejection in the console.
-      if (!isSnapshot()) {
-        void rpc.rpc.call('inspect', {type: 'tree'});
-        if (this._live) {
-          // Re-arm Live after a panel reload: the page released its observer
-          // when the previous panel went away.
-          this._call({type: 'observe', enabled: true});
-          // The page only learns the panel is gone over the in-page channel,
-          // which connects lazily on first use. Touch it so Live mode is
-          // covered even if the user never hovers the tree.
-          inPageConnected();
-        }
-      }
+      const roots = await rpc.rpc.call('list-components');
+      const hmrIncompatibilities = await rpc.rpc.call('hmr-incompatibilities');
+      // A session dumped by an earlier version has no history baked in; the
+      // patch line simply stays hidden.
+      const hmrHistory = await rpc.rpc.call('hmr-history').then(
+        (history) => history.entries,
+        () => undefined
+      );
+      // The tree baked into a frozen session is all it has: `_call` drops the
+      // commands this sends, since asking the page would reject.
+      this._session.connected({roots, hmrIncompatibilities, hmrHistory});
+      // The page only learns the panel is gone over the in-page channel, which
+      // connects lazily on first use. Touch it so Live mode is covered even if
+      // the user never hovers the tree.
+      if (this._session.live && !isSnapshot()) inPageConnected();
     } catch (err) {
       this._error = describeError(err);
     }
@@ -458,7 +456,7 @@ export class ComponentsView extends LitElement {
    * announcement allows. A frozen snapshot has no runtime to ask about.
    */
   private _renderEmpty() {
-    const runtime = isSnapshot() ? null : this._runtime;
+    const runtime = isSnapshot() ? null : this._session.runtime;
     if (runtime !== null && !runtime.ready) {
       return html`<div class="empty">
         The page runtime has not connected to this dev server. Open the page
@@ -489,74 +487,8 @@ export class ComponentsView extends LitElement {
     return html`<div class="empty">No Lit components found on the page.</div>`;
   }
 
-  private _onMessage = (msg: InspectorMessage): void => {
-    switch (msg.type) {
-      case 'ready':
-        this._runtime = {
-          ready: true,
-          litPackages: msg.litPackages ?? {},
-          topFrame: msg.topFrame ?? true,
-        };
-        // Runtime (re)connected — refresh the tree and re-arm any selection.
-        this._call({type: 'tree'});
-        if (this._selectedId !== null) {
-          this._call({type: 'watch', id: this._selectedId});
-        }
-        // The page may have dropped Live mode (it releases the observer when
-        // the panel disconnects, and a page reload restarts it with none).
-        // `_live` is the panel's own record of what the user asked for.
-        if (this._live) this._call({type: 'observe', enabled: true});
-        break;
-      case 'tree':
-        this._roots = msg.roots;
-        // Re-reveal the selection against the fresh tree: a just-picked node may
-        // not have existed in the previous _roots, so the reveal in _select()
-        // found no ancestors to expand and the node stayed hidden.
-        if (this._selectedId !== null) {
-          this._revealAncestors(this._selectedId);
-        }
-        break;
-      case 'details':
-        if (msg.details.id === this._selectedId) {
-          this._details = msg.details;
-          this._gone = false;
-        }
-        break;
-      case 'gone':
-        if (msg.id === this._selectedId) {
-          this._details = null;
-          this._gone = true;
-        }
-        break;
-      case 'pick':
-        this._picking = false;
-        this._select(msg.id);
-        // Bring this tab to the front so the pick is visible.
-        this.dispatchEvent(
-          new CustomEvent('inspector-activate', {bubbles: true, composed: true})
-        );
-        break;
-    }
-  };
-
-  /**
-   * A component couldn't be hot-patched in place; append it to the banner,
-   * keeping only the newest {@link MAX_HMR_INCOMPATIBILITIES} so a long
-   * session with many failing edits can't grow this without bound — the same
-   * cap the node-side cache applies before it ever broadcasts.
-   */
-  private _onHmrIncompatible = (event: HmrIncompatibilityEvent): void => {
-    this._hmrIncompatibilities = [...this._hmrIncompatibilities, event].slice(
-      -MAX_HMR_INCOMPATIBILITIES
-    );
-  };
-
-  private _onHmrPatched = (event: HmrPatchEvent): void => {
-    this._lastPatch = event;
-  };
-
   // ---------------------------------------------------------------------------
-  // Selection / expansion
+  // Selection
   // ---------------------------------------------------------------------------
 
   /**
@@ -564,101 +496,31 @@ export class ComponentsView extends LitElement {
    * link). Same as a tree click; the host is responsible for switching tabs.
    */
   selectById(id: number): void {
-    this._select(id);
+    this._session.select(id);
   }
 
-  /**
-   * Another page took over (see the shell's `page-changed` listener). Drops
-   * the tree and HMR history the old page reported, as the node side does,
-   * and asks the new page for its tree. The selection stays: a reloaded tab
-   * mints the same ids in the same order, and on another tab the details
-   * request answers for whatever holds the id now. Its details do not: they
-   * describe the old document, so they are cleared until the new page
-   * answers, and the watch went with the old document, so the new page is
-   * told to watch the id or the pane never hears of its updates.
-   */
+  /** Another page took over (see the shell's `page-changed` listener). */
   pageChanged(): void {
-    this._roots = [];
-    this._lastPatch = null;
-    this._hmrIncompatibilities = [];
-    const id = this._selectedId;
-    if (id !== null) {
-      this._details = null;
-      this._gone = false;
-    }
-    this._refresh();
-    if (id !== null) this._call({type: 'watch', id});
+    this._session.pageChanged();
   }
 
   /** The currently selected element id, for the shell's URL sync. */
   get selectedId(): number | null {
-    return this._selectedId;
-  }
-
-  private _select(id: number): void {
-    if (this._selectedId === id) return;
-    // Let the shell re-sync the URL hash: a selection is part of "where the
-    // panel is", and a link that drops it would reopen the wrong view.
-    this.dispatchEvent(
-      new CustomEvent('selection-change', {detail: {id}, bubbles: true})
-    );
-    if (this._selectedId !== null) {
-      this._call({type: 'watch', id: null});
-    }
-    this._selectedId = id;
-    this._details = null;
-    this._gone = false;
-    this._revealAncestors(id);
-    this._call({type: 'tree'}); // refresh in case the picked node is new
-    this._call({type: 'details', id});
-    this._call({type: 'watch', id});
-  }
-
-  /** Expand every ancestor of `id` so the selected node is visible. */
-  private _revealAncestors(id: number): void {
-    const path = findAncestors(this._roots, id);
-    if (path === null) return;
-    const next = new Set(this._expanded);
-    for (const ancestorId of path) next.add(ancestorId);
-    this._expanded = next;
-  }
-
-  private _toggleExpand(id: number): void {
-    const next = new Set(this._expanded);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    this._expanded = next;
+    return this._session.selectedId;
   }
 
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
 
-  private _refresh(): void {
-    this._call({type: 'tree'});
-    if (this._selectedId !== null) {
-      this._call({type: 'details', id: this._selectedId});
-    }
-  }
-
   private _togglePick(): void {
-    this._picking = !this._picking;
-    this._call({type: 'pick'});
+    this._session.togglePick();
   }
 
   private _toggleLive(): void {
-    this._live = !this._live;
-    try {
-      localStorage.setItem(LIVE_LS_KEY, String(this._live));
-    } catch {
-      // ignore (private/storage unavailable)
-    }
+    this._session.toggleLive();
     // Connect the lazy in-page channel so the page can see the panel leave.
-    if (this._live && !isSnapshot()) inPageConnected();
-    // Resuming pushes a fresh tree on its own; pausing pulls one, so the
-    // frozen tree is the page as of now.
-    this._call({type: 'observe', enabled: this._live});
-    if (!this._live) this._call({type: 'tree'});
+    if (this._session.live && !isSnapshot()) inPageConnected();
   }
 
   /**
@@ -690,7 +552,7 @@ export class ComponentsView extends LitElement {
 
   /** Scroll the selected element into view in the page, same routes as {@link _highlight}. */
   private _reveal(): void {
-    const id = this._details?.id;
+    const id = this._session.details?.id;
     if (id === undefined) return;
     if (inPageConnected()) {
       inPageChannel().emit('reveal', id);
@@ -716,7 +578,7 @@ export class ComponentsView extends LitElement {
   }
 
   private _openSource(): void {
-    const src = this._details?.source;
+    const src = this._session.details?.source;
     if (src === undefined) return;
     void openInEditor(src.file, src.line);
   }
@@ -727,19 +589,19 @@ export class ComponentsView extends LitElement {
 
   private _renderNode(node: InspectorTreeNode, depth: number): TemplateResult {
     const hasChildren = node.children.length > 0;
-    const expanded = this._expanded.has(node.id);
+    const expanded = this._session.expanded.has(node.id);
     return html`
       <div
-        class="row ${node.id === this._selectedId ? 'selected' : ''}"
+        class="row ${node.id === this._session.selectedId ? 'selected' : ''}"
         style="padding-left:${8 + depth * 14}px"
-        @click=${() => this._select(node.id)}
+        @click=${() => this._session.select(node.id)}
         @mouseenter=${() => this._highlight(node.id)}
       >
         <span
           class="twisty"
           @click=${(e: Event) => {
             e.stopPropagation();
-            this._toggleExpand(node.id);
+            this._session.toggleExpand(node.id);
           }}
           >${
             hasChildren
@@ -835,12 +697,12 @@ export class ComponentsView extends LitElement {
   }
 
   private _renderDetails(): TemplateResult {
-    const d = this._details;
+    const {details: d, gone, selectedId} = this._session;
     if (d === null) {
       let message: string;
-      if (this._gone) {
+      if (gone) {
         message = 'This element is no longer in the page.';
-      } else if (this._selectedId === null) {
+      } else if (selectedId === null) {
         message = 'Select a component to inspect.';
       } else {
         message = 'Loading…';
@@ -939,7 +801,7 @@ export class ComponentsView extends LitElement {
 
   /** One line for the latest patch that landed; hidden until there is one. */
   private _renderLastPatch(): TemplateResult | typeof nothing {
-    const p = this._lastPatch;
+    const p = this._session.lastPatch;
     if (p === null) return nothing;
     return html`<div class="hmr-last-patch">
       Patched &lt;${p.tagName}&gt; ×${p.instances} in ${p.durationMs} ms
@@ -955,7 +817,7 @@ export class ComponentsView extends LitElement {
    * case where the developer is parked on another tab.
    */
   private _renderHmrBanner(): TemplateResult | typeof nothing {
-    if (this._hmrIncompatibilities.length === 0) return nothing;
+    if (this._session.hmrIncompatibilities.length === 0) return nothing;
     return html`
       <wa-details
         class="hmr-banner"
@@ -967,7 +829,7 @@ export class ComponentsView extends LitElement {
         <span slot="summary">
           <span class="hmr-title">HMR issues</span>
           <wa-badge class="hmr-count" variant="danger" pill
-            >${this._hmrIncompatibilities.length}</wa-badge
+            >${this._session.hmrIncompatibilities.length}</wa-badge
           >
         </span>
         <wa-icon slot="expand-icon" name="caret-right"></wa-icon>
@@ -976,7 +838,7 @@ export class ComponentsView extends LitElement {
           this._hmrExpanded
             ? html`
                 <ul class="hmr-list">
-                  ${[...this._hmrIncompatibilities].reverse().map(
+                  ${[...this._session.hmrIncompatibilities].reverse().map(
                     (e) => html`
                       <li class="hmr-item">
                         <span class="tag"
@@ -1040,7 +902,7 @@ export class ComponentsView extends LitElement {
           this._canPick
             ? this._renderToggle(
                 'pick',
-                this._picking,
+                this._session.picking,
                 'Pick an element on the page (Meta+Shift+E)',
                 this._togglePick,
                 html`<wa-icon slot="start" name="crosshair"></wa-icon>`,
@@ -1051,14 +913,14 @@ export class ComponentsView extends LitElement {
         <span class="spacer"></span>
         ${this._renderToggle(
           'live',
-          this._live,
-          this._live
+          this._session.live,
+          this._session.live
             ? 'Pause: stop updating the tree as the page changes'
             : 'Resume updating the tree as the page changes',
           this._toggleLive,
           html`<wa-icon
             slot="start"
-            name=${this._live ? 'eye' : 'eye-slash'}
+            name=${this._session.live ? 'eye' : 'eye-slash'}
           ></wa-icon>`,
           'Live'
         )}
@@ -1085,9 +947,9 @@ export class ComponentsView extends LitElement {
           ${
             this._error !== null
               ? html`<div class="empty">${this._error}</div>`
-              : this._roots.length === 0
+              : this._session.roots.length === 0
                 ? this._renderEmpty()
-                : this._roots.map((n) => this._renderNode(n, 0))
+                : this._session.roots.map((n) => this._renderNode(n, 0))
           }
         </div>
         <div slot="end" class="details">${this._renderDetails()}</div>
@@ -1095,15 +957,6 @@ export class ComponentsView extends LitElement {
     `;
   }
 }
-
-/** The newest patch among `entries` (oldest first), skipping failures. */
-const lastPatchOf = (entries: HmrHistoryEntry[]): HmrPatchEvent | null => {
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i]!;
-    if (entry.kind === 'patched') return entry.patch;
-  }
-  return null;
-};
 
 /**
  * Coarse relative time for an {@link HmrIncompatibilityEvent}'s `Date.now()`
@@ -1118,27 +971,6 @@ const formatRelativeTime = (time: number): string => {
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.round(minutes / 60);
   return `${hours}h ago`;
-};
-
-/**
- * Returns the ids of every ancestor of `id` (nearest last), or `null` if `id`
- * isn't in the tree. The target id itself is not included.
- */
-const findAncestors = (
-  nodes: InspectorTreeNode[],
-  id: number
-): number[] | null => {
-  const trail: number[] = [];
-  const walk = (list: InspectorTreeNode[]): boolean => {
-    for (const node of list) {
-      if (node.id === id) return true;
-      trail.push(node.id);
-      if (walk(node.children)) return true;
-      trail.pop();
-    }
-    return false;
-  };
-  return walk(nodes) ? [...trail] : null;
 };
 
 declare global {
