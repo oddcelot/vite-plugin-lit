@@ -127,20 +127,15 @@ export const rpcPageLink = (ctx: DevframeNodeContext): PageLinkNode => ({
  * extension passes one over a `chrome.runtime.Port` (see `port-link.ts`).
  */
 export function createStandaloneLitDevframe(
-  options: Omit<CreateLitDevframeOptions, 'source'>,
+  options: Omit<CreateLitDevframeOptions, 'source' | 'host'> & {
+    host: 'standalone' | 'extension';
+  },
   link: (ctx: DevframeNodeContext) => PageLinkNode = rpcPageLink
 ): DevframeDefinition {
   const source = new RpcTimelineSource();
-  // Both hosts start a picker of their own in the page: `lit-devtools.js`
-  // does (see `runtime/standalone.ts`), and so will the extension. Neither
-  // has Vite: no transform stamps source locations, and nothing hot-patches
-  // a component, so the panel has no source links or HMR notices to offer.
-  const definition = createLitDevframe({
-    picker: () => true,
-    ...options,
-    capabilities: {hmr: false, sourceLocations: false, ...options.capabilities},
-    source,
-  });
+  // What either host can do (its own picker, no HMR or source locations)
+  // is `host-profile.ts`'s to say.
+  const definition = createLitDevframe({...options, source});
   const {setup} = definition;
 
   return {

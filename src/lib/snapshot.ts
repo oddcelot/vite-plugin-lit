@@ -68,6 +68,7 @@ export const buildSnapshot = async (
     options.clientAssets ??
     (await import('./devframe/paths.js')).PANEL_DIST_DIR;
   const definition = createLitDevframe({
+    host: 'snapshot',
     // Nothing to attach to: the page this session describes is gone, and
     // every answer the frozen panel needs is already in `replay`.
     source: createNullSource(),

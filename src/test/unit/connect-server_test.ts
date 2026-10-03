@@ -20,7 +20,11 @@ const disconnects: Array<() => void> = [];
 
 beforeAll(async () => {
   server = await createDevServer(
-    createStandaloneLitDevframe({version: '9.9.9', features: () => null}),
+    createStandaloneLitDevframe({
+      host: 'standalone',
+      version: '9.9.9',
+      features: () => null,
+    }),
     {
       host: '127.0.0.1',
       port: 0,

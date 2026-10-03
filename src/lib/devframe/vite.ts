@@ -26,6 +26,7 @@ import type {
   TimelineLayersState,
 } from '../../types/timeline.js';
 import type {SourceLocator} from '../source-locator.js';
+import {createNodeActions} from './node-actions.js';
 import {createLitDevframe} from './definition.js';
 import {TimelineChannelCodec} from './page-codec.js';
 import {PANEL_DIST_DIR} from './paths.js';
@@ -326,16 +327,15 @@ export function createLitDevframePlugin(
   const source = new HotTimelineSource();
   let setupRan = false;
   const definition = createLitDevframe({
+    host: 'vite',
     source,
     version: options.version,
     features: options.features,
-    configuredEditor: options.configuredEditor,
     clientAssets: options.clientAssets ?? PANEL_DIST_DIR,
-    sourceLocator: options.sourceLocator,
-    // The plugin serves `/__lit-open-in-editor` itself, which the panel
-    // falls back to when the hub has no open service, so source links work
-    // here either way.
-    capabilities: {openInEditor: true},
+    nodeActions: createNodeActions({
+      sourceLocator: options.sourceLocator,
+      configuredEditor: options.configuredEditor,
+    }),
   });
 
   return {

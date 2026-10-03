@@ -5,6 +5,7 @@ import {TIMELINE_LAYERS} from '../../types/timeline.js';
 import {createLitDevframe} from '../../lib/devframe/definition.js';
 import {createStandaloneLitDevframe} from '../../lib/devframe/rpc-source.js';
 import {createSourceLocator} from '../../lib/source-locator.js';
+import {createNodeActions} from '../../lib/devframe/node-actions.js';
 import type {SessionState} from '../../lib/devframe/protocol.js';
 import type {TimelineSink, TimelineSource} from '../../lib/devframe/source.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
@@ -84,14 +85,17 @@ const boot = async (
 ) => {
   const source = new FakeSource();
   const def = createLitDevframe({
+    host: 'vite',
     source,
     version: '9.9.9',
     features: () => null,
-    sourceLocator: () =>
-      options.roots === undefined
-        ? undefined
-        : createSourceLocator(options.roots),
-    configuredEditor: () => options.configuredEditor,
+    nodeActions: createNodeActions({
+      sourceLocator: () =>
+        options.roots === undefined
+          ? undefined
+          : createSourceLocator(options.roots),
+      configuredEditor: () => options.configuredEditor,
+    }),
     inspectorTimeoutMs: options.inspectorTimeoutMs,
   });
   instance = initDevframe(def, {
@@ -617,6 +621,7 @@ describe('lit devframe definition', () => {
   test('get-meta reports a picker when the source overlay is on', async () => {
     instance = initDevframe(
       createLitDevframe({
+        host: 'vite',
         source: new FakeSource(),
         version: '9.9.9',
         features: () =>
@@ -635,34 +640,23 @@ describe('lit devframe definition', () => {
     expect((await ctx.rpc.invokeLocal('lit:get-meta')).picker).toBe(true);
   });
 
-  test('get-meta reports what a vite-like host can do', async () => {
-    // Plugin settings, a source locator and a filesystem: everything but the
-    // editor, which waits for the hub's open service.
+  // Each host's answers are `host-profile_test.ts`'s; these check get-meta
+  // reports the profile of the host it was given.
+  test('get-meta reports what the vite host can do', async () => {
     const {ctx} = await boot({roots: [appRoot]});
     expect((await ctx.rpc.invokeLocal('lit:get-meta')).capabilities).toEqual({
-      openInEditor: false,
+      openInEditor: true,
       exportSnapshot: true,
       pluginSettings: true,
       hmr: true,
       sourceLocations: true,
     });
-    ctx.services.provide('@devframes/service-open', {
-      openInEditor: async () => {},
-      openInFinder: async () => {},
-    });
-    expect(
-      (await ctx.rpc.invokeLocal('lit:get-meta')).capabilities.openInEditor
-    ).toBe(true);
   });
 
-  test('get-meta lets a host without a server say what it lacks', async () => {
-    // What the extension's local host passes, on top of the standalone
-    // wrapper's own "no Vite": with no settings either, nothing is left.
+  test('get-meta reports what the extension host lacks', async () => {
+    // No Node actions and no plugin settings: nothing is left.
     instance = initDevframe(
-      createStandaloneLitDevframe({
-        version: '9.9.9',
-        capabilities: {openInEditor: false, exportSnapshot: false},
-      }),
+      createStandaloneLitDevframe({host: 'extension', version: '9.9.9'}),
       {
         base: '/__lit/',
         distDir: false,
@@ -778,6 +772,7 @@ describe('lit devframe definition', () => {
     }));
     instance = initDevframe(
       createLitDevframe({
+        host: 'snapshot',
         source: new FakeSource(),
         version: '9.9.9',
         features: () => null,

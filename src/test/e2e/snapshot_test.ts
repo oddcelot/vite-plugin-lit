@@ -11,6 +11,7 @@
  * add flakiness to what it is actually checking.
  */
 
+import {createNodeActions} from '../../lib/devframe/node-actions.js';
 import {afterEach, describe, expect, test} from 'vite-plus/test';
 import {createServer as createHttpServer, type Server} from 'node:http';
 import {chromium, type Browser} from 'playwright-core';
@@ -47,7 +48,11 @@ describe('static snapshot export', () => {
     await fsp.writeFile(`${assets}/index.html`, '<!doctype html>panel');
 
     const source = createNullSource();
+    // The Vite host, as the export runs there; `replay` only seeds the
+    // session it exports.
     const definition = createLitDevframe({
+      host: 'vite',
+      nodeActions: createNodeActions(),
       source,
       version: '9.9.9',
       features: () => null,
@@ -138,10 +143,12 @@ describe('static snapshot export', () => {
 
     instance = initDevframe(
       createLitDevframe({
+        host: 'vite',
         source: createNullSource(),
         version: '9.9.9',
         features: () => null,
         clientAssets: assets,
+        nodeActions: createNodeActions(),
       }),
       {
         base: '/__lit/',
@@ -203,6 +210,8 @@ describe('static snapshot export', () => {
     ]).flat();
 
     const definition = createLitDevframe({
+      host: 'vite',
+      nodeActions: createNodeActions(),
       source: createNullSource(),
       version: '9.9.9',
       features: () => null,
