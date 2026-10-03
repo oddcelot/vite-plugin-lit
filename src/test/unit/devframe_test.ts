@@ -7,6 +7,7 @@ import {createStandaloneLitDevframe} from '../../lib/devframe/rpc-source.js';
 import {createSourceLocator} from '../../lib/source-locator.js';
 import {createNodeActions} from '../../lib/devframe/node-actions.js';
 import type {SessionState} from '../../lib/devframe/protocol.js';
+import type {SessionSnapshot} from '../../types/snapshot.js';
 import type {TimelineSink, TimelineSource} from '../../lib/devframe/source.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 import type {
@@ -673,6 +674,73 @@ describe('lit devframe definition', () => {
       pluginSettings: false,
       hmr: false,
       sourceLocations: false,
+    });
+  });
+
+  test('an exported snapshot records what the recording host could do', async () => {
+    let exported: SessionSnapshot | undefined;
+    instance = initDevframe(
+      createStandaloneLitDevframe({
+        host: 'standalone',
+        version: '9.9.9',
+        nodeActions: {
+          openSource: async () => ({opened: false}),
+          exportSnapshot: async (_args, snapshot) => {
+            exported = snapshot;
+            return {outDir: 'x', events: 0, components: 0, details: 0};
+          },
+        },
+      }),
+      {
+        base: '/__lit/',
+        distDir: false,
+        ws: false,
+        sse: false,
+        getStorageDir: () => './node_modules/.tmp-lit-devframe-test',
+      }
+    );
+    const ctx = await instance.context;
+    await instance.ready;
+    await ctx.rpc.invokeLocal('lit:export-snapshot', {});
+    expect(exported?.capabilities).toEqual({
+      hmr: false,
+      sourceLocations: false,
+    });
+  });
+
+  test('a replayed snapshot reports what its recording host could do', async () => {
+    instance = initDevframe(
+      createLitDevframe({
+        host: 'snapshot',
+        source: new FakeSource(),
+        version: '9.9.9',
+        replay: {
+          capturedAt: new Date().toISOString(),
+          version: '9.9.9',
+          customLayers: [],
+          roots: [],
+          details: [],
+          events: [],
+          hmrIncompatibilities: [],
+          capabilities: {hmr: false, sourceLocations: false},
+        },
+      }),
+      {
+        base: '/__lit/',
+        distDir: false,
+        ws: false,
+        sse: false,
+        getStorageDir: () => './node_modules/.tmp-lit-devframe-test',
+      }
+    );
+    const ctx = await instance.context;
+    await instance.ready;
+    expect(
+      (await ctx.rpc.invokeLocal('lit:get-meta')).capabilities
+    ).toMatchObject({
+      hmr: false,
+      sourceLocations: false,
+      exportSnapshot: false,
     });
   });
 

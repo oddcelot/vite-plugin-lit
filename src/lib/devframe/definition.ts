@@ -206,6 +206,7 @@ export function createLitDevframe(
           live,
           features: features ? features() : undefined,
           nodeActions: nodeActions !== undefined,
+          recorded: replay?.capabilities,
         });
       const inspectorTimeout =
         options.inspectorTimeoutMs ?? DEFAULT_INSPECTOR_TIMEOUT_MS;
@@ -635,13 +636,18 @@ export function createLitDevframe(
                 '[lit-devtools] export-snapshot: this host cannot write to disk'
               );
             }
+            // Recorded so the frozen panel offers what this host did.
+            const {hmr, sourceLocations} = profile().capabilities;
             return nodeActions.exportSnapshot(
               args,
-              followed.capture({
-                capturedAt: new Date().toISOString(),
-                version,
-                customLayers: session.value().customLayers,
-              }),
+              {
+                ...followed.capture({
+                  capturedAt: new Date().toISOString(),
+                  version,
+                  customLayers: session.value().customLayers,
+                }),
+                capabilities: {hmr, sourceLocations},
+              },
               {
                 features: features ? features() : null,
                 clientAssets: options.clientAssets,
