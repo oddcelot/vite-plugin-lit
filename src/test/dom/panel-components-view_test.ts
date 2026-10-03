@@ -119,18 +119,8 @@ test('selecting a nested element expands its ancestors', async () => {
   expect(rows()[1]!.classList.contains('selected')).toBe(true);
 });
 
-const observeOn = {type: 'observe', enabled: true};
-
-test('arms Live on connect by default', async () => {
-  const {inspects} = await mount();
-  expect(inspects()).toContainEqual(observeOn);
-});
-
-test('does not arm Live on connect when it was paused', async () => {
-  localStorage.setItem(LIVE_LS_KEY, 'false');
-  const {inspects} = await mount();
-  expect(inspects()).not.toContainEqual(observeOn);
-});
+// The session's rules are `components-session_test.ts`'s; these check the
+// element wires them to the page, the shell and storage.
 
 test('pausing Live remembers it and pulls one fresh tree', async () => {
   const {el, root, inspects} = await mount();
@@ -142,17 +132,6 @@ test('pausing Live remembers it and pulls one fresh tree', async () => {
     {type: 'tree'},
   ]);
   expect(localStorage.getItem(LIVE_LS_KEY)).toBe('false');
-});
-
-test('re-arms Live when the runtime announces ready', async () => {
-  const {el, inspects} = await mount();
-  const armed = () =>
-    inspects().filter((c) => JSON.stringify(c) === JSON.stringify(observeOn))
-      .length;
-  const before = armed();
-  push('inspector-message', {type: 'ready'});
-  await flush(el);
-  expect(armed()).toBe(before + 1);
 });
 
 test('never arms Live in a snapshot', async () => {
