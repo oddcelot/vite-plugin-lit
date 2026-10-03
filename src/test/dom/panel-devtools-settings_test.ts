@@ -167,3 +167,31 @@ test('off the Vite plugin, the page-side preferences still switch on', async () 
       .map((c) => c.args[0])
   ).toContainEqual(expect.objectContaining({chromeTracks: true}));
 });
+
+test('a feature header says where the feature was switched, and how to turn it on', async () => {
+  meta.features = toFeatureSettings(
+    resolveOptions({hmr: false}, {LIT_PLUGIN_TIMELINE: 'true'})
+  );
+  const root = await mount();
+  const card = (title: string) =>
+    [...root.querySelectorAll('wa-card')].find((c) =>
+      c.querySelector('h3')?.textContent?.trim().startsWith(title)
+    )!;
+  const badge = (title: string) =>
+    card(title).querySelector('h3 .src')?.textContent ?? null;
+
+  expect(badge('HMR')).toBe('(option)');
+  expect(badge('Timeline')).toBe('(env)');
+  // Off by default: nothing to attribute.
+  expect(badge('Source Overlay')).toBeNull();
+
+  const hint = (title: string) =>
+    card(title)
+      .querySelector('.empty')
+      ?.textContent?.replace(/\s+/g, ' ')
+      .trim();
+  expect(hint('HMR')).toBe('Enable with hmr: true or LIT_PLUGIN_HMR=true.');
+  expect(hint('Source Overlay')).toBe(
+    'Enable with sourceOverlay: true or LIT_PLUGIN_SOURCE_OVERLAY=true.'
+  );
+});

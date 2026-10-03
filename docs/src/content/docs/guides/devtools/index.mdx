@@ -104,7 +104,8 @@ overrides and puts the resolved values back.
 A value you set carries its origin in parentheses: `(option)` for
 `litPlugin()`, `(env)` for a `LIT_PLUGIN_*` variable. So `Zed (env)` means the
 editor came from your `.env`. A value with neither is the built-in default.
-Open a dropdown and the configured choice says where it came from, `default`
+The same goes for each section's enabled or disabled pill, so `HMR disabled
+(option)` means `litPlugin({hmr: false})` turned it off. Open a dropdown and the configured choice says where it came from, `default`
 included. When env or an option set it, the built-in default is tagged
 `default` too, so `warn env` sits beside `reload default`. Hovering a
 setting's name explains it and gives its default.

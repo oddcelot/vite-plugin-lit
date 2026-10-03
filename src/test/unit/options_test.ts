@@ -293,6 +293,9 @@ describe('sources', () => {
 
   test('with neither set, every source is the default', () => {
     expect(resolve({sourceOverlay: true}).sources).toEqual({
+      hmr: 'default',
+      sourceOverlay: 'option',
+      timeline: 'default',
       hmrReconnect: 'default',
       hmrOnIncompatible: 'default',
       hmrChildState: 'default',
@@ -302,6 +305,17 @@ describe('sources', () => {
       sourceOverlayEditor: 'default',
       sourceOverlayThrottleMs: 'default',
     });
+  });
+
+  test('the feature switches report where they were turned on or off', () => {
+    expect(
+      resolve(
+        {hmr: false},
+        {LIT_PLUGIN_SOURCE_OVERLAY: 'true', LIT_PLUGIN_TIMELINE: '0'}
+      ).sources
+    ).toMatchObject({hmr: 'option', sourceOverlay: 'env', timeline: 'env'});
+    // `hmr: {...}` configures HMR without saying whether it is on.
+    expect(resolve({hmr: {reconnect: true}}).sources.hmr).toBe('default');
   });
 
   test('omits source-overlay sources while the overlay is off', () => {
@@ -351,6 +365,9 @@ describe('toFeatureSettings', () => {
       throttleMs: 50,
     });
     expect(f.sources).toEqual({
+      hmr: 'default',
+      sourceOverlay: 'option',
+      timeline: 'default',
       hmrReconnect: 'env',
       hmrOnIncompatible: 'default',
       hmrChildState: 'default',

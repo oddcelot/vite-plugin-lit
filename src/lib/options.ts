@@ -5,6 +5,7 @@ import type {
   SettingSources,
 } from '../types/timeline.js';
 import {BUILTIN_EDITORS} from './runtime/source-overlay/editors.js';
+import {SETTINGS, type SourcedKey} from './setting-definitions.js';
 import type {ChildStateMode} from './runtime/child-state.js';
 
 /**
@@ -168,17 +169,6 @@ export interface ResolvedOptions {
 /** Env var prefix consumed at config time. */
 export const ENV_PREFIX = 'LIT_PLUGIN';
 
-const ON_INCOMPATIBLE_MODES: readonly ('reload' | 'warn')[] = [
-  'reload',
-  'warn',
-];
-
-const CHILD_STATE_MODES: readonly ChildStateMode[] = [
-  'reset',
-  'transfer',
-  'reuse',
-];
-
 /** Parse a boolean-ish env string; `undefined` when unset/unrecognized. */
 const envBool = (v: string | undefined): boolean | undefined =>
   v === 'true' || v === '1'
@@ -241,16 +231,19 @@ export const resolveOptions = (
   options: LitPluginOptions,
   env: Record<string, string>
 ): ResolvedOptions => {
+  // The env var a Setting is read from is named once, on its definition.
+  const envOf = (key: SourcedKey) => env[SETTINGS[key].env!];
   const hmr = options.hmr;
   const hmrObj = typeof hmr === 'object' ? hmr : undefined;
-  const hmrEnabled =
-    (typeof hmr === 'boolean' ? hmr : hmrObj?.enabled) ??
-    envBool(env[`${ENV_PREFIX}_HMR`]) ??
-    true;
+  const hmrEnabled = pick(
+    typeof hmr === 'boolean' ? hmr : hmrObj?.enabled,
+    envBool(envOf('hmr')),
+    SETTINGS.hmr.default
+  );
   const reconnect = pick(
     hmrObj?.reconnect,
-    envBool(env[`${ENV_PREFIX}_HMR_RECONNECT`]),
-    false
+    envBool(envOf('hmrReconnect')),
+    SETTINGS.hmrReconnect.default
   );
   const privateFields = pick(
     hmrObj?.privateFields,
@@ -260,39 +253,40 @@ export const resolveOptions = (
   const onIncompatible = pick<'reload' | 'warn'>(
     hmrObj?.onIncompatible,
     envEnum(
-      env[`${ENV_PREFIX}_HMR_ON_INCOMPATIBLE`],
-      ON_INCOMPATIBLE_MODES,
-      `${ENV_PREFIX}_HMR_ON_INCOMPATIBLE`
+      envOf('hmrOnIncompatible'),
+      SETTINGS.hmrOnIncompatible.values!,
+      SETTINGS.hmrOnIncompatible.env!
     ),
-    'reload'
+    SETTINGS.hmrOnIncompatible.default
   );
   const childState = pick<ChildStateMode>(
     hmrObj?.childState,
     envEnum(
-      env[`${ENV_PREFIX}_HMR_CHILD_STATE`],
-      CHILD_STATE_MODES,
-      `${ENV_PREFIX}_HMR_CHILD_STATE`
+      envOf('hmrChildState'),
+      SETTINGS.hmrChildState.values!,
+      SETTINGS.hmrChildState.env!
     ),
-    'transfer'
+    SETTINGS.hmrChildState.default
   );
 
   const ind = hmrObj?.indicator;
   const indObj = typeof ind === 'object' ? ind : undefined;
   const indEnabled = pick(
     typeof ind === 'boolean' ? ind : indObj?.enabled,
-    envBool(env[`${ENV_PREFIX}_HMR_INDICATOR`]),
-    true
+    envBool(envOf('hmrIndicatorVisible')),
+    SETTINGS.hmrIndicatorVisible.default
   );
   const indCount = pick(
     indObj?.count,
-    envBool(env[`${ENV_PREFIX}_HMR_INDICATOR_COUNT`]),
-    false
+    envBool(envOf('hmrIndicatorCount')),
+    SETTINGS.hmrIndicatorCount.default
   );
   // The indicator is meaningless without HMR, so it follows the master toggle.
   const indicator =
-    hmrEnabled && indEnabled.value ? {count: indCount.value} : false;
+    hmrEnabled.value && indEnabled.value ? {count: indCount.value} : false;
 
   const sources: SettingSources = {
+    hmr: hmrEnabled.source,
     hmrReconnect: reconnect.source,
     hmrOnIncompatible: onIncompatible.source,
     hmrChildState: childState.source,
@@ -303,22 +297,26 @@ export const resolveOptions = (
   const so = options.sourceOverlay;
   const soExplicit =
     typeof so === 'boolean' ? so : so === undefined ? undefined : true;
-  const soEnabled =
-    soExplicit ?? envBool(env[`${ENV_PREFIX}_SOURCE_OVERLAY`]) ?? false;
+  const soEnabled = pick(
+    soExplicit,
+    envBool(envOf('sourceOverlay')),
+    SETTINGS.sourceOverlay.default
+  );
+  sources.sourceOverlay = soEnabled.source;
   let sourceOverlay: false | SourceOverlayOptions = false;
-  if (soEnabled) {
+  if (soEnabled.value) {
     const base: SourceOverlayOptions = typeof so === 'object' ? {...so} : {};
     // Defaults for these are applied later (toFeatureSettings / the runtime),
     // so only option-vs-env is decided here; neither set means 'default'.
-    const envKey = env[`${ENV_PREFIX}_SOURCE_OVERLAY_KEY`] || undefined;
-    const envThrottle = envNum(env[`${ENV_PREFIX}_SOURCE_OVERLAY_THROTTLE_MS`]);
+    const envKey = envOf('sourceOverlayKey') || undefined;
+    const envThrottle = envNum(envOf('sourceOverlayThrottleMs'));
     // Only read (and warn about) the env editor when no option supplies one.
     const envEditor =
       base.editor === undefined
         ? envEnum(
-            env[`${ENV_PREFIX}_SOURCE_OVERLAY_EDITOR`],
+            envOf('sourceOverlayEditor'),
             EDITOR_KEYS,
-            `${ENV_PREFIX}_SOURCE_OVERLAY_EDITOR`
+            SETTINGS.sourceOverlayEditor.env!
           )
         : undefined;
     sources.sourceOverlayKey = sourceOf(base.key, envKey);
@@ -330,8 +328,12 @@ export const resolveOptions = (
     sourceOverlay = base;
   }
 
-  const timeline =
-    options.timeline ?? envBool(env[`${ENV_PREFIX}_TIMELINE`]) ?? false;
+  const timeline = pick(
+    options.timeline,
+    envBool(envOf('timeline')),
+    SETTINGS.timeline.default
+  );
+  sources.timeline = timeline.source;
 
   const cssSheetBuild =
     envEnum(options.cssSheetBuild, CSS_SHEET_BUILD_MODES, 'cssSheetBuild') ??
@@ -343,14 +345,14 @@ export const resolveOptions = (
     'auto';
 
   return {
-    hmrEnabled,
+    hmrEnabled: hmrEnabled.value,
     reconnect: reconnect.value,
     privateFields: privateFields.value,
     onIncompatible: onIncompatible.value,
     childState: childState.value,
     indicator,
     sourceOverlay,
-    timeline,
+    timeline: timeline.value,
     cssSheetBuild,
     sources,
   };
@@ -376,9 +378,15 @@ export const toFeatureSettings = (r: ResolvedOptions): FeatureSettings => {
     },
     sourceOverlay: {
       enabled: so !== false,
-      key: (so === false ? undefined : so.key) ?? 's',
-      editor: configuredEditor(r) ?? (editor ? 'custom' : 'vscode'),
-      throttleMs: (so === false ? undefined : so.throttleMs) ?? 50,
+      key:
+        (so === false ? undefined : so.key) ??
+        SETTINGS.sourceOverlayKey.default,
+      editor:
+        configuredEditor(r) ??
+        (editor ? 'custom' : SETTINGS.sourceOverlayEditor.default),
+      throttleMs:
+        (so === false ? undefined : so.throttleMs) ??
+        SETTINGS.sourceOverlayThrottleMs.default,
     },
     timeline: r.timeline,
     sources: {...r.sources},
