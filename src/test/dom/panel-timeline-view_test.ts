@@ -14,6 +14,7 @@ import {
 } from './fakes/timeline-store.js';
 
 vi.mock('../../panel/client.js', () => import('./fakes/client.js'));
+import {resetHostInfo} from '../../panel/host.js';
 vi.mock(
   '../../panel/timeline-store.js',
   () => import('./fakes/timeline-store.js')
@@ -94,6 +95,7 @@ afterEach(() => {
   document.body.replaceChildren();
   resetStore();
   resetClient();
+  resetHostInfo();
 });
 
 test('Record asks the server to start recording', async () => {
@@ -194,6 +196,8 @@ test('offers Export snapshot only where the host can write one', async () => {
   expect((await mount()).root.querySelector('wa-button.export')).not.toBeNull();
   document.body.replaceChildren();
   meta.capabilities.exportSnapshot = false;
+  // Another host: the panel reads it afresh.
+  resetHostInfo();
   expect((await mount()).root.querySelector('wa-button.export')).toBeNull();
 });
 

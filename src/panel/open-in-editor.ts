@@ -17,7 +17,8 @@
  * Both end up in `launch-editor`, so the user-visible result is the same.
  */
 
-import {getMeta, litRpc} from './client.js';
+import {litRpc} from './client.js';
+import {hostInfo} from './host.js';
 
 /**
  * Whether this host can open a file at all (`capabilities.openInEditor`).
@@ -27,10 +28,7 @@ import {getMeta, litRpc} from './client.js';
  * can't be read, which is the safe way to be wrong.
  */
 export const canOpenInEditor = (): Promise<boolean> =>
-  getMeta().then(
-    (meta) => meta.capabilities.openInEditor,
-    () => false
-  );
+  hostInfo().then((host) => host.openInEditor);
 
 /** Today's endpoint. The fallback, and what the source overlay always uses. */
 const openViaEndpoint = async (file: string, line: number): Promise<void> => {

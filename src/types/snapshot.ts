@@ -17,6 +17,7 @@ import type {HmrIncompatibilityEvent} from './hmr-incompatibility.js';
 import type {HmrPatchEvent} from './hmr-patch.js';
 import type {InspectorDetails, InspectorTreeNode} from './inspector.js';
 import type {TimelineEvent, TimelineLayer} from './timeline.js';
+import type {LitCapabilities} from '../lib/devframe/protocol.js';
 
 /** Everything a frozen panel needs to render a past session. */
 export interface SessionSnapshot {
@@ -40,4 +41,11 @@ export interface SessionSnapshot {
   hmrIncompatibilities: HmrIncompatibilityEvent[];
   /** Successful HMR patches reported during the session. Optional so snapshots exported by an earlier version still load. */
   hmrPatches?: HmrPatchEvent[];
+  /**
+   * What the recording host could do, so the frozen panel offers the same:
+   * no HMR notices or source links for a session recorded off Vite. Optional
+   * so snapshots exported by an earlier version (always from Vite) still
+   * load.
+   */
+  capabilities?: Pick<LitCapabilities, 'hmr' | 'sourceLocations'>;
 }

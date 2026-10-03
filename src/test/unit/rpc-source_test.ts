@@ -159,6 +159,7 @@ afterEach(async () => {
 describe('createStandaloneLitDevframe', () => {
   test('registers page-send and routes a page message to the session', async () => {
     const def = createStandaloneLitDevframe({
+      host: 'standalone',
       version: '9.9.9',
       features: () => null,
     });

@@ -7,7 +7,8 @@ import {
 } from '../lib/color-scheme.js';
 import './timeline-view.js';
 import {panelBrand} from './brand.js';
-import {isSnapshot, litRpc} from './client.js';
+import {litRpc} from './client.js';
+import {hostInfo} from './host.js';
 import {clearTimelineEvents} from './timeline-store.js';
 import type {PageChangedEvent} from '../lib/devframe/protocol.js';
 
@@ -157,8 +158,8 @@ export class LitDevtoolsPanel extends LitElement {
    * over. A frozen session has no page to follow, so nothing to listen for.
    */
   private async _listenForPageChange(): Promise<void> {
-    if (isSnapshot()) return;
     try {
+      if ((await hostInfo()).snapshot) return;
       const rpc = await litRpc();
       rpc.rpc.register({
         name: 'page-changed',

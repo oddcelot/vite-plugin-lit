@@ -30,6 +30,7 @@ import process from 'node:process';
 import {pathToFileURL} from 'node:url';
 import {resolveAllowedOrigins} from './lib/devframe/allowed-origins.js';
 import {createStandaloneLitDevframe} from './lib/devframe/rpc-source.js';
+import {createNodeActions} from './lib/devframe/node-actions.js';
 import {PACKAGE_VERSION, PANEL_DIST_DIR} from './lib/devframe/paths.js';
 
 /**
@@ -169,8 +170,10 @@ const main = async () => {
       app.use('/lit-devtools.js', serveScript);
       server = await createDevServer(
         createStandaloneLitDevframe({
+          host: 'standalone',
           version: PACKAGE_VERSION,
           clientAssets: PANEL_DIST_DIR,
+          nodeActions: createNodeActions(),
         }),
         {
           host: flags.host,

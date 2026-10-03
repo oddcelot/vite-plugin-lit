@@ -14,7 +14,8 @@
  * would defeat the point of recording.
  */
 
-import {litRpc, getMeta, describeError, isSnapshot} from './client.js';
+import {litRpc, getMeta, describeError} from './client.js';
+import {hostInfo} from './host.js';
 import type {TimelineEvent} from '../types/timeline.js';
 
 /**
@@ -116,12 +117,16 @@ const start = async (): Promise<void> => {
   if (started) return;
   started = true;
   try {
-    const [rpc, meta] = await Promise.all([litRpc(), getMeta()]);
+    const [rpc, meta, host] = await Promise.all([
+      litRpc(),
+      getMeta(),
+      hostInfo(),
+    ]);
 
     // A frozen session has no live stream to subscribe to -- the events were
     // baked into `recent-events` at export time, and they are the whole point
     // of the snapshot. Read them once and stop.
-    if (isSnapshot()) {
+    if (host.snapshot) {
       const recorded = await rpc.rpc.call('recent-events', {});
       events = recorded.events.slice(-MAX_EVENTS);
       notify();

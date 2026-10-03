@@ -27,7 +27,6 @@ import type {
 } from '../../types/inspector.js';
 import {TIMELINE_LAYERS} from '../../types/timeline.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
-import type {SourceLocator} from '../source-locator.js';
 import {LIT_LOGO_ICON} from './icon.js';
 import type {
   FeatureSettings,
@@ -63,7 +62,6 @@ import {
   type ComponentDetailsByTagResult,
   type HmrHistoryResult,
   type ListComponentsArgs,
-  type LitCapabilities,
   type LitGetMetaResult,
   type RecentEventsArgs,
   type RecentEventsResult,
@@ -77,7 +75,8 @@ import {
   type UpdateSummaryArgs,
   type UpdateSummaryResult,
 } from './protocol.js';
-import {resolveLaunchEditor} from './launch-editor.js';
+import {hostProfile, type HostKind} from './host-profile.js';
+import type {NodeActions} from './node-actions.js';
 import {createInspectorRequester} from './inspector-request.js';
 import {createFollowedPage} from './followed-page.js';
 import {findByTag, pruneTree} from './session.js';
@@ -92,11 +91,10 @@ export interface CreateLitDevframeOptions {
   /** Resolved feature settings, surfaced by `get-meta`. */
   features?: () => FeatureSettings | null;
   /**
-   * Whether the page has an element picker for the panel's Pick button.
-   * Defaults to the source overlay being enabled, which is the Vite host's
-   * picker; the standalone host ships one of its own.
+   * Which host this runs on; decides the picker and what `get-meta` reports
+   * the host can do. See `host-profile.ts`.
    */
-  picker?: () => boolean;
+  host: HostKind;
   /**
    * Directory holding the built panel SPA, for hosts that serve it. No
    * default here: resolving the package's own `dist/client` takes `node:fs`,
@@ -106,20 +104,11 @@ export interface CreateLitDevframeOptions {
    */
   clientAssets?: string;
   /**
-   * Resolves the injected `ElementSource.file` paths for `open-source` and
-   * confines opens to its roots (the Vite host's root and
-   * `server.fs.allow`). Read per call, since a host only knows its roots once
-   * its dev server is up. Without one, or before it has roots, the process's
-   * working directory is the only root.
+   * Opening files in an editor and writing snapshots to disk. Only Node
+   * hosts pass these (see `node-actions.ts`); without them `open-source`
+   * opens nothing and `export-snapshot` is unavailable.
    */
-  sourceLocator?: () => SourceLocator | undefined;
-  /**
-   * The editor key the developer named in config or env
-   * (`sourceOverlay.editor`), or `undefined` when they never did. Read per
-   * call. `open-source` maps it, or the panel's override of it, to a
-   * `launch-editor` command; without either the editor is auto-detected.
-   */
-  configuredEditor?: () => string | undefined;
+  nodeActions?: NodeActions;
   /**
    * Boot from a recorded session instead of a live one. Set only by the
    * static-snapshot build (see `lib/snapshot.ts`): the caches below start
@@ -133,27 +122,9 @@ export interface CreateLitDevframeOptions {
    * answers, and an agent call must not hang. Tests lower it.
    */
   inspectorTimeoutMs?: number;
-  /**
-   * What this host can do, for the parts `get-meta` can't infer. The
-   * definition works out what it can see -- an open service, a source
-   * locator, a filesystem, plugin settings -- and these win over it. Hosts
-   * without Vite say so here: nothing else tells the definition that no
-   * transform stamped source locations and no HMR will ever patch a
-   * component. See {@link LitCapabilities}.
-   */
-  capabilities?: Partial<LitCapabilities>;
 }
 
 const DEFAULT_INSPECTOR_TIMEOUT_MS = 500;
-
-/**
- * Whether this realm is Node, so `export-snapshot` could reach `node:fs`.
- * Read off `globalThis` rather than a bare `process`, which a browser bundle
- * may not define at all.
- */
-const isNodeRuntime = (): boolean =>
-  typeof (globalThis as {process?: {versions?: {node?: unknown}}}).process
-    ?.versions?.node === 'string';
 
 /**
  * Builds the Lit devframe definition. Framework-neutral: everything here
@@ -163,10 +134,7 @@ const isNodeRuntime = (): boolean =>
 export function createLitDevframe(
   options: CreateLitDevframeOptions
 ): DevframeDefinition {
-  const {source, version, features, replay, sourceLocator, configuredEditor} =
-    options;
-  const picker =
-    options.picker ?? (() => features?.()?.sourceOverlay.enabled === true);
+  const {source, version, features, replay, host, nodeActions} = options;
 
   return defineDevframe({
     id: LIT_DEVFRAME_ID,
@@ -231,17 +199,15 @@ export function createLitDevframe(
       // snapshot has neither an editor to open nor a server to export from.
       // `hmr` and `sourceLocations` default to what the Vite plugin gives;
       // hosts without it override them (see `createStandaloneLitDevframe`).
-      const capabilities = (): LitCapabilities => ({
-        openInEditor:
-          live &&
-          sourceLocator !== undefined &&
-          ctx.services.get('@devframes/service-open') !== undefined,
-        exportSnapshot: live && isNodeRuntime(),
-        pluginSettings: features !== undefined,
-        hmr: true,
-        sourceLocations: true,
-        ...options.capabilities,
-      });
+      // Read per call: the plugin's settings are only resolved once its
+      // config is, which can be after this setup has run.
+      const profile = () =>
+        hostProfile(host, {
+          live,
+          features: features ? features() : undefined,
+          nodeActions: nodeActions !== undefined,
+          recorded: replay?.capabilities,
+        });
       const inspectorTimeout =
         options.inspectorTimeoutMs ?? DEFAULT_INSPECTOR_TIMEOUT_MS;
 
@@ -407,14 +373,14 @@ export function createLitDevframe(
             // get a plain, mutable `TimelineLayer[]`.
             layers: [...TIMELINE_LAYERS, ...session.value().customLayers],
             features: features ? features() : null,
-            picker: picker(),
+            picker: profile().picker,
             runtime: followed.runtime(),
             stream: {
               channel: `${LIT_DEVFRAME_ID}:${TIMELINE_STREAM_NAME}`,
               id: TIMELINE_STREAM_ID,
             },
             activePageId: followed.activePageId(),
-            capabilities: capabilities(),
+            capabilities: profile().capabilities,
           }),
         })
       );
@@ -641,34 +607,15 @@ export function createLitDevframe(
           name: RPC_OPEN_SOURCE,
           type: 'action',
           jsonSerializable: true,
-          // Resolving here rather than in the panel is the whole point of
-          // the hop: `file` is relative to the Vite root, while the open
-          // service resolves relative paths against the host's
-          // `workspaceRoot` -- in a monorepo (or any setup where the served
-          // app isn't the workspace) those are different directories, and
-          // `launchEditor` silently does nothing for a path that doesn't
-          // exist. Not agent-exposed: it spawns a GUI process.
+          // Not agent-exposed: it spawns a GUI process.
           handler: async (args: OpenSourceArgs): Promise<OpenSourceResult> => {
-            const service = ctx.services.get('@devframes/service-open');
-            if (service === undefined) return {opened: false};
-            // Confined like `/__lit-open-in-editor`: whatever can reach this
-            // RPC could otherwise have the editor open any file on disk.
-            // Imported here for the same reason as `buildSnapshot` below.
-            const {createSourceLocator} = await import('../source-locator.js');
-            let locator = sourceLocator?.();
-            if (locator === undefined || locator.roots.length === 0) {
-              locator = createSourceLocator([process.cwd()]);
-            }
-            const confined = locator.resolve(args.file);
-            if ('failure' in confined) return {opened: false};
-            const {path} = confined;
-            const override = await my.settings.global.get('override');
-            await service.openInEditor({
-              path,
-              line: args.line,
-              editor: resolveLaunchEditor(configuredEditor?.(), override),
+            if (nodeActions === undefined) return {opened: false};
+            return nodeActions.openSource(args, {
+              service: ctx.services.get('@devframes/service-open'),
+              override: (await my.settings.global.get('override')) as
+                | SettingsOverride
+                | undefined,
             });
-            return {opened: true};
           },
         })
       );
@@ -684,35 +631,24 @@ export function createLitDevframe(
           handler: async (
             args: ExportSnapshotArgs
           ): Promise<ExportSnapshotResult> => {
-            // Imported here, not at module scope: this file has to keep
-            // loading in contexts with no filesystem, and the build adapter
-            // it pulls in reaches straight for `node:fs`.
-            const {buildSnapshot} = await import('../snapshot.js');
-            // `outDir` comes from the client and the build deletes it before
-            // writing, so it has to land strictly beneath the working
-            // directory -- never the directory itself, and never elsewhere
-            // on disk (symlinks included). It usually does not exist yet.
-            const {confineToRoots} = await import('../confine.js');
-            const cwd = process.cwd();
-            const confined = confineToRoots(
-              [cwd],
-              args.outDir ?? 'lit-devtools-snapshot',
-              {mustExist: false, allowRoot: false}
-            );
-            if ('failure' in confined) {
+            if (nodeActions === undefined) {
               throw new Error(
-                `[lit-devtools] export-snapshot: outDir must be inside ${cwd}`
+                '[lit-devtools] export-snapshot: this host cannot write to disk'
               );
             }
-            const outDir = confined.path;
-            return buildSnapshot(
-              followed.capture({
-                capturedAt: new Date().toISOString(),
-                version,
-                customLayers: session.value().customLayers,
-              }),
+            // Recorded so the frozen panel offers what this host did.
+            const {hmr, sourceLocations} = profile().capabilities;
+            return nodeActions.exportSnapshot(
+              args,
               {
-                outDir,
+                ...followed.capture({
+                  capturedAt: new Date().toISOString(),
+                  version,
+                  customLayers: session.value().customLayers,
+                }),
+                capabilities: {hmr, sourceLocations},
+              },
+              {
                 features: features ? features() : null,
                 clientAssets: options.clientAssets,
               }
@@ -725,6 +661,7 @@ export function createLitDevframe(
 }
 
 export default createLitDevframe({
+  host: 'none',
   source: createNullSource(),
   version: '0.0.0',
 });
