@@ -79,7 +79,8 @@ import {
 } from './protocol.js';
 import {resolveLaunchEditor} from './launch-editor.js';
 import {createInspectorRequester} from './inspector-request.js';
-import {createRecordingSession, findByTag, pruneTree} from './session.js';
+import {createFollowedPage} from './followed-page.js';
+import {findByTag, pruneTree} from './session.js';
 import {createNullSource, type TimelineSource} from './source.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
 
@@ -220,14 +221,6 @@ export function createLitDevframe(
         }
       );
 
-      // Everything the page tells us -- events, inspector answers, HMR
-      // notices -- is held by the session; the RPC functions below are thin
-      // adapters over it. Pre-filled when replaying: there is no page to ask.
-      const recording = createRecordingSession({
-        replay,
-        recording: session.value().layers.recordingState,
-      });
-
       // Lets the agent queries ask the page instead of trusting the cache,
       // which only holds what the panel last requested.
       const requester = createInspectorRequester(source);
@@ -255,9 +248,9 @@ export function createLitDevframe(
       // The cache only holds what the panel last asked for; an agent with no
       // panel open would otherwise read an empty tree from a live page.
       const currentRoots = async (): Promise<InspectorTreeNode[]> => {
-        if (!live) return recording.roots();
+        if (!live) return followed.roots();
         const roots = await requester.tree(inspectorTimeout);
-        return roots ?? recording.roots();
+        return roots ?? followed.roots();
       };
 
       // `null` is the page saying the element is gone; silence falls back to
@@ -265,9 +258,9 @@ export function createLitDevframe(
       const currentDetails = async (
         id: number
       ): Promise<InspectorDetails | null> => {
-        if (!live) return recording.details(id);
+        if (!live) return followed.details(id);
         const fresh = await requester.details(id, inspectorTimeout);
-        return fresh === undefined ? recording.details(id) : fresh;
+        return fresh === undefined ? followed.details(id) : fresh;
       };
 
       // Terminal echo for an audience that only sees dev-server stdout (an
@@ -296,6 +289,73 @@ export function createLitDevframe(
       });
       ctx.diagnostics.register(hmrDiagnostics);
 
+      // The stream only exists in a live session; nothing reaches the sink
+      // otherwise, so nothing writes before the dev branch below wires it.
+      let writeEvents: (stamped: TimelineEvent[]) => void = () => {};
+
+      // Everything the page tells us -- events, inspector answers, HMR
+      // notices -- is held by the followed page; the RPC functions below are
+      // thin adapters over it. Pre-filled when replaying: there is no page to
+      // ask. Its effects are where page traffic turns into broadcasts to the
+      // panel, shared state and terminal diagnostics.
+      const followed = createFollowedPage({
+        replay,
+        requester,
+        runtime: source,
+        layers: () => session.value().layers,
+        effects: {
+          events: (stamped) => writeEvents(stamped),
+          layerAdded(layer) {
+            session.mutate((state) => {
+              if (
+                !state.customLayers.some((existing) => existing.id === layer.id)
+              ) {
+                state.customLayers.push(layer);
+              }
+            });
+          },
+          inspectorMessage(message) {
+            void ctx.rpc.broadcast({
+              method: `${LIT_DEVFRAME_ID}:${RPC_INSPECTOR_MESSAGE}`,
+              args: [message],
+              // A page can be open with no panel docked; the runtime keeps
+              // answering either way, so a broadcast with no listener is
+              // normal rather than a missing-function error.
+              optional: true,
+            });
+          },
+          pageChanged(change) {
+            void ctx.rpc.broadcast({
+              method: `${LIT_DEVFRAME_ID}:${RPC_PAGE_CHANGED}`,
+              args: [change],
+              optional: true,
+            });
+          },
+          hmrPatched(event) {
+            void ctx.rpc.broadcast({
+              method: `${LIT_DEVFRAME_ID}:${RPC_HMR_PATCHED}`,
+              args: [event],
+              optional: true,
+            });
+          },
+          hmrIncompatible(event) {
+            void ctx.rpc.broadcast({
+              method: `${LIT_DEVFRAME_ID}:${RPC_HMR_INCOMPATIBLE}`,
+              args: [event],
+              optional: true,
+            });
+          },
+          diagnose(diagnostic) {
+            const {code, ...params} = diagnostic;
+            (hmrDiagnostics[code] as (p: typeof params) => void)(params);
+          },
+          readOverride: async () =>
+            (await my.settings.global.get('override')) as
+              | SettingsOverride
+              | undefined,
+        },
+      });
+
       // Streaming/source wiring only makes sense for a live session: a
       // static build or MCP run has no page attached (its `source` is a
       // `createNullSource()`), and `ctx.mode` is 'build' there.
@@ -320,154 +380,15 @@ export function createLitDevframe(
           channel.get(TIMELINE_STREAM_ID) ??
           channel.start({id: TIMELINE_STREAM_ID});
 
-        source.attach({
-          pushEvents(incoming, pageId) {
-            if (!recording.accepts(pageId)) return;
-            if (incoming.length === 0) return;
-            ensureStream().write(recording.push(incoming));
-          },
-          addLayer(layer, pageId) {
-            if (!recording.accepts(pageId)) return;
-            session.mutate((state) => {
-              if (
-                !state.customLayers.some((existing) => existing.id === layer.id)
-              ) {
-                state.customLayers.push(layer);
-              }
-            });
-          },
-          inspectorMessage(message, pageId) {
-            // Before the requester: an agent query must not be answered with
-            // another tab's tree.
-            if (!recording.accepts(pageId)) return;
-            requester.resolve(message);
-            recording.applyInspector(message);
-            void ctx.rpc.broadcast({
-              method: `${LIT_DEVFRAME_ID}:${RPC_INSPECTOR_MESSAGE}`,
-              args: [message],
-              // A page can be open with no panel docked; the runtime keeps
-              // answering either way, so a broadcast with no listener is
-              // normal rather than a missing-function error.
-              optional: true,
-            });
-          },
-          runtimeReady(pageId, tabId) {
-            const previous = recording.activePageId();
-            const previousTab = recording.activeTabId();
-            const outcome = recording.pageReady(pageId, tabId);
-
-            // A new page means a new timeline clock: the runtime re-zeroes on
-            // the rising edge below, so events kept from the previous document
-            // would sit in the same buffer on a different time origin and make
-            // `recent-events`' `sinceMs` window meaningless. They also describe
-            // a page that no longer exists. A `ready` from the page already
-            // followed is only its socket reconnecting: its clock did not
-            // restart, so its buffer stays.
-            if (outcome !== 'same') recording.clear();
-            // Element ids are minted per document, so the old page's tree and
-            // details would answer for ids that mean nothing on the new one.
-            // Its HMR history goes too: the new page loaded the edited code
-            // fresh, so a "reload to pick up the change" no longer applies
-            // and the patches never ran there.
-            if (outcome === 'switched') recording.forgetPage();
-            if (
-              outcome === 'switched' &&
-              previous !== undefined &&
-              pageId !== undefined
-            ) {
-              void ctx.rpc.broadcast({
-                method: `${LIT_DEVFRAME_ID}:${RPC_PAGE_CHANGED}`,
-                args: [
-                  {
-                    previousPageId: previous,
-                    pageId,
-                    reload: tabId !== undefined && tabId === previousTab,
-                    at: Date.now(),
-                  },
-                ],
-                optional: true,
-              });
-            }
-
-            // Replay current state to a runtime that just booted from its
-            // defaults. Unconditional: `setRecording(false)` on a fresh page
-            // is a no-op.
-            const {layers} = session.value();
-            source.setLayers(layers);
-            source.setRecording(layers.recordingState);
-
-            // The runtime reads the panel's settings override from its own
-            // localStorage at boot. That only works where the panel and the
-            // app share an origin (the Vite hub); in standalone mode and on
-            // per-port origins (StackBlitz) the page's localStorage never
-            // holds it, so a reload would fall back to the config defaults.
-            // The durable store has it, so replay from there. In the hub this
-            // re-sends the values the page already read. Best-effort and
-            // fire-and-forget: this handler is sync, and a missing override
-            // or a failed read just leaves the runtime on its defaults.
-            void my.settings.global
-              .get('override')
-              .then((override) => {
-                if (override && Object.keys(override).length > 0) {
-                  source.setSettingsOverride(override as SettingsOverride);
-                }
-              })
-              .catch(() => {});
-          },
-          hmrPatched(event, pageId) {
-            // Every open tab applies the same HMR patch; only the followed
-            // page's counts.
-            if (!recording.accepts(pageId)) return;
-            recording.pushHmrPatch(event);
-            void ctx.rpc.broadcast({
-              method: `${LIT_DEVFRAME_ID}:${RPC_HMR_PATCHED}`,
-              args: [event],
-              optional: true,
-            });
-          },
-          hmrIncompatible(event, pageId) {
-            if (!recording.accepts(pageId)) return;
-            recording.pushHmrIncompatibility(event);
-            void ctx.rpc.broadcast({
-              method: `${LIT_DEVFRAME_ID}:${RPC_HMR_INCOMPATIBLE}`,
-              args: [event],
-              optional: true,
-            });
-
-            // Informational terminal echo, never a thrown error.
-            if (event.reason.code === 'accessor-decorators') {
-              hmrDiagnostics.LIT_HMR_ACCESSOR({tagName: event.tagName});
-            } else if (event.reason.code === 'patch-failed') {
-              hmrDiagnostics.LIT_HMR_PATCH_FAILED({
-                tagName: event.tagName,
-                detail: event.reason.detail,
-              });
-            } else {
-              hmrDiagnostics.LIT_HMR_ATTRS_CHANGED({tagName: event.tagName});
-            }
-          },
-        });
+        writeEvents = (stamped) => ensureStream().write(stamped);
+        source.attach(followed.sink);
 
         // Single push point for recording/layer changes: fires for the
         // `set-recording` / `toggle-layer` actions below and for a panel
         // mutating shared state directly through devframe's generic
         // shared-state RPC. Immer only emits when the state reference
         // changes, so a no-op mutate sends nothing.
-        //
-        // Clearing on the rising edge belongs here rather than in
-        // `set-recording` for the same reason: the runtime re-zeroes its
-        // timeline clock when recording turns on (`runtime/timeline/clock.ts`),
-        // so events kept from the previous recording sit in the buffer on a
-        // larger time origin than everything captured after them. A `sinceMs`
-        // window reads them as the future, and pairing a start with its end
-        // across the seam yields a negative duration. Same rationale as
-        // `runtimeReady()` above, one level finer: a new clock, not a new page.
-        session.on('updated', (state) => {
-          const {recordingState} = state.layers;
-          recording.setRecording(recordingState);
-          source.setRecording(recordingState);
-          source.setLayers(state.layers);
-        });
+        session.on('updated', (state) => followed.layersChanged(state.layers));
       }
 
       my.rpc.register(
@@ -487,12 +408,12 @@ export function createLitDevframe(
             layers: [...TIMELINE_LAYERS, ...session.value().customLayers],
             features: features ? features() : null,
             picker: picker(),
-            runtime: recording.runtime(),
+            runtime: followed.runtime(),
             stream: {
               channel: `${LIT_DEVFRAME_ID}:${TIMELINE_STREAM_NAME}`,
               id: TIMELINE_STREAM_ID,
             },
-            activePageId: recording.activePageId(),
+            activePageId: followed.activePageId(),
             capabilities: capabilities(),
           }),
         })
@@ -537,7 +458,7 @@ export function createLitDevframe(
               "List recent components the Lit plugin could not hot-patch in place, and why. Call this after an unexplained full-page reload during development, or when a component's state resets unexpectedly on edit.",
           },
           handler: async (): Promise<HmrIncompatibilityEvent[]> =>
-            recording.hmrIncompatibilities(),
+            followed.hmrIncompatibilities(),
         })
       );
 
@@ -554,7 +475,7 @@ export function createLitDevframe(
               'List recent hot-module-reload outcomes for Lit components, oldest first, up to 50 patches and 50 failures. Each entry is kind "patched" (an edit landed in place: instances updated, durationMs of the synchronous patch, and childState, what happened to re-created child elements) or kind "incompatible" (the component could not be patched, with the reason and whether the page reloaded). Call this after editing a component to check the change landed, or after a full-page reload to see what preceded it. Works without recording; the history survives page reloads.',
           },
           handler: async (): Promise<HmrHistoryResult> => ({
-            entries: recording.hmrHistory(),
+            entries: followed.hmrHistory(),
           }),
         })
       );
@@ -607,7 +528,7 @@ export function createLitDevframe(
           handler: async (
             args: RecentEventsArgs = {}
           ): Promise<RecentEventsResult> => {
-            return recording.query(args, session.value().layers.recordingState);
+            return followed.query(args);
           },
         })
       );
@@ -622,7 +543,7 @@ export function createLitDevframe(
           // answers a replayed session with its whole buffer). This is the
           // live panel's seed: the stream carries nothing from before a
           // panel subscribed, so a reloaded panel asks for it here.
-          handler: async (): Promise<TimelineEvent[]> => recording.history(),
+          handler: async (): Promise<TimelineEvent[]> => followed.history(),
         })
       );
 
@@ -643,10 +564,7 @@ export function createLitDevframe(
           handler: async (
             args: UpdateSummaryArgs = {}
           ): Promise<UpdateSummaryResult> => {
-            return recording.summarize(
-              args,
-              session.value().layers.recordingState
-            );
+            return followed.summarize(args);
           },
         })
       );
@@ -788,7 +706,7 @@ export function createLitDevframe(
             }
             const outDir = confined.path;
             return buildSnapshot(
-              recording.capture({
+              followed.capture({
                 capturedAt: new Date().toISOString(),
                 version,
                 customLayers: session.value().customLayers,
