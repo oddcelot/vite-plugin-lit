@@ -9,9 +9,9 @@
  * their JSON, baseline capture, the config -> override key map, the
  * hydrate/adopt loop guard and reset-to-env.
  *
- * Adding an overridable setting means adding one line to {@link CONFIG_KEYS}
- * (plus its field on `SettingsOverride`). A pure preference with no config
- * baseline goes in {@link PREFERENCE_DEFAULTS} instead.
+ * Adding an overridable setting or a pure preference means adding its entry
+ * to `SETTINGS` in `setting-definitions.ts`; the key map and the defaults
+ * here are derived from it.
  *
  * The panel's color scheme rides along: it is not part of the override (the
  * page never sees it), but it is stored, persisted and adopted the same way,
@@ -24,35 +24,32 @@ import {
   type FeatureSettings,
   type SettingsOverride,
 } from '../types/timeline.js';
+import {
+  SETTINGS,
+  settingsOf,
+  type OverridableKey,
+  type PreferenceKey,
+  type SettingValue,
+} from './setting-definitions.js';
 
 /**
  * Overridable settings that have a config baseline: each reads the resolved
- * value out of the plugin's {@link FeatureSettings}. This is the single
- * config -> override key map.
+ * value out of the plugin's {@link FeatureSettings}. The config -> override
+ * key map, derived from the Setting definitions.
  */
-export const CONFIG_KEYS = {
-  hmrReconnect: (s) => s.hmr.reconnect,
-  hmrOnIncompatible: (s) => s.hmr.onIncompatible,
-  hmrChildState: (s) => s.hmr.childState,
-  hmrIndicatorVisible: (s) => s.hmr.indicatorEnabled,
-  hmrIndicatorCount: (s) => s.hmr.indicatorCount,
-  sourceOverlayEditor: (s) => s.sourceOverlay.editor,
-} satisfies Partial<
-  Record<keyof SettingsOverride, (s: FeatureSettings) => unknown>
->;
+export const CONFIG_KEYS = Object.fromEntries(
+  settingsOf('override').map((key) => [key, SETTINGS[key].read])
+) as {[K in OverridableKey]: (s: FeatureSettings) => SettingValue<K>};
 
-/** Settings a panel override can replace and that have a config baseline. */
-export type OverridableKey = keyof typeof CONFIG_KEYS;
+export type {OverridableKey};
 
 /**
  * Pure preferences: no config-time baseline, so they revert to these when
  * the overrides are reset.
  */
-export const PREFERENCE_DEFAULTS = {
-  flashUpdates: false,
-  flashUpdatesRamp: false,
-  chromeTracks: false,
-} as const satisfies SettingsOverride;
+export const PREFERENCE_DEFAULTS = Object.fromEntries(
+  settingsOf('preference').map((key) => [key, SETTINGS[key].default])
+) as {[K in PreferenceKey]: SettingValue<K>};
 
 /**
  * The resolved config value each overridden key was set against, recorded so
@@ -71,8 +68,6 @@ export const configValues = (
     out[key] = read(config);
   return out as Required<Pick<SettingsOverride, OverridableKey>>;
 };
-
-type PreferenceKey = keyof typeof PREFERENCE_DEFAULTS;
 
 /** The pure preferences of an override, each its default when unset. */
 export const preferences = (

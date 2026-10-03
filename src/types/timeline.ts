@@ -1,3 +1,10 @@
+import type {
+  OverridableKey,
+  PreferenceKey,
+  SettingValue,
+  SourcedKey,
+} from '../lib/setting-definitions.js';
+
 export interface TimelineLayer {
   id: string;
   label: string;
@@ -127,54 +134,27 @@ export interface FeatureSettings {
  */
 export type SettingSource = 'option' | 'env' | 'default';
 
-/** Per-setting {@link SettingSource}, as carried on {@link FeatureSettings}. */
-export interface SettingSources {
-  hmrReconnect?: SettingSource;
-  hmrOnIncompatible?: SettingSource;
-  hmrChildState?: SettingSource;
-  hmrIndicatorVisible?: SettingSource;
-  hmrIndicatorCount?: SettingSource;
-  sourceOverlayEditor?: SettingSource;
-  sourceOverlayKey?: SettingSource;
-  sourceOverlayThrottleMs?: SettingSource;
-}
+/**
+ * Per-setting {@link SettingSource}, as carried on {@link FeatureSettings}:
+ * every Setting with a config value (see `lib/setting-definitions.ts`).
+ */
+export type SettingSources = {[K in SourcedKey]?: SettingSource};
 
 /**
  * Runtime overrides the panel applies on top of the resolved env config, for
  * settings whose runtime is already injected (so they can change live). A
  * feature disabled at config time has no runtime, so it can't be enabled here
- * — only the behaviour of already-enabled features is overridable.
+ * — only the behaviour of already-enabled features is overridable. Pure
+ * preferences ride along; they have no config value, so unset reads as their
+ * default. Each key is documented on its entry in `lib/setting-definitions.ts`.
  *
  * Persisted under {@link SETTINGS_OVERRIDE_LS_KEY} (the panel and app share an
  * origin) so overrides survive reloads, and pushed live over
  * {@link SETTINGS_OVERRIDE_CHANNEL} via Vite HMR for immediate effect.
  */
-export interface SettingsOverride {
-  hmrReconnect?: boolean;
-  hmrOnIncompatible?: 'reload' | 'warn';
-  hmrChildState?: 'reset' | 'transfer' | 'reuse';
-  hmrIndicatorVisible?: boolean;
-  hmrIndicatorCount?: boolean;
-  /** Built-in editor key for the source overlay's open-in-editor target. */
-  sourceOverlayEditor?: string;
-  /**
-   * Flash a short outline over every Lit element that completes an update.
-   * Pure preference (no config-time baseline), so `undefined` reads as off.
-   */
-  flashUpdates?: boolean;
-  /**
-   * Colour the flash by how often the element updated in the last second,
-   * calm to hot, instead of one flat colour. Only meaningful with
-   * {@link SettingsOverride.flashUpdates}.
-   */
-  flashUpdatesRamp?: boolean;
-  /**
-   * Mirror the timeline into Chrome DevTools' Performance panel as custom
-   * tracks (via `console.timeStamp`), independent of panel recording. Pure
-   * preference (no config-time baseline), so `undefined` reads as off.
-   */
-  chromeTracks?: boolean;
-}
+export type SettingsOverride = {
+  [K in OverridableKey | PreferenceKey]?: SettingValue<K>;
+};
 
 /**
  * Built-in editors the source overlay can open files in. Keep in sync with

@@ -21,7 +21,7 @@ import {
   type SettingSources,
   type SettingsOverride,
 } from '../types/timeline.js';
-import {baselineChanged} from '../lib/override-baselines.js';
+import {baselineChanged} from '../lib/setting-definitions.js';
 import {getMeta, litSettingsRpc, type LitClient} from './client.js';
 import type {LitGetMetaResult} from '../lib/devframe/protocol.js';
 import {configValues, type OverridableKey} from '../lib/settings-override.js';
