@@ -18,7 +18,12 @@ import {
   type OverrideBaselines,
   type SettingsOverride,
 } from '../types/timeline.js';
-import type {SettingKey} from '../lib/setting-definitions.js';
+import {
+  SETTINGS,
+  type SettingKey,
+  type SettingKeyOf,
+} from '../lib/setting-definitions.js';
+import {presentationOf} from './setting-presentation.js';
 import {settingRow, type SettingRow} from './setting-rows.js';
 import {getMeta, litSettingsRpc, type LitClient} from './client.js';
 import type {LitGetMetaResult} from '../lib/devframe/protocol.js';
@@ -28,6 +33,9 @@ import {overrides} from './settings-override.js';
 /** The guide section that shows where the Lit tracks appear in Chrome. */
 const CHROME_TRACKS_DOCS =
   'https://oddcelot.github.io/vite-plugin-lit/guides/devtools/timeline/#see-it-in-chromes-performance-panel';
+
+/** A feature switch: shown in a section header, never overridden. */
+type FeatureKey = SettingKeyOf<'feature'>;
 
 /** The settings this panel persists, as `DevframeSettingsRegistry.lit`. */
 type LitSettings = Awaited<ReturnType<LitClient['settings']['global']['all']>>;
@@ -289,6 +297,23 @@ export class DevtoolsSettings extends LitElement {
     >`;
   }
 
+  /**
+   * A section header's on/off pill for a feature switch, with the origin
+   * badge saying whether an option or env turned it on or off.
+   */
+  private _feature(key: FeatureKey) {
+    const row = this._rowOf(key);
+    return html`${this._pill(row.value === true)} ${this._badge(row)}`;
+  }
+
+  /** How to turn a feature on, naming its plugin option and env var. */
+  private _enableHint(key: FeatureKey, lead = 'Enable with') {
+    return html`<p class="empty">
+      ${lead} <code>${presentationOf(key).option}: true</code> or
+      <code>${SETTINGS[key].env}=true</code>.
+    </p>`;
+  }
+
   private _rowOf(key: SettingKey): SettingRow {
     return settingRow(key, {
       config: this._settings,
@@ -478,11 +503,7 @@ export class DevtoolsSettings extends LitElement {
   }
 
   private _renderHmr(s: FeatureSettings) {
-    if (!s.hmr.enabled) {
-      return html`<p class="empty">
-        Enable with <code>hmr: true</code> or <code>LIT_PLUGIN_HMR=true</code>.
-      </p>`;
-    }
+    if (!s.hmr.enabled) return this._enableHint('hmr');
     return html`
       <table>
         ${this._row('hmrReconnect')} ${this._row('hmrOnIncompatible')}
@@ -677,7 +698,7 @@ export class DevtoolsSettings extends LitElement {
 
       <section>
         <wa-card>
-          <h3 slot="header">HMR ${this._pill(s.hmr.enabled)}</h3>
+          <h3 slot="header">HMR ${this._feature('hmr')}</h3>
           ${this._renderHmr(s)}
         </wa-card>
       </section>
@@ -685,7 +706,7 @@ export class DevtoolsSettings extends LitElement {
       <section>
         <wa-card>
           <h3 slot="header">
-            Source Overlay ${this._pill(s.sourceOverlay.enabled)}
+            Source Overlay ${this._feature('sourceOverlay')}
           </h3>
           ${
             s.sourceOverlay.enabled
@@ -693,32 +714,28 @@ export class DevtoolsSettings extends LitElement {
                   ${this._row('sourceOverlayKey')} ${this._renderEditorRow(s)}
                   ${this._row('sourceOverlayThrottleMs')}
                 </table>`
-              : html`<p class="empty">
-                  Enable with <code>sourceOverlay: true</code> or
-                  <code>LIT_PLUGIN_SOURCE_OVERLAY=true</code>.
-                </p>`
+              : this._enableHint('sourceOverlay')
           }
         </wa-card>
       </section>
 
       <section>
         <wa-card>
-          <h3 slot="header">Components ${this._pill(s.timeline)}</h3>
+          <h3 slot="header">Components ${this._feature('timeline')}</h3>
           ${
             s.timeline
               ? this._renderComponents()
-              : html`<p class="empty">
-                  Needs the timeline runtime: enable with
-                  <code>timeline: true</code> or
-                  <code>LIT_PLUGIN_TIMELINE=true</code>.
-                </p>`
+              : this._enableHint(
+                  'timeline',
+                  'Needs the timeline runtime: enable with'
+                )
           }
         </wa-card>
       </section>
 
       <section>
         <wa-card>
-          <h3 slot="header">Timeline ${this._pill(s.timeline)}</h3>
+          <h3 slot="header">Timeline ${this._feature('timeline')}</h3>
           <p class="empty">
             Layers and recording are controlled in the Timeline tab.
           </p>
