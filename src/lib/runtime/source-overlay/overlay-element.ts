@@ -59,6 +59,10 @@ class LitSourceOverlay extends HTMLElement {
   #step: HTMLElement;
   #open: HTMLElement;
   #copy: HTMLElement;
+  #siteRow: HTMLElement;
+  #siteText: HTMLElement;
+  #siteOpen: HTMLElement;
+  #siteCopy: HTMLElement;
   #info: PickInfo | null = null;
   #targetEl: Element | null = null;
   // The host under the pointer, and the hosts stepped out of with ArrowUp,
@@ -92,15 +96,30 @@ class LitSourceOverlay extends HTMLElement {
     this.#step = root.getElementById('step')!;
     this.#open = root.getElementById('open')!;
     this.#copy = root.getElementById('copy')!;
+    this.#siteRow = root.getElementById('site-row')!;
+    this.#siteText = root.getElementById('site-text')!;
+    this.#siteOpen = root.getElementById('site-open')!;
+    this.#siteCopy = root.getElementById('site-copy')!;
     this.#open.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (this.#info !== null) this.#select(this.#info, true);
+      if (this.#info !== null) this.#select(this.#info, 'source');
+    });
+    this.#siteOpen.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.#info !== null) this.#select(this.#info, 'callSite');
     });
     this.#copy.addEventListener('click', (e) => {
       e.stopPropagation();
       const source = this.#info?.source;
       if (source === undefined) return;
       const text = `${this.#normalizePath(source.filePath)}:${source.lineNumber}`;
+      void navigator.clipboard?.writeText(text);
+    });
+    this.#siteCopy.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const site = this.#info?.callSite;
+      if (site === undefined) return;
+      const text = `${this.#normalizePath(site.filePath)}:${site.lineNumber}:${site.columnNumber}`;
       void navigator.clipboard?.writeText(text);
     });
     this.#dialog.addEventListener('cancel', (e) => e.preventDefault());
@@ -231,7 +250,7 @@ class LitSourceOverlay extends HTMLElement {
     return filePath;
   }
 
-  async #openInEditor(filePath: string, lineNumber: number) {
+  async #openInEditor(filePath: string, lineNumber: number, column?: number) {
     const path = this.#normalizePath(filePath);
     const endpoint = this.#options.openInEditorPath ?? '/__lit-open-in-editor';
     try {
@@ -239,6 +258,7 @@ class LitSourceOverlay extends HTMLElement {
         file: path,
         line: String(lineNumber),
       });
+      if (column !== undefined) params.set('column', String(column));
       // Name the editor the developer picked (config, env or the panel's
       // override) so the server opens that one; custom editors and an unset
       // choice send nothing and the server auto-detects.
@@ -253,7 +273,7 @@ class LitSourceOverlay extends HTMLElement {
     // there means "server quit", not "no endpoint", and navigating the tab to
     // `vscode://…` on shutdown is jarring and unwanted.
     if (!this.#connected) return;
-    window.open(this.#editor.url(path, lineNumber), '_self');
+    window.open(this.#editor.url(path, lineNumber, column), '_self');
   }
 
   #updateHighlightRect() {
@@ -299,6 +319,12 @@ class LitSourceOverlay extends HTMLElement {
       .filter(Boolean)
       .join('  ');
     this.#step.style.display = out === null && back === undefined ? 'none' : '';
+    const {callSite} = this.#info;
+    this.#siteText.textContent =
+      callSite === undefined
+        ? ''
+        : `${this.#normalizePath(callSite.filePath)}:${callSite.lineNumber}`;
+    this.#siteRow.style.display = callSite === undefined ? 'none' : '';
     const sourceDisplay = source === undefined ? 'none' : '';
     this.#path.style.display = sourceDisplay;
     this.#open.style.display = sourceDisplay;
@@ -451,16 +477,31 @@ class LitSourceOverlay extends HTMLElement {
     }, throttleMs);
   };
 
-  #select(info: PickInfo, openInEditor = false) {
+  /**
+   * `open` names what to open in the editor: the declaration (`source`) or
+   * where the element is written (`callSite`). Each falls back to the other
+   * when the element lacks it, so a library element's Cmd+click opens its
+   * call site. Without either, or with `false`, the click only picks.
+   */
+  #select(info: PickInfo, open: false | 'source' | 'callSite' = false) {
     const target = this.#targetEl;
     // Cancel the whole selection mode on any deliberate pick, before acting —
     // the editor may open via a URL scheme that doesn't navigate this tab away,
     // so we can't rely on the open outcome to dismiss the inspector.
     this.deactivate();
-    const {source} = info;
+    const {source, callSite} = info;
+    // onSelect keeps its contract (ElementInfo.source is required), so
+    // elements without a declaration, library ones, are not reported.
     if (source !== undefined) this.#options.onSelect?.({...info, source});
-    if (openInEditor && source !== undefined) {
-      void this.#openInEditor(source.filePath, source.lineNumber);
+    const place =
+      open === 'callSite'
+        ? (callSite ?? source)
+        : open === 'source'
+          ? (source ?? callSite)
+          : undefined;
+    if (place !== undefined) {
+      const {columnNumber: column} = place as {columnNumber?: number};
+      void this.#openInEditor(place.filePath, place.lineNumber, column);
       return;
     }
     // Report the picked element to the DevTools panel, which selects it in the
@@ -514,7 +555,9 @@ class LitSourceOverlay extends HTMLElement {
     if (this.#pointInTooltip(event.clientX, event.clientY)) return;
     event.preventDefault();
     event.stopPropagation();
-    this.#select(this.#info, event.metaKey || event.ctrlKey);
+    // Cmd/Ctrl+click opens the declaration, adding Shift opens the call site.
+    const open = event.metaKey || event.ctrlKey;
+    this.#select(this.#info, open && (event.shiftKey ? 'callSite' : 'source'));
   };
 
   #onScrollOrResize = () => {

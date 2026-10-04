@@ -11,14 +11,29 @@ export interface ElementInfo {
     /** Line of the class declaration in that module. */
     lineNumber: number;
   };
+  /**
+   * Where this instance is written in an `html` template, when the dev
+   * transform stamped it. Unlike `source`, it differs per usage.
+   */
+  callSite?: {
+    /** Absolute path of the module holding the template. */
+    filePath: string;
+    /** Line of the element's opening `<`. */
+    lineNumber: number;
+    /** Column of the element's opening `<`. */
+    columnNumber: number;
+  };
 }
 
 /** An editor the source overlay can open files in. */
 export interface EditorConfig {
   /** Label shown in the overlay, e.g. `VS Code`. */
   name: string;
-  /** Builds the URL that opens `path` at `line`, e.g. `vscode://file/…`. */
-  url: (path: string, line: number) => string;
+  /**
+   * Builds the URL that opens `path` at `line`, e.g. `vscode://file/…`.
+   * `column` is passed when known (a call site); ignoring it is fine.
+   */
+  url: (path: string, line: number, column?: number) => string;
 }
 
 /** Options for the in-page source overlay (`sourceOverlay`). */

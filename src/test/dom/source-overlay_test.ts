@@ -345,6 +345,177 @@ describe('click', () => {
   });
 });
 
+describe('call site', () => {
+  const SITE = '/ws/src/page.ts:12:5';
+
+  const urlOf = (fetchMock: {mock: {calls: unknown[]}}, i = 0) =>
+    new URL((fetchMock.mock.calls[i] as [string])[0], 'http://localhost');
+
+  test('shows the row with the call site, and hides it without one', async () => {
+    const plain = makeTarget();
+    const stamped = makeTarget();
+    stamped.el.setAttribute('data-lit-source', SITE);
+    mount({workspaceRoot: '/ws'});
+    overlay.activate();
+
+    hitTarget = plain.el;
+    await hover();
+    expect(byId('site-row').style.display).toBe('none');
+
+    hitTarget = stamped.el;
+    await hover(41, 41);
+    expect(byId('site-row').style.display).toBe('');
+    expect(byId('site-text').textContent).toBe('src/page.ts:12');
+    expect(byId('site-open').getAttribute('aria-label')).toBe(
+      'Open call site in editor'
+    );
+    expect(byId('site-copy').getAttribute('aria-label')).toBe('Copy call site');
+  });
+
+  test('Cmd+Shift+click opens the call site with its column', async () => {
+    const {el} = makeTarget();
+    el.setAttribute('data-lit-source', SITE);
+    hitTarget = el;
+    const fetchMock = vi.fn(async () => ({ok: true}));
+    vi.stubGlobal('fetch', fetchMock);
+    const onSelect = vi.fn();
+    mount({workspaceRoot: '/ws', onSelect});
+    overlay.activate();
+    await hover();
+    click({metaKey: true, shiftKey: true});
+    await vi.advanceTimersByTimeAsync(0);
+
+    const url = urlOf(fetchMock);
+    expect(url.searchParams.get('file')).toBe('src/page.ts');
+    expect(url.searchParams.get('line')).toBe('12');
+    expect(url.searchParams.get('column')).toBe('5');
+    expect(onSelect.mock.calls[0]![0].callSite).toEqual({
+      filePath: '/ws/src/page.ts',
+      lineNumber: 12,
+      columnNumber: 5,
+    });
+  });
+
+  test('Ctrl+click still opens the declaration, without a column', async () => {
+    const {el} = makeTarget();
+    el.setAttribute('data-lit-source', SITE);
+    hitTarget = el;
+    const fetchMock = vi.fn(async () => ({ok: true}));
+    vi.stubGlobal('fetch', fetchMock);
+    mount({workspaceRoot: '/ws'});
+    overlay.activate();
+    await hover();
+    click({ctrlKey: true});
+    await vi.advanceTimersByTimeAsync(0);
+    const url = urlOf(fetchMock);
+    expect(url.searchParams.get('file')).toBe('src/card.ts');
+    expect(url.searchParams.has('column')).toBe(false);
+  });
+
+  test('Cmd+Shift+click falls back to the declaration without a call site', async () => {
+    const {el} = makeTarget();
+    hitTarget = el;
+    const fetchMock = vi.fn(async () => ({ok: true}));
+    vi.stubGlobal('fetch', fetchMock);
+    mount({workspaceRoot: '/ws'});
+    overlay.activate();
+    await hover();
+    click({metaKey: true, shiftKey: true});
+    await vi.advanceTimersByTimeAsync(0);
+    expect(urlOf(fetchMock).searchParams.get('file')).toBe('src/card.ts');
+  });
+
+  test('the row buttons open and copy the call site', async () => {
+    const {el} = makeTarget();
+    el.setAttribute('data-lit-source', SITE);
+    hitTarget = el;
+    const fetchMock = vi.fn(async () => ({ok: true}));
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('navigator', {clipboard: {writeText}});
+    mount({workspaceRoot: '/ws'});
+    overlay.activate();
+    await hover();
+    byId('site-copy').dispatchEvent(new MouseEvent('click', {bubbles: true}));
+    expect(writeText).toHaveBeenCalledWith('src/page.ts:12:5');
+    byId('site-open').dispatchEvent(new MouseEvent('click', {bubbles: true}));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(urlOf(fetchMock).searchParams.get('column')).toBe('5');
+  });
+
+  test('a library element with only a call site opens it on Ctrl+click', async () => {
+    const tag = `x-lib-${counter++}`;
+    customElements.define(
+      tag,
+      class extends HTMLElement {
+        static elementProperties = new Map();
+      }
+    );
+    const el = document.createElement(tag);
+    el.setAttribute('data-lit-source', SITE);
+    el.getBoundingClientRect = () =>
+      ({
+        ...RECT,
+        right: RECT.left + RECT.width,
+        bottom: RECT.top + RECT.height,
+      }) as DOMRect;
+    document.body.append(el);
+    hitTarget = el;
+    const fetchMock = vi.fn(async () => ({ok: true}));
+    vi.stubGlobal('fetch', fetchMock);
+    const onSelect = vi.fn();
+    mount({hosts: 'lit', workspaceRoot: '/ws', onSelect});
+    overlay.activate();
+    await hover();
+    expect(byId('path').style.display).toBe('none');
+    expect(byId('site-row').style.display).toBe('');
+    click({ctrlKey: true});
+    await vi.advanceTimersByTimeAsync(0);
+    expect(urlOf(fetchMock).searchParams.get('column')).toBe('5');
+    // onSelect still needs a declaration, which a library element lacks.
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  test('falls back to the editor URL scheme with the column', async () => {
+    const {el} = makeTarget();
+    el.setAttribute('data-lit-source', SITE);
+    hitTarget = el;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('offline');
+      })
+    );
+    const open = vi.fn();
+    vi.stubGlobal('open', open);
+    mount({workspaceRoot: '/ws', editor: 'cursor'});
+    overlay.activate();
+    await hover();
+    click({metaKey: true, shiftKey: true});
+    await vi.advanceTimersByTimeAsync(0);
+    expect(open).toHaveBeenCalledWith(
+      'cursor://file/src/page.ts:12:5',
+      '_self'
+    );
+  });
+
+  test('stepping to another host updates the row', async () => {
+    const outer = makeTarget();
+    const inner = makeTarget();
+    outer.el.setAttribute('data-lit-source', SITE);
+    outer.el.append(inner.el);
+    hitTarget = inner.el;
+    mount({workspaceRoot: '/ws'});
+    overlay.activate();
+    await hover();
+    expect(byId('site-row').style.display).toBe('none');
+    key({key: 'ArrowUp'});
+    expect(byId('site-row').style.display).toBe('');
+    key({key: 'ArrowDown'});
+    expect(byId('site-row').style.display).toBe('none');
+  });
+});
+
 describe('keyboard', () => {
   test('Escape is swallowed while active and does not dismiss the overlay', () => {
     mount();

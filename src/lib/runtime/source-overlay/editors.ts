@@ -7,29 +7,38 @@ import type {EditorConfig} from '../../types.js';
 const filePath = (path: string) =>
   path.startsWith('/') ? path.slice(1) : path;
 
+// `:<column>` suffix for the editors that take `file:line:column`.
+const col = (column?: number) => (column === undefined ? '' : `:${column}`);
+
 // Keep the keys/labels in sync with SOURCE_OVERLAY_EDITORS in
 // src/types/timeline.ts (the panel's editor-selection options).
 export const BUILTIN_EDITORS: Record<string, EditorConfig> = {
   vscode: {
     name: 'VS Code',
-    url: (path, line) => `vscode://file/${filePath(path)}:${line}`,
+    url: (path, line, column) =>
+      `vscode://file/${filePath(path)}:${line}${col(column)}`,
   },
   cursor: {
     name: 'Cursor',
-    url: (path, line) => `cursor://file/${filePath(path)}:${line}`,
+    url: (path, line, column) =>
+      `cursor://file/${filePath(path)}:${line}${col(column)}`,
   },
   zed: {
     name: 'Zed',
-    url: (path, line) => `zed://file/${filePath(path)}:${line}`,
+    url: (path, line, column) =>
+      `zed://file/${filePath(path)}:${line}${col(column)}`,
   },
   idea: {
     name: 'IntelliJ',
-    url: (path, line) =>
-      `idea://open?file=${encodeURIComponent(path)}&line=${line}`,
+    url: (path, line, column) =>
+      `idea://open?file=${encodeURIComponent(path)}&line=${line}${
+        column === undefined ? '' : `&column=${column}`
+      }`,
   },
   windsurf: {
     name: 'Windsurf',
-    url: (path, line) => `windsurf://file/${filePath(path)}:${line}`,
+    url: (path, line, column) =>
+      `windsurf://file/${filePath(path)}:${line}${col(column)}`,
   },
 };
 

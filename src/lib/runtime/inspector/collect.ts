@@ -13,7 +13,7 @@ import type {
   InspectorProp,
   InspectorTreeNode,
 } from '../../../types/inspector.js';
-import {CALL_SITE_ATTR, SOURCE_META_KEY} from '../source-meta.js';
+import {CALL_SITE_ATTR, SOURCE_META_KEY, readCallSite} from '../source-meta.js';
 
 interface LitSourceMeta {
   filePath: string;
@@ -49,17 +49,11 @@ const sourceOf = (el: Element): ElementSource | undefined => {
     : {file: meta.filePath, line: meta.lineNumber};
 };
 
-/**
- * The template position the transform stamped on `el`. Parsed from the right:
- * the file part may itself hold colons (a Windows drive).
- */
 const callSiteOf = (el: Element): ElementSource | undefined => {
-  const match = /^(.*):(\d+):(\d+)$/.exec(
-    el.getAttribute(CALL_SITE_ATTR) ?? ''
-  );
-  return match === null
+  const site = readCallSite(el);
+  return site === undefined
     ? undefined
-    : {file: match[1]!, line: Number(match[2]), column: Number(match[3])};
+    : {file: site.filePath, line: site.lineNumber, column: site.columnNumber};
 };
 
 /**
