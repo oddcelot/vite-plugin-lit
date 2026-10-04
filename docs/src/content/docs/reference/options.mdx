@@ -292,7 +292,8 @@ export default defineConfig({
 
 Built-in keys are `vscode`, `cursor`, `zed`, `idea`, and `windsurf`. An unknown
 name falls back to VS Code. A `{name, url}` object supplies your own URL
-builder, called with the file path and the line number.
+builder, called with the file path, the line number and, for a call site, the
+column.
 
 The DevTools panel's source links also open in this editor (`vscode`, `cursor`,
 `zed` and `idea`). Other values leave the choice to `launch-editor`'s

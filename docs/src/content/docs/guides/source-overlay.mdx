@@ -57,6 +57,8 @@ LIT_PLUGIN_SOURCE_OVERLAY_EDITOR=zed
 
 4. Hold **Ctrl** (or **⌘**) and click the element to open that file in your
    editor at that line. The tooltip's own **open** button does the same.
+   Add **Shift** to open the line where that element is written instead, see
+   [Where an element is rendered](#where-an-element-is-rendered).
 
 5. Press the same keys again to put the picker away without opening anything.
 
@@ -72,7 +74,13 @@ The overlay and the Components tab open the file that declares a component.
 The dev transform also stamps a `data-lit-source="file:line:column"`
 attribute on every custom element written in an `html` or `svg` template, and
 the Components tab uses it for a **Rendered at** link to the tag that created
-that instance. The attribute is added only on the dev server and only while
+that instance. The overlay reads it too: when the hovered element has one, a
+second row in the tooltip reads **rendered at** `file:line`, with its own
+**open** and **copy** buttons (copy gives `file:line:column`), and
+**Ctrl/⌘+Shift+click** opens that spot in your editor, at its column, instead
+of the declaration. Without a call site it opens the declaration. A library
+element picked with `hosts: 'lit'` has no declaration to show, so its call
+site is the only row, and **Ctrl/⌘+click** opens it. The attribute is added only on the dev server and only while
 `sourceOverlay` is on, so it never reaches a production build; it is also
 visible in the page's DOM and in your own selectors, which is worth knowing
 if a test matches attributes exactly.
@@ -92,7 +100,8 @@ export default defineConfig({
 ```
 
 Anything else is a `{name, url}` pair. The `url` function receives the
-absolute path and the line number, and returns the URL to open.
+absolute path and the line number, and returns the URL to open. A third
+argument, the column, is passed when opening a call site; you can ignore it.
 
 ```ts title="vite.config.ts"
 import {defineConfig} from 'vite';
@@ -104,7 +113,8 @@ export default defineConfig({
       sourceOverlay: {
         editor: {
           name: 'My Editor',
-          url: (path, line) => `my-editor://open?file=${path}&line=${line}`,
+          url: (path, line, column = 1) =>
+            `my-editor://open?file=${path}&line=${line}&column=${column}`,
         },
       },
     }),
@@ -158,8 +168,10 @@ export default defineConfig({
   `'lit'` to pick any Lit element, a component library's included. Those have
   no source, so a click selects them in the DevTools Components tab.
 - `exclude` returns `true` for elements the picker should skip.
-- `onSelect` fires with the picked element's info. The default action still
-  runs after it.
+- `onSelect` fires with the picked element's info: `tagName`, `componentName`,
+  `source`, and `callSite` (file, line and column of the template that wrote
+  it) when the transform stamped one. It does not fire for an element with no
+  `source`, such as a library one. The default action still runs after it.
 
 The picker is shared: the DevTools Components tab reuses it for its **Pick**
 button, so element picking there needs `sourceOverlay` enabled too.

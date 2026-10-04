@@ -1,4 +1,8 @@
-import {SOURCE_META_KEY, type LitSourceMeta} from '../source-meta.js';
+import {
+  SOURCE_META_KEY,
+  readCallSite,
+  type LitSourceMeta,
+} from '../source-meta.js';
 import type {ElementInfo} from '../../types.js';
 
 export interface ElementResolver {
@@ -141,6 +145,7 @@ export const defaultResolver: ElementResolver = {
         filePath: meta.filePath,
         lineNumber: meta.lineNumber,
       },
+      callSite: readCallSite(host),
     };
   },
 };
@@ -148,7 +153,8 @@ export const defaultResolver: ElementResolver = {
 /**
  * What the tooltip shows for a host: its tag, and its file and line when the
  * source-meta transform stamped it. A library element carries no stamp, so it
- * is named after its class and has no source to open or copy.
+ * is named after its class and has no source to open or copy, but it may
+ * still carry the call site of the template that wrote it.
  */
 export const hostInfo = (
   host: Element
@@ -159,11 +165,13 @@ export const hostInfo = (
     }
   )[SOURCE_META_KEY];
   const tagName = host.tagName.toLowerCase();
+  const callSite = readCallSite(host);
   return meta === undefined
-    ? {tagName, componentName: host.constructor.name || undefined}
+    ? {tagName, componentName: host.constructor.name || undefined, callSite}
     : {
         tagName,
         componentName: meta.componentName,
         source: {filePath: meta.filePath, lineNumber: meta.lineNumber},
+        callSite,
       };
 };

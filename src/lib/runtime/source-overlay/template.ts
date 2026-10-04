@@ -4,7 +4,8 @@ import {CODE_ICON, COPY_ICON} from '../../icons.js';
 // Shadow DOM markup for the overlay: a transparent modal <dialog> hosting the
 // dimming mask, the highlight ring, and the bottom-fixed tooltip panel. The
 // panel is a three-section split: open-in-editor icon | tag + path + arrow-key
-// steps | copy icon.
+// steps | copy icon. A second row of the same shape shows where the element
+// is written in a template (its call site), when known.
 export const OVERLAY_HTML = `
   <style>
     dialog {
@@ -45,7 +46,7 @@ export const OVERLAY_HTML = `
       left: 50%;
       translate: -50%;
       display: none;
-      align-items: stretch;
+      flex-direction: column;
       pointer-events: auto;
       max-width: min(90vw, 480px);
       border-radius: var(--lit-devtools-radius-md);
@@ -57,6 +58,11 @@ export const OVERLAY_HTML = `
       box-shadow: var(--lit-devtools-shadow-md);
       overflow: hidden;
     }
+    .row {
+      display: flex;
+      align-items: stretch;
+    }
+    #site-row { border-top: 1px solid var(--lit-devtools-border-subtle); }
     .icon-btn {
       display: flex;
       align-items: center;
@@ -78,8 +84,9 @@ export const OVERLAY_HTML = `
       display: block;
       fill: currentColor;
     }
-    #meta {
+    #meta, #site-meta {
       display: flex;
+      flex: 1 1 auto;
       flex-direction: column;
       justify-content: center;
       gap: 1px;
@@ -95,11 +102,12 @@ export const OVERLAY_HTML = `
       text-overflow: ellipsis;
       color: var(--lit-devtools-text-strong);
     }
-    #path {
+    #path, #site-path {
       color: var(--lit-devtools-text-secondary);
       font-size: 11px;
       word-break: break-all;
     }
+    .label { color: var(--lit-devtools-text-muted); }
     /* Where the arrow keys step: out to the enclosing host, back in. */
     #step {
       color: var(--lit-devtools-text-secondary);
@@ -111,24 +119,45 @@ export const OVERLAY_HTML = `
     <div id="mask"></div>
     <div id="highlight"></div>
     <div id="tooltip">
-      <span
-        id="open"
-        class="icon-btn"
-        title="Open in editor"
-        aria-label="Open in editor"
-      >${CODE_ICON}</span>
-      <div id="meta">
-        <span id="tag"></span>
-        <span id="path"></span>
-        <span id="step"></span>
+      <div class="row">
+        <span
+          id="open"
+          class="icon-btn"
+          title="Open in editor"
+          aria-label="Open in editor"
+        >${CODE_ICON}</span>
+        <div id="meta">
+          <span id="tag"></span>
+          <span id="path"></span>
+          <span id="step"></span>
+        </div>
+        <button
+          id="copy"
+          class="icon-btn"
+          type="button"
+          title="Copy path"
+          aria-label="Copy path"
+        >${COPY_ICON}</button>
       </div>
-      <button
-        id="copy"
-        class="icon-btn"
-        type="button"
-        title="Copy path"
-        aria-label="Copy path"
-      >${COPY_ICON}</button>
+      <div id="site-row" class="row">
+        <button
+          id="site-open"
+          class="icon-btn"
+          type="button"
+          title="Open call site in editor"
+          aria-label="Open call site in editor"
+        >${CODE_ICON}</button>
+        <div id="site-meta">
+          <span id="site-path"><span class="label">rendered at </span><span id="site-text"></span></span>
+        </div>
+        <button
+          id="site-copy"
+          class="icon-btn"
+          type="button"
+          title="Copy call site"
+          aria-label="Copy call site"
+        >${COPY_ICON}</button>
+      </div>
     </div>
   </dialog>
 `;

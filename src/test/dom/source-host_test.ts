@@ -155,6 +155,23 @@ describe('defaultResolver', () => {
     });
   });
 
+  test('carries the call site stamped on the host', async () => {
+    const tag = define(true, 'Widget');
+    const host = document.createElement(tag);
+    host.setAttribute('data-lit-source', 'C:/proj/src/page.ts:4:11');
+    document.body.append(host);
+    expect(await defaultResolver.resolveElementInfo(host)).toEqual({
+      tagName: tag,
+      componentName: 'Widget',
+      source: {filePath: '/src/comp.ts', lineNumber: 12},
+      callSite: {
+        filePath: 'C:/proj/src/page.ts',
+        lineNumber: 4,
+        columnNumber: 11,
+      },
+    });
+  });
+
   test('resolves to null with no host', async () => {
     const el = document.createElement('div');
     document.body.append(el);
@@ -211,6 +228,34 @@ describe('hostInfo', () => {
       componentName: 'Widget',
       source: {filePath: '/src/comp.ts', lineNumber: 12},
     });
+  });
+
+  test('carries the call site of a stamped host', () => {
+    const el = document.createElement(define(true, 'Widget'));
+    el.setAttribute('data-lit-source', '/src/page.ts:4:11');
+    expect(hostInfo(el).callSite).toEqual({
+      filePath: '/src/page.ts',
+      lineNumber: 4,
+      columnNumber: 11,
+    });
+  });
+
+  test('a library element has a call site but no source', () => {
+    const el = document.createElement(defineLit());
+    el.setAttribute('data-lit-source', '/src/page.ts:8:3');
+    const info = hostInfo(el);
+    expect(info.source).toBeUndefined();
+    expect(info.callSite).toEqual({
+      filePath: '/src/page.ts',
+      lineNumber: 8,
+      columnNumber: 3,
+    });
+  });
+
+  test('ignores a malformed call-site attribute', () => {
+    const el = document.createElement(define());
+    el.setAttribute('data-lit-source', 'nonsense');
+    expect(hostInfo(el).callSite).toBeUndefined();
   });
 
   test('names an unstamped host after its class, without a source', () => {

@@ -76,6 +76,17 @@ describe('resolveEditor', () => {
     );
   });
 
+  test('appends the column when given', () => {
+    for (const name of ['vscode', 'cursor', 'zed', 'windsurf']) {
+      expect(BUILTIN_EDITORS[name].url('/Users/me/a.ts', 3, 9)).toBe(
+        `${name}://file/Users/me/a.ts:3:9`
+      );
+    }
+    expect(resolveEditor('idea').url('/a b.ts', 3, 9)).toBe(
+      'idea://open?file=%2Fa%20b.ts&line=3&column=9'
+    );
+  });
+
   test('returns a custom config as given', () => {
     const custom = {
       name: 'Mine',
