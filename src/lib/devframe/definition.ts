@@ -77,9 +77,8 @@ import {
 } from './protocol.js';
 import {hostProfile, type HostKind} from './host-profile.js';
 import type {NodeActions} from './node-actions.js';
-import {createInspectorRequester} from './inspector-request.js';
+import {createInspectorQueries} from './inspector-queries.js';
 import {createFollowedPage} from './followed-page.js';
-import {findByTag, pruneTree} from './session.js';
 import {createNullSource, type TimelineSource} from './source.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
 
@@ -189,16 +188,8 @@ export function createLitDevframe(
         }
       );
 
-      // Lets the agent queries ask the page instead of trusting the cache,
-      // which only holds what the panel last requested.
-      const requester = createInspectorRequester(source);
       const live = ctx.mode === 'dev' && replay === undefined;
 
-      // Read per call, like `features`: the open service is a hub-wide
-      // install a Vite host may finish after this setup has run. A frozen
-      // snapshot has neither an editor to open nor a server to export from.
-      // `hmr` and `sourceLocations` default to what the Vite plugin gives;
-      // hosts without it override them (see `createStandaloneLitDevframe`).
       // Read per call: the plugin's settings are only resolved once its
       // config is, which can be after this setup has run.
       const profile = () =>
@@ -208,26 +199,17 @@ export function createLitDevframe(
           nodeActions: nodeActions !== undefined,
           recorded: replay?.capabilities,
         });
-      const inspectorTimeout =
-        options.inspectorTimeoutMs ?? DEFAULT_INSPECTOR_TIMEOUT_MS;
-
-      // The cache only holds what the panel last asked for; an agent with no
-      // panel open would otherwise read an empty tree from a live page.
-      const currentRoots = async (): Promise<InspectorTreeNode[]> => {
-        if (!live) return followed.roots();
-        const roots = await requester.tree(inspectorTimeout);
-        return roots ?? followed.roots();
-      };
-
-      // `null` is the page saying the element is gone; silence falls back to
-      // the cache.
-      const currentDetails = async (
-        id: number
-      ): Promise<InspectorDetails | null> => {
-        if (!live) return followed.details(id);
-        const fresh = await requester.details(id, inspectorTimeout);
-        return fresh === undefined ? followed.details(id) : fresh;
-      };
+      // The agent's component queries ask the page, falling back to what the
+      // followed page cached.
+      const queries = createInspectorQueries({
+        source,
+        cache: {
+          roots: () => followed.roots(),
+          details: (id) => followed.details(id),
+        },
+        live,
+        timeoutMs: options.inspectorTimeoutMs ?? DEFAULT_INSPECTOR_TIMEOUT_MS,
+      });
 
       // Terminal echo for an audience that only sees dev-server stdout (an
       // agent, or a CI log) and not the browser console or the panel.
@@ -266,7 +248,7 @@ export function createLitDevframe(
       // panel, shared state and terminal diagnostics.
       const followed = createFollowedPage({
         replay,
-        requester,
+        requester: queries,
         runtime: source,
         layers: () => session.value().layers,
         effects: {
@@ -401,13 +383,7 @@ export function createLitDevframe(
           // snapshot call too), so it must default.
           handler: async (
             args: ListComponentsArgs = {}
-          ): Promise<InspectorTreeNode[]> => {
-            const roots = await currentRoots();
-            const depth = args.maxDepth;
-            return depth !== undefined && Number.isFinite(depth) && depth >= 1
-              ? pruneTree(roots, Math.floor(depth))
-              : roots;
-          },
+          ): Promise<InspectorTreeNode[]> => queries.tree(args),
         })
       );
 
@@ -457,22 +433,8 @@ export function createLitDevframe(
           },
           handler: async (
             args: ComponentDetailsArgs
-          ): Promise<InspectorDetails | null | ComponentDetailsByTagResult> => {
-            if (!('tagName' in args)) return currentDetails(args.id);
-            const {ids, truncated} = findByTag(
-              await currentRoots(),
-              args.tagName,
-              args.limit
-            );
-            // Concurrent: each live read waits up to the timeout on its own.
-            const all = await Promise.all(ids.map(currentDetails));
-            const details: InspectorDetails[] = [];
-            const missing: number[] = [];
-            all.forEach((d, i) =>
-              d ? details.push(d) : missing.push(ids[i]!)
-            );
-            return {details, missing, truncated};
-          },
+          ): Promise<InspectorDetails | null | ComponentDetailsByTagResult> =>
+            queries.details(args),
         })
       );
 

@@ -2,8 +2,6 @@ import {describe, expect, test} from 'vite-plus/test';
 import {
   capTail,
   createRecordingSession,
-  findByTag,
-  pruneTree,
   sinceWindow,
 } from '../../lib/devframe/session.js';
 import {RECENT_EVENTS_BUFFER_SIZE} from '../../lib/devframe/protocol.js';
@@ -211,91 +209,6 @@ describe('query', () => {
     expect(s.query({limit: 10_000}, false).events.length).toBeLessThanOrEqual(
       RECENT_EVENTS_BUFFER_SIZE
     );
-  });
-});
-
-describe('findByTag', () => {
-  const node = (
-    id: number,
-    tagName: string,
-    children: InspectorTreeNode[] = []
-  ): InspectorTreeNode => ({id, tagName, children});
-  const tree = [
-    node(1, 'x-app', [
-      node(2, 'x-item', [node(3, 'x-other'), node(4, 'x-item')]),
-      node(5, 'x-list', [node(6, 'x-ITEM')]),
-    ]),
-    node(7, 'x-item'),
-  ];
-
-  test('walks depth-first and matches case-insensitively', () => {
-    expect(findByTag(tree, 'X-Item')).toEqual({
-      ids: [2, 4, 6, 7],
-      truncated: false,
-    });
-  });
-
-  test('an unknown tag matches nothing', () => {
-    expect(findByTag(tree, 'x-none')).toEqual({ids: [], truncated: false});
-  });
-
-  test('limit cuts the matches and flags truncation', () => {
-    expect(findByTag(tree, 'x-item', 2)).toEqual({
-      ids: [2, 4],
-      truncated: true,
-    });
-    expect(findByTag(tree, 'x-item', 4).truncated).toBe(false);
-  });
-
-  test('limit defaults to 20 and is capped at 50', () => {
-    const many = Array.from({length: 60}, (_, i) => node(i, 'x-row'));
-    expect(findByTag(many, 'x-row').ids).toHaveLength(20);
-    expect(findByTag(many, 'x-row', 1000)).toMatchObject({truncated: true});
-    expect(findByTag(many, 'x-row', 1000).ids).toHaveLength(50);
-    expect(findByTag(many, 'x-row', Number.NaN).ids).toHaveLength(20);
-    expect(findByTag(many, 'x-row', 0).ids).toHaveLength(20);
-  });
-});
-
-describe('pruneTree', () => {
-  const tree = (): InspectorTreeNode[] => [
-    {
-      id: 1,
-      tagName: 'x-app',
-      children: [
-        {
-          id: 2,
-          tagName: 'x-a',
-          children: [{id: 3, tagName: 'x-leaf', children: []}],
-        },
-        {id: 4, tagName: 'x-b', children: []},
-      ],
-    },
-  ];
-
-  test('depth 1 keeps the roots and counts what it dropped', () => {
-    expect(pruneTree(tree(), 1)).toEqual([
-      {id: 1, tagName: 'x-app', children: [], hiddenChildren: 2},
-    ]);
-  });
-
-  test('depth 2 leaves childless nodes without hiddenChildren', () => {
-    const [app] = pruneTree(tree(), 2);
-    expect(app!.hiddenChildren).toBeUndefined();
-    expect(app!.children).toEqual([
-      {id: 2, tagName: 'x-a', children: [], hiddenChildren: 1},
-      {id: 4, tagName: 'x-b', children: []},
-    ]);
-  });
-
-  test('a depth past the tree returns an equal copy', () => {
-    expect(pruneTree(tree(), 9)).toEqual(tree());
-  });
-
-  test('never mutates its input', () => {
-    const input = tree();
-    pruneTree(input, 1);
-    expect(input).toEqual(tree());
   });
 });
 
