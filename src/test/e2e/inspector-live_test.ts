@@ -12,7 +12,7 @@
  * real timers, and driven end to end over the HMR channel the way the panel
  * actually drives it (`fixture.server.hot.send(INSPECT_CMD_CHANNEL, ...)` /
  * `fixture.server.hot.on(INSPECT_DATA_CHANNEL, ...)`, mirroring
- * `HotTimelineSource` in `src/lib/devframe/vite.ts`) — none of that exists in
+ * the codec the Vite host connects in `src/lib/devframe/vite.ts`) — none of that exists in
  * a jsdom-style unit test.
  */
 

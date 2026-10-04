@@ -20,7 +20,7 @@ import {
 } from '../../types/timeline.js';
 import type {TimelineEvent, TimelineLayer} from '../../types/timeline.js';
 import {TimelineChannelCodec} from '../../lib/devframe/page-codec.js';
-import type {PageCarrier} from '../../lib/devframe/page-codec.js';
+import type {PageTransport} from '../../lib/runtime/page-transport.js';
 import type {TimelineSink} from '../../lib/devframe/source.js';
 
 class RecordingSink implements TimelineSink {
@@ -58,8 +58,11 @@ class RecordingSink implements TimelineSink {
 const setup = (onPick?: (id: number) => void) => {
   const handlers = new Map<string, (data: unknown) => void>();
   const sent: Array<[string, unknown]> = [];
-  const carrier: PageCarrier = {
-    on: (channel, cb) => void handlers.set(channel, cb),
+  const carrier: PageTransport = {
+    on: (channel, cb) => {
+      handlers.set(channel, cb);
+      return () => handlers.delete(channel);
+    },
     send: (channel, data) => void sent.push([channel, data]),
   };
   const codec = new TimelineChannelCodec({onPick});

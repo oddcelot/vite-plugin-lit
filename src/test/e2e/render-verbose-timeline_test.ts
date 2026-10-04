@@ -1,5 +1,6 @@
 import {afterAll, beforeAll, expect, test} from 'vite-plus/test';
-import {createHotTimelineSource} from '../../lib/devframe/vite.js';
+import {TimelineChannelCodec} from '../../lib/devframe/page-codec.js';
+import {fromViteHot} from '../../lib/runtime/page-transport.js';
 import type {TimelineEvent} from '../../types/timeline.js';
 import {type Fixture, startFixture} from './utils.js';
 
@@ -38,11 +39,11 @@ const clickIncrement = (page: Fixture['page']): Promise<void> =>
 test('lit-render-verbose stays silent when only lit-render is enabled', async () => {
   const {page} = fixture;
 
-  // `bind()` must happen before the page (re)connects its HMR client, or the
+  // `connect()` must happen before the page (re)connects its HMR client, or the
   // page's `push-event` messages have no listener — the fixture already
-  // loaded the page once in `startFixture`, so reload it after binding.
-  const source = createHotTimelineSource();
-  source.bind(fixture.server);
+  // loaded the page once in `startFixture`, so reload it after connecting.
+  const source = new TimelineChannelCodec();
+  source.connect(fromViteHot(fixture.server.hot));
   const events: TimelineEvent[] = [];
   source.attach({
     pushEvents: (batch) => events.push(...batch),
@@ -83,8 +84,8 @@ test('lit-render-verbose stays silent when only lit-render is enabled', async ()
 test('lit-render-verbose reports serializable per-part events when enabled', async () => {
   const {page} = fixture;
 
-  const source = createHotTimelineSource();
-  source.bind(fixture.server);
+  const source = new TimelineChannelCodec();
+  source.connect(fromViteHot(fixture.server.hot));
   const events: TimelineEvent[] = [];
   source.attach({
     pushEvents: (batch) => events.push(...batch),

@@ -18,6 +18,7 @@ import {
   RPC_PAGE_SEND,
 } from '../devframe/protocol.js';
 import type {ConnectionMeta} from 'devframe';
+import {channelListeners} from './channel-listeners.js';
 import {pageChannel} from './page-channel.js';
 import type {PageTransport} from './page-channel.js';
 
@@ -39,32 +40,17 @@ export interface PageRpc {
  * registered with `on`.
  */
 export const createRpcTransport = (rpc: PageRpc): PageTransport => {
-  const listeners = new Map<string, Set<(data: unknown) => void>>();
-
+  const listeners = channelListeners();
   rpc.register({
     name: RPC_PAGE_RECEIVE,
     type: 'event',
-    handler: (channel: string, data?: unknown) => {
-      for (const listener of listeners.get(channel) ?? []) {
-        try {
-          listener(data);
-        } catch (error) {
-          console.error(`[lit-devtools] listener for ${channel} threw`, error);
-        }
-      }
-    },
+    handler: (channel: string, data?: unknown) => listeners.emit(channel, data),
   });
-
   return {
     send(channel, data) {
       rpc.callEvent(RPC_PAGE_SEND, channel, data);
     },
-    on(channel, handler) {
-      let set = listeners.get(channel);
-      if (set === undefined) listeners.set(channel, (set = new Set()));
-      set.add(handler);
-      return () => void set.delete(handler);
-    },
+    on: listeners.on,
   };
 };
 

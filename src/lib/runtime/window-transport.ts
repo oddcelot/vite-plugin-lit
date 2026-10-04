@@ -36,7 +36,8 @@
 
 import {pageChannel} from './page-channel.js';
 import type {PageTransport} from './page-channel.js';
-import type {PortLike, PortMessage} from '../devframe/port-link.js';
+import type {PortLike, PortMessage} from '../devframe/port-message.js';
+import {channelListeners} from './channel-listeners.js';
 import {PEER_CONNECTED_CHANNEL} from '../devframe/protocol.js';
 
 /** Marks window messages as ours among all other `postMessage` traffic. */
@@ -103,7 +104,7 @@ export const windowPageTransport = (
   options: WindowPageTransportOptions = {}
 ): PageTransport => {
   const target = options.target ?? window;
-  const listeners = new Map<string, Set<(data: unknown) => void>>();
+  const listeners = channelListeners();
   target.addEventListener('message', (event) => {
     const envelope = envelopeOf(event);
     if (envelope === undefined) return;
@@ -111,17 +112,8 @@ export const windowPageTransport = (
       if (envelope.type === 'connected') options.onPeerConnected?.();
       return;
     }
-    if (envelope.dir !== 'to-page') return;
-    for (const listener of listeners.get(envelope.channel) ?? []) {
-      try {
-        listener(envelope.data);
-      } catch (error) {
-        console.error(
-          `[lit-devtools] listener for ${envelope.channel} threw`,
-          error
-        );
-      }
-    }
+    if (envelope.dir === 'to-page')
+      listeners.emit(envelope.channel, envelope.data);
   });
   // A relay that started before this page script ran has already said
   // `connected` to nobody; ask again.
@@ -129,12 +121,7 @@ export const windowPageTransport = (
   return {
     send: (channel, data) =>
       post(target, {source: SOURCE, dir: 'to-extension', channel, data}),
-    on(channel, handler) {
-      let set = listeners.get(channel);
-      if (set === undefined) listeners.set(channel, (set = new Set()));
-      set.add(handler);
-      return () => void set.delete(handler);
-    },
+    on: listeners.on,
   };
 };
 
