@@ -16,28 +16,18 @@
  */
 
 import type {PageTransport} from '../runtime/page-channel.js';
+import {channelListeners} from '../runtime/channel-listeners.js';
+import {
+  isPortMessage,
+  type PortLike,
+  type PortMessage,
+} from './port-message.js';
 import {createLocalHost} from './local-host.js';
 import type {KeyValueStorage, LocalDevframeClient} from './local-host.js';
 import {createStandaloneLitDevframe} from './rpc-source.js';
 import type {PageLinkNode} from './rpc-source.js';
 
-/** The structural slice of `chrome.runtime.Port` used here. */
-export interface PortLike {
-  postMessage(message: unknown): void;
-  onMessage: {addListener(callback: (message: unknown) => void): void};
-  onDisconnect?: {addListener(callback: () => void): void};
-}
-
-/** What travels on the port, in both directions. */
-export interface PortMessage {
-  channel: string;
-  data?: unknown;
-}
-
-const isPortMessage = (message: unknown): message is PortMessage =>
-  typeof message === 'object' &&
-  message !== null &&
-  typeof (message as {channel?: unknown}).channel === 'string';
+export type {PortLike, PortMessage} from './port-message.js';
 
 /**
  * `postMessage` that stops once the port disconnects: Chrome throws on a
@@ -80,29 +70,11 @@ export const portPageLink = (port: PortLike): PageLinkNode => {
 /** The page's end: a {@link PageTransport} for `pageChannel.attach()`. */
 export const portPageTransport = (port: PortLike): PageTransport => {
   const post = poster(port);
-  const listeners = new Map<string, Set<(data: unknown) => void>>();
+  const listeners = channelListeners();
   port.onMessage.addListener((message) => {
-    if (!isPortMessage(message)) return;
-    for (const listener of listeners.get(message.channel) ?? []) {
-      try {
-        listener(message.data);
-      } catch (error) {
-        console.error(
-          `[lit-devtools] listener for ${message.channel} threw`,
-          error
-        );
-      }
-    }
+    if (isPortMessage(message)) listeners.emit(message.channel, message.data);
   });
-  return {
-    send: post,
-    on(channel, handler) {
-      let set = listeners.get(channel);
-      if (set === undefined) listeners.set(channel, (set = new Set()));
-      set.add(handler);
-      return () => void set.delete(handler);
-    },
-  };
+  return {send: post, on: listeners.on};
 };
 
 export interface LocalLitHostOptions {

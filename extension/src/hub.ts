@@ -22,7 +22,11 @@
  * worker hands it the real ones from `chrome.runtime.onConnect`.
  */
 
-import type {PortLike, PortMessage} from '../../src/lib/devframe/port-link.js';
+import {
+  isPortMessage,
+  type PortLike,
+  type PortMessage,
+} from '../../src/lib/devframe/port-message.js';
 import {PEER_CONNECTED_CHANNEL} from '../../src/lib/devframe/protocol.js';
 import {
   CHANNEL_PAGE_STATUS,
@@ -43,11 +47,6 @@ export interface Hub {
   /** Take a newly connected port; ports with other names are left alone. */
   connect(port: HubPort): void;
 }
-
-const isPortMessage = (message: unknown): message is PortMessage =>
-  typeof message === 'object' &&
-  message !== null &&
-  typeof (message as {channel?: unknown}).channel === 'string';
 
 /** Chrome throws on a port whose other end is gone; that is not an error. */
 const post = (port: HubPort, message: PortMessage): void => {

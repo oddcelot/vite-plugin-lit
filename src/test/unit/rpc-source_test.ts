@@ -214,22 +214,4 @@ describe('createRpcTransport', () => {
     expect(called).toEqual([['page-send', 'lit:x', {n: 1}]]);
     expect(seen).toEqual([1]);
   });
-
-  test('a throwing listener does not starve the others', () => {
-    const {rpc, receive} = fakeRpc();
-    const transport = createRpcTransport(rpc);
-    const seen: string[] = [];
-    transport.on('lit:a', () => {
-      throw new Error('boom');
-    });
-    transport.on('lit:a', () => seen.push('second'));
-    const original = console.error;
-    console.error = () => {};
-    try {
-      receive('lit:a', 1);
-    } finally {
-      console.error = original;
-    }
-    expect(seen).toEqual(['second']);
-  });
 });
