@@ -120,16 +120,6 @@ describe('TimelineModel reconcile', () => {
 });
 
 describe('TimelineModel deep links', () => {
-  test('a link before events load waits, and is reported meanwhile', () => {
-    const model = new TimelineModel();
-    expect(model.selectEvent('2-update-end')).toBe(false);
-    expect(model.selectedEventId).toBe('2-update-end');
-    expect(model.setEvents([...a, ...b])).toBe(true);
-    expect(model.selectedKey).toBe(keyB);
-    // Reported as the span's start event once resolved.
-    expect(model.selectedEventId).toBe('2-update-start');
-  });
-
   test('a link into a loaded buffer resolves at once', () => {
     const model = modelWith([...a, ...b]);
     expect(model.selectEvent('1-update-start')).toBe(true);
@@ -144,12 +134,11 @@ describe('TimelineModel deep links', () => {
     expect(model.selectedEventId).toBeNull();
   });
 
-  test('a click supersedes a pending link', () => {
-    const model = new TimelineModel();
-    model.selectEvent('2-update-start');
-    model.select(keyA);
-    model.setEvents([...a, ...b]);
-    expect(model.selectedKey).toBe(keyA);
+  test("reports the span's start event even when linked by its end", () => {
+    const model = modelWith([...a, ...b]);
+    model.selectEvent('2-update-end');
+    expect(model.selectedKey).toBe(keyB);
+    expect(model.selectedEventId).toBe('2-update-start');
   });
 });
 

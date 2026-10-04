@@ -87,13 +87,12 @@ test('Pick starts the picker in the page', async () => {
 test('a pick from the page selects it and asks to be brought forward', async () => {
   const {el, pick, inspects} = await mount(true);
   pick()!.click();
-  const activated = vi.fn();
-  document.body.addEventListener('inspector-activate', activated);
+  el.location.setTab('timeline');
   push('inspector-message', {type: 'pick', id: 2});
   await flush(el);
-  expect(el.selectedId).toBe(2);
+  expect(el.location.selected('components')).toBe(2);
   expect(inspects()).toContainEqual({type: 'details', id: 2});
-  expect(activated).toHaveBeenCalledOnce();
+  expect(el.location.tab).toBe('components');
   expect(pick()!.classList.contains('active')).toBe(false);
 });
 
@@ -102,19 +101,15 @@ test('renders the tree it was primed with and selects on click', async () => {
   expect(rows().map((r) => r.querySelector('.tag')!.textContent)).toEqual([
     '<x-app>',
   ]);
-  const changes: unknown[] = [];
-  el.addEventListener('selection-change', (e) =>
-    changes.push((e as CustomEvent<{id: number}>).detail.id)
-  );
   rows()[0]!.click();
   await flush(el);
-  expect(changes).toEqual([1]);
+  expect(el.location.selected('components')).toBe(1);
   expect(inspects()).toContainEqual({type: 'watch', id: 1});
 });
 
 test('selecting a nested element expands its ancestors', async () => {
   const {el, rows} = await mount();
-  el.selectById(2);
+  el.location.apply({componentId: 2});
   await flush(el);
   expect(rows().map((r) => r.querySelector('.tag')!.textContent)).toEqual([
     '<x-app>',

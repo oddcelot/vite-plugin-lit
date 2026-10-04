@@ -73,7 +73,7 @@ const mount = async (recording = false) => {
   updateSharedState('session', session(recording));
   const el = document.createElement('timeline-view');
   const changes = vi.fn();
-  el.addEventListener('selection-change', changes);
+  el.location.subscribe(changes);
   document.body.append(el);
   await flush(el);
   const root = el.shadowRoot!;
@@ -135,26 +135,27 @@ test('a layer toggle goes to the server, except for custom layers', async () => 
 });
 
 test('a deep link before the events load waits, then selects', async () => {
-  const {el, changes, list} = await mount();
-  el.selectEvent('2-end');
-  // Reported as-is meanwhile, so the shell keeps it in the URL.
-  expect(el.selectedEventId).toBe('2-end');
+  const {el, list} = await mount();
+  el.location.apply({eventId: '2-end'});
+  await flush(el);
+  // Still held: nothing has loaded to match it against.
+  expect(el.location.requested('timeline')).toBe('2-end');
   setEvents(events);
   await flush(el);
   expect(list().selectedKey).toBe('lit-lifecycle:2:1:update');
-  // Now reported as the span's start event.
-  expect(el.selectedEventId).toBe('2-start');
-  expect(changes).toHaveBeenCalled();
+  // Resolved to the span's start event.
+  expect(el.location.requested('timeline')).toBeUndefined();
+  expect(el.location.selected('timeline')).toBe('2-start');
 });
 
 test('a link to an event the buffer does not hold selects nothing', async () => {
   const {el, list} = await mount();
   setEvents(events);
   await flush(el);
-  el.selectEvent('gone');
+  el.location.apply({eventId: 'gone'});
   await flush(el);
   expect(list().selectedKey).toBeNull();
-  expect(el.selectedEventId).toBeNull();
+  expect(el.location.selected('timeline')).toBeNull();
 });
 
 test('a click in the list becomes the shared selection', async () => {
@@ -169,7 +170,7 @@ test('a click in the list becomes the shared selection', async () => {
     })
   );
   await flush(el);
-  expect(el.selectedEventId).toBe('1-start');
+  expect(el.location.selected('timeline')).toBe('1-start');
   expect(tracks().selectedKey).toBe('lit-lifecycle:1:1:update');
   expect(changes).toHaveBeenCalledOnce();
 });

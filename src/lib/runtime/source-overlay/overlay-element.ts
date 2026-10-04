@@ -479,8 +479,8 @@ class LitSourceOverlay extends HTMLElement {
 
   /**
    * Bring the Lit DevTools dock entry to the front so a pick is visible even
-   * when the panel was closed. The panel mirrors this from its own
-   * `inspector-activate` handler, but only once its iframe is mounted — and the
+   * when the panel was closed. The panel mirrors this by switching to its
+   * Components tab on the pick, but only once its iframe is mounted — and the
    * @vitejs/devtools shell does not mount that iframe until the entry has been
    * opened at least once. This overlay always runs on the page, so calling
    * `switchEntry` here covers the cold-start case where no panel exists yet to

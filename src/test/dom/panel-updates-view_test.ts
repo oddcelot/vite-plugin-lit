@@ -82,7 +82,7 @@ test('a row click selects it, lists its updates and tells the shell', async () =
   setEvents(events);
   await settle();
   const changes = vi.fn();
-  el.addEventListener('selection-change', changes);
+  el.location.subscribe(changes);
   rows()
     .find((r) => r.tag === '<x-counter>')!
     .row.click();
@@ -90,37 +90,37 @@ test('a row click selects it, lists its updates and tells the shell', async () =
   expect(rows().find((r) => r.selected)?.tag).toBe('<x-counter>');
   expect(cycles()).toHaveLength(2);
   expect(changes).toHaveBeenCalledOnce();
-  expect(el.selectedId).toBe(1);
+  expect(el.location.selected('updates')).toBe(1);
 });
 
 test('a deep link that arrives before its events waits for them', async () => {
   const {el, rows, settle} = await mount();
-  el.selectById(2);
+  el.location.apply({tab: 'updates', componentId: 2});
   await settle();
-  expect(el.selectedId).toBeNull();
+  expect(el.location.selected('updates')).toBeNull();
   setEvents(events);
   await settle();
   expect(rows().find((r) => r.selected)?.tag).toBe('<x-clock>');
-  expect(el.selectedId).toBe(2);
+  expect(el.location.selected('updates')).toBe(2);
 });
 
 test('drops the selection when its component leaves the buffer', async () => {
   const {el, rows, settle} = await mount();
   setEvents(events);
   await settle();
-  el.selectById(2);
+  el.location.apply({tab: 'updates', componentId: 2});
   await settle();
   setEvents(tick(1, 'x-counter', 3, 30));
   await settle();
   expect(rows().some((r) => r.selected)).toBe(false);
-  expect(el.selectedId).toBeNull();
+  expect(el.location.selected('updates')).toBeNull();
 });
 
 test('an instance link asks the shell to open it in Components', async () => {
   const {el, root, settle} = await mount();
   setEvents(events);
   await settle();
-  el.selectById(1);
+  el.location.apply({tab: 'updates', componentId: 1});
   await settle();
   const inspected: number[] = [];
   document.body.addEventListener('inspect-element', (e) =>
@@ -156,7 +156,7 @@ test('flags a component and an update in which a phase threw', async () => {
   expect(root.querySelector('.components .errors')?.textContent).toMatch(
     /\s1\s*$/
   );
-  el.selectById(1);
+  el.location.apply({tab: 'updates', componentId: 1});
   await settle();
   expect(root.querySelector('.cycles .row .threw')?.textContent).toMatch(
     /threw in update:\s+TypeError/
@@ -193,7 +193,7 @@ test.each([
     },
   ]);
   await settle();
-  el.selectById(1);
+  el.location.apply({tab: 'updates', componentId: 1});
   await settle();
   const threw = root.querySelector('.cycles .row .threw');
   expect(threw?.textContent).toMatch(badge);
