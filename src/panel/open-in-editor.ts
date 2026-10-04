@@ -31,8 +31,13 @@ export const canOpenInEditor = (): Promise<boolean> =>
   hostInfo().then((host) => host.openInEditor);
 
 /** Today's endpoint. The fallback, and what the source overlay always uses. */
-const openViaEndpoint = async (file: string, line: number): Promise<void> => {
+const openViaEndpoint = async (
+  file: string,
+  line: number,
+  column?: number
+): Promise<void> => {
   const params = new URLSearchParams({file, line: String(line)});
+  if (column !== undefined) params.set('column', String(column));
   const res = await fetch(`/__lit-open-in-editor?${params.toString()}`);
   if (!res.ok) {
     throw new Error(
@@ -42,17 +47,22 @@ const openViaEndpoint = async (file: string, line: number): Promise<void> => {
 };
 
 /**
- * Open `file` at `line` in the developer's editor. Never throws: a failure is
- * logged, since there is no panel surface for it and the developer can always
- * open the file themselves.
+ * Open `file` at `line` (and `column`, when given) in the developer's
+ * editor. Never throws: a failure is logged, since there is no panel surface
+ * for it and the developer can always open the file themselves.
  */
 export const openInEditor = async (
   file: string,
-  line: number
+  line: number,
+  column?: number
 ): Promise<void> => {
   try {
     const client = await litRpc();
-    const {opened} = await client.rpc.call('open-source', {file, line});
+    const {opened} = await client.rpc.call('open-source', {
+      file,
+      line,
+      ...(column === undefined ? {} : {column}),
+    });
     if (opened) return;
   } catch (err) {
     console.warn(
@@ -61,7 +71,7 @@ export const openInEditor = async (
     );
   }
   try {
-    await openViaEndpoint(file, line);
+    await openViaEndpoint(file, line, column);
   } catch (err) {
     console.warn('[lit-devtools] open-in-editor failed', err);
   }

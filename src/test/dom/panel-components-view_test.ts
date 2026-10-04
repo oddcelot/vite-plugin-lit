@@ -387,3 +387,54 @@ test('a source location is plain text where the host has no editor', async () =>
   expect(root.querySelector('wa-button.src')).toBeNull();
   expect(root.querySelector('.src-text')!.textContent).toBe('src/b.ts:4');
 });
+
+test('a call site renders a second link that opens at its column', async () => {
+  const {el, root} = await mount(true);
+  answers.set('open-source', {opened: true});
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      source: {file: 'src/b.ts', line: 4},
+      callSite: {file: 'src/app.ts', line: 12, column: 7},
+    },
+  });
+  await flush(el);
+  const link = root.querySelector<HTMLElement>('wa-button.call-site')!;
+  expect(link.textContent).toContain('Rendered at src/app.ts:12');
+  link.click();
+  await flush(el);
+  expect(calls.find((c) => c.name === 'open-source')?.args).toEqual([
+    {file: 'src/app.ts', line: 12, column: 7},
+  ]);
+});
+
+test('a call site is plain text where the host has no editor', async () => {
+  meta.capabilities.openInEditor = false;
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      callSite: {file: 'src/app.ts', line: 12, column: 7},
+    },
+  });
+  await flush(el);
+  expect(root.querySelector('wa-button.call-site')).toBeNull();
+  expect(root.querySelector('.call-site')!.textContent).toBe(
+    'Rendered at src/app.ts:12'
+  );
+});
+
+test('no call site, no row', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {...detailsFor(), source: {file: 'src/b.ts', line: 4}},
+  });
+  await flush(el);
+  expect(root.querySelector('.call-site')).toBeNull();
+});

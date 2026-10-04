@@ -96,6 +96,8 @@ export interface OpenSourceArgs {
    */
   file: string;
   line?: number;
+  /** 1-based; the editor opens at the start of the line without one. */
+  column?: number;
 }
 
 /** What {@link RPC_OPEN_SOURCE} reports back. */

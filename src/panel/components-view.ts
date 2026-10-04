@@ -542,6 +542,12 @@ export class ComponentsView extends LitElement {
     void openInEditor(src.file, src.line);
   }
 
+  private _openCallSite(): void {
+    const site = this._session.details?.callSite;
+    if (site === undefined) return;
+    void openInEditor(site.file, site.line, site.column);
+  }
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -706,6 +712,24 @@ export class ComponentsView extends LitElement {
             : // No editor on this host: still worth knowing where it lives.
               html`<span class="src src-text"
                 >${d.source.file}:${d.source.line}</span
+              >`
+      }
+      ${
+        d.callSite === undefined
+          ? nothing
+          : this._canOpen
+            ? html`<wa-button
+                class="src call-site"
+                appearance="plain"
+                size="small"
+                data-tip="Open the template that renders this element"
+                @click=${this._openCallSite}
+              >
+                Rendered at ${d.callSite.file}:${d.callSite.line}
+                <wa-icon slot="end" name="arrow-square-out"></wa-icon>
+              </wa-button>`
+            : html`<span class="src src-text call-site"
+                >Rendered at ${d.callSite.file}:${d.callSite.line}</span
               >`
       }
       <section>

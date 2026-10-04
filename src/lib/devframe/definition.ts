@@ -377,7 +377,7 @@ export function createLitDevframe(
           snapshot: true,
           agent: {
             description:
-              'List the live Lit component tree of the inspected page, read from the page on each call. Call this to find an element id, or to see how components nest. Pass maxDepth (1 = top-level components only) to bound a large tree: nodes cut off by it have empty children and carry hiddenChildren, the number of children dropped; omit it for the whole tree. If you already know the tag name, skip this and pass tagName to lit:component-details or lit:recent-events.',
+              'List the live Lit component tree of the inspected page, read from the page on each call. Call this to find an element id, or to see how components nest. Nodes carry source (where the class is declared) and, when known, callSite (where the instance is written in an html template). Pass maxDepth (1 = top-level components only) to bound a large tree: nodes cut off by it have empty children and carry hiddenChildren, the number of children dropped; omit it for the whole tree. If you already know the tag name, skip this and pass tagName to lit:component-details or lit:recent-events.',
           },
           // `args` is absent when called with no filters (the baked
           // snapshot call too), so it must default.
@@ -429,7 +429,7 @@ export function createLitDevframe(
           jsonSerializable: true,
           agent: {
             description:
-              'Get reactive properties, attributes, and internal state for components, read from the page on each call. Pass id for one element (find it with list-components); that form returns null if the element has left the page. Or pass tagName (for example "todo-item", case-insensitive) for every element of that tag, in tree order, at most limit (default 20, ceiling 50): it returns {details, missing, truncated}, where missing lists matching element ids whose details could not be read and truncated means more elements matched than limit. A tag with no elements returns empty lists, so several elements of one tag are all returned, not just the first. Each element also carries extras when it has any: reactive controllers, @lit/task status and value, signals and plain instance fields.',
+              'Get reactive properties, attributes, and internal state for components, read from the page on each call. Pass id for one element (find it with list-components); that form returns null if the element has left the page. Or pass tagName (for example "todo-item", case-insensitive) for every element of that tag, in tree order, at most limit (default 20, ceiling 50): it returns {details, missing, truncated}, where missing lists matching element ids whose details could not be read and truncated means more elements matched than limit. A tag with no elements returns empty lists, so several elements of one tag are all returned, not just the first. Each element carries source (where its class is declared) and, when known, callSite (the html template position that rendered this instance, with a column). Each element also carries extras when it has any: reactive controllers, @lit/task status and value, signals and plain instance fields.',
           },
           handler: async (
             args: ComponentDetailsArgs
