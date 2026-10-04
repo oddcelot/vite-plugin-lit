@@ -1,5 +1,5 @@
 import {LitElement, html, css, nothing} from 'lit';
-import {customElement, state} from 'lit/decorators.js';
+import {customElement, property, state} from 'lit/decorators.js';
 import {classMap} from 'lit/directives/class-map.js';
 import {repeat} from 'lit/directives/repeat.js';
 import {tokens} from '../lib/tokens.js';
@@ -14,6 +14,8 @@ import {
 import '@awesome.me/webawesome/dist/components/badge/badge.js';
 import '@awesome.me/webawesome/dist/components/button/button.js';
 import './wa-icons.js';
+import {LocationController} from './location-controller.js';
+import {PanelLocation} from './panel-location.js';
 import {canOpenInEditor, openInEditor} from './open-in-editor.js';
 
 /**
@@ -211,10 +213,15 @@ export class UpdatesView extends LitElement {
   private _derivedFrom: TimelineEvent[] | null = null;
   private _components: ComponentRollup[] = [];
   private _cycles: UpdateCycle[] = [];
-  /** Element id from a deep link that has not matched a component yet. Held
-   *  rather than dropped: a link can arrive before the recording it names has
-   *  streamed in, which is the normal case for a freshly opened snapshot. */
-  private _pendingId: number | null = null;
+  /** Where the panel is; the shell hands its own in. */
+  @property({attribute: false}) location = new PanelLocation();
+
+  // A link's element id waits in the location until a component row holds
+  // it: a link can arrive before the recording it names has streamed in,
+  // which is the normal case for a freshly opened snapshot.
+  protected readonly _locationController = new LocationController(this, () =>
+    this._resolveRequest()
+  );
 
   override connectedCallback() {
     super.connectedCallback();
@@ -249,42 +256,31 @@ export class UpdatesView extends LitElement {
       !this._components.some((c) => c.tagName === this._selectedTag)
     ) {
       this._selectedTag = null;
+      if (this.location.requested('updates') === undefined) {
+        this.location.select('updates', null);
+      }
     }
-    this._resolvePending();
-  }
-
-  private _resolvePending(): void {
-    if (this._pendingId === null) return;
-    const match = this._components.find((c) =>
-      c.elementIds.includes(this._pendingId!)
-    );
-    if (match === undefined) return;
-    this._pendingId = null;
-    this._selectedTag = match.tagName;
+    this._resolveRequest();
   }
 
   /**
-   * The element id the current selection stands for, for the panel shell's
-   * deep link. A row is a component *tag*, so this reports the first instance
-   * of it that updated — which selects the same row on the way back in.
+   * Select the row of the component a link's element belongs to, once the
+   * recording holds it. The row stands for the tag, so the location records
+   * the tag's first instance, which selects the same row on the way back in.
    */
-  get selectedId(): number | null {
-    const selected = this._components.find(
-      (c) => c.tagName === this._selectedTag
-    );
-    return selected?.elementIds[0] ?? null;
-  }
-
-  /** Selects the component row that the given element instance belongs to. */
-  selectById(elementId: number): void {
-    this._pendingId = elementId;
-    this._resolvePending();
+  private _resolveRequest(): void {
+    const id = this.location.requested('updates');
+    if (id === undefined) return;
+    const match = this._components.find((c) => c.elementIds.includes(id));
+    if (match === undefined) return;
+    this._selectedTag = match.tagName;
+    this.location.resolve('updates', match.elementIds[0] ?? id);
   }
 
   private _select(tagName: string): void {
     this._selectedTag = tagName;
-    this._pendingId = null;
-    this.dispatchEvent(new CustomEvent('selection-change'));
+    const row = this._components.find((c) => c.tagName === tagName);
+    this.location.select('updates', row?.elementIds[0] ?? null);
   }
 
   /** Ask the panel shell to open the Components tab on this element. */

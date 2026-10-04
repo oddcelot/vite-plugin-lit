@@ -84,9 +84,6 @@ export class TimelineModel {
   private _filter: TimelineFilter = NO_FILTER;
   private _filtered: TimelineSpan[] | null = [];
   private _selectedKey: string | null = null;
-  /** An event id a deep link asked for that the buffer has not delivered
-   *  yet; resolved by the next {@link setEvents} that has events. */
-  private _pendingEventId: string | null = null;
 
   get events(): readonly TimelineEvent[] {
     return this._events;
@@ -127,19 +124,14 @@ export class TimelineModel {
     return key === null ? undefined : this._spans.find((s) => s.key === key);
   }
 
-  /**
-   * Id of the selected span's start event, for the URL. While a linked id is
-   * still waiting on the buffer it is reported as-is, so the address bar does
-   * not drop it before the events land.
-   */
+  /** Id of the selected span's start event, for the URL. */
   get selectedEventId(): string | null {
-    return this._pendingEventId ?? this.selectedSpan?.events[0]?.id ?? null;
+    return this.selectedSpan?.events[0]?.id ?? null;
   }
 
   /**
    * Replaces the buffer and reconciles the filter and selection against it.
-   * Returns true when this resolved a pending deep link to a span, which the
-   * view should scroll into view.
+   * Returns false when `events` is the buffer it already has.
    */
   setEvents(events: readonly TimelineEvent[]): boolean {
     if (events === this._events) return false;
@@ -162,7 +154,7 @@ export class TimelineModel {
     if (key !== null && !isRawKey(key) && this.selectedSpan === undefined) {
       this._selectedKey = null;
     }
-    return this._resolvePending();
+    return true;
   }
 
   setFilter(patch: Partial<TimelineFilter>): void {
@@ -177,33 +169,24 @@ export class TimelineModel {
     this._filtered = null;
   }
 
-  /** A click on a row or mark. Supersedes any pending deep link. */
+  /** A click on a row or mark. */
   select(key: string | null): void {
-    this._pendingEventId = null;
     this._selectedKey = key;
   }
 
   /**
    * Selects the span a deep link named. Its start event is the natural target
    * (`span.events[0]`), but any of the span's events matches, so a link to
-   * either half of a pair lands on the same row.
+   * either half of a pair lands on the same row. An id the buffer does not
+   * hold (evicted, or from another session) clears the selection: leaving the
+   * previous row highlighted would read as if that were it. Returns true when
+   * it found a span.
    *
-   * An empty buffer is "not loaded yet", so the id waits for
-   * {@link setEvents}. An id the buffer does not hold — evicted, or from
-   * another session — clears the selection: leaving the previous row
-   * highlighted would read as if that were it. Returns true when it resolved
-   * to a span.
+   * Holding a link until the buffer has loaded is `PanelLocation`'s; ask only
+   * once {@link events} has some.
    */
   selectEvent(id: string): boolean {
-    this._pendingEventId = id;
-    return this._resolvePending();
-  }
-
-  private _resolvePending(): boolean {
-    const id = this._pendingEventId;
-    if (id === null || this._spans.length === 0) return false;
     const span = this._spans.find((s) => s.events.some((e) => e.id === id));
-    this._pendingEventId = null;
     this._selectedKey = span?.key ?? null;
     return span !== undefined;
   }

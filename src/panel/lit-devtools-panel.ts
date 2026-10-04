@@ -24,9 +24,8 @@ applyColorScheme(readColorSchemePreference());
 import './components-view.js';
 import type {ComponentsView} from './components-view.js';
 import './updates-view.js';
-import type {UpdatesView} from './updates-view.js';
-import type {TimelineView} from './timeline-view.js';
 import {onDeepLink, writeHashLink} from './deep-link.js';
+import {PanelLocation} from './panel-location.js';
 import type {DeepLinkTab} from './deep-link.js';
 import './devtools-settings.js';
 import './segmented-tabs.js';
@@ -136,7 +135,13 @@ export class LitDevtoolsPanel extends LitElement {
     `,
   ];
 
-  @state() private _tab = 'components';
+  /**
+   * Which tab is in front and what each view has selected. Deep links write
+   * it, the views read and update their own slot, and the URL hash follows
+   * it; the shell never reaches into a view for its selection.
+   */
+  private readonly _location = new PanelLocation();
+  private _locationOff: (() => void) | null = null;
 
   /** Mirrors `ComponentsView.hmrIncompatibilityCount`; see `_onHmrCountChange`. */
   @state() private _hmrCount = 0;
@@ -145,11 +150,13 @@ export class LitDevtoolsPanel extends LitElement {
   @state() private _pageChange: PageChangedEvent | null = null;
 
   @query('components-view') private _componentsView?: ComponentsView;
-  @query('updates-view') private _updatesView?: UpdatesView;
-  @query('timeline-view') private _timelineView?: TimelineView;
 
   override connectedCallback() {
     super.connectedCallback();
+    this._locationOff = this._location.subscribe(() => {
+      this.requestUpdate();
+      this._syncHash();
+    });
     void this._listenForPageChange();
   }
 
@@ -189,55 +196,25 @@ export class LitDevtoolsPanel extends LitElement {
     );
   }
 
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this._locationOff?.();
+    this._locationOff = null;
+  }
+
   private _onTabChange(e: CustomEvent<{value: string}>) {
-    this._tab = e.detail.value;
-    this._syncHash();
+    this._location.setTab(e.detail.value as DeepLinkTab);
   }
 
   /**
-   * Deep links are wired after the first render, not in `connectedCallback`:
-   * the `@query` for the Components view resolves against rendered DOM, and a
-   * link naming a component would silently drop its selection if applied
-   * before there is a view to hand it to.
+   * Two sources, one shape: the URL hash the panel opened with (standalone,
+   * or a snapshot someone was sent) and the hub activating our dock with
+   * params (another devframe, a command, or this plugin's own overlay pick).
+   * The location holds a link's selection until its view can show it, so
+   * nothing here waits for a view to render.
    */
   override firstUpdated() {
-    // Two sources, one shape: the URL hash the panel opened with (standalone,
-    // or a snapshot someone was sent) and the hub activating our dock with
-    // params (another devframe, a command, or this plugin's own overlay pick).
-    onDeepLink((link) => {
-      if (link.tab !== undefined) this._tab = link.tab;
-      if (link.componentId === undefined && link.eventId !== undefined) {
-        // The timeline is always mounted, but its store fills asynchronously;
-        // `selectEvent` holds the id until the events are there.
-        this._tab = 'timeline';
-        const eventId = link.eventId;
-        void this.updateComplete.then(() => {
-          this._timelineView?.selectEvent(eventId);
-          this._syncHash();
-        });
-        return;
-      }
-      if (link.componentId === undefined) {
-        this._syncHash();
-        return;
-      }
-      // An element id means the same thing in both views, so honour the tab
-      // the link asked for and only default to Components when it named none
-      // — otherwise `#tab=updates&component=3` would land on the wrong tab and
-      // look like the parameter was ignored.
-      if (link.tab !== 'updates') this._tab = 'components';
-      const componentId = link.componentId;
-      // The Updates view is mounted lazily, so a link naming it has no view to
-      // hand the id to until the tab switch has actually rendered.
-      void this.updateComplete.then(() => {
-        if (this._tab === 'updates') {
-          this._updatesView?.selectById(componentId);
-        } else {
-          this._componentsView?.selectById(componentId);
-        }
-        this._syncHash();
-      });
-    });
+    onDeepLink((link) => this._location.apply(link));
   }
 
   /**
@@ -248,53 +225,21 @@ export class LitDevtoolsPanel extends LitElement {
    */
   private _syncHash(): void {
     if (window.top !== window.self) return;
-    // Whichever view owns a selection on the tab in front; both express it as
-    // a stable element id, so one parameter round-trips for either.
-    const selectedId =
-      this._tab === 'updates'
-        ? this._updatesView?.selectedId
-        : this._componentsView?.selectedId;
-    const eventId =
-      this._tab === 'timeline' ? this._timelineView?.selectedEventId : null;
-    writeHashLink({
-      tab: this._tab as DeepLinkTab,
-      ...(selectedId === null || selectedId === undefined
-        ? {}
-        : {componentId: selectedId}),
-      ...(eventId === null || eventId === undefined ? {} : {eventId}),
-    });
+    writeHashLink(this._location.link());
   }
 
   /**
    * A component couldn't be hot-patched in place. Passive badge only — unlike
-   * `_onInspectorActivate`, this must not switch tabs: an incompatibility is
+   * an overlay pick, this must not switch tabs: an incompatibility is
    * not something the developer asked to look at.
    */
   private _onHmrCountChange(e: CustomEvent<{count: number}>) {
     this._hmrCount = e.detail.count;
   }
 
-  /** A timeline event's "inspect" link — open the Components tab on it. */
+  /** An "inspect" link in the timeline or Updates: open Components on it. */
   private _onInspectElement(e: CustomEvent<{id: number}>) {
-    this._tab = 'components';
-    // The view is always mounted, so it can select without waiting for render.
-    this._componentsView?.selectById(e.detail.id);
-    this._syncHash();
-  }
-
-  /**
-   * A component was picked via the overlay inspector — switch to the
-   * Components tab so the picked element is what the panel shows.
-   *
-   * Bringing the dock itself to the front is the host's job, not ours: the
-   * node side calls `docks.activate()` when it forwards the pick (see
-   * lib/devframe/vite.ts). That replaced reaching into the parent frame's
-   * `__VITE_DEVTOOLS_CLIENT_CONTEXT__`, which only worked inside Vite
-   * DevTools and only while the panel was same-origin with the shell.
-   */
-  private _onInspectorActivate() {
-    this._tab = 'components';
-    this._syncHash();
+    this._location.apply({componentId: e.detail.id});
   }
 
   private _renderBrand() {
@@ -312,7 +257,7 @@ export class LitDevtoolsPanel extends LitElement {
         ${this._renderBrand()}
         <segmented-tabs
           .items=${this._tabs}
-          .value=${this._tab}
+          .value=${this._location.tab}
           @change=${this._onTabChange}
         ></segmented-tabs>
       </header>
@@ -344,29 +289,26 @@ export class LitDevtoolsPanel extends LitElement {
       }
       <div class="view" @inspect-element=${this._onInspectElement}>
         <timeline-view
-          ?hidden=${this._tab !== 'timeline'}
-          @selection-change=${this._syncHash}
+          ?hidden=${this._location.tab !== 'timeline'}
+          .location=${this._location}
         ></timeline-view>
         <!-- Kept mounted (like the timeline) so an overlay inspect-pick can
              arrive and switch us here even while another tab is in front. -->
         <components-view
-          ?hidden=${this._tab !== 'components'}
-          @inspector-activate=${this._onInspectorActivate}
-          @selection-change=${this._syncHash}
+          ?hidden=${this._location.tab !== 'components'}
+          .location=${this._location}
           @hmr-count-change=${this._onHmrCountChange}
         ></components-view>
         <!-- Mounted lazily: the recording it derives from lives in the
              timeline store and keeps filling whether or not this view exists,
              so there is nothing here to keep alive in the background. -->
         ${
-          this._tab === 'updates'
-            ? html`<updates-view
-                @selection-change=${this._syncHash}
-              ></updates-view>`
+          this._location.tab === 'updates'
+            ? html`<updates-view .location=${this._location}></updates-view>`
             : nothing
         }
         ${
-          this._tab === 'settings'
+          this._location.tab === 'settings'
             ? html`<devtools-settings></devtools-settings>`
             : nothing
         }

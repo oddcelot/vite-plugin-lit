@@ -1,5 +1,5 @@
 import {LitElement, html, css, nothing} from 'lit';
-import {customElement, state} from 'lit/decorators.js';
+import {customElement, property, state} from 'lit/decorators.js';
 import {ref, createRef} from 'lit/directives/ref.js';
 import '@awesome.me/webawesome/dist/components/button/button.js';
 import './wa-icons.js';
@@ -23,6 +23,8 @@ import './timeline-event-list.js';
 import type {TimelineEventList} from './timeline-event-list.js';
 import './timeline-tracks.js';
 import {litRpc, getMeta, describeError} from './client.js';
+import {LocationController} from './location-controller.js';
+import {PanelLocation} from './panel-location.js';
 import {hostInfo} from './host.js';
 import {
   clearTimelineEvents,
@@ -209,8 +211,16 @@ export class TimelineView extends LitElement {
   /** Spans, filter and selection shared by both presentations. Not
    *  reactive itself: every mutation is followed by `requestUpdate()`. */
   private readonly _model = new TimelineModel();
-  /** `selectedEventId` as last announced through `selection-change`. */
+  /** The selected span's start event as last reported to the location. */
   private _announcedEventId: string | null = null;
+
+  /** Where the panel is; the shell hands its own in. */
+  @property({attribute: false}) location = new PanelLocation();
+
+  protected readonly _locationController = new LocationController(this, () => {
+    this._resolveRequest();
+    this.requestUpdate();
+  });
   private _revealSelection = false;
   private readonly _listRef = createRef<TimelineEventList>();
   /** Captured, not-hidden layer ids. Cached so a selection change does not
@@ -254,18 +264,20 @@ export class TimelineView extends LitElement {
         )
         .map((l) => l.id);
     }
-    if (this._model.setEvents(this._events)) this._revealSelection = true;
+    if (this._model.setEvents(this._events)) this._resolveRequest();
   }
 
-  /** Selects the span a deep link named; see `TimelineModel.selectEvent`. */
-  selectEvent(id: string): void {
+  /**
+   * Select the span a link's event id names, once the buffer has loaded: an
+   * empty buffer is "not loaded yet", so the id waits in the location. An id
+   * the loaded buffer does not hold clears the selection.
+   */
+  private _resolveRequest(): void {
+    const id = this.location.requested('timeline');
+    if (id === undefined || this._model.events.length === 0) return;
     if (this._model.selectEvent(id)) this._revealSelection = true;
-    this.requestUpdate();
-  }
-
-  /** Id of the selected span's start event, for the shell's URL sync. */
-  get selectedEventId(): string | null {
-    return this._model.selectedEventId;
+    this._announcedEventId = this._model.selectedEventId;
+    this.location.resolve('timeline', this._announcedEventId);
   }
 
   override updated() {
@@ -277,10 +289,15 @@ export class TimelineView extends LitElement {
         .then(() => this._listRef.value?.updateComplete)
         .then(() => this._listRef.value?.reveal());
     }
+    // A click, or a span leaving the buffer. Not while a link is still
+    // waiting for its events: that would drop it.
     const id = this._model.selectedEventId;
-    if (id !== this._announcedEventId) {
+    if (
+      id !== this._announcedEventId &&
+      this.location.requested('timeline') === undefined
+    ) {
       this._announcedEventId = id;
-      this.dispatchEvent(new CustomEvent('selection-change'));
+      this.location.select('timeline', id);
     }
   }
 

@@ -153,21 +153,27 @@ test('opens on Components with no link', async () => {
 test('a component link selects it on Components', async () => {
   const {shown, view} = await mount('#tab=components&component=1');
   expect(shown()).toEqual(['components']);
-  expect(view<ComponentsView>('components-view')!.selectedId).toBe(1);
+  expect(
+    view<ComponentsView>('components-view')!.location.selected('components')
+  ).toBe(1);
 });
 
 test('a component link can name the Updates tab instead', async () => {
   setEvents(events);
   const {shown, view} = await mount('#tab=updates&component=1');
   expect(shown()).toEqual(['updates']);
-  expect(view<UpdatesView>('updates-view')!.selectedId).toBe(1);
+  expect(view<UpdatesView>('updates-view')!.location.selected('updates')).toBe(
+    1
+  );
 });
 
 test('an event link opens the Timeline on it', async () => {
   setEvents(events);
   const {el, shown, view, hash} = await mount('#event=e-end');
   expect(shown()).toEqual(['timeline']);
-  expect(view<TimelineView>('timeline-view')!.selectedEventId).toBe('e-start');
+  expect(
+    view<TimelineView>('timeline-view')!.location.selected('timeline')
+  ).toBe('e-start');
   await flush(el);
   expect(hash()).toContain('event=e-start');
 });
@@ -183,24 +189,32 @@ test('inspect from another view switches to Components on it', async () => {
   );
   await flush(el);
   expect(shown()).toEqual(['components']);
-  expect(view<ComponentsView>('components-view')!.selectedId).toBe(1);
+  expect(
+    view<ComponentsView>('components-view')!.location.selected('components')
+  ).toBe(1);
   expect(hash()).toContain('tab=components');
   expect(hash()).toContain('component=1');
 });
 
 test('the hub activating the dock with params is a link too', async () => {
   const {el, view} = await mount();
-  expect(view<ComponentsView>('components-view')!.selectedId).toBeNull();
+  expect(
+    view<ComponentsView>('components-view')!.location.selected('components')
+  ).toBeNull();
   updateSharedState('devframe:docks:active', {
     activation: {dockId: 'other', params: {componentId: 1}},
   });
   await flush(el);
-  expect(view<ComponentsView>('components-view')!.selectedId).toBeNull();
+  expect(
+    view<ComponentsView>('components-view')!.location.selected('components')
+  ).toBeNull();
   updateSharedState('devframe:docks:active', {
     activation: {dockId: 'lit', params: {componentId: 1}},
   });
   await flush(el);
-  expect(view<ComponentsView>('components-view')!.selectedId).toBe(1);
+  expect(
+    view<ComponentsView>('components-view')!.location.selected('components')
+  ).toBe(1);
 });
 
 const pageChanged = {
@@ -272,12 +286,12 @@ test('a page change drops the Components tree and HMR history, and asks the new 
 test('a page change asks the new page for the selection, not the old details', async () => {
   const {el, view} = await mount();
   const components = view<ComponentsView>('components-view')!;
-  components.selectById(7);
+  components.location.apply({componentId: 7});
   await flush(el);
   calls.length = 0;
   push('page-changed', {...pageChanged, reload: true});
   await flush(el);
-  expect(components.selectedId).toBe(7);
+  expect(components.location.selected('components')).toBe(7);
   expect(
     calls.filter((c) => c.name === 'inspect').map((c) => c.args[0])
   ).toEqual([{type: 'tree'}, {type: 'details', id: 7}, {type: 'watch', id: 7}]);

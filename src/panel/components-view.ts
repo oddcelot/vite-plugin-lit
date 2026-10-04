@@ -1,5 +1,5 @@
 import {LitElement, html, css, nothing, type TemplateResult} from 'lit';
-import {customElement, state} from 'lit/decorators.js';
+import {customElement, property, state} from 'lit/decorators.js';
 import '@awesome.me/webawesome/dist/components/badge/badge.js';
 import '@awesome.me/webawesome/dist/components/button/button.js';
 import '@awesome.me/webawesome/dist/components/details/details.js';
@@ -20,6 +20,8 @@ import {
 import type {HmrPatchEvent} from '../types/hmr-patch.js';
 import {describeError, getMeta, litRpc} from './client.js';
 import {ComponentsSession} from './components-session.js';
+import {LocationController} from './location-controller.js';
+import {PanelLocation} from './panel-location.js';
 import {openInEditor} from './open-in-editor.js';
 import {hostInfo, sendToPage, touchPageChannel} from './host.js';
 import {overrides} from './settings-override.js';
@@ -290,17 +292,25 @@ export class ComponentsView extends LitElement {
       getItem: (key) => localStorage.getItem(key),
       setItem: (key, value) => localStorage.setItem(key, value),
     },
-    // Let the shell re-sync the URL hash: a selection is part of "where the
-    // panel is", and a link that drops it would reopen the wrong view.
-    onSelect: (id) =>
-      this.dispatchEvent(
-        new CustomEvent('selection-change', {detail: {id}, bubbles: true})
-      ),
-    // Bring this tab to the front so the pick is visible.
-    onPicked: () =>
-      this.dispatchEvent(
-        new CustomEvent('inspector-activate', {bubbles: true, composed: true})
-      ),
+    // A selection is part of "where the panel is": the shell writes it
+    // into the URL, and a link that drops it would reopen the wrong view.
+    onSelect: (id) => this.location.select('components', id),
+    // Bring this tab to the front so the pick is visible. Bringing the dock
+    // itself forward is the host's job: the node side activates it when it
+    // forwards the pick (see lib/devframe/vite.ts).
+    onPicked: () => this.location.setTab('components'),
+  });
+
+  /** Where the panel is; the shell hands its own in. */
+  @property({attribute: false}) location = new PanelLocation();
+
+  // A link that names an element: select it now. The tree may not hold it
+  // yet; the session reveals it once a fresh tree arrives.
+  protected readonly _locationController = new LocationController(this, () => {
+    const id = this.location.requested('components');
+    if (id === undefined) return;
+    this._session.select(id);
+    this.location.resolve('components', id);
   });
   /**
    * Whether the page has a picker to toggle, as `get-meta` reports it: the
@@ -351,8 +361,8 @@ export class ComponentsView extends LitElement {
 
   /**
    * Let the panel shell badge the Components tab even while another tab is
-   * in front — same cross-tab-visibility need `inspector-activate` solves
-   * for overlay picks, but passive: no tab switch.
+   * in front — the same cross-tab visibility an overlay pick gets by switching
+   * tabs, but passive: no tab switch.
    */
   private _reportIncompatibilities(): void {
     const list = this._session.hmrIncompatibilities;
@@ -471,22 +481,9 @@ export class ComponentsView extends LitElement {
   // Selection
   // ---------------------------------------------------------------------------
 
-  /**
-   * Select an element by id from outside (e.g. a timeline event's "inspect"
-   * link). Same as a tree click; the host is responsible for switching tabs.
-   */
-  selectById(id: number): void {
-    this._session.select(id);
-  }
-
   /** Another page took over (see the shell's `page-changed` listener). */
   pageChanged(): void {
     this._session.pageChanged();
-  }
-
-  /** The currently selected element id, for the shell's URL sync. */
-  get selectedId(): number | null {
-    return this._session.selectedId;
   }
 
   // ---------------------------------------------------------------------------
