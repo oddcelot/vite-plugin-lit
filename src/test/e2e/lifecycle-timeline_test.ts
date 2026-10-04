@@ -1,5 +1,6 @@
 import {afterAll, beforeAll, expect, test} from 'vite-plus/test';
-import {createHotTimelineSource} from '../../lib/devframe/vite.js';
+import {TimelineChannelCodec} from '../../lib/devframe/page-codec.js';
+import {fromViteHot} from '../../lib/runtime/page-transport.js';
 import type {TimelineEvent} from '../../types/timeline.js';
 import {type Fixture, startFixture} from './utils.js';
 
@@ -21,11 +22,11 @@ afterAll(async () => {
 test('lifecycle layer reports update phases over the timeline source', async () => {
   const {page} = fixture;
 
-  // `bind()` must happen before the page (re)connects its HMR client, or the
+  // `connect()` must happen before the page (re)connects its HMR client, or the
   // page's `push-event` messages have no listener — the fixture already
-  // loaded the page once in `startFixture`, so reload it after binding.
-  const source = createHotTimelineSource();
-  source.bind(fixture.server);
+  // loaded the page once in `startFixture`, so reload it after connecting.
+  const source = new TimelineChannelCodec();
+  source.connect(fromViteHot(fixture.server.hot));
   const events: TimelineEvent[] = [];
   source.attach({
     pushEvents: (batch) => events.push(...batch),
@@ -89,8 +90,8 @@ test('lifecycle layer reports update phases over the timeline source', async () 
 test('changed values layer records the old and new value of a property', async () => {
   const {page} = fixture;
 
-  const source = createHotTimelineSource();
-  source.bind(fixture.server);
+  const source = new TimelineChannelCodec();
+  source.connect(fromViteHot(fixture.server.hot));
   const events: TimelineEvent[] = [];
   source.attach({
     pushEvents: (batch) => events.push(...batch),
@@ -146,8 +147,8 @@ test('changed values layer records the old and new value of a property', async (
 test('async updated() rejections and failed tasks are attributed to their element', async () => {
   const {page} = fixture;
 
-  const source = createHotTimelineSource();
-  source.bind(fixture.server);
+  const source = new TimelineChannelCodec();
+  source.connect(fromViteHot(fixture.server.hot));
   const events: TimelineEvent[] = [];
   source.attach({
     pushEvents: (batch) => events.push(...batch),

@@ -64,7 +64,7 @@ test('a detached-and-reattached overlay applies exactly one toggle, not zero', a
     document.body.append(el);
   });
 
-  // Mirrors `HotTimelineSource.toggleOverlay()` (src/lib/devframe/vite.ts):
+  // Mirrors `TimelineChannelCodec.toggleOverlay()` (src/lib/devframe/page-codec.ts):
   // the server broadcasts the channel with no payload, exactly the command
   // path the Vite DevTools shortcut/command uses.
   server.hot.send(INSPECT_OVERLAY_TOGGLE_CHANNEL);

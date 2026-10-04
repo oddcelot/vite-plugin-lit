@@ -15,7 +15,7 @@
  * (a content script forwarding `window.postMessage`, say).
  */
 
-import type {PageTransport} from '../runtime/page-channel.js';
+import type {PageTransport} from '../runtime/page-transport.js';
 import {channelListeners} from '../runtime/channel-listeners.js';
 import {
   isPortMessage,
@@ -25,7 +25,6 @@ import {
 import {createLocalHost} from './local-host.js';
 import type {KeyValueStorage, LocalDevframeClient} from './local-host.js';
 import {createStandaloneLitDevframe} from './rpc-source.js';
-import type {PageLinkNode} from './rpc-source.js';
 
 export type {PortLike, PortMessage} from './port-message.js';
 
@@ -52,22 +51,10 @@ const poster = (
 };
 
 /**
- * The panel's end: a {@link PageLinkNode} for
- * {@link RpcTimelineSource.bind}. One port is one page.
+ * Either end of a port as a {@link PageTransport}: the page's, for
+ * `pageChannel.attach()`, and the panel's, for its codec. One port is one
+ * page.
  */
-export const portPageLink = (port: PortLike): PageLinkNode => {
-  const post = poster(port);
-  return {
-    onPageMessage(handler) {
-      port.onMessage.addListener((message) => {
-        if (isPortMessage(message)) handler(message.channel, message.data);
-      });
-    },
-    sendToPages: post,
-  };
-};
-
-/** The page's end: a {@link PageTransport} for `pageChannel.attach()`. */
 export const portPageTransport = (port: PortLike): PageTransport => {
   const post = poster(port);
   const listeners = channelListeners();
@@ -103,7 +90,7 @@ export const createLocalLitHost = (
       // No server behind this host, so no Node actions: no editor to
       // launch and no disk to write a snapshot to.
       {host: 'extension', version: options.version},
-      () => portPageLink(options.port)
+      () => portPageTransport(options.port)
     ),
     {storage: options.storage}
   );

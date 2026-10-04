@@ -2,9 +2,9 @@
  * The mapping between the page runtime's channel messages and the
  * definition's {@link TimelineSink}, written once for every carrier.
  *
- * A carrier is whatever moves named messages to and from the page:
- * `import.meta.hot` on a Vite dev server, devframe RPC events in the
- * standalone CLI. The codec owns everything above that: channel names,
+ * It rides a {@link PageTransport}: `server.hot` on a Vite dev server,
+ * devframe RPC events under `lit-devtools dev`, a port in the extension. The
+ * codec owns everything above that: channel names,
  * validation of inbound payloads, the layers wire format and sink dispatch.
  * Like `source.ts` it imports nothing from Vite, so the Vite-free standalone
  * source and the Vite-side source can share it.
@@ -37,16 +37,9 @@ import {
   CHANNEL_RECORDING_CHANGED,
   CHANNEL_RUNTIME_READY,
 } from '../../types/timeline.js';
+import type {PageTransport} from '../runtime/page-transport.js';
 import {layersWireFormat} from './source.js';
 import type {TimelineSink, TimelineSource} from './source.js';
-
-/** The tiny transport a codec rides on. */
-export interface PageCarrier {
-  /** Subscribe to messages the page sent on `channel`. Called once per channel. */
-  on(channel: string, callback: (data: unknown) => void): void;
-  /** Send a message to the connected page(s). */
-  send(channel: string, data?: unknown): void;
-}
 
 export interface TimelineChannelCodecOptions {
   /**
@@ -65,7 +58,8 @@ const pageIdOf = (data: Record<string, unknown>): string | undefined =>
   typeof data.pageId === 'string' ? data.pageId : undefined;
 
 /**
- * A {@link TimelineSource} over a {@link PageCarrier}. Inbound messages are
+ * The {@link TimelineSource} every host hands its definition, over a
+ * {@link PageTransport}. Inbound messages are
  * untrusted in shape, so each is checked before it reaches the sink;
  * anything unrecognised is ignored rather than thrown, which keeps a
  * misbehaving page from taking the session down.
@@ -74,7 +68,7 @@ const pageIdOf = (data: Record<string, unknown>): string | undefined =>
  * reach the page until a carrier exists.
  */
 export class TimelineChannelCodec implements TimelineSource {
-  #carrier: PageCarrier | undefined;
+  #carrier: PageTransport | undefined;
   #sink: TimelineSink | undefined;
   readonly #onPick: ((id: number) => void) | undefined;
 
@@ -83,7 +77,7 @@ export class TimelineChannelCodec implements TimelineSource {
   }
 
   /** Subscribe to the page's channels on `carrier`. Call once. */
-  connect(carrier: PageCarrier): void {
+  connect(carrier: PageTransport): void {
     this.#carrier = carrier;
     carrier.on(CHANNEL_PUSH_EVENT, (data) => {
       const events = isRecord(data) ? data.events : undefined;

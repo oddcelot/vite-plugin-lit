@@ -14,28 +14,13 @@
  * itself, so the sites that care still read `import.meta.hot` for those.
  */
 
-/** A carrier for named messages between the page runtime and the server. */
-export interface PageTransport {
-  send(channel: string, data?: unknown): void;
-  /** Listen on a channel. Returns the function that removes the listener. */
-  on(channel: string, handler: (data: unknown) => void): () => void;
-}
-
-/** The slice of `import.meta.hot` the default carrier relies on. */
-export interface ViteHotLike {
-  send(event: string, data?: unknown): void;
-  on(event: string, handler: (data: any) => void): void;
-  off?(event: string, handler: (data: any) => void): void;
-}
-
-/** Wraps Vite's HMR client as a {@link PageTransport}. */
-export const fromViteHot = (hot: ViteHotLike): PageTransport => ({
-  send: (channel, data) => hot.send(channel, data),
-  on(channel, handler) {
-    hot.on(channel, handler);
-    return () => hot.off?.(channel, handler);
-  },
-});
+export type {PageTransport, ViteHotLike} from './page-transport.js';
+export {fromViteHot} from './page-transport.js';
+import {
+  fromViteHot,
+  type PageTransport,
+  type ViteHotLike,
+} from './page-transport.js';
 
 export interface PageChannel extends PageTransport {
   /** Whether a carrier is attached. Sends made before one is are dropped. */

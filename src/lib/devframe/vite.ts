@@ -19,19 +19,14 @@
 
 import type {Plugin, ViteDevServer} from 'vite';
 import type {DevframeDefinition} from 'devframe';
-import type {InspectorCommand} from '../../types/inspector.js';
-import type {
-  FeatureSettings,
-  SettingsOverride,
-  TimelineLayersState,
-} from '../../types/timeline.js';
+import type {FeatureSettings} from '../../types/timeline.js';
 import type {SourceLocator} from '../source-locator.js';
 import {createNodeActions} from './node-actions.js';
 import {createLitDevframe} from './definition.js';
+import {fromViteHot} from '../runtime/page-transport.js';
 import {TimelineChannelCodec} from './page-codec.js';
 import {PANEL_DIST_DIR} from './paths.js';
 import {LIT_DEVFRAME_ID} from './protocol.js';
-import type {TimelineSink, TimelineSource} from './source.js';
 
 export {createLitDevframe};
 
@@ -85,69 +80,6 @@ export interface CreateLitDevframePluginOptions {
   clientAssets?: string;
   /** See {@link CreateLitDevframeOptions.sourceLocator}. */
   sourceLocator?: () => SourceLocator;
-}
-
-/**
- * `TimelineSource` over a Vite dev server's `hot` channel.
- *
- * `install()` runs the definition's `setup()` — and therefore
- * `source.attach()` — before it resolves, so this is attached before a dev
- * server is necessarily in hand. Calls made before {@link bind} are dropped
- * rather than buffered: nothing can emit a page-runtime event until a page
- * has connected to a bound server.
- */
-export class HotTimelineSource implements TimelineSource {
-  // An overlay pick means the developer clicked an element in the page and
-  // wants the Components tab. Bring the dock forward from the node side
-  // rather than having the panel reach into the parent frame. The target
-  // rides the activation, not just the dock id: the params ride the hub's
-  // `devframe:docks:active` state, so a panel that mounts *because of* this
-  // pick still lands on the right element instead of racing the separate
-  // `pick` message.
-  readonly #codec = new TimelineChannelCodec({
-    onPick: (id) =>
-      this.#hub?.docks?.activate?.(LIT_DEVFRAME_ID, {componentId: id}),
-  });
-  #hub: DevToolsHubContext | undefined;
-
-  /**
-   * Wire the source to a live dev server. Call once, from `devtools.setup()`.
-   * `hub` is optional: without it the bridge still carries page traffic both
-   * ways, it just cannot bring the dock to the front on an overlay pick.
-   */
-  bind(server: ViteDevServer, hub?: DevToolsHubContext): void {
-    this.#hub = hub;
-    const hot = server.hot;
-    this.#codec.connect({
-      on: (channel, callback) => hot.on(channel, callback),
-      send: (channel, data) => hot.send(channel, data),
-    });
-  }
-
-  attach(sink: TimelineSink): () => void {
-    return this.#codec.attach(sink);
-  }
-
-  /** Toggle the page's inspect overlay. Also used by the palette command. */
-  toggleOverlay(): void {
-    this.#codec.toggleOverlay();
-  }
-
-  sendInspector(cmd: InspectorCommand): void {
-    this.#codec.sendInspector(cmd);
-  }
-
-  setRecording(recording: boolean): void {
-    this.#codec.setRecording(recording);
-  }
-
-  setLayers(layers: TimelineLayersState): void {
-    this.#codec.setLayers(layers);
-  }
-
-  setSettingsOverride(override: SettingsOverride): void {
-    this.#codec.setSettingsOverride(override);
-  }
 }
 
 /**
@@ -324,7 +256,17 @@ function registerInstanceWhenListening(
 export function createLitDevframePlugin(
   options: CreateLitDevframePluginOptions
 ): Plugin {
-  const source = new HotTimelineSource();
+  // The hub, once `setup()` has it. An overlay pick means the developer
+  // clicked an element in the page and wants the Components tab: bring the
+  // dock forward from the node side rather than having the panel reach into
+  // the parent frame. The target rides the activation, not just the dock id:
+  // the params ride the hub's `devframe:docks:active` state, so a panel that
+  // mounts *because of* this pick still lands on the right element instead
+  // of racing the separate `pick` message.
+  let hub: DevToolsHubContext | undefined;
+  const source = new TimelineChannelCodec({
+    onPick: (id) => hub?.docks?.activate?.(LIT_DEVFRAME_ID, {componentId: id}),
+  });
   let setupRan = false;
   const definition = createLitDevframe({
     host: 'vite',
@@ -358,10 +300,12 @@ export function createLitDevframePlugin(
       async setup(ctx) {
         setupRan = true;
         if (options.enabled && !options.enabled()) return;
-        // Bind before installing: `install()` runs the definition's `setup()`,
-        // which attaches to this source, and the dev server is already
-        // available on the context by now.
-        if (ctx.viteServer) source.bind(ctx.viteServer, ctx);
+        // Connect before installing: `install()` runs the definition's
+        // `setup()`, which attaches to this source, and the dev server is
+        // already available on the context by now. Calls made before this
+        // are dropped: no page can emit before it reaches a server.
+        hub = ctx;
+        if (ctx.viteServer) source.connect(fromViteHot(ctx.viteServer.hot));
         await ctx.install(definition);
 
         // The overlay picker as a palette command with a managed shortcut.
@@ -388,12 +332,3 @@ export function createLitDevframePlugin(
     },
   };
 }
-
-/**
- * The page-runtime bridge on its own, for a host that drives its own mount
- * (or a test that wants to observe page traffic without a hub). Bind it to a
- * dev server, then either hand it to {@link createLitDevframe} or
- * {@link TimelineSource.attach} your own sink.
- */
-export const createHotTimelineSource = (): HotTimelineSource =>
-  new HotTimelineSource();
