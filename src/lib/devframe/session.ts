@@ -149,50 +149,6 @@ export const sinceWindow = <T extends TimelineEvent>(
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
-/** Copy of `nodes` cut off below `maxDepth` levels (1 = roots only). */
-export const pruneTree = (
-  nodes: readonly InspectorTreeNode[],
-  maxDepth: number
-): InspectorTreeNode[] =>
-  nodes.map((node) => {
-    if (maxDepth > 1) {
-      return {...node, children: pruneTree(node.children, maxDepth - 1)};
-    }
-    const {children} = node;
-    return children.length > 0
-      ? {...node, children: [], hiddenChildren: children.length}
-      : {...node, children: []};
-  });
-
-const DEFAULT_TAG_MATCHES = 20;
-const MAX_TAG_MATCHES = 50;
-
-/**
- * Ids of the elements with `tagName` (case-insensitive), in tree order:
- * parents before children, siblings as the page listed them. Capped at
- * `limit` (default 20, ceiling 50); `truncated` says more matched.
- */
-export const findByTag = (
-  roots: readonly InspectorTreeNode[],
-  tagName: string,
-  limit?: number
-): {ids: number[]; truncated: boolean} => {
-  const wanted = tagName.toLowerCase();
-  const matches: number[] = [];
-  const walk = (nodes: readonly InspectorTreeNode[]): void => {
-    for (const node of nodes) {
-      if (node.tagName.toLowerCase() === wanted) matches.push(node.id);
-      walk(node.children);
-    }
-  };
-  walk(roots);
-  const cap =
-    limit !== undefined && Number.isFinite(limit) && limit >= 1
-      ? Math.min(Math.floor(limit), MAX_TAG_MATCHES)
-      : DEFAULT_TAG_MATCHES;
-  return {ids: matches.slice(0, cap), truncated: matches.length > cap};
-};
-
 export function createRecordingSession(
   options: RecordingSessionOptions = {}
 ): RecordingSession {
