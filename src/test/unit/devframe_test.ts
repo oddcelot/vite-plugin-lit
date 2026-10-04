@@ -354,10 +354,14 @@ describe('lit devframe definition', () => {
     // does nothing for a path that doesn't exist, so the mismatch shows up as
     // a source link that just doesn't respond.
     const {ctx} = await boot({roots: [appRoot, pkgRoot]});
-    const opened: Array<{path: string; line?: number}> = [];
+    const opened: Array<{path: string; line?: number; column?: number}> = [];
     ctx.services.provide('@devframes/service-open', {
       openInEditor: async (input) => {
-        opened.push({path: input.path, line: input.line});
+        opened.push({
+          path: input.path,
+          line: input.line,
+          column: input.column,
+        });
       },
       openInFinder: async () => {},
     });
@@ -368,13 +372,27 @@ describe('lit devframe definition', () => {
         line: 12,
       })
     ).toEqual({opened: true});
-    expect(opened).toEqual([{path: `${appRoot}/confine.ts`, line: 12}]);
+    expect(opened).toEqual([
+      {path: `${appRoot}/confine.ts`, line: 12, column: undefined},
+    ]);
+
+    // A call site carries a column; it goes through to the editor.
+    await ctx.rpc.invokeLocal('lit:open-source', {
+      file: 'confine.ts',
+      line: 3,
+      column: 9,
+    });
+    expect(opened[1]).toEqual({
+      path: `${appRoot}/confine.ts`,
+      line: 3,
+      column: 9,
+    });
 
     // A component outside the Vite root is injected with an absolute path,
     // which has to survive untouched when an allowed root covers it.
     const sibling = `${pkgRoot}/client-types/consumer.ts`;
     await ctx.rpc.invokeLocal('lit:open-source', {file: sibling});
-    expect(opened[1]?.path).toBe(sibling);
+    expect(opened[2]?.path).toBe(sibling);
   });
 
   test('open-source refuses files outside the allowed roots', async () => {

@@ -17,6 +17,8 @@
 export interface ElementSource {
   file: string;
   line: number;
+  /** 1-based column, when known (call sites carry one; declarations don't). */
+  column?: number;
 }
 
 /** A node in the component render tree (one inspectable Lit element). */
@@ -24,7 +26,14 @@ export interface InspectorTreeNode {
   id: number;
   tagName: string;
   componentName?: string;
+  /** Where the component class is declared. */
   source?: ElementSource;
+  /**
+   * Where this instance was written in an `html` template, from the
+   * `data-lit-source` attribute the dev transform stamps. Absent for elements
+   * created any other way (`createElement`, the HTML file, a dynamic tag).
+   */
+  callSite?: ElementSource;
   children: InspectorTreeNode[];
   /**
    * Set only when a depth limit pruned this node's children: how many
@@ -75,7 +84,10 @@ export interface InspectorDetails {
   id: number;
   tagName: string;
   componentName?: string;
+  /** Where the component class is declared. */
   source?: ElementSource;
+  /** Where this instance was written in a template; see {@link InspectorTreeNode.callSite}. */
+  callSite?: ElementSource;
   attributes: Array<{name: string; value: string}>;
   properties: InspectorProp[];
   flags: {

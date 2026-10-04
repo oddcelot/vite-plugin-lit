@@ -66,6 +66,17 @@ A plain click, without the modifier, hands the element to the DevTools
 Components tab instead, when the panel is set up. The tooltip also carries a
 **copy** button for the `file:line` pair, for pasting into an issue.
 
+## Where an element is rendered
+
+The overlay and the Components tab open the file that declares a component.
+The dev transform also stamps a `data-lit-source="file:line:column"`
+attribute on every custom element written in an `html` or `svg` template, and
+the Components tab uses it for a **Rendered at** link to the tag that created
+that instance. The attribute is added only on the dev server and only while
+`sourceOverlay` is on, so it never reaches a production build; it is also
+visible in the page's DOM and in your own selectors, which is worth knowing
+if a test matches attributes exactly.
+
 ## Choose your editor
 
 The built-in keys are `vscode` (the default), `cursor`, `zed`, `idea` and

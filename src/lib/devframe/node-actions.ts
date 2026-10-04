@@ -79,6 +79,7 @@ export const createNodeActions = (
     await service.openInEditor({
       path: confined.path,
       line: args.line,
+      column: args.column,
       editor: resolveLaunchEditor(options.configuredEditor?.(), override),
     });
     return {opened: true};

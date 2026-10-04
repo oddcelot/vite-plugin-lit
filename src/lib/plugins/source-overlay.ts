@@ -1,5 +1,6 @@
 import MagicString from 'magic-string';
 import type {Plugin} from 'vite';
+import {injectCallSites} from '../call-sites.js';
 import {injectSourceMeta} from '../source-meta.js';
 import type {OptionsContext} from './context.js';
 import {
@@ -30,14 +31,18 @@ export const litSourceOverlay = (ctx: OptionsContext): Plugin => ({
   transform(code, id, transformOptions) {
     if (!ctx.get().sourceOverlay) return null;
     if (!ctx.shouldTransform(id, transformOptions)) return null;
-    if (!code.includes('customElement') && !code.includes('customElements')) {
-      return null;
-    }
+    const hasElements = code.includes('customElement');
+    const hasTemplates = code.includes('html`') || code.includes('svg`');
+    if (!hasElements && !hasTemplates) return null;
     const ms = new MagicString(code);
     const [file] = id.split('?', 1);
-    if (!injectSourceMeta(code, ctx.locator().toWire(file), ms)) {
-      return null;
-    }
+    const wire = ctx.locator().toWire(file);
+    // Both work on original offsets, so one MagicString carries both edits.
+    let changed = false;
+    if (hasElements) changed = injectSourceMeta(code, wire, ms);
+    if (hasTemplates)
+      changed = injectCallSites(code, file, wire, ms) || changed;
+    if (!changed) return null;
     return {code: ms.toString(), map: ms.generateMap({hires: true})};
   },
   transformIndexHtml() {

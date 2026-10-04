@@ -95,6 +95,17 @@ describe('buildTree', () => {
     });
   });
 
+  test('tree nodes carry their call site', () => {
+    const el = document.createElement(define());
+    el.setAttribute('data-lit-source', 'src/app.ts:5:3');
+    document.body.append(el);
+    expect(buildTree()[0]!.callSite).toEqual({
+      file: 'src/app.ts',
+      line: 5,
+      column: 3,
+    });
+  });
+
   test('includes light-DOM children and gives distinct stable ids', () => {
     const tag = define();
     const a = document.createElement(tag);
@@ -140,6 +151,32 @@ describe('collectDetails', () => {
       properties: [],
       flags: {hasUpdated: true, isUpdatePending: false, hasShadowRoot: true},
     });
+  });
+
+  test('reads the call site and keeps the stamp out of the attributes', () => {
+    const el = document.createElement(define());
+    el.setAttribute('data-lit-source', 'src/app.ts:12:7');
+    el.setAttribute('foo', 'bar');
+    const details = collectDetails(el);
+    expect(details.callSite).toEqual({file: 'src/app.ts', line: 12, column: 7});
+    expect(details.attributes).toEqual([{name: 'foo', value: 'bar'}]);
+  });
+
+  test('parses a call site from the right, so drive letters survive', () => {
+    const el = document.createElement(define());
+    el.setAttribute('data-lit-source', 'C:/proj/src/app.ts:3:14');
+    expect(collectDetails(el).callSite).toEqual({
+      file: 'C:/proj/src/app.ts',
+      line: 3,
+      column: 14,
+    });
+  });
+
+  test('a missing or malformed call site is absent', () => {
+    const el = document.createElement(define());
+    expect(collectDetails(el).callSite).toBeUndefined();
+    el.setAttribute('data-lit-source', 'nonsense');
+    expect(collectDetails(el).callSite).toBeUndefined();
   });
 
   test('describes declared properties', () => {

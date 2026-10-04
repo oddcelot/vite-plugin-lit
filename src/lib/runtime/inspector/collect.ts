@@ -13,7 +13,7 @@ import type {
   InspectorProp,
   InspectorTreeNode,
 } from '../../../types/inspector.js';
-import {SOURCE_META_KEY} from '../source-meta.js';
+import {CALL_SITE_ATTR, SOURCE_META_KEY} from '../source-meta.js';
 
 interface LitSourceMeta {
   filePath: string;
@@ -50,6 +50,19 @@ const sourceOf = (el: Element): ElementSource | undefined => {
 };
 
 /**
+ * The template position the transform stamped on `el`. Parsed from the right:
+ * the file part may itself hold colons (a Windows drive).
+ */
+const callSiteOf = (el: Element): ElementSource | undefined => {
+  const match = /^(.*):(\d+):(\d+)$/.exec(
+    el.getAttribute(CALL_SITE_ATTR) ?? ''
+  );
+  return match === null
+    ? undefined
+    : {file: match[1]!, line: Number(match[2]), column: Number(match[3])};
+};
+
+/**
  * An element worth showing in the tree: an upgraded custom element that
  * duck-types as a ReactiveElement. Catches Lit components regardless of whether
  * the source-meta transform touched them, while skipping devtools' own UI.
@@ -76,6 +89,7 @@ const nodeFor = (
       meta === undefined
         ? undefined
         : {file: meta.filePath, line: meta.lineNumber},
+    callSite: callSiteOf(el),
     children,
   };
 };
@@ -147,10 +161,11 @@ export const collectDetails = (el: Element): InspectorDetails => {
     }
   }
 
+  // The call-site stamp is ours, not the author's: it has its own field.
   const attributes = Array.from(el.attributes, (a) => ({
     name: a.name,
     value: a.value,
-  }));
+  })).filter((a) => a.name !== CALL_SITE_ATTR);
 
   const extras = collectExtras(el);
   const meta = metaOf(el);
@@ -159,6 +174,7 @@ export const collectDetails = (el: Element): InspectorDetails => {
     tagName: el.tagName.toLowerCase(),
     componentName: meta?.componentName,
     source: sourceOf(el),
+    callSite: callSiteOf(el),
     attributes,
     properties,
     flags: {
