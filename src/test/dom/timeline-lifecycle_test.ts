@@ -153,6 +153,30 @@ describe('installLifecycleLayer', () => {
     expect(events[1]!.data).toMatchObject({changed: ['count']});
   });
 
+  test('carries the call site of an element written in a template', async () => {
+    const {tag} = define();
+    const stamped = document.createElement(tag) as FakeReactiveElement;
+    stamped.setAttribute('data-lit-source', 'src/app.ts:12:7');
+    const plain = document.createElement(tag) as FakeReactiveElement;
+    document.body.append(stamped, plain);
+    install(await load());
+    events.length = 0;
+
+    stamped.performUpdate();
+    const first = events.length;
+    plain.performUpdate();
+
+    const callSites = events.slice(0, first).map((e) => e.meta?.callSite);
+    expect(callSites.length).toBeGreaterThan(0);
+    for (const site of callSites) {
+      expect(site).toEqual({file: 'src/app.ts', line: 12, column: 7});
+    }
+    // Absent, not undefined, so older and newer recordings look alike.
+    for (const e of events.slice(first)) {
+      expect(e.meta).not.toHaveProperty('callSite');
+    }
+  });
+
   test('records old and new values on update:start when the layer is on', async () => {
     const {tag} = define();
     const el = document.createElement(tag) as FakeReactiveElement & {

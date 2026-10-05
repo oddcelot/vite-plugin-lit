@@ -92,6 +92,7 @@ export class TimelineSpanDetail extends LitElement {
     if (!row) return nothing;
     const {meta} = row;
     const src = meta?.source;
+    const site = meta?.callSite;
     // Raw rows carry exactly one event; a collapsed span carries its start and
     // (once it closes) its end, whose payloads are the same minus `changed`.
     const data = row.events[0]?.data;
@@ -203,6 +204,28 @@ export class TimelineSpanDetail extends LitElement {
                           >${src.file}:${src.line}</wa-button
                         >`
                       : `${src.file}:${src.line}`
+                  }
+                </td>
+              </tr>`
+            : nothing
+        }
+        ${
+          site
+            ? html`<tr>
+                <td class="key">rendered at</td>
+                <td class="val">
+                  ${
+                    this._canOpen
+                      ? html`<wa-button
+                          class="src-link call-site"
+                          size="small"
+                          appearance="plain"
+                          data-tip="Open the template that renders this element"
+                          @click=${() =>
+                            openInEditor(site.file, site.line, site.column)}
+                          >${site.file}:${site.line}</wa-button
+                        >`
+                      : `${site.file}:${site.line}`
                   }
                 </td>
               </tr>`

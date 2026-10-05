@@ -35,6 +35,12 @@ export interface TimelineEvent<TData = unknown> {
     elementId?: number;
     tagName?: string;
     source?: {file: string; line: number};
+    /**
+     * Where this instance was written in a template (or HTML entry file),
+     * from the dev transform's `data-lit-source` attribute. Optional and
+     * absent from recordings made before it existed.
+     */
+    callSite?: {file: string; line: number; column: number};
   };
 }
 

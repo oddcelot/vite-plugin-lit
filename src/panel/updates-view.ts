@@ -397,9 +397,11 @@ export class UpdatesView extends LitElement {
       `;
     }
     const cycles = this._cycles.filter((c) => c.tagName === this._selectedTag);
-    const source = this._components.find(
-      (c) => c.tagName === this._selectedTag
-    )?.source;
+    const entry = this._components.find((c) => c.tagName === this._selectedTag);
+    const source = entry?.source;
+    // A call site belongs to one instance, so it stands for the component
+    // only while a single instance updated.
+    const site = entry?.elementIds.length === 1 ? entry.callSite : undefined;
     return html`
       <div class="pane cycles">
         <div class="head">
@@ -421,6 +423,27 @@ export class UpdatesView extends LitElement {
                   @click=${() => openInEditor(source.file, source.line)}
                 >
                   ${source.file}:${source.line}
+                  <wa-icon slot="end" name="arrow-square-out"></wa-icon>
+                </wa-button>`
+              : nothing
+          }
+          ${
+            site && !this._canOpen
+              ? html`<span class="link src-text call-site"
+                  >Rendered at ${site.file}:${site.line}</span
+                >`
+              : nothing
+          }
+          ${
+            site && this._canOpen
+              ? html`<wa-button
+                  class="link call-site"
+                  appearance="plain"
+                  size="small"
+                  data-tip="Open the template that renders this element"
+                  @click=${() => openInEditor(site.file, site.line, site.column)}
+                >
+                  Rendered at ${site.file}:${site.line}
                   <wa-icon slot="end" name="arrow-square-out"></wa-icon>
                 </wa-button>`
               : nothing

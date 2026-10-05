@@ -23,7 +23,7 @@
  */
 
 import type {TimelineEvent} from '../../../types/timeline.js';
-import {idOf, sourceOf} from './identity.js';
+import {metaOf} from './identity.js';
 import {now} from './clock.js';
 
 type EmitFn = (event: TimelineEvent) => void;
@@ -76,11 +76,7 @@ const hostMeta = (
   host: unknown
 ): NonNullable<TimelineEvent['meta']> | undefined => {
   if (host === null || typeof host !== 'object') return undefined;
-  return {
-    elementId: idOf(host),
-    tagName: (host as Element).localName ?? 'unknown',
-    source: sourceOf(host),
-  };
+  return metaOf(host);
 };
 
 /** Reads the render `host` off a `Part` for the one kind (`set part`) whose

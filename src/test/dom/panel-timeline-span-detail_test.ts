@@ -156,3 +156,27 @@ test('shows the source as plain text where the host has no editor', async () => 
   expect(value('source')).toBe('src/counter.ts:12');
   expect(link('src/counter.ts:12')).toBeUndefined();
 });
+
+const withSite: TimelineSpan = {
+  ...span,
+  meta: {...span.meta, callSite: {file: 'src/app.ts', line: 30, column: 5}},
+};
+
+test('the rendered-at link opens the call site at its column', async () => {
+  const {root, value} = await mount({span: withSite});
+  expect(value('rendered at')).toBe('src/app.ts:30');
+  root.querySelector<HTMLElement>('.src-link.call-site')!.click();
+  expect(opened).toHaveBeenCalledWith('src/app.ts', 30, 5);
+});
+
+test('shows the call site as plain text where the host has no editor', async () => {
+  editor.available = false;
+  const {value, root} = await mount({span: withSite});
+  expect(value('rendered at')).toBe('src/app.ts:30');
+  expect(root.querySelector('.call-site')).toBeNull();
+});
+
+test('has no rendered-at row for an element without a call site', async () => {
+  const {value} = await mount({span});
+  expect(value('rendered at')).toBeUndefined();
+});

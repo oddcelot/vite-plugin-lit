@@ -1,6 +1,8 @@
-import {afterEach, beforeAll, expect, test, vi} from 'vite-plus/test';
+import {afterEach, beforeAll, describe, expect, test, vi} from 'vite-plus/test';
 import type {TimelineEvent} from '../../types/timeline.js';
 import {resetStore, setEvents} from './fakes/timeline-store.js';
+import {answers, calls, meta, resetClient} from './fakes/client.js';
+import {resetHostInfo} from '../../panel/host.js';
 
 vi.mock(
   '../../panel/timeline-store.js',
@@ -57,6 +59,8 @@ const mount = async () => {
 afterEach(() => {
   document.body.replaceChildren();
   resetStore();
+  resetClient();
+  resetHostInfo();
 });
 
 test('says what to do while nothing has been recorded', async () => {
@@ -251,4 +255,65 @@ test('renders no value block for cycles without detail', async () => {
     .row.click();
   await settle();
   expect(root.querySelector('.changes')).toBeNull();
+});
+
+describe('rendered at', () => {
+  const site = {file: 'src/app.ts', line: 30, column: 5};
+  const stamped = (id: number, tagName: string, n: number, time: number) =>
+    tick(id, tagName, n, time).map((e) => ({
+      ...e,
+      meta: {...e.meta, callSite: site},
+    }));
+
+  const select = async (data: TimelineEvent[], tag: string) => {
+    const view = await mount();
+    setEvents(data);
+    await view.settle();
+    view
+      .rows()
+      .find((r) => r.tag.startsWith(tag))!
+      .row.click();
+    await view.settle();
+    // `canOpenInEditor()` settles a microtask later.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await view.settle();
+    return view;
+  };
+
+  test('links the call site of a single instance and opens it at its column', async () => {
+    answers.set('open-source', {opened: true});
+    const {root, settle} = await select(
+      [...stamped(1, 'x-counter', 1, 0), ...tick(2, 'x-clock', 1, 20)],
+      '<x-counter>'
+    );
+    const link = root.querySelector<HTMLElement>('wa-button.call-site')!;
+    expect(link.textContent).toContain('Rendered at src/app.ts:30');
+    link.click();
+    await settle();
+    expect(calls.find((c) => c.name === 'open-source')?.args).toEqual([
+      {file: 'src/app.ts', line: 30, column: 5},
+    ]);
+  });
+
+  test('is plain text where the host has no editor', async () => {
+    meta.capabilities.openInEditor = false;
+    const {root} = await select(stamped(1, 'x-counter', 1, 0), '<x-counter>');
+    expect(root.querySelector('wa-button.call-site')).toBeNull();
+    expect(root.querySelector('.call-site')!.textContent).toBe(
+      'Rendered at src/app.ts:30'
+    );
+  });
+
+  test('is left out when several instances share the component', async () => {
+    const {root} = await select(
+      [...stamped(1, 'x-counter', 1, 0), ...stamped(3, 'x-counter', 1, 5)],
+      '<x-counter>'
+    );
+    expect(root.querySelector('.call-site')).toBeNull();
+  });
+
+  test('is left out without a call site', async () => {
+    const {root} = await select(tick(1, 'x-counter', 1, 0), '<x-counter>');
+    expect(root.querySelector('.call-site')).toBeNull();
+  });
 });
