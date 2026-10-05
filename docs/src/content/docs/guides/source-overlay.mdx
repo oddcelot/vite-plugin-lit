@@ -56,7 +56,7 @@ LIT_PLUGIN_SOURCE_OVERLAY_EDITOR=zed
    back in. The tooltip names where each key goes.
 
 4. Hold **Ctrl** (or **⌘**) and click the element to open that file in your
-   editor at that line. The tooltip's own **open** button does the same.
+   editor at that line.
    Add **Shift** to open the line where that element is written instead, see
    [Where an element is rendered](#where-an-element-is-rendered). While you
    hold the keys, the tooltip lights up the row the click will open.
@@ -75,12 +75,14 @@ The dev transform also stamps a `data-lit-source="file:line:column"`
 attribute on every custom element written in an `html` or `svg` template, and
 the Components tab uses it for a **Rendered at** link to the tag that created
 that instance. The overlay reads it too: when the hovered element has one, a
-second row in the tooltip reads **rendered at** `file:line`, with its own
-**open** button, and **Ctrl/⌘+Shift+click** opens that spot in your editor,
+second row in the tooltip reads **rendered at** `file:line`, and
+**Ctrl/⌘+Shift+click** opens that spot in your editor,
 at its column, instead of the declaration. Without a call site it opens the
 declaration. A library element picked with `hosts: 'lit'` has no declaration
 to show, so its call site is the only row, and **Ctrl/⌘+click** opens it.
-Either way, the highlighted row is the one the click opens.
+Either way, the highlighted row is the one the click opens. The tooltip is
+only a readout: the pointer passes through it to the page, so there is
+nothing in it to click.
 
 The attribute is added only on the dev server and only while `sourceOverlay`
 is on, so it never reaches a production build. It is also visible in the
