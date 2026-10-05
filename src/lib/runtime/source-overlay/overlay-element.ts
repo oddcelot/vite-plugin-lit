@@ -45,6 +45,32 @@ export interface SourceOverlayInitOptions {
 /** What the tooltip shows for the element under the pointer. */
 type PickInfo = Omit<ElementInfo, 'source'> & {source?: ElementInfo['source']};
 
+/** What a click opens in the editor; `false` only picks. */
+type OpenIntent = false | 'source' | 'callSite';
+
+/**
+ * The place an `intent` click actually opens for `info`. Each falls back to
+ * the other when the element lacks it, so a library element's Cmd+click
+ * opens its call site. Undefined when there is nothing to open.
+ */
+const resolveOpen = (
+  info: PickInfo,
+  intent: OpenIntent
+): 'source' | 'callSite' | undefined => {
+  if (intent === false) return undefined;
+  const other = intent === 'source' ? 'callSite' : 'source';
+  if (info[intent] !== undefined) return intent;
+  return info[other] === undefined ? undefined : other;
+};
+
+/** Cmd/Ctrl opens the declaration; adding Shift opens the call site. */
+const intentOf = (event: MouseEvent | KeyboardEvent): OpenIntent =>
+  event.metaKey || event.ctrlKey
+    ? event.shiftKey
+      ? 'callSite'
+      : 'source'
+    : false;
+
 class LitSourceOverlay extends HTMLElement {
   #active = false;
   #options: SourceOverlayInitOptions = {};
@@ -58,10 +84,14 @@ class LitSourceOverlay extends HTMLElement {
   #path: HTMLElement;
   #step: HTMLElement;
   #open: HTMLElement;
+  #sourceRow: HTMLElement;
   #siteRow: HTMLElement;
   #siteText: HTMLElement;
   #siteOpen: HTMLElement;
   #info: PickInfo | null = null;
+  // What a click would open with the modifiers currently held, so the tooltip
+  // can light up that row before the click.
+  #intent: OpenIntent = false;
   #targetEl: Element | null = null;
   // The host under the pointer, and the hosts stepped out of with ArrowUp,
   // innermost first. The target is the pointer host while the trail is empty.
@@ -93,6 +123,7 @@ class LitSourceOverlay extends HTMLElement {
     this.#path = root.getElementById('path')!;
     this.#step = root.getElementById('step')!;
     this.#open = root.getElementById('open')!;
+    this.#sourceRow = root.getElementById('source-row')!;
     this.#siteRow = root.getElementById('site-row')!;
     this.#siteText = root.getElementById('site-text')!;
     this.#siteOpen = root.getElementById('site-open')!;
@@ -111,6 +142,8 @@ class LitSourceOverlay extends HTMLElement {
     injectTokens();
     document.addEventListener('mousemove', this.#onTrackMouse, true);
     document.addEventListener('keydown', this.#onKeyDown, true);
+    document.addEventListener('keyup', this.#onKeyUp, true);
+    window.addEventListener('blur', this.#onBlur);
     const hot = (
       import.meta as {
         hot?: {
@@ -164,6 +197,8 @@ class LitSourceOverlay extends HTMLElement {
   disconnectedCallback() {
     document.removeEventListener('mousemove', this.#onTrackMouse, true);
     document.removeEventListener('keydown', this.#onKeyDown, true);
+    document.removeEventListener('keyup', this.#onKeyUp, true);
+    window.removeEventListener('blur', this.#onBlur);
     this.deactivate();
     this.#edgeDispose?.();
     this.#edgeDispose = undefined;
@@ -311,6 +346,21 @@ class LitSourceOverlay extends HTMLElement {
     this.#path.style.display = sourceDisplay;
     this.#open.style.display = sourceDisplay;
     this.#tooltip.style.display = 'flex';
+    this.#showIntent();
+  }
+
+  /** Light up the row a click would open with the modifiers held now. */
+  #showIntent() {
+    const place =
+      this.#info === null ? undefined : resolveOpen(this.#info, this.#intent);
+    this.#sourceRow.classList.toggle('armed', place === 'source');
+    this.#siteRow.classList.toggle('armed', place === 'callSite');
+  }
+
+  #setIntent(intent: OpenIntent) {
+    if (intent === this.#intent) return;
+    this.#intent = intent;
+    this.#showIntent();
   }
 
   #clearTarget() {
@@ -408,9 +458,21 @@ class LitSourceOverlay extends HTMLElement {
   #onTrackMouse = (event: MouseEvent) => {
     this.#lastMouseX = event.clientX;
     this.#lastMouseY = event.clientY;
+    // Catches modifiers pressed while the page didn't have focus.
+    this.#setIntent(intentOf(event));
+  };
+
+  #onKeyUp = (event: KeyboardEvent) => {
+    this.#setIntent(intentOf(event));
+  };
+
+  // A modifier released in another window never sends its keyup here.
+  #onBlur = () => {
+    this.#setIntent(false);
   };
 
   #onKeyDown = (event: KeyboardEvent) => {
+    this.#setIntent(intentOf(event));
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && !event.altKey) {
       const pressed = event.key.toLowerCase();
       const hotkey = (this.#options.key ?? 's').toLowerCase();
@@ -460,26 +522,21 @@ class LitSourceOverlay extends HTMLElement {
 
   /**
    * `open` names what to open in the editor: the declaration (`source`) or
-   * where the element is written (`callSite`). Each falls back to the other
-   * when the element lacks it, so a library element's Cmd+click opens its
-   * call site. Without either, or with `false`, the click only picks.
+   * where the element is written (`callSite`), with the fallbacks of
+   * {@link resolveOpen}. Without either, or with `false`, the click only picks.
    */
-  #select(info: PickInfo, open: false | 'source' | 'callSite' = false) {
+  #select(info: PickInfo, open: OpenIntent = false) {
     const target = this.#targetEl;
     // Cancel the whole selection mode on any deliberate pick, before acting —
     // the editor may open via a URL scheme that doesn't navigate this tab away,
     // so we can't rely on the open outcome to dismiss the inspector.
     this.deactivate();
-    const {source, callSite} = info;
+    const {source} = info;
     // onSelect keeps its contract (ElementInfo.source is required), so
     // elements without a declaration, library ones, are not reported.
     if (source !== undefined) this.#options.onSelect?.({...info, source});
-    const place =
-      open === 'callSite'
-        ? (callSite ?? source)
-        : open === 'source'
-          ? (source ?? callSite)
-          : undefined;
+    const key = resolveOpen(info, open);
+    const place = key === undefined ? undefined : info[key];
     if (place !== undefined) {
       const {columnNumber: column} = place as {columnNumber?: number};
       void this.#openInEditor(place.filePath, place.lineNumber, column);
@@ -536,9 +593,7 @@ class LitSourceOverlay extends HTMLElement {
     if (this.#pointInTooltip(event.clientX, event.clientY)) return;
     event.preventDefault();
     event.stopPropagation();
-    // Cmd/Ctrl+click opens the declaration, adding Shift opens the call site.
-    const open = event.metaKey || event.ctrlKey;
-    this.#select(this.#info, open && (event.shiftKey ? 'callSite' : 'source'));
+    this.#select(this.#info, intentOf(event));
   };
 
   #onScrollOrResize = () => {
