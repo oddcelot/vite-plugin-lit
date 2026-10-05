@@ -461,3 +461,21 @@ describe('changed value detail', () => {
     ).toBeUndefined();
   });
 });
+
+describe('call sites', () => {
+  const callSite = {file: 'src/app.ts', line: 30, column: 5};
+  const stamped = (events: TimelineEvent[]): TimelineEvent[] =>
+    events.map((e) => ({...e, meta: {...e.meta, callSite}}));
+
+  test('a cycle and its component roll up the instance call site', () => {
+    const cycles = toUpdateCycles(toSpans(stamped(tick(0, {changed: ['n']}))));
+    expect(cycles[0]!.callSite).toEqual(callSite);
+    expect(rollup(cycles)[0]!.callSite).toEqual(callSite);
+  });
+
+  test('events recorded without one yield none', () => {
+    const cycles = toUpdateCycles(toSpans(tick(0, {changed: ['n']})));
+    expect(cycles[0]!.callSite).toBeUndefined();
+    expect(rollup(cycles)[0]!.callSite).toBeUndefined();
+  });
+});

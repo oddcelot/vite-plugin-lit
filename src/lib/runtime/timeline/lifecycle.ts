@@ -14,7 +14,7 @@
  * Gated by the recording flag so overhead is near-zero when idle.
  */
 
-import {idOf, sourceOf, changedKeys} from './identity.js';
+import {idOf, metaOf, changedKeys} from './identity.js';
 import {now} from './clock.js';
 import {captureChangedValues} from './changed-values.js';
 import {erroredTasks} from '../inspector/extras.js';
@@ -96,9 +96,7 @@ interface PendingAttribution {
   phase: string;
   /** Absent for point phases, which belong to no update cycle. */
   groupId?: string;
-  elementId: number;
-  tagName: string;
-  source: ReturnType<typeof sourceOf>;
+  meta: NonNullable<TimelineEvent['meta']>;
 }
 
 /**
@@ -122,9 +120,7 @@ type Proto = Record<string | symbol, AnyFn | undefined>;
 const reportTaskErrors = (
   el: object,
   groupId: string,
-  elementId: number,
-  tagName: string,
-  source: PendingAttribution['source'],
+  meta: PendingAttribution['meta'],
   emit: EmitFn
 ): void => {
   try {
@@ -141,7 +137,7 @@ const reportTaskErrors = (
         time: now(),
         groupId,
         title: 'task:error',
-        subtitle: tagName,
+        subtitle: meta.tagName,
         data: {
           phase: 'task',
           task: name,
@@ -149,7 +145,7 @@ const reportTaskErrors = (
           async: true,
         },
         logType: 'error',
-        meta: {elementId, tagName, source},
+        meta,
       });
     }
   } catch {
@@ -190,13 +186,10 @@ const captureOwnPhases = (
         // Unrecorded updates do not advance the tick, so a promise from one
         // would be pinned to an older cycle.
         if (recording() && result instanceof Promise && !returned.has(result)) {
-          const tagName = (this as Element).localName ?? 'unknown';
           returned.set(result, {
             phase: name,
             groupId: `${idOf(this)}:${tickOf(this)}`,
-            elementId: idOf(this),
-            tagName,
-            source: sourceOf(this),
+            meta: metaOf(this),
           });
         }
         return result;
@@ -267,9 +260,9 @@ const wrap = (
       ticks.set(this, tickOf(this) + 1);
     }
 
-    const elementId = idOf(this);
-    const tagName = (this as Element).localName ?? 'unknown';
-    const source = sourceOf(this);
+    const meta = metaOf(this);
+    const elementId = meta.elementId as number;
+    const tagName = meta.tagName as string;
     const tick = tickOf(this);
     const groupId = `${elementId}:${tick}`;
     const time = now();
@@ -293,7 +286,7 @@ const wrap = (
           changedDetail === undefined
             ? {phase: name, changed}
             : {phase: name, changed, changedDetail},
-        meta: {elementId, tagName, source},
+        meta,
       });
     }
 
@@ -326,7 +319,7 @@ const wrap = (
           subtitle: tagName,
           data: error === undefined ? {phase: name} : {phase: name, error},
           ...(error === undefined ? {} : {logType: 'error' as const}),
-          meta: {elementId, tagName, source},
+          meta,
         });
       } else {
         emit({
@@ -336,7 +329,7 @@ const wrap = (
           subtitle: tagName,
           data: error === undefined ? {phase: name} : {phase: name, error},
           ...(error === undefined ? {} : {logType: 'error' as const}),
-          meta: {elementId, tagName, source},
+          meta,
         });
       }
     }
@@ -347,13 +340,10 @@ const wrap = (
       returned.set(result, {
         phase: name,
         ...(isPoint ? {} : {groupId}),
-        elementId,
-        tagName,
-        source,
+        meta,
       });
     }
-    if (isUpdate)
-      reportTaskErrors(this, groupId, elementId, tagName, source, emit);
+    if (isUpdate) reportTaskErrors(this, groupId, meta, emit);
     return result;
   };
   wrapper[BRAND] = true;
@@ -453,18 +443,14 @@ export const installLifecycleLayer = (
           time: now(),
           ...(info.groupId === undefined ? {} : {groupId: info.groupId}),
           title: info.phase + ':rejected',
-          subtitle: info.tagName,
+          subtitle: info.meta.tagName,
           data: {
             phase: info.phase,
             error: describeError(event.reason),
             async: true,
           },
           logType: 'error',
-          meta: {
-            elementId: info.elementId,
-            tagName: info.tagName,
-            source: info.source,
-          },
+          meta: info.meta,
         });
       } catch {
         // dev tool — never throw from the app's rejection path

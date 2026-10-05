@@ -89,6 +89,8 @@ export interface UpdateCycle {
   elementId: number;
   tagName: string;
   source?: {file: string; line: number};
+  /** Where this instance was written in a template, when the transform knew. */
+  callSite?: {file: string; line: number; column: number};
   start: number;
   /** The `performUpdate` span's duration — see {@link toUpdateCycles}. */
   duration?: number;
@@ -122,6 +124,11 @@ export interface ComponentRollup {
   /** Cycles in which a phase threw. */
   errors: number;
   source?: {file: string; line: number};
+  /**
+   * Where the first instance seen was written. Per instance, unlike `source`,
+   * so it only stands for the component when `elementIds` holds one.
+   */
+  callSite?: {file: string; line: number; column: number};
 }
 
 /** Reads `data.changed` defensively — `data` is `unknown` on the wire. */
@@ -323,6 +330,7 @@ export const toUpdateCycles = (
         elementId,
         tagName: span.meta?.tagName ?? 'unknown',
         source: span.meta?.source,
+        callSite: span.meta?.callSite,
         start: span.start,
         changed: [],
         phases: [],
@@ -392,6 +400,7 @@ export const rollup = (cycles: readonly UpdateCycle[]): ComponentRollup[] => {
           reasons: [],
           errors: 0,
           source: cycle.source,
+          callSite: cycle.callSite,
         },
         reasons: new Map(),
         redundant: new Map(),
@@ -406,6 +415,7 @@ export const rollup = (cycles: readonly UpdateCycle[]): ComponentRollup[] => {
       entry.elementIds.push(cycle.elementId);
     }
     entry.source ??= cycle.source;
+    entry.callSite ??= cycle.callSite;
     // An open or clock-straddling cycle contributes a count but no time —
     // better than inventing one, and the count is what flags a hot component.
     if (cycle.duration !== undefined) {

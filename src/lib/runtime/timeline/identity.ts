@@ -10,11 +10,17 @@
  * events can deep-link to the component's definition file.
  */
 
-import {SOURCE_META_KEY} from '../source-meta.js';
+import {SOURCE_META_KEY, readCallSite} from '../source-meta.js';
+import type {TimelineEvent} from '../../../types/timeline.js';
 
 export interface ElementSource {
   file: string;
   line: number;
+}
+
+/** A place in a file with a column, which a call site always has. */
+export interface ElementCallSite extends ElementSource {
+  column: number;
 }
 
 /** WeakMap avoids retaining elements after disconnection + GC. */
@@ -90,4 +96,27 @@ export const changedKeys = (changed: unknown): string[] | undefined => {
   return [...changed.keys()].map((k) =>
     typeof k === 'symbol' ? k.toString() : String(k)
   );
+};
+
+/** Where `el` was written in a template, from the attribute the dev transform stamps. */
+export const callSiteOf = (el: object): ElementCallSite | undefined => {
+  if (typeof (el as Element).getAttribute !== 'function') return undefined;
+  const site = readCallSite(el as Element);
+  return site === undefined
+    ? undefined
+    : {file: site.filePath, line: site.lineNumber, column: site.columnNumber};
+};
+
+/**
+ * The identity every timeline event of `el` carries: id, tag, where the class
+ * is declared and, for an element written in a template, where that is.
+ */
+export const metaOf = (el: object): NonNullable<TimelineEvent['meta']> => {
+  const callSite = callSiteOf(el);
+  return {
+    elementId: idOf(el),
+    tagName: (el as Element).localName ?? 'unknown',
+    source: sourceOf(el),
+    ...(callSite === undefined ? {} : {callSite}),
+  };
 };
