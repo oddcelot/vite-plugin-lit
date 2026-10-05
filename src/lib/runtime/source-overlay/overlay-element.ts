@@ -87,7 +87,6 @@ class LitSourceOverlay extends HTMLElement {
   #sourceRow: HTMLElement;
   #siteRow: HTMLElement;
   #siteText: HTMLElement;
-  #siteOpen: HTMLElement;
   #info: PickInfo | null = null;
   // What a click would open with the modifiers currently held, so the tooltip
   // can light up that row before the click.
@@ -126,15 +125,6 @@ class LitSourceOverlay extends HTMLElement {
     this.#sourceRow = root.getElementById('source-row')!;
     this.#siteRow = root.getElementById('site-row')!;
     this.#siteText = root.getElementById('site-text')!;
-    this.#siteOpen = root.getElementById('site-open')!;
-    this.#open.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (this.#info !== null) this.#select(this.#info, 'source');
-    });
-    this.#siteOpen.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (this.#info !== null) this.#select(this.#info, 'callSite');
-    });
     this.#dialog.addEventListener('cancel', (e) => e.preventDefault());
   }
 
@@ -218,8 +208,8 @@ class LitSourceOverlay extends HTMLElement {
     this.#dialog.showModal();
     this.#mask.style.background = 'rgba(0,0,0,0.35)';
     // The overlay is pointer-events:none, so the cursor reflects the hovered
-    // page element. Force a crosshair while inspecting. The closed shadow DOM
-    // tooltip is unaffected, so its buttons keep their own pointer cursor.
+    // page element. Force a crosshair while inspecting, including under the
+    // tooltip, which takes no pointer events either.
     if (this.#cursorStyle === null) {
       this.#cursorStyle = document.createElement('style');
       this.#cursorStyle.textContent = '*{cursor:crosshair !important}';
@@ -499,12 +489,8 @@ class LitSourceOverlay extends HTMLElement {
     }
   };
 
-  #onMouseMove = (event: MouseEvent) => {
+  #onMouseMove = () => {
     if (!this.#active) return;
-    // Keep the current selection while hovering the tooltip so its buttons stay
-    // clickable — the tooltip isn't a source element, so re-resolving here would
-    // clear the target and hide the panel out from under the pointer.
-    if (this.#pointInTooltip(event.clientX, event.clientY)) return;
     const throttleMs = this.#options.throttleMs ?? 50;
     if (this.#throttleTimer !== undefined) return;
     this.#throttleTimer = setTimeout(() => {
@@ -515,7 +501,6 @@ class LitSourceOverlay extends HTMLElement {
       // continuous movement.
       const x = this.#lastMouseX;
       const y = this.#lastMouseY;
-      if (this.#pointInTooltip(x, y)) return;
       this.#resolveAt(x, y);
     }, throttleMs);
   };
@@ -579,18 +564,8 @@ class LitSourceOverlay extends HTMLElement {
     }
   }
 
-  #pointInTooltip(x: number, y: number): boolean {
-    if (this.#tooltip.style.display === 'none') return false;
-    const r = this.#tooltip.getBoundingClientRect();
-    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
-  }
-
   #onClick = (event: MouseEvent) => {
     if (!this.#active || this.#info === null) return;
-    // Clicks on the tooltip panel are handled by its own open buttons.
-    // The overlay's shadow root is closed, so we detect this by hit-rect rather
-    // than inspecting the event path, and let the event reach those buttons.
-    if (this.#pointInTooltip(event.clientX, event.clientY)) return;
     event.preventDefault();
     event.stopPropagation();
     this.#select(this.#info, intentOf(event));

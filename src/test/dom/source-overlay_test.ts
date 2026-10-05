@@ -317,19 +317,23 @@ describe('click', () => {
     expect(dialog().open).toBe(false);
   });
 
-  test('the tooltip open button opens in the editor without a page click', async () => {
+  test('the tooltip takes no pointer events and its icons are decorative', async () => {
     const {el} = makeTarget();
+    el.setAttribute('data-lit-source', '/ws/src/page.ts:12:5');
     hitTarget = el;
-    const fetchMock = vi.fn(async () => ({ok: true}));
-    vi.stubGlobal('fetch', fetchMock);
-    mount({openInEditorPath: '/custom-open'});
+    mount({workspaceRoot: '/ws'});
     overlay.activate();
     await hover();
-    byId('open').dispatchEvent(new MouseEvent('click', {bubbles: true}));
-    await vi.advanceTimersByTimeAsync(0);
-    expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toMatch(
-      /^\/custom-open\?/
-    );
+    // The pointer goes through to the page, so no tooltip hit-testing is needed.
+    const css = shadow().querySelector('style')!.textContent!;
+    expect(css).toMatch(/#tooltip\s*{[^}]*pointer-events:\s*none/);
+    for (const id of ['open', 'site-open']) {
+      const icon = byId(id);
+      expect(icon.tagName).toBe('SPAN');
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
+      expect(icon.hasAttribute('title')).toBe(false);
+      expect(icon.hasAttribute('aria-label')).toBe(false);
+    }
   });
 });
 
@@ -354,9 +358,6 @@ describe('call site', () => {
     await hover(41, 41);
     expect(byId('site-row').style.display).toBe('');
     expect(byId('site-text').textContent).toBe('src/page.ts:12');
-    expect(byId('site-open').getAttribute('aria-label')).toBe(
-      'Open call site in editor'
-    );
   });
 
   test('Cmd+Shift+click opens the call site with its column', async () => {
@@ -410,20 +411,6 @@ describe('call site', () => {
     click({metaKey: true, shiftKey: true});
     await vi.advanceTimersByTimeAsync(0);
     expect(urlOf(fetchMock).searchParams.get('file')).toBe('src/card.ts');
-  });
-
-  test('the row button opens the call site', async () => {
-    const {el} = makeTarget();
-    el.setAttribute('data-lit-source', SITE);
-    hitTarget = el;
-    const fetchMock = vi.fn(async () => ({ok: true}));
-    vi.stubGlobal('fetch', fetchMock);
-    mount({workspaceRoot: '/ws'});
-    overlay.activate();
-    await hover();
-    byId('site-open').dispatchEvent(new MouseEvent('click', {bubbles: true}));
-    await vi.advanceTimersByTimeAsync(0);
-    expect(urlOf(fetchMock).searchParams.get('column')).toBe('5');
   });
 
   test('a library element with only a call site opens it on Ctrl+click', async () => {

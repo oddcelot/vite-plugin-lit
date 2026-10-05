@@ -3,7 +3,7 @@ import {CODE_ICON, CUBE_ICON} from '../../icons.js';
 
 // Shadow DOM markup for the overlay: a transparent modal <dialog> hosting the
 // dimming mask, the highlight ring, and the bottom-fixed tooltip panel. The
-// panel is a two-section split: open-declaration icon (the Components tab's
+// panel is a two-section split: declaration icon (the Components tab's
 // cube) | tag + path + arrow-key steps. A second row of the same shape, with
 // a code icon, shows where the element is written in a template (its call
 // site), when known.
@@ -48,7 +48,9 @@ export const OVERLAY_HTML = `
       translate: -50%;
       display: none;
       flex-direction: column;
-      pointer-events: auto;
+      /* Decorative: the pointer goes through to the page, so the element under
+         the tooltip can still be hovered and picked. */
+      pointer-events: none;
       max-width: min(90vw, 480px);
       border-radius: var(--lit-devtools-radius-md);
       background: var(--lit-devtools-surface-elevated);
@@ -70,23 +72,15 @@ export const OVERLAY_HTML = `
         var(--lit-devtools-ease-standard);
     }
     .row.armed { background: var(--lit-devtools-accent-soft); }
-    .row.armed .icon-btn { color: var(--lit-devtools-accent); }
-    .icon-btn {
+    .row.armed .icon { color: var(--lit-devtools-accent); }
+    .icon {
       display: flex;
       align-items: center;
       justify-content: center;
       flex: 0 0 auto;
       padding: 0 12px;
-      border: none;
-      background: transparent;
-      color: inherit;
-      cursor: pointer;
     }
-    .icon-btn:hover { background: var(--lit-devtools-surface-hover); }
-    /* No outline ring; keyboard focus reuses the subtle hover tint. */
-    .icon-btn:focus { outline: none; }
-    .icon-btn:focus-visible { background: var(--lit-devtools-surface-hover); }
-    .icon-btn svg {
+    .icon svg {
       width: 16px;
       height: 16px;
       display: block;
@@ -128,12 +122,7 @@ export const OVERLAY_HTML = `
     <div id="highlight"></div>
     <div id="tooltip">
       <div id="source-row" class="row">
-        <span
-          id="open"
-          class="icon-btn"
-          title="Open in editor"
-          aria-label="Open in editor"
-        >${CUBE_ICON}</span>
+        <span id="open" class="icon" aria-hidden="true">${CUBE_ICON}</span>
         <div id="meta">
           <span id="tag"></span>
           <span id="path"></span>
@@ -141,13 +130,7 @@ export const OVERLAY_HTML = `
         </div>
       </div>
       <div id="site-row" class="row">
-        <button
-          id="site-open"
-          class="icon-btn"
-          type="button"
-          title="Open call site in editor"
-          aria-label="Open call site in editor"
-        >${CODE_ICON}</button>
+        <span id="site-open" class="icon" aria-hidden="true">${CODE_ICON}</span>
         <div id="site-meta">
           <span id="site-path"><span class="label">rendered at </span><span id="site-text"></span></span>
         </div>
