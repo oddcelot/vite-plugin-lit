@@ -65,8 +65,7 @@ LIT_PLUGIN_SOURCE_OVERLAY_EDITOR=zed
 </Steps>
 
 A plain click, without the modifier, hands the element to the DevTools
-Components tab instead, when the panel is set up. The tooltip also carries a
-**copy** button for the `file:line` pair, for pasting into an issue.
+Components tab instead, when the panel is set up.
 
 ## Where an element is rendered
 
@@ -76,9 +75,8 @@ attribute on every custom element written in an `html` or `svg` template, and
 the Components tab uses it for a **Rendered at** link to the tag that created
 that instance. The overlay reads it too: when the hovered element has one, a
 second row in the tooltip reads **rendered at** `file:line`, with its own
-**open** and **copy** buttons (copy gives `file:line:column`), and
-**Ctrl/⌘+Shift+click** opens that spot in your editor, at its column, instead
-of the declaration. Without a call site it opens the declaration. A library
+**open** button, and **Ctrl/⌘+Shift+click** opens that spot in your editor,
+at its column, instead of the declaration. Without a call site it opens the declaration. A library
 element picked with `hosts: 'lit'` has no declaration to show, so its call
 site is the only row, and **Ctrl/⌘+click** opens it. The attribute is added only on the dev server and only while
 `sourceOverlay` is on, so it never reaches a production build; it is also

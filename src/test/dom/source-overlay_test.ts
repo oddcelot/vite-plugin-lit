@@ -331,18 +331,6 @@ describe('click', () => {
       /^\/custom-open\?/
     );
   });
-
-  test('the copy button writes path:line to the clipboard', async () => {
-    const {el} = makeTarget();
-    hitTarget = el;
-    const writeText = vi.fn(async () => {});
-    vi.stubGlobal('navigator', {clipboard: {writeText}});
-    mount({workspaceRoot: '/ws'});
-    overlay.activate();
-    await hover();
-    byId('copy').dispatchEvent(new MouseEvent('click', {bubbles: true}));
-    expect(writeText).toHaveBeenCalledWith('src/card.ts:7');
-  });
 });
 
 describe('call site', () => {
@@ -369,7 +357,6 @@ describe('call site', () => {
     expect(byId('site-open').getAttribute('aria-label')).toBe(
       'Open call site in editor'
     );
-    expect(byId('site-copy').getAttribute('aria-label')).toBe('Copy call site');
   });
 
   test('Cmd+Shift+click opens the call site with its column', async () => {
@@ -425,19 +412,15 @@ describe('call site', () => {
     expect(urlOf(fetchMock).searchParams.get('file')).toBe('src/card.ts');
   });
 
-  test('the row buttons open and copy the call site', async () => {
+  test('the row button opens the call site', async () => {
     const {el} = makeTarget();
     el.setAttribute('data-lit-source', SITE);
     hitTarget = el;
     const fetchMock = vi.fn(async () => ({ok: true}));
-    const writeText = vi.fn(async () => {});
     vi.stubGlobal('fetch', fetchMock);
-    vi.stubGlobal('navigator', {clipboard: {writeText}});
     mount({workspaceRoot: '/ws'});
     overlay.activate();
     await hover();
-    byId('site-copy').dispatchEvent(new MouseEvent('click', {bubbles: true}));
-    expect(writeText).toHaveBeenCalledWith('src/page.ts:12:5');
     byId('site-open').dispatchEvent(new MouseEvent('click', {bubbles: true}));
     await vi.advanceTimersByTimeAsync(0);
     expect(urlOf(fetchMock).searchParams.get('column')).toBe('5');
@@ -584,7 +567,6 @@ describe('lit hosts (no source metadata)', () => {
     expect(byId('tag').textContent).toBe(`<${tag}>`);
     expect(byId('path').style.display).toBe('none');
     expect(byId('open').style.display).toBe('none');
-    expect(byId('copy').style.display).toBe('none');
   });
 
   test('ignores a plain custom element', async () => {

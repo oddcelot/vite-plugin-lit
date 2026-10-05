@@ -35,7 +35,7 @@ export interface SourceOverlayInitOptions {
    * transform stamped, which have a file to open. `lit` is any Lit element:
    * library ones such as `<wa-button>` too, and every one on a page with no
    * transform (`lit-devtools dev`). Stamped ones keep their source; the rest
-   * pick into the panel with no source to show, open or copy.
+   * pick into the panel with no source to show or open.
    */
   hosts?: 'source' | 'lit';
   /** Called with the picked element's id after the panel is told. */
@@ -58,11 +58,9 @@ class LitSourceOverlay extends HTMLElement {
   #path: HTMLElement;
   #step: HTMLElement;
   #open: HTMLElement;
-  #copy: HTMLElement;
   #siteRow: HTMLElement;
   #siteText: HTMLElement;
   #siteOpen: HTMLElement;
-  #siteCopy: HTMLElement;
   #info: PickInfo | null = null;
   #targetEl: Element | null = null;
   // The host under the pointer, and the hosts stepped out of with ArrowUp,
@@ -95,11 +93,9 @@ class LitSourceOverlay extends HTMLElement {
     this.#path = root.getElementById('path')!;
     this.#step = root.getElementById('step')!;
     this.#open = root.getElementById('open')!;
-    this.#copy = root.getElementById('copy')!;
     this.#siteRow = root.getElementById('site-row')!;
     this.#siteText = root.getElementById('site-text')!;
     this.#siteOpen = root.getElementById('site-open')!;
-    this.#siteCopy = root.getElementById('site-copy')!;
     this.#open.addEventListener('click', (e) => {
       e.stopPropagation();
       if (this.#info !== null) this.#select(this.#info, 'source');
@@ -107,20 +103,6 @@ class LitSourceOverlay extends HTMLElement {
     this.#siteOpen.addEventListener('click', (e) => {
       e.stopPropagation();
       if (this.#info !== null) this.#select(this.#info, 'callSite');
-    });
-    this.#copy.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const source = this.#info?.source;
-      if (source === undefined) return;
-      const text = `${this.#normalizePath(source.filePath)}:${source.lineNumber}`;
-      void navigator.clipboard?.writeText(text);
-    });
-    this.#siteCopy.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const site = this.#info?.callSite;
-      if (site === undefined) return;
-      const text = `${this.#normalizePath(site.filePath)}:${site.lineNumber}:${site.columnNumber}`;
-      void navigator.clipboard?.writeText(text);
     });
     this.#dialog.addEventListener('cancel', (e) => e.preventDefault());
   }
@@ -304,7 +286,7 @@ class LitSourceOverlay extends HTMLElement {
     if (this.#info === null) return;
     const {source} = this.#info;
     this.#tag.textContent = `<${this.#info.tagName}>`;
-    // Without a source there is nothing to show, open or copy; the tooltip
+    // Without a source there is nothing to show or open; the tooltip
     // still names what a click will pick.
     this.#path.textContent =
       source === undefined
@@ -328,7 +310,6 @@ class LitSourceOverlay extends HTMLElement {
     const sourceDisplay = source === undefined ? 'none' : '';
     this.#path.style.display = sourceDisplay;
     this.#open.style.display = sourceDisplay;
-    this.#copy.style.display = sourceDisplay;
     this.#tooltip.style.display = 'flex';
   }
 
@@ -549,7 +530,7 @@ class LitSourceOverlay extends HTMLElement {
 
   #onClick = (event: MouseEvent) => {
     if (!this.#active || this.#info === null) return;
-    // Clicks on the tooltip panel are handled by its own buttons (open/copy).
+    // Clicks on the tooltip panel are handled by its own open buttons.
     // The overlay's shadow root is closed, so we detect this by hit-rect rather
     // than inspecting the event path, and let the event reach those buttons.
     if (this.#pointInTooltip(event.clientX, event.clientY)) return;

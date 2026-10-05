@@ -153,7 +153,7 @@ export const defaultResolver: ElementResolver = {
 /**
  * What the tooltip shows for a host: its tag, and its file and line when the
  * source-meta transform stamped it. A library element carries no stamp, so it
- * is named after its class and has no source to open or copy, but it may
+ * is named after its class and has no source to open, but it may
  * still carry the call site of the template that wrote it.
  */
 export const hostInfo = (
