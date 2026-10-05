@@ -1,10 +1,10 @@
 import {FONT_MONO_VAR} from '../fonts.js';
-import {CODE_ICON, COPY_ICON} from '../../icons.js';
+import {CODE_ICON} from '../../icons.js';
 
 // Shadow DOM markup for the overlay: a transparent modal <dialog> hosting the
 // dimming mask, the highlight ring, and the bottom-fixed tooltip panel. The
-// panel is a three-section split: open-in-editor icon | tag + path + arrow-key
-// steps | copy icon. A second row of the same shape shows where the element
+// panel is a two-section split: open-in-editor icon | tag + path + arrow-key
+// steps. A second row of the same shape shows where the element
 // is written in a template (its call site), when known.
 export const OVERLAY_HTML = `
   <style>
@@ -131,13 +131,6 @@ export const OVERLAY_HTML = `
           <span id="path"></span>
           <span id="step"></span>
         </div>
-        <button
-          id="copy"
-          class="icon-btn"
-          type="button"
-          title="Copy path"
-          aria-label="Copy path"
-        >${COPY_ICON}</button>
       </div>
       <div id="site-row" class="row">
         <button
@@ -150,13 +143,6 @@ export const OVERLAY_HTML = `
         <div id="site-meta">
           <span id="site-path"><span class="label">rendered at </span><span id="site-text"></span></span>
         </div>
-        <button
-          id="site-copy"
-          class="icon-btn"
-          type="button"
-          title="Copy call site"
-          aria-label="Copy call site"
-        >${COPY_ICON}</button>
       </div>
     </div>
   </dialog>
