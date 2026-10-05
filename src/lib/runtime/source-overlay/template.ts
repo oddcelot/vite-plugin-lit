@@ -1,11 +1,12 @@
 import {FONT_MONO_VAR} from '../fonts.js';
-import {CODE_ICON} from '../../icons.js';
+import {CODE_ICON, CUBE_ICON} from '../../icons.js';
 
 // Shadow DOM markup for the overlay: a transparent modal <dialog> hosting the
 // dimming mask, the highlight ring, and the bottom-fixed tooltip panel. The
-// panel is a two-section split: open-in-editor icon | tag + path + arrow-key
-// steps. A second row of the same shape shows where the element
-// is written in a template (its call site), when known.
+// panel is a two-section split: open-declaration icon (the Components tab's
+// cube) | tag + path + arrow-key steps. A second row of the same shape, with
+// a code icon, shows where the element is written in a template (its call
+// site), when known.
 export const OVERLAY_HTML = `
   <style>
     dialog {
@@ -132,7 +133,7 @@ export const OVERLAY_HTML = `
           class="icon-btn"
           title="Open in editor"
           aria-label="Open in editor"
-        >${CODE_ICON}</span>
+        >${CUBE_ICON}</span>
         <div id="meta">
           <span id="tag"></span>
           <span id="path"></span>
