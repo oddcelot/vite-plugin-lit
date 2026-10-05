@@ -63,6 +63,13 @@ export const OVERLAY_HTML = `
       align-items: stretch;
     }
     #site-row { border-top: 1px solid var(--lit-devtools-border-subtle); }
+    /* The row a click would open with the modifiers held right now. */
+    .row {
+      transition: background-color var(--lit-devtools-dur-fast)
+        var(--lit-devtools-ease-standard);
+    }
+    .row.armed { background: var(--lit-devtools-accent-soft); }
+    .row.armed .icon-btn { color: var(--lit-devtools-accent); }
     .icon-btn {
       display: flex;
       align-items: center;
@@ -119,7 +126,7 @@ export const OVERLAY_HTML = `
     <div id="mask"></div>
     <div id="highlight"></div>
     <div id="tooltip">
-      <div class="row">
+      <div id="source-row" class="row">
         <span
           id="open"
           class="icon-btn"

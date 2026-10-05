@@ -58,7 +58,8 @@ LIT_PLUGIN_SOURCE_OVERLAY_EDITOR=zed
 4. Hold **Ctrl** (or **⌘**) and click the element to open that file in your
    editor at that line. The tooltip's own **open** button does the same.
    Add **Shift** to open the line where that element is written instead, see
-   [Where an element is rendered](#where-an-element-is-rendered).
+   [Where an element is rendered](#where-an-element-is-rendered). While you
+   hold the keys, the tooltip lights up the row the click will open.
 
 5. Press the same keys again to put the picker away without opening anything.
 
@@ -76,12 +77,15 @@ the Components tab uses it for a **Rendered at** link to the tag that created
 that instance. The overlay reads it too: when the hovered element has one, a
 second row in the tooltip reads **rendered at** `file:line`, with its own
 **open** button, and **Ctrl/⌘+Shift+click** opens that spot in your editor,
-at its column, instead of the declaration. Without a call site it opens the declaration. A library
-element picked with `hosts: 'lit'` has no declaration to show, so its call
-site is the only row, and **Ctrl/⌘+click** opens it. The attribute is added only on the dev server and only while
-`sourceOverlay` is on, so it never reaches a production build; it is also
-visible in the page's DOM and in your own selectors, which is worth knowing
-if a test matches attributes exactly.
+at its column, instead of the declaration. Without a call site it opens the
+declaration. A library element picked with `hosts: 'lit'` has no declaration
+to show, so its call site is the only row, and **Ctrl/⌘+click** opens it.
+Either way, the highlighted row is the one the click opens.
+
+The attribute is added only on the dev server and only while `sourceOverlay`
+is on, so it never reaches a production build. It is also visible in the
+page's DOM and in your own selectors, which is worth knowing if a test matches
+attributes exactly.
 
 ## Choose your editor
 

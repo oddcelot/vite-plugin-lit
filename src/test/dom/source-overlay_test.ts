@@ -499,6 +499,75 @@ describe('call site', () => {
   });
 });
 
+describe('modifier hint', () => {
+  const SITE = '/ws/src/page.ts:12:5';
+  const armed = () =>
+    ['source-row', 'site-row'].filter((id) =>
+      byId(id).classList.contains('armed')
+    );
+  const keyup = (init: KeyboardEventInit) =>
+    document.body.dispatchEvent(
+      new KeyboardEvent('keyup', {bubbles: true, ...init})
+    );
+
+  test('lights the row the held modifiers would open', async () => {
+    const {el} = makeTarget();
+    el.setAttribute('data-lit-source', SITE);
+    hitTarget = el;
+    mount({workspaceRoot: '/ws'});
+    overlay.activate();
+    await hover();
+    expect(armed()).toEqual([]);
+    key({key: 'Meta', metaKey: true});
+    expect(armed()).toEqual(['source-row']);
+    key({key: 'Shift', metaKey: true, shiftKey: true});
+    expect(armed()).toEqual(['site-row']);
+    keyup({key: 'Shift', metaKey: true});
+    expect(armed()).toEqual(['source-row']);
+    keyup({key: 'Meta'});
+    expect(armed()).toEqual([]);
+  });
+
+  test('follows the click fallback without a call site', async () => {
+    const {el} = makeTarget();
+    hitTarget = el;
+    mount({workspaceRoot: '/ws'});
+    overlay.activate();
+    await hover();
+    key({key: 'Shift', ctrlKey: true, shiftKey: true});
+    expect(armed()).toEqual(['source-row']);
+  });
+
+  test('clears when the window loses focus', async () => {
+    const {el} = makeTarget();
+    hitTarget = el;
+    mount({workspaceRoot: '/ws'});
+    overlay.activate();
+    await hover();
+    key({key: 'Control', ctrlKey: true});
+    expect(armed()).toEqual(['source-row']);
+    window.dispatchEvent(new Event('blur'));
+    expect(armed()).toEqual([]);
+  });
+
+  test('picks up modifiers from pointer moves', async () => {
+    const {el} = makeTarget();
+    hitTarget = el;
+    mount({workspaceRoot: '/ws'});
+    overlay.activate();
+    document.dispatchEvent(
+      new MouseEvent('mousemove', {
+        clientX: 40,
+        clientY: 40,
+        ctrlKey: true,
+        bubbles: true,
+      })
+    );
+    await vi.advanceTimersByTimeAsync(100);
+    expect(armed()).toEqual(['source-row']);
+  });
+});
+
 describe('keyboard', () => {
   test('Escape is swallowed while active and does not dismiss the overlay', () => {
     mount();
