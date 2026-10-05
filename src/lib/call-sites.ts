@@ -149,6 +149,24 @@ export const scanCustomTags = (
   }
 };
 
+/** `line:col` (1-based) of a character offset in `code`. */
+const positionIn = (code: string): ((index: number) => string) => {
+  const lineStarts = [0];
+  for (let i = code.indexOf('\n'); i !== -1; i = code.indexOf('\n', i + 1)) {
+    lineStarts.push(i + 1);
+  }
+  return (index) => {
+    let lo = 0;
+    let hi = lineStarts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (lineStarts[mid] <= index) lo = mid;
+      else hi = mid - 1;
+    }
+    return `${lo + 1}:${index - lineStarts[lo] + 1}`;
+  };
+};
+
 /**
  * Stamps `data-lit-source="<wireFile>:<line>:<col>"` onto every custom
  * element opened in an `html`/`svg` tagged template, so the page can tell
@@ -173,20 +191,7 @@ export const injectCallSites = (
   findTemplates(ast, code, templates);
   if (templates.length === 0) return false;
 
-  const lineStarts = [0];
-  for (let i = code.indexOf('\n'); i !== -1; i = code.indexOf('\n', i + 1)) {
-    lineStarts.push(i + 1);
-  }
-  const position = (index: number): string => {
-    let lo = 0;
-    let hi = lineStarts.length - 1;
-    while (lo < hi) {
-      const mid = (lo + hi + 1) >> 1;
-      if (lineStarts[mid] <= index) lo = mid;
-      else hi = mid - 1;
-    }
-    return `${lo + 1}:${index - lineStarts[lo] + 1}`;
-  };
+  const position = positionIn(code);
 
   let changed = false;
   for (const quasis of templates) {
@@ -196,4 +201,35 @@ export const injectCallSites = (
     });
   }
   return changed;
+};
+
+/**
+ * The HTML counterpart of {@link injectCallSites}: stamps every custom element
+ * opened in an HTML entry file, with `line` and `col` measured on `html` as
+ * given. Elements inside `<template>` are stamped too, since clones of them
+ * keep the attribute. Returns the new HTML, or `undefined` when nothing was
+ * stamped.
+ */
+export const injectHtmlCallSites = (
+  html: string,
+  wireFile: string
+): string | undefined => {
+  const wire = wireFile.replace(/\\/g, '/');
+  if (UNSAFE_WIRE_RE.test(wire)) return undefined;
+  const position = positionIn(html);
+  const inserts: Array<{at: number; text: string}> = [];
+  scanCustomTags([{start: 0, raw: html}], (nameEnd, lt) => {
+    inserts.push({
+      at: nameEnd,
+      text: ` ${CALL_SITE_ATTR}="${wire}:${position(lt)}"`,
+    });
+  });
+  if (inserts.length === 0) return undefined;
+  let out = '';
+  let last = 0;
+  for (const {at, text} of inserts) {
+    out += html.slice(last, at) + text;
+    last = at;
+  }
+  return out + html.slice(last);
 };
