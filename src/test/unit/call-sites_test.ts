@@ -1,6 +1,10 @@
 import {describe, expect, test} from 'vite-plus/test';
 import MagicString from 'magic-string';
-import {CALL_SITE_ATTR, injectCallSites} from '../../lib/call-sites.js';
+import {
+  CALL_SITE_ATTR,
+  injectCallSites,
+  injectHtmlCallSites,
+} from '../../lib/call-sites.js';
 import {CALL_SITE_ATTR as RUNTIME_CALL_SITE_ATTR} from '../../lib/runtime/source-meta.js';
 import {createOptionsContext} from '../../lib/plugins/context.js';
 import {litSourceOverlay} from '../../lib/plugins/source-overlay.js';
@@ -194,5 +198,85 @@ describe('source-overlay transform', () => {
   test('returns null when nothing changes', () => {
     expect(transform('export const t = html`<div></div>`;')).toBeNull();
     expect(transform('export const n = 1;')).toBeNull();
+  });
+});
+
+describe('injectHtmlCallSites', () => {
+  const html = (doc: string) => injectHtmlCallSites(doc, 'index.html');
+
+  test('stamps custom elements with the line and column of their <', () => {
+    const doc =
+      '<!doctype html>\n<html>\n  <body>\n    <my-app></my-app>\n    <p>x</p>\n    <x-y a="1"/>\n  </body>\n</html>\n';
+    const out = html(doc)!;
+    expect(stamps(out)).toEqual(['index.html:4:5', 'index.html:6:5']);
+    expect(out).toContain('<my-app data-lit-source="index.html:4:5"></my-app>');
+    expect(out).toContain('<x-y data-lit-source="index.html:6:5" a="1"/>');
+    // Closing tags and ordinary elements are left alone.
+    expect(out).toContain('<p>x</p>');
+  });
+
+  test('returns undefined when there is nothing to stamp', () => {
+    expect(html('<div><p>hi</p></div>')).toBeUndefined();
+    expect(html('')).toBeUndefined();
+  });
+
+  test('skips comments, scripts, styles and attribute values', () => {
+    const doc = [
+      '<!-- <a-b></a-b> -->',
+      '<script>const t = "<c-d></c-d>";</script>',
+      '<style>/* <e-f> */</style>',
+      '<div title="<g-h>" data-x=\'<i-j>\'></div>',
+      '<k-l></k-l>',
+    ].join('\n');
+    expect(stamps(html(doc)!)).toEqual(['index.html:5:1']);
+  });
+
+  test('stamps elements inside <template>, whose clones keep the attribute', () => {
+    const out = html('<template>\n  <a-b></a-b>\n</template>')!;
+    expect(stamps(out)).toEqual(['index.html:2:3']);
+  });
+
+  test('leaves the file alone when the path would break the attribute', () => {
+    expect(injectHtmlCallSites('<a-b></a-b>', 'a"b.html')).toBeUndefined();
+  });
+});
+
+describe('source-overlay transformIndexHtml', () => {
+  const run = (options: Parameters<typeof createOptionsContext>[0]) => {
+    const plugin = litSourceOverlay(createOptionsContext(options));
+    const hook = plugin.transformIndexHtml as unknown as {
+      order: string;
+      handler: (
+        html: string,
+        ctx: {filename: string}
+      ) => {html: string; tags: {tag: string}[]} | undefined;
+    };
+    return {
+      order: hook.order,
+      run: (h: string) =>
+        hook.handler.call({}, h, {filename: '/app/index.html'}),
+    };
+  };
+
+  test('stamps the page and still injects the overlay script', () => {
+    const {order, run: go} = run({sourceOverlay: true});
+    expect(order).toBe('pre');
+    const result = go('<body>\n  <my-app></my-app>\n</body>')!;
+    expect(result.html).toContain(
+      '<my-app data-lit-source="/app/index.html:2:3"></my-app>'
+    );
+    expect(result.tags).toHaveLength(1);
+    expect(result.tags[0].tag).toBe('script');
+  });
+
+  test('keeps the html as is when it has no custom element', () => {
+    const {run: go} = run({sourceOverlay: true});
+    const doc = '<body><p>hi</p></body>';
+    expect(go(doc)!.html).toBe(doc);
+  });
+
+  test('does nothing while the source overlay is off', () => {
+    const {run: go} = run({sourceOverlay: false});
+    expect(go('<my-app></my-app>')).toBeUndefined();
   });
 });

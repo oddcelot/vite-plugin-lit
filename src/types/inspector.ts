@@ -29,9 +29,10 @@ export interface InspectorTreeNode {
   /** Where the component class is declared. */
   source?: ElementSource;
   /**
-   * Where this instance was written in an `html` template, from the
-   * `data-lit-source` attribute the dev transform stamps. Absent for elements
-   * created any other way (`createElement`, the HTML file, a dynamic tag).
+   * Where this instance was written, in an `html` template or an HTML entry
+   * file, from the `data-lit-source` attribute the dev transform stamps.
+   * Absent for elements created any other way (`createElement`, a dynamic
+   * tag).
    */
   callSite?: ElementSource;
   children: InspectorTreeNode[];

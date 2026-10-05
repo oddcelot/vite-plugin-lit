@@ -1,6 +1,6 @@
 import MagicString from 'magic-string';
 import type {Plugin} from 'vite';
-import {injectCallSites} from '../call-sites.js';
+import {injectCallSites, injectHtmlCallSites} from '../call-sites.js';
 import {injectSourceMeta} from '../source-meta.js';
 import type {OptionsContext} from './context.js';
 import {
@@ -45,26 +45,35 @@ export const litSourceOverlay = (ctx: OptionsContext): Plugin => ({
     if (!changed) return null;
     return {code: ms.toString(), map: ms.generateMap({hires: true})};
   },
-  transformIndexHtml() {
-    const {sourceOverlay} = ctx.get();
-    if (!sourceOverlay) return;
-    const overlayUrl = `/@fs/${resolveRuntimeModule('source-overlay')}`;
-    const {
-      exclude: _exclude,
-      onSelect: _onSelect,
-      ...overlayInit
-    } = sourceOverlay;
-    const initConfig = {
-      ...overlayInit,
-      openInEditorPath: OPEN_IN_EDITOR_PATH,
-    };
-    return [
-      {
-        tag: 'script',
-        attrs: {type: 'module'},
-        children: `import {initSourceOverlay} from ${JSON.stringify(overlayUrl)};\ninitSourceOverlay(${JSON.stringify(initConfig)});\n`,
-        injectTo: 'body',
-      },
-    ];
+  transformIndexHtml: {
+    // Before other plugins touch the HTML, so the stamped line and column are
+    // those of the file as written.
+    order: 'pre',
+    handler(html, htmlCtx) {
+      const {sourceOverlay} = ctx.get();
+      if (!sourceOverlay) return;
+      const overlayUrl = `/@fs/${resolveRuntimeModule('source-overlay')}`;
+      const {
+        exclude: _exclude,
+        onSelect: _onSelect,
+        ...overlayInit
+      } = sourceOverlay;
+      const initConfig = {
+        ...overlayInit,
+        openInEditorPath: OPEN_IN_EDITOR_PATH,
+      };
+      const [file] = htmlCtx.filename.split('?', 1);
+      return {
+        html: injectHtmlCallSites(html, ctx.locator().toWire(file)) ?? html,
+        tags: [
+          {
+            tag: 'script',
+            attrs: {type: 'module'},
+            children: `import {initSourceOverlay} from ${JSON.stringify(overlayUrl)};\ninitSourceOverlay(${JSON.stringify(initConfig)});\n`,
+            injectTo: 'body',
+          },
+        ],
+      };
+    },
   },
 });

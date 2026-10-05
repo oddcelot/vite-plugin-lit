@@ -112,8 +112,15 @@ describe('litPlugin feature gating', () => {
   };
   const tagsOf = (plugins: ReturnType<typeof litPlugin>) =>
     plugins.flatMap((p) => {
-      const hook = p.transformIndexHtml as Hook | undefined;
-      return hook ? ((hook.call({}, '', {}) as unknown[]) ?? []) : [];
+      const entry = p.transformIndexHtml as Hook | {handler: Hook} | undefined;
+      const hook = typeof entry === 'object' ? entry.handler : entry;
+      const result = hook?.call({}, '', {filename: '/app/index.html'});
+      // A hook returns its tags bare or alongside rewritten html.
+      return (
+        Array.isArray(result)
+          ? result
+          : ((result as {tags?: unknown[]})?.tags ?? [])
+      ) as unknown[];
     });
   const text = (tags: unknown[]) => JSON.stringify(tags);
 

@@ -84,6 +84,11 @@ Either way, the highlighted row is the one the click opens. The tooltip is
 only a readout: the pointer passes through it to the page, so there is
 nothing in it to click.
 
+Custom elements written straight into an HTML entry file such as
+`index.html` get the same attribute, with the line and column in that file.
+That includes elements inside a `<template>`, whose clones keep it. Comments,
+`<script>` and `<style>` are left alone.
+
 The attribute is added only on the dev server and only while `sourceOverlay`
 is on, so it never reaches a production build. It is also visible in the
 page's DOM and in your own selectors, which is worth knowing if a test matches

@@ -71,6 +71,103 @@ const findTemplates = (node: unknown, code: string, out: Quasi[][]): void => {
 };
 
 /**
+ * Walks the HTML in `chunks` (a whole document is one chunk; a template
+ * literal is its quasis, which an expression may split mid-tag) and calls
+ * `found(nameEnd, lt)` for each opening tag of a custom element, with the
+ * offsets in the surrounding text of the end of the tag name and of its `<`.
+ * Tags inside comments, attribute values and raw-text elements are skipped,
+ * and so is a name that runs into an expression.
+ */
+export const scanCustomTags = (
+  chunks: readonly Quasi[],
+  found: (nameEnd: number, lt: number) => void
+): void => {
+  let state: State = {kind: 'text'};
+  for (const {start, raw} of chunks) {
+    let i = 0;
+    while (i < raw.length) {
+      if (state.kind === 'text') {
+        const lt = raw.indexOf('<', i);
+        if (lt === -1) break;
+        if (raw.startsWith('<!--', lt)) {
+          state = {kind: 'comment'};
+          i = lt + 4;
+        } else if (raw[lt + 1] === '/') {
+          state = {kind: 'tag', quote: null, rawText: null};
+          i = lt + 2;
+        } else {
+          TAG_NAME_RE.lastIndex = lt + 1;
+          const m = TAG_NAME_RE.exec(raw);
+          if (!m) {
+            i = lt + 1;
+            continue;
+          }
+          const nameEnd = lt + 1 + m[0].length;
+          const next = raw[nameEnd];
+          // A name that runs into `${` is only partly known: don't stamp.
+          if (
+            next !== undefined &&
+            /[\s>/]/.test(next) &&
+            CUSTOM_NAME_RE.test(m[0])
+          ) {
+            found(start + nameEnd, start + lt);
+          }
+          const lower = m[0].toLowerCase();
+          state = {
+            kind: 'tag',
+            quote: null,
+            rawText: RAW_TEXT_ELEMENTS.has(lower) ? lower : null,
+          };
+          i = nameEnd;
+        }
+      } else if (state.kind === 'comment') {
+        const end = raw.indexOf('-->', i);
+        if (end === -1) break;
+        state = {kind: 'text'};
+        i = end + 3;
+      } else if (state.kind === 'raw') {
+        const re = new RegExp(`</${state.name}(?=[\\s>/])`, 'ig');
+        re.lastIndex = i;
+        const m = re.exec(raw);
+        if (!m) break;
+        state = {kind: 'tag', quote: null, rawText: null};
+        i = m.index + m[0].length;
+      } else {
+        const tag: Extract<State, {kind: 'tag'}> = state;
+        const ch = raw[i++];
+        if (tag.quote) {
+          if (ch === tag.quote) tag.quote = null;
+        } else if (ch === '"' || ch === "'") {
+          tag.quote = ch;
+        } else if (ch === '>') {
+          state = tag.rawText
+            ? {kind: 'raw', name: tag.rawText}
+            : {kind: 'text'};
+        }
+      }
+    }
+  }
+};
+
+/** `line:col` (1-based) of a character offset in `code`. */
+const positionIn = (code: string): ((index: number) => string) => {
+  const lineStarts = [0];
+  for (let i = code.indexOf('\n'); i !== -1; i = code.indexOf('\n', i + 1)) {
+    lineStarts.push(i + 1);
+  }
+  return (index) => {
+    let lo = 0;
+    let hi = lineStarts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (lineStarts[mid] <= index) lo = mid;
+      else hi = mid - 1;
+    }
+    return `${lo + 1}:${index - lineStarts[lo] + 1}`;
+  };
+};
+
+/**
  * Stamps `data-lit-source="<wireFile>:<line>:<col>"` onto every custom
  * element opened in an `html`/`svg` tagged template, so the page can tell
  * where each instance was written. `line` and `col` are 1-based and measured
@@ -94,92 +191,45 @@ export const injectCallSites = (
   findTemplates(ast, code, templates);
   if (templates.length === 0) return false;
 
-  const lineStarts = [0];
-  for (let i = code.indexOf('\n'); i !== -1; i = code.indexOf('\n', i + 1)) {
-    lineStarts.push(i + 1);
-  }
-  const position = (index: number): string => {
-    let lo = 0;
-    let hi = lineStarts.length - 1;
-    while (lo < hi) {
-      const mid = (lo + hi + 1) >> 1;
-      if (lineStarts[mid] <= index) lo = mid;
-      else hi = mid - 1;
-    }
-    return `${lo + 1}:${index - lineStarts[lo] + 1}`;
-  };
+  const position = positionIn(code);
 
   let changed = false;
   for (const quasis of templates) {
-    let state: State = {kind: 'text'};
-    for (const {start, raw} of quasis) {
-      let i = 0;
-      while (i < raw.length) {
-        if (state.kind === 'text') {
-          const lt = raw.indexOf('<', i);
-          if (lt === -1) break;
-          if (raw.startsWith('<!--', lt)) {
-            state = {kind: 'comment'};
-            i = lt + 4;
-          } else if (raw[lt + 1] === '/') {
-            state = {kind: 'tag', quote: null, rawText: null};
-            i = lt + 2;
-          } else {
-            TAG_NAME_RE.lastIndex = lt + 1;
-            const m = TAG_NAME_RE.exec(raw);
-            if (!m) {
-              i = lt + 1;
-              continue;
-            }
-            const nameEnd = lt + 1 + m[0].length;
-            const next = raw[nameEnd];
-            // A name that runs into `${` is only partly known: don't stamp.
-            if (
-              next !== undefined &&
-              /[\s>/]/.test(next) &&
-              CUSTOM_NAME_RE.test(m[0])
-            ) {
-              ms.appendLeft(
-                start + nameEnd,
-                ` ${CALL_SITE_ATTR}="${wire}:${position(start + lt)}"`
-              );
-              changed = true;
-            }
-            const lower = m[0].toLowerCase();
-            state = {
-              kind: 'tag',
-              quote: null,
-              rawText: RAW_TEXT_ELEMENTS.has(lower) ? lower : null,
-            };
-            i = nameEnd;
-          }
-        } else if (state.kind === 'comment') {
-          const end = raw.indexOf('-->', i);
-          if (end === -1) break;
-          state = {kind: 'text'};
-          i = end + 3;
-        } else if (state.kind === 'raw') {
-          const re = new RegExp(`</${state.name}(?=[\\s>/])`, 'ig');
-          re.lastIndex = i;
-          const m = re.exec(raw);
-          if (!m) break;
-          state = {kind: 'tag', quote: null, rawText: null};
-          i = m.index + m[0].length;
-        } else {
-          const tag: Extract<State, {kind: 'tag'}> = state;
-          const ch = raw[i++];
-          if (tag.quote) {
-            if (ch === tag.quote) tag.quote = null;
-          } else if (ch === '"' || ch === "'") {
-            tag.quote = ch;
-          } else if (ch === '>') {
-            state = tag.rawText
-              ? {kind: 'raw', name: tag.rawText}
-              : {kind: 'text'};
-          }
-        }
-      }
-    }
+    scanCustomTags(quasis, (nameEnd, lt) => {
+      ms.appendLeft(nameEnd, ` ${CALL_SITE_ATTR}="${wire}:${position(lt)}"`);
+      changed = true;
+    });
   }
   return changed;
+};
+
+/**
+ * The HTML counterpart of {@link injectCallSites}: stamps every custom element
+ * opened in an HTML entry file, with `line` and `col` measured on `html` as
+ * given. Elements inside `<template>` are stamped too, since clones of them
+ * keep the attribute. Returns the new HTML, or `undefined` when nothing was
+ * stamped.
+ */
+export const injectHtmlCallSites = (
+  html: string,
+  wireFile: string
+): string | undefined => {
+  const wire = wireFile.replace(/\\/g, '/');
+  if (UNSAFE_WIRE_RE.test(wire)) return undefined;
+  const position = positionIn(html);
+  const inserts: Array<{at: number; text: string}> = [];
+  scanCustomTags([{start: 0, raw: html}], (nameEnd, lt) => {
+    inserts.push({
+      at: nameEnd,
+      text: ` ${CALL_SITE_ATTR}="${wire}:${position(lt)}"`,
+    });
+  });
+  if (inserts.length === 0) return undefined;
+  let out = '';
+  let last = 0;
+  for (const {at, text} of inserts) {
+    out += html.slice(last, at) + text;
+    last = at;
+  }
+  return out + html.slice(last);
 };
