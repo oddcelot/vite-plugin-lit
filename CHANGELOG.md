@@ -3,6 +3,57 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.13.0 — 2026-10-06
+
+Every component instance now knows where it was written. On the dev server,
+custom elements in `html` templates and in `index.html` carry their line and
+column, so the Components, Timeline and Updates views and the source overlay
+can open the template tag that rendered a given instance, not only the class
+behind it. The overlay tooltip becomes a readout that lights up the row a
+click will open. Nothing needs action to upgrade, but tests that match
+attributes exactly will see the new dev-only `data-lit-source`.
+
+### Added
+
+- **Jump to where a component instance is rendered.** The Components panel
+  shows a "Rendered at" link next to the declaration that opens the `html`
+  template, or `index.html`, at the line and column of the tag that created
+  this instance. To make that possible the dev server stamps a
+  `data-lit-source` attribute on those elements while `sourceOverlay` is on;
+  production builds never get it.
+- **The source overlay opens the call site too.** Its tooltip shows a
+  "rendered at" row under the declaration, and Ctrl/⌘+Shift+click opens it.
+  Library elements picked with `hosts: 'lit'` have no declaration, so
+  Ctrl/⌘+click opens their call site instead. `onSelect` receives the new
+  `callSite`, and a custom `EditorConfig.url` gets an optional `column`.
+- **The overlay shows which file a click will open.** Holding Ctrl/⌘ lights
+  up the declaration row, now marked with the Components tab's cube, and
+  adding Shift lights up the "rendered at" row.
+- **Timeline and Updates link to where an element is rendered.** A selected
+  span, and the updates of a single instance, show a "Rendered at" link next
+  to the source link.
+- **The Settings tab says why a feature is on or off.** The HMR, Source
+  Overlay and Timeline headers now tag their enabled or disabled pill with
+  `(option)` or `(env)` when your config set it, like the rows below them.
+
+### Changed
+
+- **The overlay tooltip is a readout, not a control.** The pointer never
+  settled on it long enough to click, so its open icons are no longer buttons
+  and the pointer passes through to the page underneath, which can now be
+  picked there too.
+
+### Fixed
+
+- **A snapshot from `lit-devtools dev` no longer promises HMR or source
+  links.** The frozen panel now offers what the host that recorded the
+  session could do, instead of assuming the Vite plugin.
+
+### Removed
+
+- **The overlay tooltip's copy button.** It sat out of the pointer's reach;
+  the path is still shown in the tooltip and in the Components panel.
+
 ## 0.12.0 — 2026-10-02
 
 The Lit panel now reaches pages no dev server is watching. Lit Inspector, a
