@@ -19,6 +19,14 @@
  * without leaking into the next one — `ctx.edit()` is rolled back for you.
  * A failing shot is logged and the run continues; the process exits non-zero
  * if anything failed.
+ *
+ * The one exception is `chrome: true`: Chrome's own Performance panel, which
+ * needs a real Chrome and its DevTools frontend. It gets a `{origin, shot}`
+ * context instead, records once and shoots both themes itself, and it opens a
+ * visible Chrome window for a few seconds even without SHOTS_HEADED.
+ *
+ * The run uses a throwaway HOME, so settings saved in your own Vite DevTools
+ * profile stay out of the figures.
  */
 
 import {createHash, randomUUID} from 'node:crypto';
@@ -30,6 +38,7 @@ import * as path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {createServer} from 'vite';
 import {chromium} from 'playwright-core';
+import {launchCleanChrome} from './chrome-profile.mjs';
 
 const PACKAGE_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PLAYGROUND_DIR = path.join(PACKAGE_ROOT, 'playground');
@@ -53,6 +62,9 @@ const OPEN_SHADOW_ROOTS = () => {
     return attach.call(this, {...init, mode: 'open'});
   };
 };
+
+/** `main` swaps HOME out for the run; real Chrome still needs this one. */
+const REAL_HOME = process.env['HOME'];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -133,7 +145,218 @@ const recordSession = async (ctx) => {
   return {app, panel};
 };
 
+/* ------------------------------------------------- Chrome Performance */
+
+/**
+ * Chrome's own Performance panel, with the Lit custom tracks
+ * (`chromeTracks`) showing one counter click.
+ *
+ * This one cannot use the Playwright-launched browser: the frontend has to be
+ * a real DevTools, and Playwright's headless shell has none to serve. So it
+ * runs a clean real Chrome, opens the app in one tab and that Chrome's own
+ * DevTools frontend (`/devtools/devtools_app.html?ws=…`, served over the
+ * debugging port) in a second, and drives the frontend through its own
+ * modules: the panel to record, the parsed trace to find the Lit entries, the
+ * bounds manager to zoom to them. Recording timing differs every run, so the
+ * window comes from the trace, not from fixed coordinates. One recording is
+ * shot twice, the frontend's colour scheme emulated per theme.
+ */
+const chromePerformanceTracks = async ({origin, shot}) => {
+  const chrome = await launchCleanChrome({
+    url: 'about:blank',
+    size: [1400, 900],
+    // The frontend tab talks to the page over a WebSocket on the debugging
+    // port, which Chrome refuses from any origin not listed here.
+    args: ['--remote-allow-origins=*'],
+    env: {...process.env, HOME: REAL_HOME},
+  });
+  try {
+    const app = await chrome.context.newPage();
+    // Before the runtime boots, which is when it reads the override.
+    await app.addInitScript(() =>
+      localStorage.setItem(
+        'lit-devtools-overrides',
+        JSON.stringify({chromeTracks: true})
+      )
+    );
+    // `localhost`, as a reader's dev server would be: the frontend prints
+    // the host in the recording picker and the Main track title.
+    await app.goto(`${origin.replace('127.0.0.1', 'localhost')}/`);
+    await app.waitForFunction(() => window.__hmr !== undefined);
+
+    const port = (
+      await readFile(path.join(chrome.dir, 'DevToolsActivePort'), 'utf8')
+    ).split('\n')[0];
+    const debug = `127.0.0.1:${port}`;
+    const targets = await (await fetch(`http://${debug}/json/list`)).json();
+    const target = targets.find(
+      (t) => t.type === 'page' && t.url.includes(`:${new URL(origin).port}/`)
+    );
+    if (!target) throw new Error('app tab not among the debugging targets');
+
+    const fe = await chrome.context.newPage();
+    const feCdp = await chrome.context.newCDPSession(fe);
+    // The figure is the top 1250x560 of a taller page, at 2x: in a 560px
+    // page the details drawer takes the lower half of the flame chart. Set
+    // again before each shot, as Playwright's screenshot clears it on the
+    // way out.
+    const FIGURE = {x: 0, y: 0, width: 1250, height: 560};
+    const frame = () =>
+      feCdp.send('Emulation.setDeviceMetricsOverride', {
+        width: FIGURE.width,
+        height: 1000,
+        deviceScaleFactor: 2,
+        mobile: false,
+      });
+    await frame();
+    // The flame chart opens a keyboard-shortcuts dialog over itself the
+    // first time a profile sees a trace; this is the frontend's own switch
+    // for keeping it shut.
+    await fe.addInitScript(() =>
+      localStorage.setItem('hide-shortcuts-dialog-for-test', 'true')
+    );
+    await fe.goto(
+      `http://${debug}/devtools/devtools_app.html?ws=${debug}/devtools/page/${target.id}&panel=timeline`
+    );
+    // The frontend's modules, imported by the URL it loaded them from, are
+    // the live instances; `__timeline` keeps the waits below synchronous.
+    await fe.waitForFunction(
+      async () => {
+        try {
+          window.__timeline ??=
+            await import('/devtools/panels/timeline/timeline.js');
+          // Idle alone is not enough: until the frontend has attached to
+          // the page, a recording fails with "Could not load primary page
+          // target".
+          const {TargetManager} = await import('/devtools/core/sdk/sdk.js');
+          const targets = TargetManager.TargetManager.instance();
+          return (
+            Boolean(targets.rootTarget() && targets.primaryPageTarget()) &&
+            window.__timeline.TimelinePanel.TimelinePanel.instance().state ===
+              'Idle'
+          );
+        } catch {
+          return false;
+        }
+      },
+      undefined,
+      {polling: 250, timeout: 30_000}
+    );
+    const panelState = () =>
+      fe.evaluate(
+        () => window.__timeline.TimelinePanel.TimelinePanel.instance().state
+      );
+    const waitForState = async (want, timeout) => {
+      const until = Date.now() + timeout;
+      for (let state = await panelState(); state !== want;) {
+        if (state === 'RecordingFailed' || Date.now() > until) {
+          throw new Error(`Performance panel is ${state}, waited for ${want}`);
+        }
+        await sleep(250);
+        state = await panelState();
+      }
+    };
+
+    // Unthrottled, an update is a fraction of the 1ms the panel will zoom
+    // to, and the Render bar is too short for its label.
+    const appCdp = await chrome.context.newCDPSession(app);
+    await appCdp.send('Emulation.setCPUThrottlingRate', {rate: 3});
+    await fe.evaluate(() =>
+      window.__timeline.TimelinePanel.TimelinePanel.instance().toggleRecording()
+    );
+    await waitForState('Recording', 30_000);
+    // The click has to land in a foreground tab, or the page does not
+    // render and the trace has no frame to show.
+    await app.bringToFront();
+    await sleep(800);
+    // Several clicks, and the figure shows the one whose Render bar is the
+    // largest share of its performUpdate. How long each phase takes varies
+    // run to run (a cold first update, a microtask that lands late), and in
+    // a bad one the Render bar is too narrow for its label.
+    const increment = app.locator('hmr-counter').locator('css=#increment');
+    for (let i = 0; i < 5; i++) {
+      await increment.click();
+      await sleep(300);
+    }
+    await sleep(800);
+    await fe.bringToFront();
+    await fe.evaluate(() =>
+      window.__timeline.TimelinePanel.TimelinePanel.instance().toggleRecording()
+    );
+    await waitForState('Idle', 60_000);
+    await appCdp.send('Emulation.setCPUThrottlingRate', {rate: 1});
+
+    // A plain click: the toolbar's shortcut-dialog element sits over the
+    // button for the pointer, which Playwright's hit test refuses.
+    await fe
+      .locator('button[aria-label="Hide sidebar"]')
+      .evaluate((button) => button.click());
+    await sleep(500);
+    const found = await fe.evaluate(async () => {
+      const {TraceBounds} =
+        await import('/devtools/services/trace_bounds/trace_bounds.js');
+      const panel = window.__timeline.TimelinePanel.TimelinePanel.instance();
+      const data = panel.getParsedTraceForLayoutTests();
+      const lit = data.ExtensionTraceData.extensionTrackData.find(
+        (g) => g.name === 'Lit'
+      );
+      const counter = Object.values(lit?.entriesByTrack ?? {})
+        .flat()
+        .filter((e) => e.name.startsWith('<hmr-counter>'));
+      const named = (suffix) =>
+        counter.filter((e) => e.name.endsWith(` ${suffix}`));
+      const within = (outer, e) =>
+        e.ts >= outer.ts && e.ts <= outer.ts + (outer.dur ?? 0);
+      let best = null;
+      for (const perform of named('performUpdate')) {
+        const render = named('render').find((e) => within(perform, e));
+        const score = render ? (render.dur ?? 0) / (perform.dur || 1) : 0;
+        if (!best || score > best.score) best = {perform, score};
+      }
+      if (!best) return 0;
+      const entries = counter.filter((e) => within(best.perform, e));
+      // Centre the counter's update, with room either side for the click
+      // task under it. The bounds manager refuses windows under 1ms.
+      const min = Math.min(...entries.map((e) => e.ts));
+      const max = Math.max(...entries.map((e) => e.ts + (e.dur ?? 0)));
+      const range = Math.max((max - min) * 2.5, 1000);
+      const mid = (min + max) / 2;
+      TraceBounds.BoundsManager.instance().setTimelineVisibleWindow({
+        min: mid - range / 2,
+        max: mid + range / 2,
+        range,
+      });
+      const main = panel.getFlameChart().getMainFlameChart();
+      const groups = main.timelineData().groups;
+      for (const name of ['Lit', 'Lifecycle', 'Render']) {
+        const i = groups.findIndex((g) => g.name === name);
+        if (i >= 0 && !groups[i].expanded) main.toggleGroupExpand(i);
+      }
+      return entries.length;
+    });
+    if (found === 0) throw new Error('no <hmr-counter> entries on Lit tracks');
+
+    for (const theme of ['light', 'dark']) {
+      // Through the frontend's own CDP session: Playwright's emulateMedia
+      // re-applies its viewport emulation and drops the metrics set above.
+      await feCdp.send('Emulation.setEmulatedMedia', {
+        features: [{name: 'prefers-color-scheme', value: theme}],
+      });
+      await frame();
+      await sleep(800);
+      await shot(fe, theme, {clip: FIGURE});
+    }
+  } finally {
+    await chrome.close();
+  }
+};
+
 const SHOTS = [
+  {
+    name: 'devtools-chrome-performance-tracks',
+    chrome: true,
+    capture: chromePerformanceTracks,
+  },
   {
     name: 'indicator-idle',
     capture: async (ctx) => {
@@ -533,6 +756,24 @@ const main = async () => {
   const failed = [];
 
   for (const shot of selected) {
+    if (shot.chrome) {
+      // Its own real Chrome, one recording, both themes: see the shot.
+      try {
+        await shot.capture({
+          origin,
+          async shot(page, theme, options = {}) {
+            const file = path.join(OUT_DIR, `${shot.name}.${theme}.png`);
+            await page.screenshot({path: file, ...options});
+            written.push(file);
+          },
+        });
+        console.log(`  ok   ${shot.name}`);
+      } catch (error) {
+        failed.push({label: shot.name, error});
+        console.error(`  FAIL ${shot.name}: ${error?.message ?? error}`);
+      }
+      continue;
+    }
     for (const theme of ['light', 'dark']) {
       const label = `${shot.name}.${theme}`;
       const context = await browser.newContext({
