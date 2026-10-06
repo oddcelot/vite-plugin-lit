@@ -60,7 +60,11 @@ nothing to **Total**.
 Pick a component and the lower pane lists each of its update ticks: **when** it
 started and **how long** it took, **what changed**, **what caused it**, and the
 instance id, which links through to the
-[Components tab](/vite-plugin-lit/guides/devtools/components/).
+[Components tab](/vite-plugin-lit/guides/devtools/components/). Above the list,
+the source link opens the component's file in your editor. While a single
+instance has updated, a **Rendered at** link beside it opens the template tag
+that created that instance; with several instances there is no one place to
+name, so it is left out.
 
 <ThemedImage
   light={devtoolsUpdatesDetailLight}
