@@ -123,6 +123,8 @@ const closeStrayTab = async (origin) => {
  * - `url`: a normal window opened at this URL (with `kiosk`, the page shown).
  * - `size`: window size as `[width, height]`.
  * - `executablePath`: another Chrome build; `CHROME_PATH` env works too.
+ * - `env`: Chrome's environment. On macOS it needs the real `HOME`: under a
+ *   made-up one it starts, but never finishes loading a page.
  *
  * The page keeps the real window size; Playwright emulates no viewport.
  * `close()` quits Chrome and deletes the profile.
@@ -134,6 +136,7 @@ export const launchCleanChrome = async ({
   size = [1280, 800],
   args = [],
   executablePath = process.env['CHROME_PATH'] ?? CHROME_PATHS[process.platform],
+  env = process.env,
 } = {}) => {
   const dir = await mkdtemp(path.join(tmpdir(), 'clean-chrome-'));
   await mkdir(path.join(dir, 'Default'));
@@ -152,7 +155,7 @@ export const launchCleanChrome = async ({
       ...args,
       app ? `--app=${app}` : (url ?? 'about:blank'),
     ],
-    {stdio: 'ignore'}
+    {stdio: 'ignore', env}
   );
   const exited = new Promise((resolve) => child.once('exit', resolve));
   // A caller that exits without close() still takes Chrome and the profile
