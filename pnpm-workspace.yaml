@@ -12,6 +12,7 @@ linkWorkspacePackages: true
 # It also pins rolldown to the version vite-plus-core bundles (its
 # `bundledVersions`): on WebContainer the bundled binding looks up
 # `rolldown/package.json` to pick the wasm build, and fails without it.
+# src/test/unit/playground-pins_test.ts fails when any of the three drift.
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.0.0
   vite-plus: 1.0.0
