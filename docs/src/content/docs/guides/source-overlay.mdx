@@ -44,12 +44,13 @@ LIT_PLUGIN_SOURCE_OVERLAY_EDITOR=zed
 1. Press **Ctrl+Shift+S** (**⌘⇧S** on a Mac) in the page to arm the picker.
 
 2. Move the pointer. The element under it is outlined, and a panel shows its
-   tag name and source file.
+   tag name and source file, plus a second row for the line that renders it
+   when it has one.
 
    <ThemedImage
      light={sourceOverlayArmedLight}
      dark={sourceOverlayArmedDark}
-     alt="The source overlay outlining a component, with a tooltip showing its tag name and source file."
+     alt="The source overlay outlining hmr-counter. The tooltip shows its tag name and source file, and a second row reads rendered at index.html:120."
    />
 
 3. Press **↑** to outline the element around it instead, and **↓** to go

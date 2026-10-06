@@ -59,6 +59,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** The throwaway playground copy for this run, so teardown can find it even
  *  when `main` throws on the way up (a bad import, a port clash, …). */
 let tmpRoot = null;
+/** The run's throwaway HOME, beside the playground copy (see `main`). */
+const homeDir = (root) => `${root}-home`;
 
 /* ------------------------------------------------------------------ shots */
 
@@ -275,6 +277,12 @@ const SHOTS = [
       await (
         (await update.count()) > 0 ? update.first() : rows.first()
       ).click();
+      // The detail pane is capped at 130px and scrolls; its last rows (the
+      // source and "rendered at" links) start below the fold.
+      const site = eventList(panel)
+        .locator('css=timeline-span-detail')
+        .locator('css=.call-site');
+      if ((await site.count()) > 0) await site.scrollIntoViewIfNeeded();
       await sleep(400);
       await ctx.shot(panel);
     },
@@ -306,7 +314,15 @@ const SHOTS = [
       // the gutter, and the click retries until it times out. The shot only
       // needs the mark selected.
       await tracks.locator('css=.mark').first().dispatchEvent('click');
-      await sleep(400);
+      // Park the pointer off the plot, or its "wheel to zoom" hint tooltip
+      // sits over the axis.
+      await panel.mouse.move(0, 0);
+      const site = timelineView(panel)
+        .locator('css=timeline-span-detail')
+        .locator('css=.call-site')
+        .filter({visible: true});
+      if ((await site.count()) > 0) await site.first().scrollIntoViewIfNeeded();
+      await sleep(600);
       await ctx.shot(panel);
     },
   },
@@ -440,6 +456,14 @@ const main = async () => {
     `shots-${randomUUID().slice(0, 8)}`
   ));
   await mkdir(OUT_DIR, {recursive: true});
+  // Vite DevTools keeps a per-user settings store in ~/.vite/devtools. The
+  // panel adopts the override saved there and the server replays it to the
+  // page, so whatever the person running this toggled for themselves (flash
+  // updates, Chrome tracks, …) would end up in the figures. An empty HOME
+  // gives every run the documented defaults.
+  await mkdir(homeDir(root), {recursive: true});
+  process.env['HOME'] = homeDir(root);
+  process.env['USERPROFILE'] = homeDir(root);
   // Mirrors src/test/e2e/utils.ts: the copy lives inside the package so bare
   // imports still resolve, and the playground's own manifests/config would
   // skew dep resolution against the inline config below.
@@ -704,5 +728,8 @@ try {
   // Unconditional: a throw anywhere above still leaves a full playground copy
   // (and, past the first export, a `lit-devtools-snapshot/`) under .e2e-tmp.
   process.chdir(PACKAGE_ROOT);
-  if (tmpRoot !== null) await rm(tmpRoot, {recursive: true, force: true});
+  if (tmpRoot !== null) {
+    await rm(tmpRoot, {recursive: true, force: true});
+    await rm(homeDir(tmpRoot), {recursive: true, force: true});
+  }
 }
