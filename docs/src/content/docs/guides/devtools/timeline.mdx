@@ -197,6 +197,16 @@ Table**; type `lit:` in the search box to keep only Lit's. The entries are
 cleared from the page's own performance timeline as soon as they're made, so
 `performance.getEntriesByType('measure')` doesn't fill up with them.
 
+- The entries belong to the page's process, not the browser's. Start and
+  capture the recording with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd>
+  and <kbd>2</kbd> (<kbd>⌘</kbd> on macOS) while your page's tab is active,
+  and select its track, labelled with the site's host. A recording started
+  from `about:profiling` opens on that page's track (**Privileged Content**),
+  which has no Lit entries; pick your tab in the tab selector at the top left.
+- Firefox rounds `performance.now()` to whole milliseconds, and most updates
+  take less. Their start and end land on the same tick, so most entries show
+  as instants, and only updates longer than a millisecond show as bars.
+
 ## Export a session for a bug report
 
 **Export snapshot** freezes the current session into a self-contained
