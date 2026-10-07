@@ -54,10 +54,12 @@ filter_commits = true
 tag_pattern = "v[0-9]*"
 commit_preprocessors = [
   # A folded trailer: keep only the group and its entry lines, so the template
-  # can tell an authored entry from a body it has to fall back on.
-  #   "Subject\n\nbody\n\nChangelog: Fixed\n  **Entry.** text"
+  # can tell an authored entry from a body it has to fall back on. The
+  # trailer sits in the trailer block, usually right under Co-Authored-By,
+  # so it is found at the start of any line, not only after a blank one.
+  #   "Subject\n\nbody\n\nCo-Authored-By: …\nChangelog: Fixed\n  **Entry.** text"
   #   -> "Changelog-Entry: Fixed\n**Entry.** text"
-  { pattern = '(?s)^.*?\n\nChangelog: ?(\w+)\n((?:[ \t]+[^\n]*\n?)+).*$', replace = "Changelog-Entry: ${1}\n${2}" },
+  { pattern = '(?s)^.*?\nChangelog: ?(\w+)\n((?:[ \t]+[^\n]*\n?)+).*$', replace = "Changelog-Entry: ${1}\n${2}" },
   { pattern = '(?m)^[ \t]+', replace = "" },
 ]
 # Features land as `--no-ff` merges; the merge itself carries no prose.
