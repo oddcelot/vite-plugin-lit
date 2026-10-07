@@ -163,7 +163,7 @@ test('off the Vite plugin, the page-side preferences still switch on', async () 
       (tr) => tr.querySelector('.key')?.textContent?.trim() === key
     );
   expect(row('flash updates')).toBeDefined();
-  const tracks = row('chrome performance tracks')!.querySelector('wa-switch')!;
+  const tracks = row('performance tracks')!.querySelector('wa-switch')!;
   tracks.checked = true;
   tracks.dispatchEvent(new Event('change'));
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -202,17 +202,15 @@ test('a feature header says where the feature was switched, and how to turn it o
   );
 });
 
-test("the chrome tracks switch locks when the page's browser can't draw them", async () => {
+test('without custom tracks, the row says the entries go to User Timing', async () => {
   meta.capabilities.pluginSettings = false;
+  const note = async () =>
+    [...(await mount()).querySelectorAll('p.note')]
+      .map((p) => p.textContent!.replace(/\s+/g, ' '))
+      .find((t) => t.includes('User Timing'));
+
+  expect(await note()).toBeUndefined();
+  document.body.replaceChildren();
   meta.runtime = {...meta.runtime, ready: true, chromeTracks: false};
-  const root = await mount();
-  const row = [...root.querySelectorAll('tr')].find(
-    (tr) =>
-      tr.querySelector('.key')?.textContent?.trim() ===
-      'chrome performance tracks'
-  )!;
-  const tracks = row.querySelector('wa-switch')!;
-  expect(tracks.disabled).toBe(true);
-  expect(tracks.textContent?.trim()).toBe('needs Chrome 134+');
-  expect(row.classList.contains('row-disabled')).toBe(true);
+  expect(await note()).toContain('lit: marks and measures');
 });

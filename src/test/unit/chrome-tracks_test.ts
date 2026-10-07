@@ -1,7 +1,8 @@
-import {describe, expect, test} from 'vite-plus/test';
+import {afterEach, describe, expect, test, vi} from 'vite-plus/test';
 import {
   chromeTracksSupported,
   createChromeTracksSink,
+  userTimingStamp,
 } from '../../lib/runtime/timeline/chrome-tracks.js';
 import type {TimelineEvent} from '../../types/timeline.js';
 
@@ -122,5 +123,41 @@ describe('chrome tracks support', () => {
       })
     ).toBe(false);
     expect(chromeTracksSupported(undefined)).toBe(false);
+  });
+});
+
+describe('user timing stamp', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  test('a range is a measure and a marker a mark, both named and cleared', () => {
+    const measure = vi.spyOn(performance, 'measure');
+    const mark = vi.spyOn(performance, 'mark');
+    const clearMeasures = vi.spyOn(performance, 'clearMeasures');
+    const clearMarks = vi.spyOn(performance, 'clearMarks');
+
+    userTimingStamp('<x-a> update', 1, 3, 'Lifecycle', 'Lit', 'primary');
+    expect(measure).toHaveBeenCalledWith('lit:Lifecycle <x-a> update', {
+      start: 1,
+      end: 3,
+    });
+    expect(clearMeasures).toHaveBeenCalledWith('lit:Lifecycle <x-a> update');
+
+    userTimingStamp('click', 2, 2, 'Input', 'Lit', 'tertiary');
+    expect(mark).toHaveBeenCalledWith('lit:Input click', {startTime: 2});
+    expect(clearMarks).toHaveBeenCalledWith('lit:Input click');
+
+    // Nothing stays in the page's own timeline.
+    expect(performance.getEntriesByType('measure')).toEqual([]);
+    expect(
+      performance
+        .getEntriesByType('mark')
+        .filter((e) => e.name.startsWith('lit:'))
+    ).toEqual([]);
+  });
+
+  test('a time the browser refuses is dropped, not thrown', () => {
+    expect(() =>
+      userTimingStamp('x', -5, -5, 'Input', 'Lit', 'tertiary')
+    ).not.toThrow();
   });
 });

@@ -319,7 +319,6 @@ export class DevtoolsSettings extends LitElement {
       config: this._settings,
       override: this._override,
       recorded: this._recorded,
-      chromeTracks: this._meta?.runtime.chromeTracks,
     });
   }
 
@@ -552,7 +551,8 @@ export class DevtoolsSettings extends LitElement {
 
   /**
    * Timeline preferences. Pure preference, no config-time baseline, so an
-   * unset value means off.
+   * unset value means off. Where the page's browser has no custom tracks,
+   * a note says where the entries go instead.
    */
   private _renderTimelinePrefs() {
     return html`
@@ -572,6 +572,15 @@ export class DevtoolsSettings extends LitElement {
           </wa-button>`
         )}
       </table>
+      ${
+        this._meta?.runtime.chromeTracks === false
+          ? html`<p class="note">
+              This browser has no custom tracks, so the entries go to User
+              Timing as <code>lit:</code> marks and measures (in the Firefox
+              Profiler, the Marker Chart).
+            </p>`
+          : nothing
+      }
     `;
   }
 

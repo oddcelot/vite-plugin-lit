@@ -21,11 +21,6 @@ export interface SettingContext {
   /** The resolved plugin settings; `null` off the Vite plugin. */
   config: FeatureSettings | null;
   override: SettingsOverride;
-  /**
-   * Whether the page's browser draws the Chrome Performance tracks, as its
-   * runtime reported. Absent until one has.
-   */
-  chromeTracks?: boolean;
 }
 
 export interface SettingPresentation<V> {
@@ -131,11 +126,9 @@ export const PRESENTATION = {
     disabled: ({override}) => !(override.flashUpdates ?? false),
   },
   chromeTracks: {
-    label: 'chrome performance tracks',
-    tip: "Mirror the timeline into Chrome DevTools' Performance panel as a Lit track group. Needs Chrome 134 or newer. Default: off",
+    label: 'performance tracks',
+    tip: "Mirror the timeline into the browser's performance profiler: a Lit track group in Chrome 134+, User Timing marks elsewhere. Default: off",
     format: onOff,
-    disabled: ({chromeTracks}) => chromeTracks === false,
-    disabledText: 'needs Chrome 134+',
   },
 } satisfies {[K in SettingKey]: SettingPresentation<SettingValue<K>>};
 
