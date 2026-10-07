@@ -10,6 +10,13 @@
  * them. The version is the one the build wrote into the manifest, which is
  * the package's.
  *
+ * `--firefox` also writes `dist/amo-source-<version>.zip`, the source AMO
+ * asks for when an add-on is bundled: the committed tree at HEAD, from
+ * `git archive`, which leaves out the `lit` submodule the extension doesn't
+ * build from. It refuses a working tree with uncommitted changes, which the
+ * reviewers' build could not reproduce. The build steps to paste next to it
+ * are in `extension/store/listing-firefox.md`.
+ *
  * Uses the `zip` command (preinstalled on macOS and on GitHub's Ubuntu
  * runners); Node has no zip writer of its own.
  */
@@ -21,6 +28,21 @@ import {fileURLToPath} from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const firefox = process.argv.includes('--firefox');
+
+if (firefox) {
+  const dirty = execFileSync('git', ['status', '--porcelain'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  })
+    .split('\n')
+    .filter((line) => line !== '' && !line.endsWith('.DS_Store'));
+  if (dirty.length > 0) {
+    console.error(
+      `Uncommitted changes; AMO's source would not match the build:\n${dirty.join('\n')}`
+    );
+    process.exit(1);
+  }
+}
 const DIST = path.join(
   ROOT,
   'dist',
@@ -49,3 +71,21 @@ execFileSync('zip', ['-r', '-X', '-q', zip, '.', '-x', '*.map'], {
 });
 execFileSync('unzip', ['-l', zip], {stdio: 'inherit'});
 console.log(`\n${path.relative(ROOT, zip)}`);
+
+if (firefox) {
+  const source = path.join(ROOT, 'dist', `amo-source-${version}.zip`);
+  await rm(source, {force: true});
+  execFileSync(
+    'git',
+    [
+      'archive',
+      '--format=zip',
+      `--prefix=vite-plugin-lit/`,
+      '-o',
+      source,
+      'HEAD',
+    ],
+    {cwd: ROOT, stdio: 'inherit'}
+  );
+  console.log(path.relative(ROOT, source));
+}

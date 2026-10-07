@@ -112,9 +112,11 @@ components. The popup's click and the DevTools APIs still need checking by
 hand. It looks for Firefox Developer Edition or Firefox in `/Applications`;
 set `FIREFOX` to use another binary.
 
-To publish, upload the zip on addons.mozilla.org. AMO asks for the source
-code of bundled extensions, with build instructions: the repository at the
-release tag and `pnpm install && pnpm run package:extension --firefox`.
+To publish, follow `store/listing-firefox.md`: it has the listing copy and
+the notes for reviewers. `package:extension --firefox` also writes
+`dist/amo-source-<version>.zip`, the source AMO asks for with bundled
+extensions; run it on the release tag with a clean working tree. Every
+GitHub release carries the Firefox zip next to the Chrome one.
 `pnpm dlx web-ext lint --source-dir dist/extension-firefox` runs the same
 checks AMO does; the `innerHTML` warnings come from lit-html and Web
 Awesome.

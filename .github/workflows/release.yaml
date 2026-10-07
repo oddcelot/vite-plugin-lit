@@ -120,9 +120,12 @@ jobs:
           node-version: 26
       # No dependency cache, as in `publish`.
       - run: pnpm install --frozen-lockfile
-      # The Chrome extension, for loading unpacked until (and alongside) the
-      # Web Store listing. Builds straight from src/; needs no package build.
+      # The Chrome and Firefox extensions, for loading unpacked until (and
+      # alongside) the store listings. Build straight from src/; need no
+      # package build. The Firefox step also writes AMO's source package,
+      # which the release leaves out: GitHub attaches the source anyway.
       - run: pnpm run package:extension
+      - run: pnpm run package:extension --firefox
       - run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > notes.md
       - name: Create the release
         env:
