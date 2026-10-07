@@ -236,6 +236,12 @@ export interface LitRuntimeInfo {
   litPackages: LitPackageVersions;
   /** False when the runtime runs inside an iframe. */
   topFrame: boolean;
+  /**
+   * False when the page's browser ignores the Chrome Performance tracks
+   * (Chrome before 134, Firefox, Safari). True until a runtime says
+   * otherwise, so an older runtime keeps the switch usable.
+   */
+  chromeTracks: boolean;
 }
 
 /**

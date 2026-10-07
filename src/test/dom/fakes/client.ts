@@ -89,6 +89,7 @@ export const meta: {
     ready: boolean;
     litPackages: Record<string, string[]>;
     topFrame: boolean;
+    chromeTracks: boolean;
   };
   version: string;
   capabilities: {
@@ -107,6 +108,7 @@ export const meta: {
     ready: true,
     litPackages: {'lit-html': ['3.3.3'], 'lit-element': ['4.2.2']},
     topFrame: true,
+    chromeTracks: true,
   },
   version: '9.9.9',
   // The Vite host's: everything on, so a test opts out of what it checks.
@@ -138,6 +140,7 @@ export const resetClient = (): void => {
     ready: true,
     litPackages: {'lit-html': ['3.3.3'], 'lit-element': ['4.2.2']},
     topFrame: true,
+    chromeTracks: true,
   };
   meta.version = '9.9.9';
   meta.capabilities = {

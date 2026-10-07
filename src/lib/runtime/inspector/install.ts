@@ -8,6 +8,7 @@
  */
 
 import {createPageScriptChannel} from 'devframe/in-page-channel';
+import {chromeTracksSupported} from '../timeline/chrome-tracks.js';
 import {elementById} from '../timeline/identity.js';
 import {pageChannel} from '../page-channel.js';
 import {PAGE_ID} from '../page-id.js';
@@ -118,6 +119,7 @@ if (typeof window !== 'undefined') {
       type: 'ready',
       litPackages,
       topFrame,
+      chromeTracks: chromeTracksSupported(),
     };
   };
 

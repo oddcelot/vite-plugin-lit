@@ -51,6 +51,29 @@ const TRACKS: Record<string, {track: string; color: TrackColor; lit: boolean}> =
     keyboard: {track: 'Input', color: 'tertiary', lit: false},
   };
 
+interface NavigatorLike {
+  userAgent?: string;
+  userAgentData?: {brands?: readonly {brand: string; version: string}[]};
+}
+
+/**
+ * Whether this browser draws `console.timeStamp`'s track arguments: Chromium
+ * 134 or newer. There's no feature test for the extra arguments (older
+ * Chrome, Firefox and Safari accept the call and ignore them), so this reads
+ * the version. `userAgentData` only exists in secure contexts, so a dev
+ * server reached over plain http on a LAN address falls back to the UA
+ * string's `Chrome/<major>`, which every Chromium browser keeps.
+ */
+export const chromeTracksSupported = (
+  nav: NavigatorLike | undefined = globalThis.navigator
+): boolean => {
+  const brand = nav?.userAgentData?.brands?.find((b) => b.brand === 'Chromium');
+  const major = brand
+    ? Number(brand.version)
+    : Number(/\bChrome\/(\d+)/.exec(nav?.userAgent ?? '')?.[1]);
+  return major >= 134;
+};
+
 const consoleStamp: TimeStamp = (...args) => {
   const c = console as unknown as {timeStamp?: TimeStamp};
   if (typeof c.timeStamp === 'function') c.timeStamp(...args);

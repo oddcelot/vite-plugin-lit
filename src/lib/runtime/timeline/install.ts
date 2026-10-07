@@ -13,7 +13,10 @@
 import {emit, setHotClient} from './transport.js';
 import {resetClock} from './clock.js';
 import {createCaptureController} from './capture.js';
-import {createChromeTracksSink} from './chrome-tracks.js';
+import {
+  chromeTracksSupported,
+  createChromeTracksSink,
+} from './chrome-tracks.js';
 import {installLifecycleLayer, setUpdateHook} from './lifecycle.js';
 import {installRenderLayer, setRenderDebugEnabled} from './render.js';
 import {installMouseLayer, installKeyboardLayer} from './input.js';
@@ -32,6 +35,8 @@ import type {TimelineLayersState} from '../../../types/timeline.js';
 
 // Recording state is written by the panel toggle, the Chrome tracks flag by
 // the settings override (a page-side preference, independent of recording).
+const tracksSupported = chromeTracksSupported();
+
 const capture = createCaptureController({
   emit,
   chromeTracks: createChromeTracksSink(),
@@ -66,7 +71,9 @@ subscribeOverride(hot, (o) => {
   const prefs = preferences(o);
   setFlashEnabled(prefs.flashUpdates);
   setFlashRamp(prefs.flashUpdatesRamp);
-  capture.setChromeTracks(prefs.chromeTracks);
+  // Where the browser ignores the track arguments, capturing for them would
+  // only cost; the Settings row says why the switch is locked.
+  capture.setChromeTracks(prefs.chromeTracks && tracksSupported);
 });
 
 if (hot !== undefined) pageChannel.useViteHot(hot);
