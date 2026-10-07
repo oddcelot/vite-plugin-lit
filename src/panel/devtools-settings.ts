@@ -30,9 +30,11 @@ import type {LitGetMetaResult} from '../lib/devframe/protocol.js';
 import type {OverridableKey} from '../lib/settings-override.js';
 import {overrides} from './settings-override.js';
 
-/** The guide section that shows where the Lit tracks appear in Chrome. */
+/** The guide sections on where the Lit tracks appear: Chrome's, then the rest. */
 const CHROME_TRACKS_DOCS =
   'https://oddcelot.github.io/vite-plugin-lit/guides/devtools/timeline/#see-it-in-chromes-performance-panel';
+const USER_TIMING_DOCS =
+  'https://oddcelot.github.io/vite-plugin-lit/guides/devtools/timeline/#in-firefox-and-older-chrome';
 
 /** A feature switch: shown in a section header, never overridden. */
 type FeatureKey = SettingKeyOf<'feature'>;
@@ -555,6 +557,8 @@ export class DevtoolsSettings extends LitElement {
    * a note says where the entries go instead.
    */
   private _renderTimelinePrefs() {
+    // The page's browser, not this panel's: the runtime reports it.
+    const userTiming = this._meta?.runtime.chromeTracks === false;
     return html`
       <table>
         ${this._row(
@@ -563,9 +567,13 @@ export class DevtoolsSettings extends LitElement {
             class="docs-link"
             appearance="plain"
             size="small"
-            href=${CHROME_TRACKS_DOCS}
+            href=${userTiming ? USER_TIMING_DOCS : CHROME_TRACKS_DOCS}
             target="_blank"
-            data-tip="Open the guide with a screenshot of the Lit tracks in Chrome"
+            data-tip=${
+              userTiming
+                ? 'Open the guide on finding the Lit entries in the Firefox Profiler'
+                : 'Open the guide with a screenshot of the Lit tracks in Chrome'
+            }
           >
             <wa-icon slot="end" name="arrow-square-out"></wa-icon>
             Where to find them
@@ -573,11 +581,11 @@ export class DevtoolsSettings extends LitElement {
         )}
       </table>
       ${
-        this._meta?.runtime.chromeTracks === false
+        userTiming
           ? html`<p class="note">
               This browser has no custom tracks, so the entries go to User
               Timing as <code>lit:</code> marks and measures (in the Firefox
-              Profiler, the Marker Chart).
+              Profiler, the Marker Chart of the page's own track).
             </p>`
           : nothing
       }
