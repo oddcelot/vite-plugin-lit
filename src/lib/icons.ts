@@ -4,8 +4,8 @@
 // anything. Each is full SVG markup injected as raw HTML and colored with
 // `fill: currentColor`. These match the panel's icons (src/panel/wa-icons.ts).
 
-/** `cube` — the source overlay's "open the declaration" affordance, the same
- *  icon as the panel's Components tab. */
+/** `cube` — the component icon, as on the panel's Components tab. Leads the
+ *  source overlay's component row, with or without a source to open. */
 export const CUBE_ICON = `<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M223.68,66.15,135.68,18h0a15.88,15.88,0,0,0-15.36,0l-88,48.17a16,16,0,0,0-8.32,14v95.64a16,16,0,0,0,8.32,14l88,48.17a15.88,15.88,0,0,0,15.36,0l88-48.17a16,16,0,0,0,8.32-14V80.18A16,16,0,0,0,223.68,66.15ZM128,32h0l80.34,44L128,120,47.66,76ZM40,90l80,43.78v85.79L40,175.82Zm96,129.57V133.82L216,90v85.78Z"/></svg>`;
 
 /** `code` — the source overlay's "open where it is rendered" affordance. */

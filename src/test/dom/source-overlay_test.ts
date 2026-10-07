@@ -622,7 +622,8 @@ describe('lit hosts (no source metadata)', () => {
     await hover();
     expect(byId('tag').textContent).toBe(`<${tag}>`);
     expect(byId('path').style.display).toBe('none');
-    expect(byId('open').style.display).toBe('none');
+    // The component icon stays, as it does with a source.
+    expect(byId('open').style.display).toBe('');
   });
 
   test('ignores a plain custom element', async () => {

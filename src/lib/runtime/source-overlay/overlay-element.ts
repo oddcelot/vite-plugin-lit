@@ -83,7 +83,6 @@ class LitSourceOverlay extends HTMLElement {
   #tag: HTMLElement;
   #path: HTMLElement;
   #step: HTMLElement;
-  #open: HTMLElement;
   #sourceRow: HTMLElement;
   #siteRow: HTMLElement;
   #siteText: HTMLElement;
@@ -121,7 +120,6 @@ class LitSourceOverlay extends HTMLElement {
     this.#tag = root.getElementById('tag')!;
     this.#path = root.getElementById('path')!;
     this.#step = root.getElementById('step')!;
-    this.#open = root.getElementById('open')!;
     this.#sourceRow = root.getElementById('source-row')!;
     this.#siteRow = root.getElementById('site-row')!;
     this.#siteText = root.getElementById('site-text')!;
@@ -311,8 +309,8 @@ class LitSourceOverlay extends HTMLElement {
     if (this.#info === null) return;
     const {source} = this.#info;
     this.#tag.textContent = `<${this.#info.tagName}>`;
-    // Without a source there is nothing to show or open; the tooltip
-    // still names what a click will pick.
+    // Without a source there is no path to show or open; the tooltip still
+    // names what a click will pick, under the same component icon.
     this.#path.textContent =
       source === undefined
         ? ''
@@ -332,9 +330,7 @@ class LitSourceOverlay extends HTMLElement {
         ? ''
         : `${this.#normalizePath(callSite.filePath)}:${callSite.lineNumber}`;
     this.#siteRow.style.display = callSite === undefined ? 'none' : '';
-    const sourceDisplay = source === undefined ? 'none' : '';
-    this.#path.style.display = sourceDisplay;
-    this.#open.style.display = sourceDisplay;
+    this.#path.style.display = source === undefined ? 'none' : '';
     this.#tooltip.style.display = 'flex';
     this.#showIntent();
   }
