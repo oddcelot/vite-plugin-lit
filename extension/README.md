@@ -117,6 +117,9 @@ kept in the extension's local storage and shared by every tab.
 
 ## Current limits
 
+The docs compare the extension with the Vite plugin feature by feature:
+https://oddcelot.github.io/vite-plugin-lit/reference/devtools-hosts/
+
 - What needs a dev server isn't there. The panel leaves out the **Export
   snapshot** button, and components have no source location, since no Vite
   transform stamped one, so there is nothing to open in your editor. The
