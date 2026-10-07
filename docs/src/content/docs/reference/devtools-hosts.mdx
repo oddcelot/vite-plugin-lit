@@ -7,18 +7,19 @@ sidebar:
 ---
 
 import {CardGrid, LinkCard} from '@astrojs/starlight/components';
+import Logo from '../../../components/Logo.astro';
 
 Look up whether a DevTools feature works where you inspect the page. The
 panel is the same everywhere; what changes is what its host can reach.
 
 ## Hosts
 
-- **Vite plugin**: the panel docked in Vite DevTools or in its own tab at
-  `/__lit/`, on a page your Vite dev server serves.
-- **Chrome extension**: Lit Inspector, a **Lit** tab in Chrome DevTools, on
-  any http(s) page. It has no server behind it.
-- **Firefox extension**: the same extension for Firefox. It builds from the
-  repository and is not on addons.mozilla.org yet.
+- <Logo name="vite" /> **Vite plugin**: the panel docked in Vite DevTools or in
+  its own tab at `/__lit/`, on a page your Vite dev server serves.
+- <Logo name="chrome" /> **Chrome extension**: Lit Inspector, a **Lit** tab in
+  Chrome DevTools, on any http(s) page. It has no server behind it.
+- <Logo name="firefox" /> **Firefox extension**: the same extension for Firefox.
+  It builds from the repository and is not on addons.mozilla.org yet.
 
 `lit-devtools dev` behaves like the extensions, plus **Export snapshot** and
 the MCP tools, because it runs a Node server. See [the CLI
@@ -29,7 +30,7 @@ named in brackets.
 
 ## Where it runs
 
-|                     | Vite plugin                            | Chrome extension                             | Firefox extension                               |
+|                     | <Logo name="vite" /> Vite plugin       | <Logo name="chrome" /> Chrome extension      | <Logo name="firefox" /> Firefox extension       |
 | ------------------- | -------------------------------------- | -------------------------------------------- | ----------------------------------------------- |
 | Browsers            | Any (Chrome-only features marked)      | Chrome 114+                                  | Firefox 140+                                    |
 | Pages               | Your dev server                        | Any http(s) page, production builds included | Any http(s) page, production builds included    |
@@ -40,32 +41,32 @@ named in brackets.
 
 ## Components tab
 
-| Feature                                                  | Vite plugin          | Chrome extension                                      | Firefox extension                                     |
-| -------------------------------------------------------- | -------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
-| Live component tree                                      | Yes                  | Yes                                                   | Yes                                                   |
-| Hover highlight and **Reveal**                           | Yes                  | Yes                                                   | Yes                                                   |
-| Pick an element on the page                              | With `sourceOverlay` | Yes, any Lit element                                  | Yes, any Lit element                                  |
-| Properties, state, attributes                            | Yes                  | Yes                                                   | Yes                                                   |
-| Tasks, signals, controllers                              | Yes                  | Yes (controllers can be missing from minified builds) | Yes (controllers can be missing from minified builds) |
-| Native `#private` fields                                 | With `privateFields` | No                                                    | No                                                    |
-| Source link and **Rendered at** link                     | With `sourceOverlay` | No                                                    | No                                                    |
-| Open in editor                                           | Yes                  | No                                                    | No                                                    |
-| HMR patch line and issues banner                         | Yes                  | No                                                    | No                                                    |
-| Flash updates                                            | Yes                  | Yes                                                   | Yes                                                   |
-| Empty-tree diagnosis (no runtime, duplicate Lit, iframe) | Yes                  | Yes                                                   | Yes                                                   |
+| Feature                                                  | <Logo name="vite" /> Vite plugin | <Logo name="chrome" /> Chrome extension               | <Logo name="firefox" /> Firefox extension             |
+| -------------------------------------------------------- | -------------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| Live component tree                                      | Yes                              | Yes                                                   | Yes                                                   |
+| Hover highlight and **Reveal**                           | Yes                              | Yes                                                   | Yes                                                   |
+| Pick an element on the page                              | With `sourceOverlay`             | Yes, any Lit element                                  | Yes, any Lit element                                  |
+| Properties, state, attributes                            | Yes                              | Yes                                                   | Yes                                                   |
+| Tasks, signals, controllers                              | Yes                              | Yes (controllers can be missing from minified builds) | Yes (controllers can be missing from minified builds) |
+| Native `#private` fields                                 | With `privateFields`             | No                                                    | No                                                    |
+| Source link and **Rendered at** link                     | With `sourceOverlay`             | No                                                    | No                                                    |
+| Open in editor                                           | Yes                              | No                                                    | No                                                    |
+| HMR patch line and issues banner                         | Yes                              | No                                                    | No                                                    |
+| Flash updates                                            | Yes                              | Yes                                                   | Yes                                                   |
+| Empty-tree diagnosis (no runtime, duplicate Lit, iframe) | Yes                              | Yes                                                   | Yes                                                   |
 
 ## Updates tab
 
-| Feature                                    | Vite plugin          | Chrome extension | Firefox extension |
-| ------------------------------------------ | -------------------- | ---------------- | ----------------- |
-| Per-component counts, update time, reasons | Yes                  | Yes              | Yes               |
-| Error attribution                          | Yes                  | Yes              | Yes               |
-| Old and new values                         | Yes                  | Yes              | Yes               |
-| Source and **Rendered at** links           | With `sourceOverlay` | No               | No                |
+| Feature                                    | <Logo name="vite" /> Vite plugin | <Logo name="chrome" /> Chrome extension | <Logo name="firefox" /> Firefox extension |
+| ------------------------------------------ | -------------------------------- | --------------------------------------- | ----------------------------------------- |
+| Per-component counts, update time, reasons | Yes                              | Yes                                     | Yes                                       |
+| Error attribution                          | Yes                              | Yes                                     | Yes                                       |
+| Old and new values                         | Yes                              | Yes                                     | Yes                                       |
+| Source and **Rendered at** links           | With `sourceOverlay`             | No                                      | No                                        |
 
 ## Timeline tab
 
-| Feature                                           | Vite plugin                                                             | Chrome extension                                                        | Firefox extension                                         |
+| Feature                                           | <Logo name="vite" /> Vite plugin                                        | <Logo name="chrome" /> Chrome extension                                 | <Logo name="firefox" /> Firefox extension                 |
 | ------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------- |
 | Record, stop, clear                               | Yes                                                                     | Yes                                                                     | Yes                                                       |
 | Lifecycle, changed values, mouse, keyboard layers | Yes                                                                     | Yes                                                                     | Yes                                                       |
@@ -77,16 +78,16 @@ named in brackets.
 
 ## Settings, HMR and agents
 
-| Feature                                      | Vite plugin                | Chrome extension                      | Firefox extension                     |
-| -------------------------------------------- | -------------------------- | ------------------------------------- | ------------------------------------- |
-| Light and dark appearance                    | Yes                        | Yes                                   | Yes                                   |
-| Plugin settings and live overrides           | Yes                        | No                                    | No                                    |
-| Page preferences (flash, performance tracks) | Yes                        | Yes                                   | Yes                                   |
-| About (versions, duplicate Lit, layers)      | Yes                        | Yes                                   | Yes                                   |
-| Hot patching and the HMR indicator           | Yes                        | No                                    | No                                    |
-| Deep links (`#tab=…&component=…`)            | Yes                        | No                                    | No                                    |
-| Follows the page you switch to               | Across tabs, with a notice | The inspected tab, across navigations | The inspected tab, across navigations |
-| MCP tools for coding agents                  | Yes                        | No                                    | No                                    |
+| Feature                                      | <Logo name="vite" /> Vite plugin | <Logo name="chrome" /> Chrome extension | <Logo name="firefox" /> Firefox extension |
+| -------------------------------------------- | -------------------------------- | --------------------------------------- | ----------------------------------------- |
+| Light and dark appearance                    | Yes                              | Yes                                     | Yes                                       |
+| Plugin settings and live overrides           | Yes                              | No                                      | No                                        |
+| Page preferences (flash, performance tracks) | Yes                              | Yes                                     | Yes                                       |
+| About (versions, duplicate Lit, layers)      | Yes                              | Yes                                     | Yes                                       |
+| Hot patching and the HMR indicator           | Yes                              | No                                      | No                                        |
+| Deep links (`#tab=…&component=…`)            | Yes                              | No                                      | No                                        |
+| Follows the page you switch to               | Across tabs, with a notice       | The inspected tab, across navigations   | The inspected tab, across navigations     |
+| MCP tools for coding agents                  | Yes                              | No                                      | No                                        |
 
 ## Related
 

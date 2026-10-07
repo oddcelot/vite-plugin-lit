@@ -6,6 +6,7 @@ sidebar:
 ---
 
 import {Aside, CardGrid, LinkCard} from '@astrojs/starlight/components';
+import Logo from '../../../components/Logo.astro';
 
 Everything the plugin needs from your toolchain and browsers, on one page.
 Version ranges come from `package.json`; the rest from what the runtime does.
@@ -44,11 +45,11 @@ what serves the DevTools overlay the panel docks into.
 `?css-sheet`, `urlSheet()`, and the inline build modes all produce a constructed
 `CSSStyleSheet`, so they need constructable stylesheet support.
 
-| Browser | Minimum |
-| ------- | ------- |
-| Chrome  | 73      |
-| Firefox | 101     |
-| Safari  | 16.4    |
+| Browser                         | Minimum |
+| ------------------------------- | ------- |
+| <Logo name="chrome" /> Chrome   | 73      |
+| <Logo name="firefox" /> Firefox | 101     |
+| <Logo name="safari" /> Safari   | 16.4    |
 
 Importing a sheet module throws in jsdom and in Node SSR, because neither
 provides `CSSStyleSheet`. Keep those imports out of code that runs on the
