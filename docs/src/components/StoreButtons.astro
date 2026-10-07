@@ -1,0 +1,78 @@
+---
+/**
+ * One button per store Lit Inspector is listed in. A store without a `url` in
+ * src/lib/stores.ts renders as a dimmed "Coming soon" badge that is not a link.
+ */
+import Logo from './Logo.astro';
+import {stores, type Store} from '../lib/stores';
+
+const order: Store[] = ['chrome', 'firefox'];
+---
+
+<div class="store-buttons not-content">
+  {
+    order.map((id) => {
+      const {name, url} = stores[id];
+      const body = (
+        <>
+          <Logo name={id} size="1.75em" />
+          <span class="text">
+            <span class="kicker">{url ? 'Get it on the' : 'Coming soon to'}</span>
+            <span class="name">{name}</span>
+          </span>
+        </>
+      );
+      return url ? (
+        <a class="store-button" href={url} rel="noopener">
+          {body}
+        </a>
+      ) : (
+        <span class="store-button pending">{body}</span>
+      );
+    })
+  }
+</div>
+
+<style>
+  .store-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-block: 1rem;
+  }
+  .store-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 1rem 0.5rem 0.75rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-white);
+    text-decoration: none;
+    line-height: 1.2;
+  }
+  a.store-button:hover {
+    border-color: var(--sl-color-gray-2);
+  }
+  .store-button.pending {
+    border-style: dashed;
+    background: transparent;
+    cursor: default;
+  }
+  .store-button.pending :global(img) {
+    filter: grayscale(1);
+    opacity: 0.6;
+  }
+  .text {
+    display: flex;
+    flex-direction: column;
+  }
+  .kicker {
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .name {
+    font-weight: 600;
+  }
+</style>
