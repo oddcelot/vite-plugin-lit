@@ -26,3 +26,6 @@ docs/.generated/
 
 # macOS Finder metadata
 .DS_Store
+
+# Private keys, such as the CRX signing key: never in the repo
+*.pem
