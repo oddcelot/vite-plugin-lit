@@ -18,9 +18,10 @@ hero:
       variant: minimal
 ---
 
-import {CardGrid, LinkCard} from '@astrojs/starlight/components';
+import {CardGrid} from '@astrojs/starlight/components';
 import {PackageManagers} from 'starlight-package-managers';
 import DemoVideo from '../../components/DemoVideo.astro';
+import IconLinkCard from '../../components/IconLinkCard.astro';
 
 <DemoVideo
   name="promo"
@@ -30,22 +31,26 @@ import DemoVideo from '../../components/DemoVideo.astro';
 />
 
 <CardGrid>
-  <LinkCard
+  <IconLinkCard
+    icon="lightning"
     title="HMR that keeps state"
     description="Edit a component and the page stays put. Focus, scroll, inputs, and child state survive."
     href="/vite-plugin-lit/guides/hmr/"
   />
-  <LinkCard
+  <IconLinkCard
+    icon="paint-brush"
     title="One stylesheet, every shadow root"
     description="Share a single CSSStyleSheet across thousands of components. An edit restyles them all without a re-render."
     href="/vite-plugin-lit/guides/stylesheets/"
   />
-  <LinkCard
+  <IconLinkCard
+    icon="tree-structure"
     title="A DevTools panel that explains re-renders"
     description="See which components updated, how long they took, and what triggered each one."
     href="/vite-plugin-lit/guides/devtools/"
   />
-  <LinkCard
+  <IconLinkCard
+    icon="robot"
     title="Ask your coding agent"
     description="The same component tree and timeline as MCP tools, read straight from the running page."
     href="/vite-plugin-lit/guides/devtools/agents/"

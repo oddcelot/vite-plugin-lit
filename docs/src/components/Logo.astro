@@ -1,0 +1,45 @@
+---
+/**
+ * The official full-colour mark of a browser or of Vite, sized to the
+ * surrounding text. Use it beside the name, never instead of it: the image is
+ * decorative and has an empty alt.
+ *
+ * The SVGs in `src/assets/logos/` come from upstream unchanged: Vite's from
+ * the create-vite template favicon, the browsers' from alrra/browser-logos.
+ * They render as `<img>` rather than inline SVG, because the Firefox and
+ * Safari files define gradient ids that would collide when a table repeats
+ * them on one page.
+ */
+import chrome from '../assets/logos/chrome.svg';
+import firefox from '../assets/logos/firefox.svg';
+import safari from '../assets/logos/safari.svg';
+import vite from '../assets/logos/vite.svg';
+
+const logos = {chrome, firefox, safari, vite};
+
+interface Props {
+  name: keyof typeof logos;
+  /** Any CSS length. Defaults to a little over the surrounding font size. */
+  size?: string;
+}
+
+const {name, size = '1.25em'} = Astro.props;
+---
+
+<img
+  class="brand-logo"
+  src={logos[name].src}
+  alt=""
+  style={{height: size, width: size}}
+  loading="lazy"
+  decoding="async"
+/>
+
+<style>
+  .brand-logo {
+    display: inline-block;
+    vertical-align: -0.3em;
+    margin-inline-end: 0.3em;
+    object-fit: contain;
+  }
+</style>
