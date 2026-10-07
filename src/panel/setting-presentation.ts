@@ -127,7 +127,7 @@ export const PRESENTATION = {
   },
   chromeTracks: {
     label: 'performance tracks',
-    tip: "Mirror the timeline into the browser's performance profiler: a Lit track group in Chrome 134+, User Timing marks elsewhere. Default: off",
+    tip: "Mirror the timeline into the browser's performance profiler, next to its own work. Default: off",
     format: onOff,
   },
 } satisfies {[K in SettingKey]: SettingPresentation<SettingValue<K>>};

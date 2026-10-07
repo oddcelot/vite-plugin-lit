@@ -139,6 +139,17 @@ test('the chrome tracks row links to the guide on where the tracks appear', asyn
   expect(link.getAttribute('target')).toBe('_blank');
 });
 
+test('without custom tracks, the docs link points at the Firefox section', async () => {
+  meta.capabilities.pluginSettings = false;
+  meta.runtime = {...meta.runtime, ready: true, chromeTracks: false};
+  const link = (await mount()).querySelector('wa-button.docs-link')!;
+  expect(link.getAttribute('href')).toMatch(
+    /\/guides\/devtools\/timeline\/#in-firefox-and-older-chrome$/
+  );
+  expect(link.getAttribute('data-tip')).toContain('Firefox Profiler');
+  expect(link.getAttribute('data-tip')).not.toContain('in Chrome');
+});
+
 test('explains missing plugin settings off the Vite plugin', async () => {
   meta.capabilities.pluginSettings = false;
   const text = (await mount()).querySelector('.empty')!.textContent!.trim();
