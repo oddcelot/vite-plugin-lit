@@ -302,6 +302,10 @@ const renderScreenshots = async (browser) => {
       const opened = [];
       const openPanel = async (tab) => {
         const panel = await context.newPage();
+        // The shots read the Timeline's list; it opens in Tracks.
+        await panel.addInitScript(() =>
+          localStorage.setItem('lit-devtools-timeline-mode', 'list')
+        );
         opened.push(panel);
         await panel.setViewportSize({width: width - pageWidth - 1, height});
         await panel.goto(

@@ -280,6 +280,10 @@ describe('static snapshot export', () => {
       headless: process.env['HMR_E2E_HEADED'] === undefined,
     });
     const page = await browser.newPage();
+    // This reads the list; the Timeline opens in Tracks.
+    await page.addInitScript(() =>
+      localStorage.setItem('lit-devtools-timeline-mode', 'list')
+    );
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
 

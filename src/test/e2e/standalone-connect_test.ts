@@ -233,6 +233,10 @@ test('Pick picks on the page and raises a panel on the element', async () => {
 
 test('the panel can record the page it never served', async () => {
   const panel = await browser.newPage();
+  // This reads the list; the Timeline opens in Tracks.
+  await panel.addInitScript(() =>
+    localStorage.setItem('lit-devtools-timeline-mode', 'list')
+  );
   await panel.goto(`${devOrigin}/#tab=timeline`);
   await panel.getByRole('button', {name: /Record/}).click();
   // An update on the page is what the recording should now capture. The

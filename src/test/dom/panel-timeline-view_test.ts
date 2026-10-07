@@ -232,3 +232,17 @@ test('says nothing about render layers under Vite', async () => {
   await flush(el);
   expect(root.querySelector('.hint')).toBeNull();
 });
+
+test('opens in Tracks, and in List once the user left it there', async () => {
+  localStorage.removeItem('lit-devtools-timeline-mode');
+  const first = await mount();
+  expect(first.tracks().hidden).toBe(false);
+  expect(first.list().hidden).toBe(true);
+  document.body.replaceChildren();
+
+  localStorage.setItem('lit-devtools-timeline-mode', 'list');
+  const again = await mount();
+  expect(again.list().hidden).toBe(false);
+  expect(again.tracks().hidden).toBe(true);
+  localStorage.removeItem('lit-devtools-timeline-mode');
+});

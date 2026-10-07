@@ -615,6 +615,10 @@ const SHOTS = [
       const abs = path.isAbsolute(dir) ? dir : path.join(process.cwd(), dir);
       const frozen = await ctx.serveStatic(abs);
       const page = await ctx.context.newPage();
+      // The snapshot's own origin; start it on the list, like the others.
+      await page.addInitScript(() =>
+        localStorage.setItem('lit-devtools-timeline-mode', 'list')
+      );
       await page.goto(`${frozen}/index.html#tab=timeline`);
       await panelRoot(page).waitFor();
       await eventList(page).locator('css=.row').first().waitFor();
@@ -846,6 +850,10 @@ const main = async () => {
 
         async openPanel(hash = '') {
           const page = await context.newPage();
+          // The shots start from the list; the tracks shot switches over.
+          await page.addInitScript(() =>
+            localStorage.setItem('lit-devtools-timeline-mode', 'list')
+          );
           await page.goto(`${origin}/__lit/${hash}`);
           await panelRoot(page).waitFor();
           await sleep(400);
