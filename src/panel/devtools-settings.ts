@@ -319,6 +319,7 @@ export class DevtoolsSettings extends LitElement {
       config: this._settings,
       override: this._override,
       recorded: this._recorded,
+      chromeTracks: this._meta?.runtime.chromeTracks,
     });
   }
 

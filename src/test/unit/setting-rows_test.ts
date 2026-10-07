@@ -175,4 +175,15 @@ describe('a disabled row', () => {
         .disabled
     ).toBe(false);
   });
+
+  test("chrome tracks lock where the page's browser ignores them", () => {
+    const on = {chromeTracks: true};
+    expect(
+      settingRow('chromeTracks', {...context({}, {}, on), chromeTracks: false})
+    ).toMatchObject({disabled: true, text: 'needs Chrome 134+'});
+    // Unknown until a runtime reports, and an older runtime never does.
+    expect(settingRow('chromeTracks', context({}, {}, on)).disabled).toBe(
+      false
+    );
+  });
 });

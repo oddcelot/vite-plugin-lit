@@ -116,9 +116,15 @@ export type InspectorMessage =
   /**
    * The runtime came online; the panel should (re)request the tree. Carries
    * what the page can say about itself, so an empty tree can be explained.
-   * Both fields are optional: an older runtime sends a bare `ready`.
+   * Every field is optional: an older runtime sends a bare `ready`.
    */
-  | {type: 'ready'; litPackages?: LitPackageVersions; topFrame?: boolean}
+  | {
+      type: 'ready';
+      litPackages?: LitPackageVersions;
+      topFrame?: boolean;
+      /** Whether the browser draws the Chrome Performance tracks. */
+      chromeTracks?: boolean;
+    }
   | {type: 'tree'; roots: InspectorTreeNode[]}
   | {type: 'details'; details: InspectorDetails}
   /** The requested element id couldn't be resolved (removed / GC'd). */

@@ -54,6 +54,7 @@ test('About flags duplicate lit copies', async () => {
     ready: true,
     litPackages: {'lit-element': ['4.2.2', '4.1.0']},
     topFrame: true,
+    chromeTracks: true,
   };
   expect(await about()).toContain(
     'lit-element 4.2.2, 4.1.0 (duplicate copies)'
@@ -82,7 +83,12 @@ test('the color scheme wa-select writes the choice through the settings store', 
 });
 
 test('About says lit was not detected before a runtime connects', async () => {
-  meta.runtime = {ready: false, litPackages: {}, topFrame: true};
+  meta.runtime = {
+    ready: false,
+    litPackages: {},
+    topFrame: true,
+    chromeTracks: true,
+  };
   expect(await about()).toContain('not detected');
 });
 
@@ -194,4 +200,19 @@ test('a feature header says where the feature was switched, and how to turn it o
   expect(hint('Source Overlay')).toBe(
     'Enable with sourceOverlay: true or LIT_PLUGIN_SOURCE_OVERLAY=true.'
   );
+});
+
+test("the chrome tracks switch locks when the page's browser can't draw them", async () => {
+  meta.capabilities.pluginSettings = false;
+  meta.runtime = {...meta.runtime, ready: true, chromeTracks: false};
+  const root = await mount();
+  const row = [...root.querySelectorAll('tr')].find(
+    (tr) =>
+      tr.querySelector('.key')?.textContent?.trim() ===
+      'chrome performance tracks'
+  )!;
+  const tracks = row.querySelector('wa-switch')!;
+  expect(tracks.disabled).toBe(true);
+  expect(tracks.textContent?.trim()).toBe('needs Chrome 134+');
+  expect(row.classList.contains('row-disabled')).toBe(true);
 });

@@ -400,6 +400,7 @@ describe('inspector caches and capture', () => {
       ready: false,
       litPackages: {},
       topFrame: true,
+      chromeTracks: true,
     });
 
     s.applyInspector({
@@ -411,6 +412,7 @@ describe('inspector caches and capture', () => {
       ready: true,
       litPackages: {'lit-element': ['4.2.2', '4.1.0']},
       topFrame: false,
+      chromeTracks: true,
     });
 
     // A page reload with fewer copies replaces the announcement.
@@ -423,13 +425,25 @@ describe('inspector caches and capture', () => {
       ready: true,
       litPackages: {'lit-element': ['4.2.2']},
       topFrame: true,
+      chromeTracks: true,
     });
   });
 
   test('a bare ready from an older runtime reads as ready, nothing known', () => {
     const s = createRecordingSession();
     s.applyInspector({type: 'ready'});
-    expect(s.runtime()).toEqual({ready: true, litPackages: {}, topFrame: true});
+    expect(s.runtime()).toEqual({
+      ready: true,
+      litPackages: {},
+      topFrame: true,
+      chromeTracks: true,
+    });
+  });
+
+  test('a runtime in a browser without Chrome tracks says so', () => {
+    const s = createRecordingSession();
+    s.applyInspector({type: 'ready', chromeTracks: false});
+    expect(s.runtime().chromeTracks).toBe(false);
   });
 
   test('capture freezes the buffers and replay round-trips it', () => {

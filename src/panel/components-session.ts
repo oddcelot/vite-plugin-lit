@@ -185,6 +185,7 @@ export class ComponentsSession {
           ready: true,
           litPackages: message.litPackages ?? {},
           topFrame: message.topFrame ?? true,
+          chromeTracks: message.chromeTracks ?? true,
         };
         // The runtime (re)connected with no memory of this panel: refresh
         // the tree and re-arm the selection's watch. It may also have dropped

@@ -548,6 +548,7 @@ describe('lit devframe definition', () => {
       ready: false,
       litPackages: {},
       topFrame: true,
+      chromeTracks: true,
     });
     source.sink!.inspectorMessage({
       type: 'ready',
@@ -558,6 +559,7 @@ describe('lit devframe definition', () => {
       ready: true,
       litPackages: {'lit-element': ['4.2.2', '4.1.0']},
       topFrame: false,
+      chromeTracks: true,
     });
   });
 

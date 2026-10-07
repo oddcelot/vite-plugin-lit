@@ -1,5 +1,8 @@
 import {describe, expect, test} from 'vite-plus/test';
-import {createChromeTracksSink} from '../../lib/runtime/timeline/chrome-tracks.js';
+import {
+  chromeTracksSupported,
+  createChromeTracksSink,
+} from '../../lib/runtime/timeline/chrome-tracks.js';
 import type {TimelineEvent} from '../../types/timeline.js';
 
 const setup = () => {
@@ -79,5 +82,45 @@ describe('chrome tracks sink', () => {
     expect(calls).toEqual([]);
     sink.push(ev({title: 'update:end', groupId: 'g1000'}));
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe('chrome tracks support', () => {
+  const brands = (version: string) => ({
+    userAgentData: {
+      brands: [
+        {brand: 'Not.A/Brand', version: '99'},
+        {brand: 'Chromium', version},
+      ],
+    },
+  });
+
+  test('reads the Chromium brand where userAgentData exists', () => {
+    expect(chromeTracksSupported(brands('134'))).toBe(true);
+    expect(chromeTracksSupported(brands('141'))).toBe(true);
+    expect(chromeTracksSupported(brands('133'))).toBe(false);
+  });
+
+  test('falls back to the UA string outside a secure context', () => {
+    const ua = (v: number) =>
+      `Mozilla/5.0 (Macintosh) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v}.0.0.0 Safari/537.36`;
+    expect(chromeTracksSupported({userAgent: ua(134)})).toBe(true);
+    expect(chromeTracksSupported({userAgent: ua(120)})).toBe(false);
+  });
+
+  test('is off in Firefox, Safari and without a navigator', () => {
+    expect(
+      chromeTracksSupported({
+        userAgent:
+          'Mozilla/5.0 (Macintosh; rv:140.0) Gecko/20100101 Firefox/140.0',
+      })
+    ).toBe(false);
+    expect(
+      chromeTracksSupported({
+        userAgent:
+          'Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+      })
+    ).toBe(false);
+    expect(chromeTracksSupported(undefined)).toBe(false);
   });
 });
