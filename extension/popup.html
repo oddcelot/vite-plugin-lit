@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lit Inspector</title>
+    <link rel="stylesheet" href="./src/popup.css" />
+  </head>
+  <body>
+    <!-- Firefox only; see src/popup.ts. -->
+    <dl>
+      <dt>Site</dt>
+      <dd><code id="origin">…</code></dd>
+      <dt>Status</dt>
+      <dd id="status">…</dd>
+    </dl>
+    <button id="enable" hidden>Enable on this site</button>
+    <button id="disable" hidden>Disable on this site</button>
+    <p>Then open DevTools and the <strong>Lit</strong> tab.</p>
+    <script type="module" src="./src/popup.ts"></script>
+  </body>
+</html>

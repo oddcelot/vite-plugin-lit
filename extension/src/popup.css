@@ -1,0 +1,36 @@
+/*
+ * The Firefox toolbar popup: the Lit tab's setup screen, on its own.
+ */
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  padding: 12px;
+  min-width: 260px;
+  font:
+    13px system-ui,
+    sans-serif;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0 0 12px;
+}
+
+dd {
+  margin: 0;
+}
+
+button {
+  padding: 2px 8px;
+}
+
+p {
+  margin: 12px 0 0;
+  opacity: 0.7;
+}
