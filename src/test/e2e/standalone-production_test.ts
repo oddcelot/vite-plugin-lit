@@ -199,7 +199,13 @@ test('the tree and inspector show a minified production component', async () => 
 }, 60_000);
 
 test('the lifecycle layer records updates, the render layers stay empty', async () => {
+  // This reads the list; the Timeline opens in Tracks. The panel is already
+  // on this origin, so the hash change below needs a reload to apply it.
+  await panel.evaluate(() =>
+    localStorage.setItem('lit-devtools-timeline-mode', 'list')
+  );
   await panel.goto(`${devOrigin}/#tab=timeline`);
+  await panel.reload();
   await panel.getByRole('button', {name: /Record/}).click();
   let n = 0;
   await expect

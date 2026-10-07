@@ -59,9 +59,9 @@ const MODE_TABS: TabItem[] = [
 
 const readMode = (): ViewMode => {
   try {
-    return localStorage.getItem(MODE_LS_KEY) === 'tracks' ? 'tracks' : 'list';
+    return localStorage.getItem(MODE_LS_KEY) === 'list' ? 'list' : 'tracks';
   } catch {
-    return 'list';
+    return 'tracks';
   }
 };
 

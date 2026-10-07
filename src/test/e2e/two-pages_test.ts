@@ -14,6 +14,10 @@ beforeAll(async () => {
   fixture = await startFixture({plugin: {timeline: true}, panel: true});
   panel = await fixture.openPanel();
   await panel.page.goto(`${fixture.origin}/__lit/#tab=timeline`);
+  // These read the list; the Timeline opens in Tracks.
+  await panel.page.evaluate(() =>
+    localStorage.setItem('lit-devtools-timeline-mode', 'list')
+  );
   await panel.page.reload();
   await panel.page.waitForSelector('timeline-view');
 });
