@@ -7,10 +7,15 @@
  *
  * Until the inspected site is enabled the tab shows only that: the site, its
  * status, and the button that enables it. Enabling asks for the site's host
- * permission first. Only an extension page can, inside the user's click, so it
- * happens here and not in the background, which is then asked to register the
- * scripts. The page is reloaded so they run at `document_start` of a fresh
- * document.
+ * permission first, unless the extension already holds it. Only an extension
+ * page can, inside the user's click, so it happens here and not in the
+ * background, which is then asked to register the scripts. The page is
+ * reloaded so they run at `document_start` of a fresh document.
+ *
+ * Firefox refuses permission requests from DevTools (bugzil.la/1796933), so
+ * there the toolbar popup (`popup.ts`) asks instead, and this tab says so
+ * until the permission is there. Either way the tab follows the enabled
+ * origins in `storage.local`, so a site enabled elsewhere opens the panel.
  *
  * Once enabled, the order matters:
  *
@@ -48,7 +53,11 @@ import type {
   PanelHello,
   RegistryRequest,
 } from './protocol.js';
-import {normalizeOrigin} from './registry.js';
+import {
+  ENABLED_ORIGINS_KEY,
+  normalizeOrigin,
+  patternsKeepPort,
+} from './registry.js';
 import {createChromeStorage} from './storage.js';
 
 const $ = <T extends HTMLElement>(id: string) =>
@@ -58,6 +67,7 @@ const setupEl = $('setup');
 const originEl = $('origin');
 const statusEl = $('status');
 const enableButton = $<HTMLButtonElement>('enable');
+const hintEl = $('hint');
 const barEl = $('bar');
 const pageEl = $('page');
 const reloadButton = $<HTMLButtonElement>('reload');
@@ -70,7 +80,13 @@ const tabId =
   Number(new URLSearchParams(location.search).get('tabId'));
 
 let origin: string | undefined;
+let current: OriginStatus | undefined;
 let booted: Promise<void> | undefined;
+
+// Firefox can't ask for a permission from DevTools (see the header), and
+// its sites are hosts on any port (see `normalizeOrigin`).
+const canRequest = patternsKeepPort(location.href);
+const site = (url: string) => normalizeOrigin(url, canRequest);
 
 const request = (message: RegistryRequest): Promise<OriginStatus> =>
   chrome.runtime.sendMessage(message);
@@ -78,12 +94,13 @@ const request = (message: RegistryRequest): Promise<OriginStatus> =>
 const inspectedOrigin = async (): Promise<string | undefined> => {
   if (devtools === undefined) {
     const {url} = await chrome.tabs.get(tabId);
-    return url === undefined ? undefined : normalizeOrigin(url);
+    return url === undefined ? undefined : site(url);
   }
   return new Promise((resolve) =>
     devtools.inspectedWindow.eval<string>(
       'location.origin',
-      (result, exception) => resolve(exception ? undefined : result)
+      (result, exception) =>
+        resolve(exception ? undefined : site(String(result)))
     )
   );
 };
@@ -183,23 +200,30 @@ const render = (status: OriginStatus | undefined): void => {
     status === undefined
       ? 'unavailable'
       : (status.error ?? (status.permitted ? 'disabled' : 'not permitted'));
+  const needsPopup = !canRequest && status?.permitted !== true;
+  enableButton.hidden = needsPopup;
   enableButton.disabled = status === undefined;
+  hintEl.hidden = !needsPopup || status === undefined;
 };
 
 const refresh = async (): Promise<void> => {
   origin = await inspectedOrigin();
-  render(
+  current =
     origin === undefined
       ? undefined
-      : await request({type: 'lit:status', origin})
-  );
+      : await request({type: 'lit:status', origin});
+  render(current);
 };
 
 enableButton.addEventListener('click', async () => {
   if (origin === undefined) return;
   // First thing in the handler: the request must run inside the click.
-  const granted = await chrome.permissions.request({origins: [`${origin}/*`]});
-  if (!granted) return;
+  if (current?.permitted !== true) {
+    const granted = await chrome.permissions.request({
+      origins: [`${origin}/*`],
+    });
+    if (!granted) return;
+  }
   const status = await request({type: 'lit:enable', origin});
   render(status);
   if (status.enabled) reloadPage();
@@ -214,9 +238,15 @@ disableButton.addEventListener('click', async () => {
 
 reloadButton.addEventListener('click', reloadPage);
 
+// The site may be enabled or disabled from somewhere else: the Firefox
+// popup, or another DevTools window on the same site.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && ENABLED_ORIGINS_KEY in changes) void refresh();
+});
+
 // A navigation to another site may land somewhere not enabled, or enabled
 // where this one was not; a reload of the same site changes nothing here.
 devtools?.network.onNavigated.addListener((url) => {
-  if (normalizeOrigin(url) !== origin) void refresh();
+  if (site(url) !== origin) void refresh();
 });
 void refresh();

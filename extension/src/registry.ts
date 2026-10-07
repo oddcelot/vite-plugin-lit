@@ -59,6 +59,11 @@ export interface RegistryOptions {
   permissions: PermissionsLike;
   /** The built scripts, relative to the extension root. */
   files?: {page: string; content: string};
+  /**
+   * Whether a site is an origin with its port (Chrome, the default) or a
+   * host on any port (Firefox); see {@link normalizeOrigin}.
+   */
+  keepPort?: boolean;
 }
 
 export interface Registry {
@@ -80,17 +85,27 @@ export const ENABLED_ORIGINS_KEY = 'enabledOrigins';
  * Only http(s): `chrome://` and the Web Store refuse content scripts anyway,
  * and `file://` needs a separate opt-in the user gives in the extension's
  * settings.
+ *
+ * Without `keepPort` the port is dropped: Firefox match patterns can't name
+ * one (a pattern with a port is accepted and matches nothing), so there a
+ * site is the host on every port, `http://localhost` for all dev servers.
  */
-export const normalizeOrigin = (input: string): string | undefined => {
+export const normalizeOrigin = (
+  input: string,
+  keepPort = true
+): string | undefined => {
   try {
     const url = new URL(input);
-    return url.protocol === 'http:' || url.protocol === 'https:'
-      ? url.origin
-      : undefined;
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+    return keepPort ? url.origin : `${url.protocol}//${url.hostname}`;
   } catch {
     return undefined;
   }
 };
+
+/** Whether this browser's match patterns can name a port; see above. */
+export const patternsKeepPort = (extensionUrl: string): boolean =>
+  !extensionUrl.startsWith('moz-extension:');
 
 /** The match pattern, and the host permission, for an origin. */
 export const originPattern = (origin: string): string => `${origin}/*`;
@@ -103,6 +118,7 @@ const scriptIds = (origin: string) => ({
 export const createRegistry = (options: RegistryOptions): Registry => {
   const {scripting, storage, permissions} = options;
   const files = options.files ?? {page: 'page.js', content: 'content.js'};
+  const keepPort = options.keepPort ?? true;
 
   const readEnabled = async (): Promise<string[]> => {
     const value = (await storage.get(ENABLED_ORIGINS_KEY))[ENABLED_ORIGINS_KEY];
@@ -129,7 +145,7 @@ export const createRegistry = (options: RegistryOptions): Registry => {
   };
 
   const status = async (input: string): Promise<OriginStatus> => {
-    const origin = normalizeOrigin(input);
+    const origin = normalizeOrigin(input, keepPort);
     if (origin === undefined) {
       return {
         origin: input,
@@ -154,7 +170,7 @@ export const createRegistry = (options: RegistryOptions): Registry => {
     status,
 
     async enable(input) {
-      const origin = normalizeOrigin(input);
+      const origin = normalizeOrigin(input, keepPort);
       if (origin === undefined) return status(input);
       const pattern = originPattern(origin);
       if (!(await permissions.contains({origins: [pattern]}))) {
@@ -185,7 +201,7 @@ export const createRegistry = (options: RegistryOptions): Registry => {
     },
 
     async disable(input) {
-      const origin = normalizeOrigin(input);
+      const origin = normalizeOrigin(input, keepPort);
       if (origin === undefined) return status(input);
       await unregister(origin);
       const enabled = await readEnabled();

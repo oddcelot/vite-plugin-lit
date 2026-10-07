@@ -11,7 +11,11 @@
  */
 
 import {createHub} from './hub.js';
-import {createRegistry, handleRegistryRequest} from './registry.js';
+import {
+  createRegistry,
+  handleRegistryRequest,
+  patternsKeepPort,
+} from './registry.js';
 import {isRegistryRequest} from './protocol.js';
 
 const hub = createHub();
@@ -21,6 +25,7 @@ const registry = createRegistry({
   scripting: chrome.scripting,
   storage: chrome.storage.local,
   permissions: chrome.permissions,
+  keepPort: patternsKeepPort(chrome.runtime.getURL('')),
 });
 
 const EXTENSION_ORIGIN = new URL(chrome.runtime.getURL('')).origin;

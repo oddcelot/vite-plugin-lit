@@ -1,12 +1,13 @@
-# Lit Inspector for Chrome
+# Lit Inspector for Chrome and Firefox
 
-Lit Inspector is a Chrome DevTools extension that inspects the Lit components on any page:
+Lit Inspector is a DevTools extension for Chrome and Firefox that inspects the Lit components on any page:
 production builds, sites you don't serve, pages whose CSP would refuse the
-`<script>` tag `lit-devtools dev` prints. Chrome injects the runtime itself,
-so the page's `script-src` doesn't apply.
+`<script>` tag `lit-devtools dev` prints. The browser injects the runtime
+itself, so the page's `script-src` doesn't apply.
 
 Work in progress. It isn't published, and it isn't part of the npm package.
-It is an independent tool, not affiliated with Google or the Lit project.
+It is an independent tool, not affiliated with Google, Mozilla or the Lit
+project.
 Its privacy policy is on the docs site:
 https://oddcelot.github.io/vite-plugin-lit/reference/extension-privacy/
 
@@ -78,6 +79,46 @@ open, in a throwaway profile. Closing the window stops the server and deletes
 the profile. Don't point `--url` at a dev server running the Vite plugin: that
 page already has the runtime.
 
+## Firefox
+
+```sh
+pnpm run build:extension:firefox      # writes dist/extension-firefox/
+pnpm run package:extension --firefox  # dist/lit-inspector-<version>-firefox.zip
+pnpm run extension:smoke:firefox      # checks the build in a real Firefox
+```
+
+The Firefox build is the same code with its own manifest
+(`firefoxManifest` in `vite.config.ts`). It needs Firefox 140 or later. To
+try it, open `about:debugging#/runtime/this-firefox`, choose **Load Temporary
+Add-on** and pick `dist/extension-firefox/manifest.json`. A temporary add-on
+is gone when Firefox closes.
+
+Three things work differently there:
+
+- **Enabling a site happens in the toolbar popup.** Firefox doesn't let
+  DevTools ask for site access, so the Lit tab points to the extension's
+  toolbar button (in the Extensions menu until you pin it), whose popup has
+  **Enable on this site**. The Lit tab opens the panel by itself once the
+  site is enabled.
+- **A site is a host, on every port.** Firefox match patterns can't name a
+  port, so enabling `http://localhost:5173` enables `http://localhost`.
+- **Performance tracks are User Timing marks.** Firefox has no custom tracks;
+  the entries show in the Firefox Profiler's Marker Chart.
+
+`extension:smoke:firefox` drives Firefox over WebDriver BiDi, since
+Playwright can't load extensions there: it installs the build, enables the
+playground's production build and checks that the Lit tab lists its
+components. The popup's click and the DevTools APIs still need checking by
+hand. It looks for Firefox Developer Edition or Firefox in `/Applications`;
+set `FIREFOX` to use another binary.
+
+To publish, upload the zip on addons.mozilla.org. AMO asks for the source
+code of bundled extensions, with build instructions: the repository at the
+release tag and `pnpm install && pnpm run package:extension --firefox`.
+`pnpm dlx web-ext lint --source-dir dist/extension-firefox` runs the same
+checks AMO does; the `innerHTML` warnings come from lit-html and Web
+Awesome.
+
 ## Icons
 
 The mark is `public/icon.svg`: a component tree with its selected node, on a
@@ -131,4 +172,4 @@ https://oddcelot.github.io/vite-plugin-lit/reference/devtools-hosts/
   layers once other events have arrived and none came from Lit.
 - Top frames only: components inside iframes aren't seen.
 - Only `http:` and `https:` pages.
-- Chrome 114 or later.
+- Chrome 114 or later, Firefox 140 or later.

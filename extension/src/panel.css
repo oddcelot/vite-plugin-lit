@@ -42,6 +42,10 @@ body {
   padding: 2px 8px;
 }
 
+#setup p {
+  max-width: 40em;
+}
+
 /* The element sizes itself to the viewport; leave room for the bar. */
 lit-devtools-panel {
   flex: 1;

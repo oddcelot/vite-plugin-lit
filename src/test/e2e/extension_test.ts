@@ -475,3 +475,40 @@ test('disabling stops the injection', async () => {
   expect(await probe(page)).toEqual({defineWrapped: false, channel: false});
   await page.close();
 });
+
+test('the Lit tab follows a site enabled elsewhere, and enables a permitted one without asking', async () => {
+  const page = await context.newPage();
+  await page.goto(appOrigin);
+  const tabId = await extensionPage.evaluate(
+    async (origin) => (await chrome.tabs.query({url: `${origin}/*`}))[0]?.id,
+    appOrigin
+  );
+  const panel = await context.newPage();
+  await panel.goto(
+    `chrome-extension://${extensionId}/panel.html?tabId=${tabId}`
+  );
+  await expect
+    .poll(() => panel.locator('#status').textContent())
+    .toBe('disabled');
+
+  // Enabled from another DevTools window: this tab opens the panel itself.
+  await registry('lit:enable');
+  await panel.locator('lit-devtools-panel').waitFor({timeout: 15_000});
+
+  // Disabled there too: the tab falls back to the setup screen.
+  await registry('lit:disable');
+  await panel.locator('#setup').waitFor({timeout: 15_000});
+
+  // The extension already holds the site's permission, so Enable goes
+  // straight to the background. A permission request outside a real user
+  // gesture would reject here.
+  await panel.evaluate(() =>
+    document.querySelector<HTMLButtonElement>('#enable')!.click()
+  );
+  await panel.locator('lit-devtools-panel').waitFor({timeout: 15_000});
+  expect(await registry('lit:status')).toMatchObject({enabled: true});
+
+  await registry('lit:disable');
+  await panel.close();
+  await page.close();
+}, 60_000);

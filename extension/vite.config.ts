@@ -4,9 +4,11 @@ import {defineConfig} from 'vite-plus';
 import type {Plugin, UserConfig} from 'vite-plus';
 
 /**
- * Build config for the Chrome extension, written to `dist/extension/` to be
- * loaded unpacked. Three passes, picked by `--mode` (see `build:extension` in
- * the package's scripts):
+ * Build config for the extension, written to `dist/extension/` to be loaded
+ * unpacked in Chrome, or with `LIT_EXTENSION_BROWSER=firefox` to
+ * `dist/extension-firefox/` for Firefox (`build:extension:firefox`, see
+ * {@link firefoxManifest} for what differs). Three passes, picked by `--mode`
+ * (see `build:extension` in the package's scripts):
  *
  * - the default one builds the extension pages (`devtools.html`,
  *   `panel.html`) and the service worker, an ES module (`"type": "module"` in
@@ -23,7 +25,11 @@ import type {Plugin, UserConfig} from 'vite-plus';
 
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
-const outDir = here('../dist/extension');
+const firefox = process.env['LIT_EXTENSION_BROWSER'] === 'firefox';
+
+const outDir = here(
+  firefox ? '../dist/extension-firefox' : '../dist/extension'
+);
 
 const readJson = (path: string): Record<string, unknown> =>
   JSON.parse(readFileSync(here(path), 'utf8')) as Record<string, unknown>;
@@ -36,6 +42,53 @@ const readJson = (path: string): Record<string, unknown> =>
  * prerelease suffix (`1.0.0-beta.1`) fails the build here rather than at the
  * store.
  */
+/**
+ * The Firefox flavour of the manifest:
+ *
+ * - no service worker: Firefox runs the background as an event page, from
+ *   `background.scripts`, still as a module;
+ * - a toolbar popup (`popup.html`), the one place Firefox lets the extension
+ *   ask for a site's host permission, with `activeTab` so it can read the
+ *   current tab's URL;
+ * - `browser_specific_settings.gecko`: the add-on id AMO signs it under, the
+ *   data-collection declaration AMO requires (none), and Firefox 140, the
+ *   first that reads that declaration (and an ESR); MAIN-world
+ *   `registerContentScripts` needs 128;
+ * - no `minimum_chrome_version`, which Firefox would warn about.
+ */
+const firefoxManifest = (
+  source: Record<string, unknown>
+): Record<string, unknown> => {
+  const {
+    minimum_chrome_version: _chrome,
+    background,
+    permissions,
+    ...rest
+  } = source as {
+    minimum_chrome_version?: string;
+    background: {service_worker: string; type: string};
+    permissions: string[];
+    icons: Record<string, string>;
+  };
+  return {
+    ...rest,
+    background: {scripts: [background.service_worker], type: background.type},
+    permissions: [...permissions, 'activeTab'],
+    action: {
+      default_title: 'Lit Inspector',
+      default_popup: 'popup.html',
+      default_icon: rest.icons,
+    },
+    browser_specific_settings: {
+      gecko: {
+        id: 'lit-inspector@oddcelot.github.io',
+        strict_min_version: '140.0',
+        data_collection_permissions: {required: ['none']},
+      },
+    },
+  };
+};
+
 const manifest = (): Plugin => ({
   name: 'lit-extension-manifest',
   generateBundle() {
@@ -51,7 +104,16 @@ const manifest = (): Plugin => ({
     this.emitFile({
       type: 'asset',
       fileName: 'manifest.json',
-      source: `${JSON.stringify({...readJson('manifest.json'), version}, null, 2)}\n`,
+      source: `${JSON.stringify(
+        {
+          ...(firefox
+            ? firefoxManifest(readJson('manifest.json'))
+            : readJson('manifest.json')),
+          version,
+        },
+        null,
+        2
+      )}\n`,
     });
   },
 });
@@ -114,6 +176,7 @@ export default defineConfig(({mode}) =>
             input: {
               devtools: here('devtools.html'),
               panel: here('panel.html'),
+              ...(firefox ? {popup: here('popup.html')} : {}),
               background: here('src/background.ts'),
             },
             output: {

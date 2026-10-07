@@ -1,6 +1,6 @@
 ---
 title: DevTools features by host
-description: 'Which Lit DevTools features work under the Vite plugin, in the Chrome extension and in the planned Firefox extension.'
+description: 'Which Lit DevTools features work under the Vite plugin, in the Chrome extension and in the Firefox extension.'
 sidebar:
   order: 8
   label: Features by host
@@ -17,8 +17,8 @@ panel is the same everywhere; what changes is what its host can reach.
   `/__lit/`, on a page your Vite dev server serves.
 - **Chrome extension**: Lit Inspector, a **Lit** tab in Chrome DevTools, on
   any http(s) page. It has no server behind it.
-- **Firefox extension**: the same extension for Firefox. It is planned and not
-  released; its column describes what it will do.
+- **Firefox extension**: the same extension for Firefox. It builds from the
+  repository and is not on addons.mozilla.org yet.
 
 `lit-devtools dev` behaves like the extensions, plus **Export snapshot** and
 the MCP tools, because it runs a Node server. See [the CLI
@@ -29,18 +29,18 @@ named in brackets.
 
 ## Where it runs
 
-|                     | Vite plugin                            | Chrome extension                             | Firefox extension (planned)                   |
-| ------------------- | -------------------------------------- | -------------------------------------------- | --------------------------------------------- |
-| Browsers            | Any (Chrome-only features marked)      | Chrome 114+                                  | Firefox 128+                                  |
-| Pages               | Your dev server                        | Any http(s) page, production builds included | Any http(s) page, production builds included  |
-| Page CSP            | Same-origin scripts from Vite          | Not affected                                 | Not affected                                  |
-| Turning it on       | `timeline: true` in the plugin options | Per site, from the **Lit** tab               | Per site, from the extension's toolbar button |
-| Frames              | Top page                               | Top frame only                               | Top frame only                                |
-| Needs a Node server | Yes                                    | No                                           | No                                            |
+|                     | Vite plugin                            | Chrome extension                             | Firefox extension                               |
+| ------------------- | -------------------------------------- | -------------------------------------------- | ----------------------------------------------- |
+| Browsers            | Any (Chrome-only features marked)      | Chrome 114+                                  | Firefox 140+                                    |
+| Pages               | Your dev server                        | Any http(s) page, production builds included | Any http(s) page, production builds included    |
+| Page CSP            | Same-origin scripts from Vite          | Not affected                                 | Not affected                                    |
+| Turning it on       | `timeline: true` in the plugin options | Per site, from the **Lit** tab               | Per host, on every port, from the toolbar popup |
+| Frames              | Top page                               | Top frame only                               | Top frame only                                  |
+| Needs a Node server | Yes                                    | No                                           | No                                              |
 
 ## Components tab
 
-| Feature                                                  | Vite plugin          | Chrome extension                                      | Firefox extension (planned)                           |
+| Feature                                                  | Vite plugin          | Chrome extension                                      | Firefox extension                                     |
 | -------------------------------------------------------- | -------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
 | Live component tree                                      | Yes                  | Yes                                                   | Yes                                                   |
 | Hover highlight and **Reveal**                           | Yes                  | Yes                                                   | Yes                                                   |
@@ -56,16 +56,16 @@ named in brackets.
 
 ## Updates tab
 
-| Feature                                    | Vite plugin          | Chrome extension | Firefox extension (planned) |
-| ------------------------------------------ | -------------------- | ---------------- | --------------------------- |
-| Per-component counts, update time, reasons | Yes                  | Yes              | Yes                         |
-| Error attribution                          | Yes                  | Yes              | Yes                         |
-| Old and new values                         | Yes                  | Yes              | Yes                         |
-| Source and **Rendered at** links           | With `sourceOverlay` | No               | No                          |
+| Feature                                    | Vite plugin          | Chrome extension | Firefox extension |
+| ------------------------------------------ | -------------------- | ---------------- | ----------------- |
+| Per-component counts, update time, reasons | Yes                  | Yes              | Yes               |
+| Error attribution                          | Yes                  | Yes              | Yes               |
+| Old and new values                         | Yes                  | Yes              | Yes               |
+| Source and **Rendered at** links           | With `sourceOverlay` | No               | No                |
 
 ## Timeline tab
 
-| Feature                                           | Vite plugin                                                             | Chrome extension                                                        | Firefox extension (planned)                               |
+| Feature                                           | Vite plugin                                                             | Chrome extension                                                        | Firefox extension                                         |
 | ------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------- |
 | Record, stop, clear                               | Yes                                                                     | Yes                                                                     | Yes                                                       |
 | Lifecycle, changed values, mouse, keyboard layers | Yes                                                                     | Yes                                                                     | Yes                                                       |
@@ -77,7 +77,7 @@ named in brackets.
 
 ## Settings, HMR and agents
 
-| Feature                                      | Vite plugin                | Chrome extension                      | Firefox extension (planned)           |
+| Feature                                      | Vite plugin                | Chrome extension                      | Firefox extension                     |
 | -------------------------------------------- | -------------------------- | ------------------------------------- | ------------------------------------- |
 | Light and dark appearance                    | Yes                        | Yes                                   | Yes                                   |
 | Plugin settings and live overrides           | Yes                        | No                                    | No                                    |

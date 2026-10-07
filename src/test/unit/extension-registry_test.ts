@@ -4,6 +4,7 @@ import {
   createRegistry,
   handleRegistryRequest,
   normalizeOrigin,
+  patternsKeepPort,
 } from '../../../extension/src/registry.js';
 import type {ContentScript} from '../../../extension/src/registry.js';
 
@@ -76,6 +77,54 @@ describe('normalizeOrigin', () => {
     expect(normalizeOrigin('chrome://extensions')).toBeUndefined();
     expect(normalizeOrigin('file:///tmp/a.html')).toBeUndefined();
     expect(normalizeOrigin('not a url')).toBeUndefined();
+  });
+
+  test('drops the port for Firefox, whose match patterns cannot name one', () => {
+    expect(normalizeOrigin('http://127.0.0.1:8080/a', false)).toBe(
+      'http://127.0.0.1'
+    );
+    expect(normalizeOrigin('https://example.com/a', false)).toBe(
+      'https://example.com'
+    );
+    expect(normalizeOrigin('about:blank', false)).toBeUndefined();
+  });
+});
+
+describe('patternsKeepPort', () => {
+  test('is false only for Firefox', () => {
+    expect(patternsKeepPort('chrome-extension://abc/')).toBe(true);
+    expect(patternsKeepPort('moz-extension://abc/')).toBe(false);
+  });
+});
+
+describe('extension registry without ports', () => {
+  test('enables a host on every port, under one pattern', async () => {
+    const {scripting, storage, permissions} = fakeChrome([
+      'http://localhost/*',
+    ]);
+    const registry = createRegistry({
+      scripting,
+      storage,
+      permissions,
+      keepPort: false,
+    });
+    expect(await registry.enable('http://localhost:5173/')).toEqual({
+      origin: 'http://localhost',
+      enabled: true,
+      permitted: true,
+    });
+    expect(
+      [...scripting.scripts.values()].map((s) => [s.id, s.matches])
+    ).toEqual([
+      ['lit-page@http://localhost', ['http://localhost/*']],
+      ['lit-content@http://localhost', ['http://localhost/*']],
+    ]);
+    // Another port is the same site: already enabled, not a second runtime.
+    expect(await registry.status('http://localhost:4000/')).toMatchObject({
+      origin: 'http://localhost',
+      enabled: true,
+    });
+    expect(storage.store[ENABLED_ORIGINS_KEY]).toEqual(['http://localhost']);
   });
 });
 
