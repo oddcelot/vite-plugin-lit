@@ -121,9 +121,10 @@ Awesome.
 
 ## Icons
 
-The mark is `public/icon.svg`: a component tree with its selected node, on a
-flame-blue tile so it reads on light and dark toolbars. It is original
-artwork, not the Lit logo, which the extension may not use as its own. The
+The mark is `public/icon.svg`: a magnifying glass with a faceted lens in the
+flame blues, with no tile, so it reads on light and dark toolbars. It is
+original artwork, not the Lit logo, which the extension may not use as its
+own. The
 DevTools tab shows the SVG; the manifest lists PNGs in `public/icons/`,
 rendered from it by
 
@@ -131,10 +132,9 @@ rendered from it by
 pnpm run extension:assets icons
 ```
 
-At 16px the tree is redrawn on the pixel grid (`store/icon-16.svg`). The
-128px icon has 96px of artwork and 16px of transparent padding, which is what
-the Web Store asks of its icon. The PNGs are committed; rerun the script after
-changing either SVG.
+The same SVG draws every size, 16px included. The 128px icon has 96px of
+artwork and 16px of transparent padding, which is what the Web Store asks of
+its icon. The PNGs are committed; rerun the script after changing the SVG.
 
 ## Enable it on a site
 

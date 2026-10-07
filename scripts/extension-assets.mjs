@@ -7,9 +7,8 @@
  *     node scripts/extension-assets.mjs store      # extension/store/*.png
  *     node scripts/extension-assets.mjs store --build   # rebuild first
  *
- * `icons` renders the mark (`extension/public/icon.svg`, and its pixel-grid
- * redraw `extension/store/icon-16.svg` for 16px) to the PNGs the manifest
- * lists. The 128px icon is the store icon too: 96px of artwork with 16px of
+ * `icons` renders the mark (`extension/public/icon.svg`) to the PNGs the
+ * manifest lists. The 128px icon is the store icon too: 96px of artwork with 16px of
  * transparent padding on each side, as the store asks.
  *
  * `store` shoots the real extension: the unpacked build (`dist/extension`)
@@ -45,7 +44,7 @@ const FONTS = path.join(ROOT, 'assets', 'promo-video', 'assets');
 
 /** Manifest icons: size, and the SVG drawn for it. */
 const ICONS = [
-  {size: 16, svg: path.join(STORE, 'icon-16.svg')},
+  {size: 16, svg: path.join(EXTENSION, 'public', 'icon.svg')},
   {size: 32, svg: path.join(EXTENSION, 'public', 'icon.svg')},
   {size: 48, svg: path.join(EXTENSION, 'public', 'icon.svg')},
   // The store icon: artwork inset by `padding` on every side.
