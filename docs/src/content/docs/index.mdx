@@ -22,6 +22,7 @@ import {CardGrid} from '@astrojs/starlight/components';
 import {PackageManagers} from 'starlight-package-managers';
 import DemoVideo from '../../components/DemoVideo.astro';
 import IconLinkCard from '../../components/IconLinkCard.astro';
+import StoreButtons from '../../components/StoreButtons.astro';
 
 <DemoVideo
   name="promo"
@@ -63,3 +64,11 @@ import IconLinkCard from '../../components/IconLinkCard.astro';
   dev
   pkgManagers={['npm', 'pnpm', 'yarn', 'bun']}
 />
+
+## Inspect Lit on any site
+
+Lit Inspector puts the same panel in Chrome and Firefox DevTools, for
+production builds and sites you don't serve. No Vite needed. [Install Lit
+Inspector](/vite-plugin-lit/guides/devtools/browser-extension/).
+
+<StoreButtons />

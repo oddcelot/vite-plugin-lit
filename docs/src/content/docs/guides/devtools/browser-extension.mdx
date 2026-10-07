@@ -1,0 +1,117 @@
+---
+title: Inspect any site with Lit Inspector
+description: 'Install the Lit Inspector extension for Chrome or Firefox and inspect the Lit components on any page, production builds included.'
+sidebar:
+  order: 7
+  label: Browser extension
+---
+
+import {Aside, CardGrid, LinkCard, Steps} from '@astrojs/starlight/components';
+import {Image} from 'astro:assets';
+import StoreButtons from '../../../../components/StoreButtons.astro';
+import screenshot from '../../../../../../extension/store/screenshot-1-components.png';
+
+Inspect the Lit components on any page, including production builds and sites
+you don't serve, from a **Lit** tab in your browser's DevTools. Skip this page
+if you only debug your own Vite app: the panel in Vite DevTools does more
+there.
+
+<StoreButtons />
+
+<Image
+  src={screenshot}
+  alt="The Lit tab in Chrome DevTools, listing a page's Lit components in a tree with the selected element's properties beside it."
+  width={640}
+/>
+
+Lit Inspector is the same panel the Vite plugin serves, running inside a
+browser extension with no server behind it. The browser injects the runtime
+itself, so a page's Content Security Policy can't block it.
+
+## Install from a release
+
+The extension is not in the stores yet. Every [GitHub
+release](https://github.com/oddcelot/vite-plugin-lit/releases) carries a zip
+for each browser, which you load by hand.
+
+### Chrome
+
+<Steps>
+
+1. Download `lit-inspector-<version>.zip` and unzip it into a folder you keep.
+   Chrome loads the extension from that folder every time it starts.
+
+2. Open `chrome://extensions` and turn on **Developer mode**, top right.
+
+3. Click **Load unpacked** and pick the folder with `manifest.json` in it.
+   **Lit Inspector** appears in the list of extensions.
+
+</Steps>
+
+An unpacked extension doesn't update itself. For a new release, replace the
+folder's contents and press the extension's reload button.
+
+### Firefox
+
+<Steps>
+
+1. Download `lit-inspector-<version>-firefox.zip`. You need Firefox 140 or
+   later.
+
+2. Open `about:debugging#/runtime/this-firefox`.
+
+3. Click **Load Temporary Add-on** and pick the zip. **Lit Inspector**
+   appears under Temporary Extensions.
+
+</Steps>
+
+<Aside>
+  A temporary add-on is gone when Firefox closes. Load it again after a restart,
+  until the extension is on addons.mozilla.org.
+</Aside>
+
+## Enable it on a site
+
+The extension asks for no site access at install and does nothing until you
+turn it on for a site.
+
+<Steps>
+
+1. Open DevTools on the page and go to the **Lit** tab.
+
+2. In Chrome, click **Enable on this site** and allow access when Chrome
+   asks. In Firefox, open the extension's toolbar button (in the Extensions
+   menu until you pin it) and click **Enable on this site**.
+
+3. The page reloads. The **Lit** tab lists the page's components.
+
+</Steps>
+
+Firefox enables a whole host on every port, so `http://localhost:5173` turns
+on `http://localhost`. To turn a site off, click **Disable on this site** at
+the bottom right of the **Lit** tab.
+
+## What the extension can't do
+
+The extension has no dev server behind it. Source links, open in editor, hot
+patching, snapshot export and the MCP tools need the Vite plugin. Render
+events on the timeline need Lit's development build. It sees the top frame of
+`http:` and `https:` pages only.
+
+The extension collects no data and makes no network requests. It stores the
+sites you enabled and your panel settings in your browser.
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="DevTools features by host"
+    description="Every panel feature, compared across the Vite plugin and both extensions."
+    href="/vite-plugin-lit/reference/devtools-hosts/"
+  />
+  <LinkCard
+    title="Lit Inspector privacy policy"
+    description="What the extension stores, the permissions it asks for, and how to remove its data."
+    href="/vite-plugin-lit/reference/extension-privacy/"
+  />
+</CardGrid>
