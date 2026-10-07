@@ -7,10 +7,13 @@
  *
  * Until the inspected site is enabled the tab shows only that: the site, its
  * status, and the button that enables it. Enabling asks for the site's host
- * permission first. Only an extension page can, inside the user's click, so it
- * happens here and not in the background, which is then asked to register the
- * scripts. The page is reloaded so they run at `document_start` of a fresh
- * document.
+ * permission first, unless the extension already holds it. Only an extension
+ * page can, inside the user's click, so it happens here and not in the
+ * background, which is then asked to register the scripts. The page is
+ * reloaded so they run at `document_start` of a fresh document.
+ *
+ * The tab follows the enabled origins in `storage.local`, so a site enabled
+ * or disabled elsewhere updates it.
  *
  * Once enabled, the order matters:
  *
@@ -48,7 +51,7 @@ import type {
   PanelHello,
   RegistryRequest,
 } from './protocol.js';
-import {normalizeOrigin} from './registry.js';
+import {ENABLED_ORIGINS_KEY, normalizeOrigin} from './registry.js';
 import {createChromeStorage} from './storage.js';
 
 const $ = <T extends HTMLElement>(id: string) =>
@@ -70,6 +73,7 @@ const tabId =
   Number(new URLSearchParams(location.search).get('tabId'));
 
 let origin: string | undefined;
+let current: OriginStatus | undefined;
 let booted: Promise<void> | undefined;
 
 const request = (message: RegistryRequest): Promise<OriginStatus> =>
@@ -188,18 +192,22 @@ const render = (status: OriginStatus | undefined): void => {
 
 const refresh = async (): Promise<void> => {
   origin = await inspectedOrigin();
-  render(
+  current =
     origin === undefined
       ? undefined
-      : await request({type: 'lit:status', origin})
-  );
+      : await request({type: 'lit:status', origin});
+  render(current);
 };
 
 enableButton.addEventListener('click', async () => {
   if (origin === undefined) return;
   // First thing in the handler: the request must run inside the click.
-  const granted = await chrome.permissions.request({origins: [`${origin}/*`]});
-  if (!granted) return;
+  if (current?.permitted !== true) {
+    const granted = await chrome.permissions.request({
+      origins: [`${origin}/*`],
+    });
+    if (!granted) return;
+  }
   const status = await request({type: 'lit:enable', origin});
   render(status);
   if (status.enabled) reloadPage();
@@ -213,6 +221,11 @@ disableButton.addEventListener('click', async () => {
 });
 
 reloadButton.addEventListener('click', reloadPage);
+
+// The site may be enabled or disabled from another DevTools window.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && ENABLED_ORIGINS_KEY in changes) void refresh();
+});
 
 // A navigation to another site may land somewhere not enabled, or enabled
 // where this one was not; a reload of the same site changes nothing here.
