@@ -14,8 +14,9 @@
  * asks for when an add-on is bundled: the committed tree at HEAD, from
  * `git archive`, which leaves out the `lit` submodule the extension doesn't
  * build from. It refuses a working tree with uncommitted changes, which the
- * reviewers' build could not reproduce. The build steps to paste next to it
- * are in `extension/store/listing-firefox.md`.
+ * reviewers' build could not reproduce. Outside a git checkout, which is
+ * how the reviewers get that source, it only builds the zip. The build steps
+ * to paste next to it are in `extension/store/listing-firefox.md`.
  *
  * Uses the `zip` command (preinstalled on macOS and on GitHub's Ubuntu
  * runners); Node has no zip writer of its own.
@@ -29,7 +30,18 @@ import {fileURLToPath} from 'node:url';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const firefox = process.argv.includes('--firefox');
 
-if (firefox) {
+let inGit = true;
+try {
+  execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
+    cwd: ROOT,
+    stdio: 'ignore',
+  });
+} catch {
+  inGit = false;
+}
+const withSource = firefox && inGit;
+
+if (withSource) {
   const dirty = execFileSync('git', ['status', '--porcelain'], {
     cwd: ROOT,
     encoding: 'utf8',
@@ -72,7 +84,7 @@ execFileSync('zip', ['-r', '-X', '-q', zip, '.', '-x', '*.map'], {
 execFileSync('unzip', ['-l', zip], {stdio: 'inherit'});
 console.log(`\n${path.relative(ROOT, zip)}`);
 
-if (firefox) {
+if (withSource) {
   const source = path.join(ROOT, 'dist', `amo-source-${version}.zip`);
   await rm(source, {force: true});
   execFileSync(
