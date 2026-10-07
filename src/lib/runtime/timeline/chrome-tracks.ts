@@ -1,6 +1,8 @@
 /**
  * Mirrors timeline events into Chrome DevTools' Performance panel as custom
  * tracks, via `console.timeStamp(label, start, end, track, group, color)`.
+ * Browsers that ignore those arguments get the same entries as User Timing
+ * marks and measures instead (see {@link userTimingStamp}).
  *
  * Start/end are `performance.now()` values. Paired `:start`/`:end` events
  * become a range; everything else becomes a zero-length marker.
@@ -78,6 +80,33 @@ const consoleStamp: TimeStamp = (...args) => {
   const c = console as unknown as {timeStamp?: TimeStamp};
   if (typeof c.timeStamp === 'function') c.timeStamp(...args);
 };
+
+/**
+ * The same entries as User Timing: a range becomes a measure, a marker a
+ * mark, named `lit:<track> <label>` so a profiler's filter finds them. The
+ * Firefox Profiler shows them in its Marker Chart. Each entry is cleared
+ * right after it's made: profilers record it when it's made, and the page's
+ * own performance timeline, which nothing trims, shouldn't fill up with a
+ * page's worth of updates.
+ */
+export const userTimingStamp: TimeStamp = (label, start, end, track) => {
+  const name = `lit:${track} ${label}`;
+  try {
+    if (start === end) {
+      performance.mark(name, {startTime: start});
+      performance.clearMarks(name);
+    } else {
+      performance.measure(name, {start, end});
+      performance.clearMeasures(name);
+    }
+  } catch {
+    // A time before the page's time origin throws; drop the entry.
+  }
+};
+
+/** The stamp for this browser: Chrome's tracks where it draws them. */
+export const profilerStamp = (tracks: boolean): TimeStamp =>
+  tracks ? consoleStamp : userTimingStamp;
 
 export const createChromeTracksSink = (
   stamp: TimeStamp = consoleStamp,

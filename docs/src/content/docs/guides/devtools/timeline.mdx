@@ -145,8 +145,8 @@ so a search you typed in one view still applies when you switch to the other.
 
 The panel's tracks share a time axis with each other, not with the browser.
 To see Lit updates next to layout, paint, network and long tasks, mirror the
-timeline into Chrome DevTools' **Performance** panel. Turn on **chrome
-performance tracks** in the **Settings** tab, under **Timeline**, then record
+timeline into Chrome DevTools' **Performance** panel. Turn on **performance
+tracks** in the **Settings** tab, under **Timeline**, then record
 in Chrome as usual.
 
 The recording gets a **Lit** track group with a **Lifecycle** and a
@@ -183,11 +183,19 @@ sees Lit's work too.
 - Updates that ran before the runtime installed, such as the first render on
   page load, are not in the trace.
 
-<Aside>
-  The entries use `console.timeStamp` with its track arguments, which needs
-  Chrome 134 or newer. Older Chrome versions and other browsers ignore them, so
-  there the switch is locked and reads **needs Chrome 134+**.
-</Aside>
+### In Firefox and older Chrome
+
+The tracks use `console.timeStamp` with its track arguments, which needs
+Chrome 134 or newer. Older Chrome versions, Firefox and Safari ignore those
+arguments, so there the same setting writes the entries as User Timing
+instead: each update tick is a measure, each input event a mark, named
+`lit:<track> <label>`, such as `lit:Lifecycle <hmr-counter> performUpdate`.
+The Settings tab says so under the switch.
+
+In the Firefox Profiler they appear in the **Marker Chart** and **Marker
+Table**; type `lit:` in the search box to keep only Lit's. The entries are
+cleared from the page's own performance timeline as soon as they're made, so
+`performance.getEntriesByType('measure')` doesn't fill up with them.
 
 ## Export a session for a bug report
 

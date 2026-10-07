@@ -441,7 +441,7 @@ test("the Lit tab's switch puts Lit tracks in Chrome's Performance panel", async
   );
   const tracks = panel
     .locator('devtools-settings tr')
-    .filter({hasText: 'chrome performance tracks'})
+    .filter({hasText: 'performance tracks'})
     .locator('wa-switch');
   await tracks.waitFor({timeout: 15_000});
 
