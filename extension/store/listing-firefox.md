@@ -98,7 +98,7 @@ https://github.com/oddcelot/vite-plugin-lit/issues
 
 **License**
 
-MIT License
+BSD 3-Clause "New" or "Revised" License, the package's (`LICENSE`).
 
 **Does this add-on have a privacy policy?**
 
