@@ -3,6 +3,49 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.14.0 — 2026-10-07
+
+Lit Inspector now runs in Firefox. Every release carries a Firefox build next
+to the Chrome one, with the same Lit tab; sites are enabled from its toolbar
+popup, because Firefox doesn't let DevTools ask for access. Performance
+tracks reach browsers without Chrome's custom tracks as User Timing marks,
+the Timeline opens in Tracks, and the extension has a new icon. Nothing needs
+action to upgrade.
+
+### Added
+
+- **Lit Inspector for Firefox.** GitHub releases now include
+  `lit-inspector-<version>-firefox.zip`, a Firefox 140+ add-on with the same
+  Lit tab, loaded from `about:debugging` until it's on addons.mozilla.org.
+  Enable a site from the Lit Inspector toolbar popup; since Firefox can't
+  name a port in site access, enabling `localhost:5173` covers every port on
+  `localhost`.
+- **Performance tracks in Firefox, Safari and older Chrome.** Where the
+  browser has no custom tracks, the **performance tracks** setting (formerly
+  chrome performance tracks) writes Lit's updates and input as User Timing
+  marks named `lit:…`, which show in the Firefox Profiler's Marker Chart next
+  to the browser's own work. Its help and "Where to find them" link follow
+  the browser.
+
+### Changed
+
+- **The Timeline opens in Tracks.** A first visit shows the recording as
+  lanes on a shared time axis instead of the list; switch with **List |
+  Tracks**, and the panel remembers your choice.
+- **Lit Inspector has a new icon.** The extension's toolbar button, DevTools
+  tab and panel header show a magnifying glass in Lit's blues.
+- **The pick tooltip shows the component icon everywhere.** In the browser
+  extension and with `lit-devtools dev`, the tooltip over a picked component
+  has the same component icon as under the Vite plugin, not just the tag
+  name.
+
+### Fixed
+
+- **The Lit tab notices a site enabled from another window.** Enabling or
+  disabling Lit Inspector for a site in one DevTools window now updates the
+  Lit tab in every other window on that site, and **Enable on this site** no
+  longer asks for access the extension already has.
+
 ## 0.13.0 — 2026-10-06
 
 Every component instance now knows where it was written. On the dev server,
