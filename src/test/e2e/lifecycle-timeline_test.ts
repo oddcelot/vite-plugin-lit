@@ -238,3 +238,91 @@ test('async updated() rejections and failed tasks are attributed to their elemen
       }),
     ]);
 });
+
+// A vetoing shouldUpdate is an override on the component, so the base wrappers
+// never see it; only a real Lit element proves the runtime still catches it.
+test('a component whose shouldUpdate returns false records an update skipped event', async () => {
+  const {page} = fixture;
+
+  const source = new TimelineChannelCodec();
+  source.connect(fromViteHot(fixture.server.hot));
+  const events: TimelineEvent[] = [];
+  source.attach({
+    pushEvents: (batch) => events.push(...batch),
+    addLayer: () => {},
+    inspectorMessage: () => {},
+    hmrIncompatible: () => {},
+    hmrPatched: () => {},
+    runtimeReady: () => {},
+  });
+
+  await page.reload();
+  await page.waitForFunction(
+    () => (window as {__hmr?: unknown}).__hmr !== undefined
+  );
+  source.setRecording(true);
+  source.setLayers({
+    recordingState: true,
+    litLifecycleEnabled: true,
+    litRenderEnabled: false,
+    litRenderVerboseEnabled: false,
+    litChangedValuesEnabled: false,
+    mouseEventEnabled: false,
+    keyboardEventEnabled: false,
+  });
+  await expect
+    .poll(
+      async () => {
+        await page.evaluate(() =>
+          (
+            document.querySelector('hmr-task') as {requestUpdate?: () => void}
+          )?.requestUpdate?.()
+        );
+        return events.some((e) => e.title === 'performUpdate:start');
+      },
+      {timeout: 10_000}
+    )
+    .toBe(true);
+
+  await page.evaluate(() => {
+    const Base = Object.getPrototypeOf(customElements.get('hmr-task')!) as {
+      new (): HTMLElement;
+    };
+    class Vetoer extends Base {
+      static properties = {count: {type: Number}};
+      shouldUpdate() {
+        return false;
+      }
+    }
+    customElements.define('e2e-vetoer', Vetoer);
+    document.body.append(document.createElement('e2e-vetoer'));
+  });
+  await page.evaluate(
+    "(document.querySelector('e2e-vetoer').count = 5, undefined)"
+  );
+
+  await expect
+    .poll(
+      () =>
+        events.find(
+          (e) =>
+            e.title === 'update skipped' &&
+            (e.data as {changed?: string[]}).changed?.includes('count')
+        ),
+      {
+        timeout: 5_000,
+      }
+    )
+    .toMatchObject({
+      data: {phase: 'shouldUpdate', changed: ['count']},
+      meta: {tagName: 'e2e-vetoer'},
+    });
+  // The skip sits in the vetoed tick, and that tick rendered nothing.
+  const skip = events.find(
+    (e) =>
+      e.title === 'update skipped' &&
+      (e.data as {changed?: string[]}).changed?.includes('count')
+  )!;
+  const tick = events.filter((e) => e.groupId === skip.groupId);
+  expect(tick.map((e) => e.title)).not.toContain('update:start');
+});

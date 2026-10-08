@@ -416,6 +416,116 @@ describe('installLifecycleLayer', () => {
     expect(next[0].logType).toBeUndefined();
   });
 
+  describe('skipped updates', () => {
+    // Lit asks shouldUpdate inside performUpdate and skips the phases on false.
+    const vetoBase = () => {
+      const base = freshBase();
+      return class extends base {
+        override performUpdate() {
+          const changed = new Map([['count', 1]]);
+          if (this.shouldUpdate(changed)) super.performUpdate();
+        }
+        shouldUpdate(_changed: Map<string, unknown>) {
+          return true;
+        }
+      };
+    };
+
+    test('a veto emits one point event with the changed keys inside the tick', async () => {
+      const base = vetoBase();
+      const {tag: plainTag} = define(base);
+      document.body.append(document.createElement(plainTag));
+      install(await load());
+      let veto = true;
+      class Vetoer extends base {
+        shouldUpdate(_changed: Map<string, unknown>) {
+          return !veto;
+        }
+      }
+      const tag = `x-life-${counter++}`;
+      customElements.define(tag, Vetoer);
+      const el = document.createElement(tag) as FakeReactiveElement;
+      document.body.append(el);
+      events.length = 0;
+
+      el.performUpdate();
+
+      const titles = events.map((e) => e.title);
+      expect(titles).toEqual([
+        'performUpdate:start',
+        'update skipped',
+        'performUpdate:end',
+      ]);
+      const start = events[0]!;
+      expect(events[1]).toMatchObject({
+        groupId: start.groupId,
+        subtitle: tag,
+        data: {phase: 'shouldUpdate', changed: ['count']},
+        meta: {tagName: tag},
+      });
+
+      // Allowing the update emits no skip, and the phases run.
+      veto = false;
+      events.length = 0;
+      el.performUpdate();
+      const allowed = events.map((e) => e.title);
+      expect(allowed).not.toContain('update skipped');
+      expect(allowed).toContain('update:start');
+    });
+
+    test('an override that calls super and vetoes is reported once', async () => {
+      const base = vetoBase();
+      const {tag: plainTag} = define(base);
+      document.body.append(document.createElement(plainTag));
+      install(await load());
+      class Inner extends base {
+        shouldUpdate(_changed?: Map<string, unknown>) {
+          return false;
+        }
+      }
+      class Outer extends Inner {
+        override shouldUpdate(changed?: Map<string, unknown>) {
+          return super.shouldUpdate(changed);
+        }
+      }
+      const tag = `x-life-${counter++}`;
+      customElements.define(tag, Outer);
+      const el = document.createElement(tag) as FakeReactiveElement;
+      document.body.append(el);
+      events.length = 0;
+
+      el.performUpdate();
+
+      expect(events.filter((e) => e.title === 'update skipped')).toHaveLength(
+        1
+      );
+    });
+
+    test('a veto outside a recording is not reported', async () => {
+      const base = vetoBase();
+      const {tag: plainTag} = define(base);
+      document.body.append(document.createElement(plainTag));
+      install(await load());
+      class Quiet extends base {
+        shouldUpdate(_changed: Map<string, unknown>) {
+          return false;
+        }
+      }
+      const tag = `x-life-${counter++}`;
+      customElements.define(tag, Quiet);
+      const el = document.createElement(tag) as FakeReactiveElement;
+      document.body.append(el);
+      // Wrapped on the first recorded tick, then recording stops.
+      el.performUpdate();
+      recording = false;
+      events.length = 0;
+
+      el.performUpdate();
+
+      expect(events).toEqual([]);
+    });
+  });
+
   describe('async failures', () => {
     // jsdom/happy-dom may not construct PromiseRejectionEvent; the layer only
     // reads `promise` and `reason`.

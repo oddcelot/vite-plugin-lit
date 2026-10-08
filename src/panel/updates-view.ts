@@ -158,6 +158,9 @@ export class UpdatesView extends LitElement {
       .change .badge {
         flex-shrink: 0;
       }
+      .skipped {
+        flex-shrink: 0;
+      }
       .redundant {
         flex-shrink: 0;
       }
@@ -353,6 +356,18 @@ export class UpdatesView extends LitElement {
               </wa-badge>`
             : nothing
         }
+        ${
+          entry.skipped
+            ? html`<wa-badge
+                class="skipped"
+                variant="warning"
+                appearance="outlined"
+                data-tip="Updates shouldUpdate vetoed; the component did not re-render"
+              >
+                ${entry.skipped} skipped
+              </wa-badge>`
+            : nothing
+        }
         <span class="num" data-tip="Updates recorded"
           ><wa-badge appearance="outlined" variant="neutral"
             >${entry.updates}×</wa-badge
@@ -466,6 +481,17 @@ export class UpdatesView extends LitElement {
                   }</span
                 >
                 <span class="cause">${renderCause(cycle)}</span>
+                ${
+                  cycle.skipped
+                    ? html`<wa-badge
+                        class="skipped"
+                        variant="warning"
+                        appearance="outlined"
+                        data-tip="shouldUpdate returned false, so nothing re-rendered"
+                        >skipped</wa-badge
+                      >`
+                    : nothing
+                }
                 ${
                   cycle.error
                     ? html`<wa-badge

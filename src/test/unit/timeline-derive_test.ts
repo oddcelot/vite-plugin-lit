@@ -479,3 +479,63 @@ describe('call sites', () => {
     expect(rollup(cycles)[0]!.callSite).toBeUndefined();
   });
 });
+
+describe('skipped updates', () => {
+  /** What `observeVetoes` emits, inside the vetoed tick's performUpdate. */
+  const veto = (
+    time: number,
+    options: {elementId?: number; tag?: string; changed?: string[]} = {}
+  ): TimelineEvent => ({
+    layerId: 'lit-lifecycle',
+    time,
+    groupId: `${options.elementId ?? 1}:1`,
+    title: 'update skipped',
+    subtitle: options.tag ?? 'hmr-counter',
+    data: {phase: 'shouldUpdate', changed: options.changed},
+    meta: {elementId: options.elementId ?? 1, tagName: 'hmr-counter'},
+  });
+  /** A vetoed tick: performUpdate brackets only the veto. */
+  const vetoed = (start: number, changed: string[]): TimelineEvent[] => [
+    phase('performUpdate', 'start', start),
+    veto(start + 0.5, {changed}),
+    phase('performUpdate', 'end', start + 1),
+  ];
+
+  test('marks the cycle and takes its changed keys from the veto', () => {
+    const [cycle] = toUpdateCycles(toSpans(vetoed(10, ['count'])));
+    expect(cycle).toMatchObject({skipped: true, changed: ['count']});
+    expect(cycle!.phases.map((p) => p.name)).toEqual(['performUpdate']);
+  });
+
+  test('rollup counts skips apart from updates and time', () => {
+    // Each tick of one element has its own number, as the runtime counts them.
+    const retick = (events: TimelineEvent[], n: number) =>
+      events.map((e) => ({...e, groupId: `1:${n}`}));
+    const [entry] = rollup(
+      toUpdateCycles(
+        toSpans([
+          ...tick(0, {changed: ['count'], duration: 4}),
+          ...retick(vetoed(20, ['count']), 2),
+          ...retick(vetoed(30, ['count']), 3),
+        ])
+      )
+    );
+    expect(entry).toMatchObject({
+      updates: 1,
+      skipped: 2,
+      totalMs: 4,
+      elementIds: [1],
+    });
+    expect(entry!.reasons).toEqual([{key: 'count', count: 1}]);
+  });
+
+  test('a component that only ever skips still gets a row', () => {
+    const [entry] = rollup(toUpdateCycles(toSpans(vetoed(0, ['count']))));
+    expect(entry).toMatchObject({updates: 0, skipped: 1});
+  });
+
+  test('omits skipped when nothing was vetoed', () => {
+    const [entry] = rollup(toUpdateCycles(toSpans(tick(0))));
+    expect(entry).not.toHaveProperty('skipped');
+  });
+});

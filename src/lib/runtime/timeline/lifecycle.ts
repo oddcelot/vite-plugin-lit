@@ -11,6 +11,10 @@
  * bumps a per-instance tick counter that becomes the groupId shared by all
  * phase events within that tick.
  *
+ * `shouldUpdate` is not bracketed: its return value is the news. A component's
+ * own override returning `false` emits one `update skipped` point event, inside
+ * the `performUpdate` bracket it vetoed.
+ *
  * Gated by the recording flag so overhead is near-zero when idle.
  */
 
@@ -209,6 +213,83 @@ const captureOwnPhases = (
   }
 };
 
+/** Last tick whose veto was reported, per element. */
+const vetoedTicks = new WeakMap<object, number>();
+
+const OBSERVE = Symbol.for('@oddsquad/vite-plugin-lit#timeline-veto-observer');
+
+/**
+ * Wrap a component's own `shouldUpdate` so a veto reaches the timeline. The
+ * base implementation always returns true, so only an override can say no, and
+ * it replaces the base method rather than calling through it, which puts it
+ * out of reach of the base wrappers. Lit still runs `performUpdate` around a
+ * vetoed update but skips `willUpdate`/`update`/`updated`, so this event is
+ * what marks that bracket as an update that did nothing. Like
+ * {@link captureOwnPhases}, checked on every recorded update because an HMR
+ * patch copies fresh, unwrapped methods onto the prototype.
+ */
+const observeVetoes = (
+  el: object,
+  base: object,
+  emit: EmitFn,
+  recording: RecordingFn,
+  enabled: LayerEnabledFn
+): void => {
+  let p = Object.getPrototypeOf(el) as Proto | null;
+  while (p !== null && p !== base) {
+    const orig = Object.prototype.hasOwnProperty.call(p, 'shouldUpdate')
+      ? p.shouldUpdate
+      : undefined;
+    if (
+      typeof orig === 'function' &&
+      (orig as AnyFn & {[OBSERVE]?: true})[OBSERVE] !== true
+    ) {
+      const observe: AnyFn & {[OBSERVE]?: true} = function (
+        this: object,
+        ...args: unknown[]
+      ) {
+        const result = orig.apply(this, args);
+        // One event per tick: an override calling `super` runs two wrappers,
+        // and both report the same `false`.
+        if (
+          result === false &&
+          recording() &&
+          enabled() &&
+          vetoedTicks.get(this) !== tickOf(this)
+        ) {
+          vetoedTicks.set(this, tickOf(this));
+          try {
+            const meta = metaOf(this);
+            emit({
+              layerId: 'lit-lifecycle',
+              time: now(),
+              groupId: `${meta.elementId as number}:${tickOf(this)}`,
+              title: 'update skipped',
+              subtitle: meta.tagName,
+              data: {phase: 'shouldUpdate', changed: changedKeys(args[0])},
+              meta,
+            });
+          } catch {
+            // dev tool — reporting must not change the app's decision
+          }
+        }
+        return result;
+      };
+      observe[OBSERVE] = true;
+      try {
+        Object.defineProperty(p, 'shouldUpdate', {
+          value: observe,
+          writable: true,
+          configurable: true,
+        });
+      } catch {
+        // Non-configurable slot; that component's vetoes go unreported.
+      }
+    }
+    p = Object.getPrototypeOf(p) as Proto | null;
+  }
+};
+
 /** Returns true if `proto[name]` is already our wrapper (idempotent install). */
 const isWrapped = (proto: Proto, name: string): boolean => {
   const fn = proto[name];
@@ -293,6 +374,7 @@ const wrap = (
     if (isUpdate) {
       try {
         captureOwnPhases(this, proto, recording);
+        observeVetoes(this, proto, emit, recording, enabled);
       } catch {
         // dev tool — attribution is best-effort
       }

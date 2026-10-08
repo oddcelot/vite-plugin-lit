@@ -35,6 +35,9 @@ const INPUT_LAYER_IDS: readonly string[] = ['mouse', 'keyboard'];
 /** The phase that brackets an entire update tick. */
 const ROOT_PHASE = 'performUpdate';
 
+/** Point event a component's `shouldUpdate` returning false produces. */
+const SKIP_EVENT = 'update skipped';
+
 const START_SUFFIX = ':start';
 const END_SUFFIX = ':end';
 
@@ -103,6 +106,11 @@ export interface UpdateCycle {
   cause?: {layerId: string; type: string; detail?: string; time: number};
   /** The first phase in this tick that threw, if any. */
   error?: {phase: string} & SpanError;
+  /**
+   * `shouldUpdate` returned false: `performUpdate` ran but `update` and the
+   * phases after it did not, so this tick rendered nothing.
+   */
+  skipped?: true;
 }
 
 /** Per-component totals over a set of update cycles. */
@@ -111,6 +119,11 @@ export interface ComponentRollup {
   /** Every instance of this component that updated, in first-seen order. */
   elementIds: number[];
   updates: number;
+  /**
+   * Ticks `shouldUpdate` vetoed. Counted apart from `updates`, which stays the
+   * number of renders; omitted when none were seen.
+   */
+  skipped?: number;
   /** Summed `performUpdate` durations; excludes cycles with no measured end. */
   totalMs: number;
   maxMs: number;
@@ -299,6 +312,7 @@ export const toUpdateCycles = (
 ): UpdateCycle[] => {
   const byGroup = new Map<string, UpdateCycle>();
   const lateErrors: TimelineSpan[] = [];
+  const skips: TimelineSpan[] = [];
 
   for (const span of spans) {
     // A rejection or failed task lands after its cycle closed. It is a point
@@ -309,6 +323,15 @@ export const toUpdateCycles = (
       span.events[0]?.groupId !== undefined
     ) {
       lateErrors.push(span);
+      continue;
+    }
+    // Like a late error, a veto is a point event tied to its tick by groupId.
+    if (
+      span.layerId === LIFECYCLE_LAYER_ID &&
+      span.name === SKIP_EVENT &&
+      span.events[0]?.groupId !== undefined
+    ) {
+      skips.push(span);
       continue;
     }
     const elementId = span.meta?.elementId;
@@ -355,6 +378,16 @@ export const toUpdateCycles = (
       if (cycle.error === undefined || span.name !== ROOT_PHASE) {
         cycle.error = {phase: span.name, ...span.error};
       }
+    }
+  }
+
+  for (const span of skips) {
+    const cycle = byGroup.get(String(span.events[0]!.groupId));
+    if (cycle === undefined) continue;
+    cycle.skipped = true;
+    // `performUpdate` never receives the properties; the veto event does.
+    for (const changedKey of span.changed ?? []) {
+      if (!cycle.changed.includes(changedKey)) cycle.changed.push(changedKey);
     }
   }
 
@@ -409,13 +442,19 @@ export const rollup = (cycles: readonly UpdateCycle[]): ComponentRollup[] => {
     }
 
     const {entry, reasons, redundant} = record;
-    entry.updates++;
-    if (cycle.error !== undefined) entry.errors++;
     if (!entry.elementIds.includes(cycle.elementId)) {
       entry.elementIds.push(cycle.elementId);
     }
     entry.source ??= cycle.source;
     entry.callSite ??= cycle.callSite;
+    // A vetoed tick is not a render: it adds to neither the count nor the
+    // time, which would blame the component for work it declined to do.
+    if (cycle.skipped) {
+      entry.skipped = (entry.skipped ?? 0) + 1;
+      continue;
+    }
+    entry.updates++;
+    if (cycle.error !== undefined) entry.errors++;
     // An open or clock-straddling cycle contributes a count but no time —
     // better than inventing one, and the count is what flags a hot component.
     if (cycle.duration !== undefined) {
