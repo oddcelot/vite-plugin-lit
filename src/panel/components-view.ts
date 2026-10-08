@@ -51,6 +51,19 @@ const readDetailsWidth = (): number => {
 };
 
 /**
+ * The render root in a few words: `shadow, open, delegatesFocus`, or
+ * `light DOM`. Undefined when the element has no render root yet.
+ */
+const describeRoot = (d: InspectorDetails): string | undefined => {
+  const a = d.anatomy;
+  if (a === undefined) return d.flags.hasShadowRoot ? 'shadow' : undefined;
+  if (a.renderRoot === 'light') return 'light DOM';
+  return ['shadow', a.mode, a.delegatesFocus === true ? 'delegatesFocus' : '']
+    .filter(Boolean)
+    .join(', ');
+};
+
+/**
  * The Components view: a hierarchical tree of the page's Lit elements (left)
  * and a details pane for the selected one (right). A tab of the DevTools panel
  * shell (\`lit-devtools-panel\`).
@@ -158,34 +171,77 @@ export class ComponentsView extends LitElement {
       .details .head {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: var(--lit-devtools-space-2);
-        margin: 0 0 var(--lit-devtools-space-1);
+        gap: var(--lit-devtools-space-3);
+        margin: 0 0 var(--lit-devtools-space-3);
       }
       .details h2 {
-        font-size: var(--lit-devtools-text-xs);
+        font-size: var(--lit-devtools-text-sm);
         font-family: var(--lit-devtools-font-mono);
         color: var(--lit-devtools-accent);
         margin: 0;
         min-width: 0;
         overflow-wrap: anywhere;
       }
-      .src {
-        max-width: 100%;
+      .details .head .reveal {
+        margin-left: auto;
       }
-      .src-text {
-        display: block;
-        font-family: var(--lit-devtools-font-mono);
-        font-size: var(--lit-devtools-text-xs);
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--lit-devtools-space-2);
+        flex-shrink: 0;
+        font-size: var(--lit-devtools-text-2xs);
         color: var(--lit-devtools-text-muted);
-        word-break: break-all;
+        white-space: nowrap;
       }
-      .src::part(base) {
-        padding-inline: 0;
+      .status::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .status.pending {
+        color: var(--lit-devtools-warning);
+      }
+      .meta {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        column-gap: var(--lit-devtools-space-4);
+        row-gap: var(--lit-devtools-space-1);
+        margin: 0;
         font-family: var(--lit-devtools-font-mono);
-        word-break: break-all;
-        white-space: normal;
+      }
+      .meta dt {
+        color: var(--lit-devtools-text-muted);
+      }
+      .meta dd {
+        margin: 0;
+        min-width: 0;
+        color: var(--lit-devtools-text-secondary);
+        overflow-wrap: anywhere;
+      }
+      .link {
+        font: inherit;
+        color: var(--lit-devtools-text-link);
+        background: none;
+        border: 0;
+        padding: 0;
+        cursor: pointer;
         text-align: left;
+        overflow-wrap: anywhere;
+      }
+      .link:hover {
+        text-decoration: underline;
+      }
+      .link:focus-visible {
+        outline: 2px solid var(--lit-devtools-accent-ring);
+        outline-offset: 1px;
+        border-radius: 2px;
+      }
+      .link wa-icon {
+        margin-left: var(--lit-devtools-space-1);
+        vertical-align: -0.125em;
       }
       section {
         margin-top: var(--lit-devtools-space-5);
@@ -218,11 +274,6 @@ export class ComponentsView extends LitElement {
       .badge {
         margin-left: var(--lit-devtools-space-2);
         vertical-align: middle;
-      }
-      .flags {
-        display: flex;
-        gap: var(--lit-devtools-space-4);
-        flex-wrap: wrap;
       }
       .swatch {
         display: inline-block;
@@ -860,13 +911,19 @@ export class ComponentsView extends LitElement {
     `;
   }
 
-  private _renderFlag(label: string, on: boolean): TemplateResult {
-    return html`<wa-badge
-      class="flag ${on ? 'on' : ''}"
-      variant=${on ? 'brand' : 'neutral'}
-      appearance=${on ? 'filled' : 'outlined'}
-      >${label}</wa-badge
-    >`;
+  /** A `file:line` that opens in the editor, or plain text without one. */
+  private _renderLocation(
+    loc: {file: string; line: number},
+    cls: string,
+    tip: string,
+    open: () => void
+  ): TemplateResult {
+    const text = `${loc.file}:${loc.line}`;
+    return this._canOpen
+      ? html`<button class="link ${cls}" data-tip=${tip} @click=${open}>
+          ${text}<wa-icon name="arrow-square-out"></wa-icon>
+        </button>`
+      : html`<span class="${cls} src-text">${text}</span>`;
   }
 
   private _renderDetails(): TemplateResult {
@@ -885,9 +942,28 @@ export class ComponentsView extends LitElement {
     const props = d.properties.filter((p) => !p.state);
     const stateProps = d.properties.filter((p) => p.state);
     const extras = d.extras ?? [];
+    const rootLabel = describeRoot(d);
     return html`
       <div class="head">
         <h2>&lt;${d.tagName}&gt;</h2>
+        ${
+          d.flags.isUpdatePending
+            ? html`<span
+                class="status pending"
+                data-tip="An update is queued and has not run yet"
+                >pending</span
+              >`
+            : nothing
+        }
+        ${
+          d.flags.hasUpdated
+            ? nothing
+            : html`<span
+                class="status"
+                data-tip="The element has not finished its first update"
+                >not rendered</span
+              >`
+        }
         ${
           this._snapshot
             ? nothing
@@ -903,65 +979,40 @@ export class ComponentsView extends LitElement {
               </wa-button>`
         }
       </div>
-      ${
-        d.source === undefined
-          ? nothing
-          : this._canOpen
-            ? html`<wa-button
-                class="src"
-                appearance="plain"
-                size="small"
-                data-tip="Open this file in your editor"
-                @click=${this._openSource}
-              >
-                ${d.source.file}:${d.source.line}
-                <wa-icon slot="end" name="arrow-square-out"></wa-icon>
-              </wa-button>`
-            : // No editor on this host: still worth knowing where it lives.
-              html`<span class="src src-text"
-                >${d.source.file}:${d.source.line}</span
-              >`
-      }
-      ${
-        d.callSite === undefined
-          ? nothing
-          : this._canOpen
-            ? html`<wa-button
-                class="src call-site"
-                appearance="plain"
-                size="small"
-                data-tip="Open the template that renders this element"
-                @click=${this._openCallSite}
-              >
-                Rendered at ${d.callSite.file}:${d.callSite.line}
-                <wa-icon slot="end" name="arrow-square-out"></wa-icon>
-              </wa-button>`
-            : html`<span class="src src-text call-site"
-                >Rendered at ${d.callSite.file}:${d.callSite.line}</span
-              >`
-      }
-      <section>
-        <div class="flags">
-          ${this._renderFlag('updated', d.flags.hasUpdated)}
-          ${this._renderFlag('update pending', d.flags.isUpdatePending)}
-          ${this._renderFlag('shadow root', d.flags.hasShadowRoot)}
-          ${
-            d.anatomy?.renderRoot === 'light'
-              ? this._renderFlag('light DOM', true)
-              : nothing
-          }
-          ${
-            d.anatomy?.mode === 'closed'
-              ? this._renderFlag('closed', true)
-              : nothing
-          }
-          ${
-            d.anatomy?.delegatesFocus === true
-              ? this._renderFlag('delegatesFocus', true)
-              : nothing
-          }
-        </div>
-      </section>
+      <dl class="meta">
+        ${
+          d.source === undefined
+            ? nothing
+            : html`<dt>defined</dt>
+                <dd>
+                  ${this._renderLocation(
+                    d.source,
+                    'src',
+                    'Open the class definition in your editor',
+                    this._openSource
+                  )}
+                </dd>`
+        }
+        ${
+          d.callSite === undefined
+            ? nothing
+            : html`<dt>rendered</dt>
+                <dd>
+                  ${this._renderLocation(
+                    d.callSite,
+                    'src call-site',
+                    'Open the template that renders this element',
+                    this._openCallSite
+                  )}
+                </dd>`
+        }
+        ${
+          rootLabel === undefined
+            ? nothing
+            : html`<dt>root</dt>
+                <dd class="root">${rootLabel}</dd>`
+        }
+      </dl>
       ${d.anatomy === undefined ? nothing : this._renderAnatomy(d.anatomy)}
       ${
         props.length > 0

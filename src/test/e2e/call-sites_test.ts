@@ -2,7 +2,7 @@
  * Call sites end to end, on a real dev server and a real browser: the dev
  * transform stamps `data-lit-source` (in an `html` template and in the HTML
  * entry file), the inspector reads it into `callSite`, the Components tab
- * shows a "Rendered at" link, and clicking it asks the editor to open the
+ * shows a "rendered" link under the tag, and clicking it asks the editor to open the
  * file at that line and column.
  *
  * The editor is a stub: `LAUNCH_EDITOR` points `launch-editor` (which both the
@@ -115,10 +115,10 @@ test('the Components tab links the call site and opens it at its column', async 
   );
   await selectInTree(['hmr-parent', 'hmr-child']);
 
-  const link = panel.page.locator('components-view wa-button.call-site');
+  const link = panel.page.locator('components-view button.call-site');
   await link.waitFor();
   expect((await link.textContent())?.replace(/\s+/g, ' ').trim()).toBe(
-    `Rendered at src/hmr-parent.ts:${line}`
+    `src/hmr-parent.ts:${line}`
   );
 
   await link.click();
@@ -140,10 +140,10 @@ test('an element written in index.html links to its place in the file', async ()
   await fsp.rm(argsFile, {force: true});
   await selectInTree(['hmr-parent']);
 
-  const link = panel.page.locator('components-view wa-button.call-site');
+  const link = panel.page.locator('components-view button.call-site');
   await link.waitFor();
   expect((await link.textContent())?.replace(/\s+/g, ' ').trim()).toBe(
-    `Rendered at index.html:${line}`
+    `index.html:${line}`
   );
 
   await link.click();

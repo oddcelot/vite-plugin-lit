@@ -205,6 +205,84 @@ test('shows no Instance section without extras', async () => {
   expect(root.querySelector('.details .label')).toBeNull();
 });
 
+const metaRows = (root: ShadowRoot) =>
+  [...root.querySelectorAll('.details .meta dt')].map(
+    (dt) => `${dt.textContent} ${dt.nextElementSibling!.textContent!.trim()}`
+  );
+
+const statuses = (root: ShadowRoot) =>
+  [...root.querySelectorAll('.details .head .status')].map(
+    (s) => s.textContent
+  );
+
+test('a settled element shows no status next to its tag', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: detailsFor()});
+  await flush(el);
+  expect(statuses(root)).toEqual([]);
+});
+
+test('a queued or first update shows as a status next to the tag', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      flags: {hasUpdated: false, isUpdatePending: true, hasShadowRoot: true},
+    },
+  });
+  await flush(el);
+  expect(statuses(root)).toEqual(['pending', 'not rendered']);
+});
+
+test('the render root reads as one line under the locations', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      source: {file: 'src/b.ts', line: 4},
+      anatomy: {
+        renderRoot: 'shadow',
+        mode: 'open',
+        delegatesFocus: true,
+        slots: [],
+        orphans: [],
+        orphanText: 0,
+        parts: [],
+      },
+    },
+  });
+  await flush(el);
+  expect(metaRows(root)).toEqual([
+    'defined src/b.ts:4',
+    'root shadow, open, delegatesFocus',
+  ]);
+});
+
+test('a light DOM element says so', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      anatomy: {
+        renderRoot: 'light',
+        slots: [],
+        orphans: [],
+        orphanText: 0,
+        parts: [],
+      },
+    },
+  });
+  await flush(el);
+  expect(metaRows(root)).toEqual(['root light DOM']);
+});
+
 const emptyText = async () => {
   const {el, root} = await mount(false, []);
   return {
@@ -387,9 +465,7 @@ test('a source location opens in the editor where the host has one', async () =>
     details: {...detailsFor(), source: {file: 'src/b.ts', line: 4}},
   });
   await flush(el);
-  expect(root.querySelector('wa-button.src')!.textContent).toContain(
-    'src/b.ts:4'
-  );
+  expect(root.querySelector('button.src')!.textContent).toContain('src/b.ts:4');
 });
 
 test('a source location is plain text where the host has no editor', async () => {
@@ -401,7 +477,7 @@ test('a source location is plain text where the host has no editor', async () =>
     details: {...detailsFor(), source: {file: 'src/b.ts', line: 4}},
   });
   await flush(el);
-  expect(root.querySelector('wa-button.src')).toBeNull();
+  expect(root.querySelector('button.src')).toBeNull();
   expect(root.querySelector('.src-text')!.textContent).toBe('src/b.ts:4');
 });
 
@@ -418,8 +494,8 @@ test('a call site renders a second link that opens at its column', async () => {
     },
   });
   await flush(el);
-  const link = root.querySelector<HTMLElement>('wa-button.call-site')!;
-  expect(link.textContent).toContain('Rendered at src/app.ts:12');
+  const link = root.querySelector<HTMLElement>('button.call-site')!;
+  expect(link.textContent).toContain('src/app.ts:12');
   link.click();
   await flush(el);
   expect(calls.find((c) => c.name === 'open-source')?.args).toEqual([
@@ -439,10 +515,8 @@ test('a call site is plain text where the host has no editor', async () => {
     },
   });
   await flush(el);
-  expect(root.querySelector('wa-button.call-site')).toBeNull();
-  expect(root.querySelector('.call-site')!.textContent).toBe(
-    'Rendered at src/app.ts:12'
-  );
+  expect(root.querySelector('button.call-site')).toBeNull();
+  expect(root.querySelector('.call-site')!.textContent).toBe('src/app.ts:12');
 });
 
 test('no call site, no row', async () => {
