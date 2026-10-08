@@ -170,11 +170,64 @@ test('lists instance state below the other tables', async () => {
     (l) => l.textContent
   );
   expect(labels).toEqual(['Instance']);
-  const rows = [...details.querySelectorAll('tr')].map((r) =>
-    r.textContent!.replace(/\s+/g, ' ').trim()
+  const rows = [...details.querySelectorAll('.entry')].map((r) =>
+    [...r.children].map((c) => c.textContent!.replace(/\s+/g, ' ').trim())
   );
-  // The badges sit flush against the name, so the cell text runs together.
-  expect(rows).toEqual(['userTasktaskcomplete [1, 2]', 'countsignal 7']);
+  // The kind and status trail the value; the type tag follows the name
+  // unless the kind already says it.
+  expect(rows).toEqual([
+    ['userTask', '[1, 2]taskcomplete'],
+    ['countSignal.State', '7signal'],
+  ]);
+});
+
+test('tags a value with its type only where the preview does not show it', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  const prop = (name: string, value: string, type: string) => ({
+    name,
+    value,
+    type,
+    attribute: name,
+    reflects: false,
+    state: false,
+  });
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      properties: [
+        prop('label', '"Save"', 'string'),
+        prop('items', '[1, 2, 3]', 'Array(3)'),
+        prop('lookup', 'Map(2)', 'Map(2)'),
+      ],
+    },
+  });
+  await flush(el);
+  const types = [...root.querySelectorAll('.details .entry')].map(
+    (r) => r.querySelector('.type')?.textContent ?? null
+  );
+  expect(types).toEqual([null, 'Array(3)', null]);
+});
+
+test('a long value takes its own line under the name', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      attributes: [
+        {name: 'short', value: 'a'},
+        {name: 'long', value: 'x'.repeat(60)},
+      ],
+    },
+  });
+  await flush(el);
+  const wide = [...root.querySelectorAll('.details .entry')].map((r) =>
+    r.classList.contains('wide')
+  );
+  expect(wide).toEqual([false, true]);
 });
 
 test('Scroll into view reveals the selected element in the page', async () => {

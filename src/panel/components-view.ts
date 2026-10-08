@@ -50,6 +50,35 @@ const readDetailsWidth = (): number => {
   }
 };
 
+/** Values longer than this take a full line under their name. */
+const WIDE_VALUE = 32;
+
+/** Types the value's own spelling already shows, so no tag is needed. */
+const SELF_EVIDENT_TYPES = new Set([
+  'string',
+  'number',
+  'boolean',
+  'bigint',
+  'symbol',
+  'undefined',
+  'null',
+  'function',
+  'object',
+]);
+
+/**
+ * A muted type tag after a name, for values whose preview does not already
+ * say what they are: `Array(3)` for `[1, 2, 3]`, but nothing for `"a"` or
+ * `MyClass {…}`.
+ */
+const typeLabel = (
+  type: string,
+  value: string
+): TemplateResult | typeof nothing =>
+  SELF_EVIDENT_TYPES.has(type) || value.startsWith(type)
+    ? nothing
+    : html`<span class="type">${type}</span>`;
+
 /**
  * The render root in a few words: `shadow, open, delegatesFocus`, or
  * `light DOM`. Undefined when the element has no render root yet.
@@ -253,23 +282,37 @@ export class ComponentsView extends LitElement {
         color: var(--lit-devtools-text-muted);
         margin-bottom: var(--lit-devtools-space-2);
       }
-      table {
-        width: 100%;
-        border-collapse: collapse;
+      .kv {
+        display: grid;
+        grid-template-columns: fit-content(45%) minmax(0, 1fr);
+        column-gap: var(--lit-devtools-space-4);
         font-family: var(--lit-devtools-font-mono);
       }
-      td {
-        padding: 2px var(--lit-devtools-space-4) 2px 0;
-        vertical-align: top;
-        word-break: break-word;
+      .entry {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: subgrid;
+        align-items: baseline;
+        padding: 2px 0;
       }
-      td.name {
+      .entry > .name {
         color: var(--lit-devtools-text);
-        white-space: nowrap;
+        min-width: 0;
+        overflow-wrap: anywhere;
       }
-      td.val {
+      .entry > .val {
         color: var(--lit-devtools-warning);
-        width: 100%;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .entry.wide > .val {
+        grid-column: 1 / -1;
+        padding-left: var(--lit-devtools-space-5);
+      }
+      .type {
+        margin-left: var(--lit-devtools-space-2);
+        font-size: var(--lit-devtools-text-2xs);
+        color: var(--lit-devtools-text-muted);
       }
       .badge {
         margin-left: var(--lit-devtools-space-2);
@@ -300,10 +343,10 @@ export class ComponentsView extends LitElement {
         color: var(--lit-devtools-text);
         cursor: default;
       }
-      tr.region:hover td {
+      .entry.region:hover {
         background: var(--lit-devtools-surface-hover);
       }
-      tr.orphan td {
+      .entry.orphan > * {
         color: var(--lit-devtools-error);
       }
       .muted {
@@ -706,65 +749,70 @@ export class ComponentsView extends LitElement {
     `;
   }
 
+  /** One `name value` line; long values drop below the name. */
+  private _renderEntry(
+    name: TemplateResult | string,
+    value: string,
+    trailing: unknown = nothing
+  ): TemplateResult {
+    return html`<div class="entry ${value.length > WIDE_VALUE ? 'wide' : ''}">
+      <span class="name">${name}</span>
+      <span class="val">${value}${trailing}</span>
+    </div>`;
+  }
+
   private _renderPropTable(
     props: InspectorDetails['properties']
   ): TemplateResult {
     return html`
-      <table>
-        ${props.map(
-          (p) => html`
-            <tr>
-              <td class="name">
-                ${p.name}${
-                  p.reflects
-                    ? html`<wa-badge
-                        class="badge"
-                        variant="neutral"
-                        appearance="outlined"
-                        data-tip="Reflects to an attribute"
-                        >${
-                          typeof p.attribute === 'string' ? p.attribute : 'attr'
-                        }</wa-badge
-                      >`
-                    : nothing
-                }
-              </td>
-              <td class="val">${p.value}</td>
-            </tr>
-          `
+      <div class="kv">
+        ${props.map((p) =>
+          this._renderEntry(
+            html`${p.name}${typeLabel(p.type, p.value)}`,
+            p.value,
+            p.reflects
+              ? html`<wa-badge
+                  class="badge"
+                  variant="neutral"
+                  appearance="outlined"
+                  data-tip="Reflects to an attribute"
+                  >${
+                    typeof p.attribute === 'string' ? p.attribute : 'attr'
+                  }</wa-badge
+                >`
+              : nothing
+          )
         )}
-      </table>
+      </div>
     `;
   }
 
   private _renderExtraTable(extras: InspectorExtra[]): TemplateResult {
     return html`
-      <table>
-        ${extras.map(
-          (e) => html`
-            <tr>
-              <td class="name" title=${e.type}>
-                ${e.name}<wa-badge
-                  class="badge"
-                  variant="neutral"
-                  appearance="outlined"
-                  >${e.kind}</wa-badge
-                >${
-                  e.status !== undefined
-                    ? html`<wa-badge
-                        class="badge"
-                        variant="neutral"
-                        appearance="outlined"
-                        >${e.status}</wa-badge
-                      >`
-                    : nothing
-                }
-              </td>
-              <td class="val">${e.value}</td>
-            </tr>
-          `
+      <div class="kv">
+        ${extras.map((e) =>
+          this._renderEntry(
+            html`${e.name}${
+              e.type.toLowerCase() === e.kind
+                ? nothing
+                : typeLabel(e.type, e.value)
+            }`,
+            e.value,
+            html`<wa-badge class="badge" variant="neutral" appearance="outlined"
+                >${e.kind}</wa-badge
+              >${
+                e.status !== undefined
+                  ? html`<wa-badge
+                      class="badge"
+                      variant="neutral"
+                      appearance="outlined"
+                      >${e.status}</wa-badge
+                    >`
+                  : nothing
+              }`
+          )
         )}
-      </table>
+      </div>
     `;
   }
 
@@ -805,14 +853,14 @@ export class ComponentsView extends LitElement {
         showSlots
           ? html`<section>
               <div class="label">Slots</div>
-              <table>
+              <div class="kv">
                 ${a.slots.map(
-                  (s, i) => html`<tr
-                    class="region"
+                  (s, i) => html`<div
+                    class="entry region"
                     @mouseenter=${() => this._focusRegion({kind: 'slot', index: i})}
                     @mouseleave=${() => this._focusRegion(null)}
                   >
-                    <td class="name">
+                    <span class="name">
                       <span class="swatch" style="background:${color(i)}"></span
                       >${
                         s.name === ''
@@ -842,8 +890,8 @@ export class ComponentsView extends LitElement {
                             )
                           : nothing
                       }
-                    </td>
-                    <td class="val">
+                    </span>
+                    <span class="val">
                       ${s.elements.map((e) => this._renderElementRef(e))}${
                         s.moreElements > 0
                           ? html`<span class="muted">+${s.moreElements}</span>`
@@ -853,33 +901,35 @@ export class ComponentsView extends LitElement {
                           ? html`<span class="muted">${s.textNodes} text</span>`
                           : nothing
                       }
-                    </td>
-                  </tr>`
+                    </span>
+                  </div>`
                 )}
                 ${a.orphans.map(
-                  (o) => html`<tr
-                    class="orphan"
+                  (o) => html`<div
+                    class="entry orphan"
                     data-tip="No slot takes this child, so it is not rendered"
                   >
-                    <td class="name">
+                    <span class="name">
                       ${o.slot === '' ? 'no default slot' : `slot="${o.slot}"`}
-                    </td>
-                    <td class="val">
+                    </span>
+                    <span class="val">
                       ${this._renderElementRef(o)}<span class="muted"
                         >not rendered</span
                       >
-                    </td>
-                  </tr>`
+                    </span>
+                  </div>`
                 )}
                 ${
                   a.orphanText > 0
-                    ? html`<tr class="orphan">
-                        <td class="name">no default slot</td>
-                        <td class="val">${a.orphanText} text, not rendered</td>
-                      </tr>`
+                    ? html`<div class="entry orphan">
+                        <span class="name">no default slot</span>
+                        <span class="val"
+                          >${a.orphanText} text, not rendered</span
+                        >
+                      </div>`
                     : nothing
                 }
-              </table>
+              </div>
             </section>`
           : nothing
       }
@@ -887,24 +937,24 @@ export class ComponentsView extends LitElement {
         a.parts.length > 0
           ? html`<section>
               <div class="label">Parts</div>
-              <table>
+              <div class="kv">
                 ${a.parts.map(
-                  (p, j) => html`<tr
-                    class="region"
+                  (p, j) => html`<div
+                    class="entry region"
                     @mouseenter=${() => this._focusRegion({kind: 'part', index: j})}
                     @mouseleave=${() => this._focusRegion(null)}
                   >
-                    <td class="name">
+                    <span class="name">
                       <span
                         class="swatch"
                         style="background:${color(a.slots.length + j)}"
                       ></span
                       >${p.names.join(' ')}
-                    </td>
-                    <td class="val">&lt;${p.tagName}&gt;</td>
-                  </tr>`
+                    </span>
+                    <span class="val">&lt;${p.tagName}&gt;</span>
+                  </div>`
                 )}
-              </table>
+              </div>
             </section>`
           : nothing
       }
@@ -1034,15 +1084,9 @@ export class ComponentsView extends LitElement {
         d.attributes.length > 0
           ? html`<section>
               <div class="label">Attributes</div>
-              <table>
-                ${d.attributes.map(
-                  (a) =>
-                    html`<tr>
-                      <td class="name">${a.name}</td>
-                      <td class="val">${a.value}</td>
-                    </tr>`
-                )}
-              </table>
+              <div class="kv">
+                ${d.attributes.map((a) => this._renderEntry(a.name, a.value))}
+              </div>
             </section>`
           : nothing
       }
