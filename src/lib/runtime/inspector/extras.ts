@@ -7,6 +7,7 @@
  * never evaluated.
  */
 
+import {isExpandable} from './inspect-value.js';
 import {serialize, typeTag} from './serialize.js';
 import type {InspectorExtra} from '../../../types/inspector.js';
 
@@ -95,14 +96,18 @@ const controllersOf = (el: Element): object[] => {
 };
 
 /**
- * Preview of `read()`'s result; a throwing getter degrades to a placeholder
- * instead of dropping the entry.
+ * Preview of `read()`'s result and whether it expands, from one read: a
+ * signal read inside a computed subscribes it once per read. A throwing
+ * getter degrades to a placeholder instead of dropping the entry.
  */
-const preview = (read: () => unknown): string => {
+const sample = (read: () => unknown): {value: string; expandable?: true} => {
   try {
-    return serialize(read());
+    const v = read();
+    return isExpandable(v)
+      ? {value: serialize(v), expandable: true}
+      : {value: serialize(v)};
   } catch {
-    return '[getter threw]';
+    return {value: '[getter threw]'};
   }
 };
 
@@ -155,43 +160,63 @@ export const erroredTasks = (
 };
 
 /** Classify one object the element holds; `undefined` if it is none of ours. */
+/** An extra and a way to read the live value its preview shows. */
+interface ExtraEntry {
+  extra: InspectorExtra;
+  /** The value behind the row, for expanding it; may throw. */
+  raw: (() => unknown) | undefined;
+}
+
 const classify = (
   v: Dict,
   name: string,
   controller: boolean
-): InspectorExtra | undefined => {
+): ExtraEntry | undefined => {
   // @lit/task: a controller with a numeric status, run() and render().
   const status = taskStatus(v);
   if (status !== undefined) {
+    const raw = () => (status === TASK_ERROR ? v['error'] : v['value']);
     return {
-      kind: 'task',
-      name,
-      value: preview(() => (status === TASK_ERROR ? v['error'] : v['value'])),
-      type: 'Task',
-      status: TASK_STATUS[status] ?? String(status),
+      extra: {
+        kind: 'task',
+        name,
+        ...sample(raw),
+        type: 'Task',
+        status: TASK_STATUS[status] ?? String(status),
+      },
+      raw,
     };
   }
   // Signals (signal-polyfill): State reads are side-effect free, but Computed
   // runs user code and lazily recomputes, so it is reported without reading.
   const ctor = ctorName(v);
   if (ctor === 'Computed' && hasFn(v, 'get')) {
-    return {kind: 'signal', name, value: '(computed)', type: 'Computed'};
+    return {
+      extra: {kind: 'signal', name, value: '(computed)', type: 'Computed'},
+      raw: undefined,
+    };
   }
   if (ctor === 'State' && hasFn(v, 'get') && hasFn(v, 'set')) {
+    const raw = () => (v['get'] as () => unknown)();
     return {
-      kind: 'signal',
-      name,
-      value: preview(() => (v['get'] as () => unknown)()),
-      type: 'Signal.State',
+      extra: {kind: 'signal', name, ...sample(raw), type: 'Signal.State'},
+      raw,
     };
   }
   if (!controller) return undefined;
   const held = dataProp(v, 'value');
   return {
-    kind: 'controller',
-    name,
-    value: held === undefined ? ctor : serialize(held.value),
-    type: ctor,
+    extra: {
+      kind: 'controller',
+      name,
+      value: held === undefined ? ctor : serialize(held.value),
+      type: ctor,
+      ...(isExpandable(held === undefined ? v : held.value)
+        ? {expandable: true}
+        : {}),
+    },
+    // A controller without a value expands to its own fields.
+    raw: held === undefined ? () => v : () => held.value,
   };
 };
 
@@ -200,7 +225,27 @@ const classify = (
  * controllers and tasks first (in registration order), then signals and tasks
  * held in own fields, then plain own fields. Never throws.
  */
-export const collectExtras = (el: Element): InspectorExtra[] => {
+export const collectExtras = (el: Element): InspectorExtra[] =>
+  collectEntries(el).map((e) => e.extra);
+
+/**
+ * The live value behind the extra named `name`, as {@link collectExtras}
+ * names it, or `undefined` when there is none or it cannot be read.
+ */
+export const extraValue = (
+  el: Element,
+  name: string
+): {value: unknown} | undefined => {
+  const entry = collectEntries(el).find((e) => e.extra.name === name);
+  if (entry?.raw === undefined) return undefined;
+  try {
+    return {value: entry.raw()};
+  } catch {
+    return undefined;
+  }
+};
+
+const collectEntries = (el: Element): ExtraEntry[] => {
   try {
     const host = el as unknown as Dict;
     const declared = (
@@ -220,15 +265,15 @@ export const collectExtras = (el: Element): InspectorExtra[] => {
       if (isObject(value) && !names.has(value)) names.set(value, clip(key));
     }
 
-    const out: InspectorExtra[] = [];
+    const out: ExtraEntry[] = [];
     const listed = new Set<object>();
     const full = () => out.length >= MAX_EXTRAS;
 
     for (const c of controllersOf(el)) {
       if (full()) break;
       listed.add(c);
-      const extra = classify(c as Dict, names.get(c) ?? ctorName(c), true);
-      if (extra !== undefined) out.push(extra);
+      const entry = classify(c as Dict, names.get(c) ?? ctorName(c), true);
+      if (entry !== undefined) out.push(entry);
     }
 
     for (const [key, value] of fields) {
@@ -236,10 +281,10 @@ export const collectExtras = (el: Element): InspectorExtra[] => {
       if (!isObject(value) || listed.has(value) || value instanceof Node) {
         continue;
       }
-      const extra = classify(value, clip(key), false);
-      if (extra !== undefined) {
+      const entry = classify(value, clip(key), false);
+      if (entry !== undefined) {
         listed.add(value);
-        out.push(extra);
+        out.push(entry);
       }
     }
 
@@ -256,10 +301,14 @@ export const collectExtras = (el: Element): InspectorExtra[] => {
         continue;
       }
       out.push({
-        kind: 'field',
-        name: clip(key),
-        value: serialize(value),
-        type: typeTag(value),
+        extra: {
+          kind: 'field',
+          name: clip(key),
+          value: serialize(value),
+          type: typeTag(value),
+          ...(isExpandable(value) ? {expandable: true} : {}),
+        },
+        raw: () => value,
       });
     }
     return out;
