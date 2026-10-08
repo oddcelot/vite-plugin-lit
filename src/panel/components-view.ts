@@ -18,6 +18,8 @@ import {
   type InspectorExtra,
   type InspectorMessage,
   type InspectorTreeNode,
+  type ValueChild,
+  type ValuePath,
 } from '../types/inspector.js';
 import {
   describeHmrReason,
@@ -33,6 +35,7 @@ import {hostInfo, sendToPage, touchPageChannel} from './host.js';
 import {overrides} from './settings-override.js';
 import {formatLines, type ValueToken} from './value-format.js';
 import {filterTree, type TreeFilterResult} from './tree-filter.js';
+import {ValueExpansion} from './value-expansion.js';
 import {attrKey, changedRows, extraKey, propKey} from './details-diff.js';
 
 /**
@@ -128,6 +131,21 @@ const renderCode = (value: string): TemplateResult | TemplateResult[] => {
       >`
   );
 };
+
+/**
+ * What an open value shows in place of its preview, since its children now
+ * say the rest: `Array(3)`, `Map(2)`, a class name, or `Object`.
+ */
+const summarize = (type: string): TemplateResult =>
+  html`<span class="t-type">${type === 'object' ? 'Object' : type}</span>`;
+
+/**
+ * A type name read off a preview, for a value whose type tag is not to hand:
+ * `Map(2)` or `MyClass` from their prefix, else `Array` or `object`.
+ */
+const typeOfPreview = (value: string): string =>
+  /^[A-Za-z_$][\w$.]*(?:\(\d+\))?/.exec(value)?.[0] ??
+  (value.startsWith('[') ? 'Array' : 'object');
 
 /** Types the value's own spelling already shows, so no tag is needed. */
 const SELF_EVIDENT_TYPES = new Set([
@@ -462,6 +480,41 @@ export class ComponentsView extends LitElement {
         padding-left: calc((var(--indent) + 2) * 1ch);
         text-indent: -2ch;
       }
+      .expander,
+      .expander-space {
+        display: inline-flex;
+        width: 1.5ch;
+        margin-right: 0.5ch;
+        vertical-align: -0.1em;
+      }
+      .expander {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--lit-devtools-text-muted);
+        cursor: pointer;
+        font: inherit;
+      }
+      .expander:hover {
+        color: var(--lit-devtools-text);
+      }
+      .expander:focus-visible {
+        outline: 2px solid var(--lit-devtools-accent-ring);
+        border-radius: 2px;
+      }
+      .children {
+        display: block;
+        margin: 2px 0 2px 0.75ch;
+        padding-left: 1.25ch;
+        border-left: 1px solid var(--lit-devtools-border-subtle);
+        white-space: normal;
+        text-indent: 0;
+      }
+      /* Wrapped rows hang under the key, past the caret column. */
+      .child {
+        padding: 1px 0 1px 2ch;
+        text-indent: -2ch;
+      }
       .t-key {
         color: var(--lit-devtools-code-property);
       }
@@ -668,6 +721,10 @@ export class ComponentsView extends LitElement {
   private readonly _detailsWidth = readDetailsWidth();
   private _unsubscribeOverride: (() => void) | null = null;
   private _unsubscribeSession: (() => void) | null = null;
+  /** Values opened in the details pane, and their children. */
+  private readonly _expansion = new ValueExpansion(sendToPage, () =>
+    this.requestUpdate()
+  );
   /** The details last rendered, to tell which rows a refresh changed. */
   private _shownDetails: InspectorDetails | null = null;
   /** Rows to highlight once the render that changed them lands. */
@@ -700,10 +757,15 @@ export class ComponentsView extends LitElement {
   protected override willUpdate(): void {
     const d = this._session.details;
     if (d === this._shownDetails) return;
+    this._expansion.follow(d?.id ?? null);
     // Only a refresh of the same element can change a row; a new selection
-    // or the first snapshot flashes nothing.
+    // or the first snapshot flashes nothing. A changed row also re-asks for
+    // whatever is open under it.
     for (const key of changedRows(this._shownDetails, d)) {
       this._pendingFlash.add(key);
+      const name = key.slice(2);
+      if (key === propKey(name)) this._expansion.refresh('prop', name);
+      else if (key === extraKey(name)) this._expansion.refresh('extra', name);
     }
     this._shownDetails = d;
   }
@@ -793,7 +855,10 @@ export class ComponentsView extends LitElement {
       rpc.rpc.register({
         name: 'inspector-message',
         type: 'event',
-        handler: (message: InspectorMessage) => this._session.receive(message),
+        handler: (message: InspectorMessage) => {
+          if (message.type === 'expanded') this._expansion.receive(message);
+          else this._session.receive(message);
+        },
       });
       rpc.rpc.register({
         name: 'hmr-incompatible',
@@ -1019,18 +1084,83 @@ export class ComponentsView extends LitElement {
   private _renderEntry(
     name: TemplateResult | string,
     value: string,
-    trailing: unknown = nothing,
-    code = false,
-    key?: string
+    opts: {
+      trailing?: unknown;
+      code?: boolean;
+      key?: string;
+      /** Where to expand the value from, when it has children to list. */
+      expand?: {path: ValuePath; type: string};
+    } = {}
   ): TemplateResult {
+    const {trailing = nothing, code = false, key, expand} = opts;
+    const expandable = expand !== undefined && !this._snapshot;
+    const open = expandable && this._expansion.isOpen(expand.path);
     return html`<div
-      class="entry ${value.length > WIDE_VALUE ? 'wide' : ''}"
+      class="entry ${open || value.length > WIDE_VALUE ? 'wide' : ''}"
       data-key=${key ?? nothing}
     >
       <span class="name">${name}</span>
       <span class="val ${code ? 'code' : ''}"
-        >${code ? renderCode(value) : value}${trailing}</span
+        >${expandable ? this._renderExpander(expand.path, name) : nothing}${
+          open ? summarize(expand.type) : code ? renderCode(value) : value
+        }${trailing}${open ? this._renderLevel(expand.path) : nothing}</span
       >
+    </div>`;
+  }
+
+  private _renderExpander(
+    path: ValuePath,
+    label: TemplateResult | string
+  ): TemplateResult {
+    const open = this._expansion.isOpen(path);
+    return html`<button
+      class="expander"
+      aria-expanded=${open ? 'true' : 'false'}
+      aria-label=${`${open ? 'Collapse' : 'Expand'} ${
+        typeof label === 'string' ? label : (path.keys.at(-1) ?? path.name)
+      }`}
+      @click=${() => this._expansion.toggle(path)}
+    >
+      <wa-icon name=${open ? 'caret-down' : 'caret-right'}></wa-icon>
+    </button>`;
+  }
+
+  /** The children of an open value, each expandable in turn. */
+  private _renderLevel(path: ValuePath): TemplateResult {
+    const level = this._expansion.level(path);
+    if (level === undefined || level.status === 'gone') {
+      return html`<div class="children">
+        <span class="muted"
+          >${level === undefined ? '…' : 'no longer there'}</span
+        >
+      </div>`;
+    }
+    if (level.children === undefined) {
+      return html`<div class="children"><span class="muted">…</span></div>`;
+    }
+    return html`<div class="children">
+      ${level.children.map((c) => this._renderChild(path, c))}
+      ${
+        (level.more ?? 0) > 0
+          ? html`<div class="child muted">+${level.more} more</div>`
+          : nothing
+      }
+    </div>`;
+  }
+
+  private _renderChild(parent: ValuePath, c: ValueChild): TemplateResult {
+    const path = {...parent, keys: [...parent.keys, c.key]};
+    const open = c.expandable && this._expansion.isOpen(path);
+    return html`<div class="child">
+      ${
+        c.expandable
+          ? this._renderExpander(path, c.label)
+          : html`<span class="expander-space"></span>`
+      }<span class="t-key">${c.entry ? renderCode(c.label) : c.label}</span
+      ><span class="t-punct">${c.entry ? ' => ' : ': '}</span
+      >${open ? summarize(c.type) : renderCode(c.value)}${
+        open ? this._renderLevel(path) : nothing
+      }
     </div>`;
   }
 
@@ -1043,19 +1173,29 @@ export class ComponentsView extends LitElement {
           this._renderEntry(
             html`${this._mark(p.name)}${typeLabel(p.type, p.value)}`,
             p.value,
-            p.reflects
-              ? html`<wa-badge
-                  class="badge"
-                  variant="neutral"
-                  appearance="outlined"
-                  data-tip="Reflects to an attribute"
-                  >${
-                    typeof p.attribute === 'string' ? p.attribute : 'attr'
-                  }</wa-badge
-                >`
-              : nothing,
-            true,
-            propKey(p.name)
+            {
+              trailing: p.reflects
+                ? html`<wa-badge
+                    class="badge"
+                    variant="neutral"
+                    appearance="outlined"
+                    data-tip="Reflects to an attribute"
+                    >${
+                      typeof p.attribute === 'string' ? p.attribute : 'attr'
+                    }</wa-badge
+                  >`
+                : nothing,
+              code: true,
+              key: propKey(p.name),
+              ...(p.expandable === true
+                ? {
+                    expand: {
+                      path: {section: 'prop', name: p.name, keys: []},
+                      type: p.type,
+                    },
+                  }
+                : {}),
+            }
           )
         )}
       </div>
@@ -1084,9 +1224,21 @@ export class ComponentsView extends LitElement {
                 : html`<span class="status task-${e.status}">${e.status}</span>`
             }`,
             e.value,
-            nothing,
-            true,
-            extraKey(e.name)
+            {
+              code: true,
+              key: extraKey(e.name),
+              ...(e.expandable === true
+                ? {
+                    expand: {
+                      path: {section: 'extra', name: e.name, keys: []},
+                      // A task's or signal's type is the wrapper's; the
+                      // children are its value's.
+                      type:
+                        e.kind === 'field' ? e.type : typeOfPreview(e.value),
+                    },
+                  }
+                : {}),
+            }
           )
         )}
       </div>
@@ -1489,13 +1641,10 @@ export class ComponentsView extends LitElement {
           <div class="kv">
             ${attributes.map((a) =>
               // Quoted, so it colours as the string it is.
-              this._renderEntry(
-                this._mark(a.name),
-                JSON.stringify(a.value),
-                nothing,
-                true,
-                attrKey(a.name)
-              )
+              this._renderEntry(this._mark(a.name), JSON.stringify(a.value), {
+                code: true,
+                key: attrKey(a.name),
+              })
             )}
           </div>
         `
