@@ -192,7 +192,8 @@ boot and they survive a reload.
 outline round the element, one coloured region per slot, and a dashed box per
 `::part` export. Each region carries a label such as `slot "title"`,
 `default slot` or `::part(body)`. The toggle follows the selection, so picking
-another element moves the drawing with it.
+another element moves the drawing with it. The panel remembers the toggle, so
+Anatomy left on is still on after a reload.
 
 A `<slot>` has no box of its own, so each region is the bounding box of what
 the slot renders: the light children assigned to it, or its fallback content.

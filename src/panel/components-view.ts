@@ -48,6 +48,17 @@ const DETAILS_WIDTH_LS_KEY = 'lit-devtools-components-details-width';
 const DETAILS_WIDTH_DEFAULT = 340;
 const DETAILS_WIDTH_MIN = 220;
 
+/** localStorage key remembering that Anatomy was left on. */
+const ANATOMY_LS_KEY = 'lit-devtools-components-anatomy';
+
+const readAnatomy = (): boolean => {
+  try {
+    return localStorage.getItem(ANATOMY_LS_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
 /** localStorage key listing the details sections the user folded. */
 const COLLAPSED_LS_KEY = 'lit-devtools-components-collapsed';
 
@@ -751,8 +762,8 @@ export class ComponentsView extends LitElement {
   @state() private _snapshot = false;
   /** Mirror of the `flashUpdates` override; the Settings tab shows it too. */
   @state() private _flash = false;
-  /** Draw the selected element's slots and parts on the page. */
-  @state() private _anatomy = false;
+  /** Draw the selected element's slots and parts on the page; remembered. */
+  @state() private _anatomy = readAnatomy();
   /** The id the page is drawing the anatomy of, `null` for none. */
   private _anatomyShown: number | null = null;
   /** Set when the devframe connection fails; rendered in place of the tree. */
@@ -1036,6 +1047,11 @@ export class ComponentsView extends LitElement {
 
   private _toggleAnatomy(): void {
     this._anatomy = !this._anatomy;
+    try {
+      localStorage.setItem(ANATOMY_LS_KEY, String(this._anatomy));
+    } catch {
+      // Storage unavailable: the toggle just won't be remembered.
+    }
   }
 
   /** Outline an element in the page; fires on every `mouseenter` in the tree. */
