@@ -317,3 +317,67 @@ describe('rendered at', () => {
     expect(root.querySelector('.call-site')).toBeNull();
   });
 });
+
+describe('skipped updates', () => {
+  /** A vetoed tick, as the runtime emits it. */
+  const vetoed = (id: number, tagName: string, n: number, time: number) => [
+    {
+      layerId: 'lit-lifecycle',
+      time,
+      groupId: `${id}:${n}`,
+      title: 'performUpdate:start',
+      data: {phase: 'performUpdate'},
+      meta: {elementId: id, tagName},
+    },
+    {
+      layerId: 'lit-lifecycle',
+      time: time + 0.5,
+      groupId: `${id}:${n}`,
+      title: 'update skipped',
+      data: {phase: 'shouldUpdate', changed: ['count']},
+      meta: {elementId: id, tagName},
+    },
+    {
+      layerId: 'lit-lifecycle',
+      time: time + 1,
+      groupId: `${id}:${n}`,
+      title: 'performUpdate:end',
+      data: {phase: 'performUpdate'},
+      meta: {elementId: id, tagName},
+    },
+  ];
+
+  test('counts skips on the component row, apart from updates', async () => {
+    const {rows, settle} = await mount();
+    setEvents([
+      ...tick(1, 'x-counter', 1, 0),
+      ...vetoed(1, 'x-counter', 2, 10),
+    ]);
+    await settle();
+    const {row} = rows()[0]!;
+    expect(row.querySelector('.skipped')?.textContent?.trim()).toBe(
+      '1 skipped'
+    );
+    expect(row.querySelector('.num wa-badge')?.textContent?.trim()).toBe('1×');
+  });
+
+  test('marks the skipped update in the component pane', async () => {
+    const {rows, cycles, root, settle} = await mount();
+    setEvents([
+      ...tick(1, 'x-counter', 1, 0),
+      ...vetoed(1, 'x-counter', 2, 10),
+    ]);
+    await settle();
+    rows()[0]!.row.click();
+    await settle();
+    expect(cycles()).toHaveLength(2);
+    expect(root.querySelectorAll('.cycles .skipped')).toHaveLength(1);
+  });
+
+  test('shows no skip badge when nothing was vetoed', async () => {
+    const {root, settle} = await mount();
+    setEvents(events);
+    await settle();
+    expect(root.querySelector('.skipped')).toBeNull();
+  });
+});
