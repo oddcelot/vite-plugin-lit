@@ -229,7 +229,7 @@ export type InspectorCommand =
   /** Draw element `id`'s slots and parts on the page; `null` clears it. */
   | {type: 'anatomy'; id: number | null}
   /**
-   * Pulse one region of the anatomy overlay and fade the rest; `null` shows
+   * Emphasise one region of the anatomy overlay and fade the rest; `null` shows
    * them all evenly again.
    */
   | {type: 'anatomy-focus'; focus: AnatomyFocus | null}

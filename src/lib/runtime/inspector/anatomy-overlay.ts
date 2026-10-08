@@ -12,8 +12,8 @@
  * The boxes are `position: fixed` and redrawn every frame while shown, so
  * they follow scrolling, resizing and slot changes without observers.
  *
- * Hovering a slot or part row in the pane focuses its region: it pulses and
- * the others fade, so a row can be found on a busy page.
+ * Hovering a slot or part row in the pane focuses its region: it gains a
+ * ring and a stronger fill, and the others fade, so a row can be found on a busy page.
  */
 
 import {elementById} from '../timeline/identity.js';
@@ -32,27 +32,9 @@ let frame = 0;
 let target: WeakRef<Element> | null = null;
 /** The focused region's key (`slot:0`, `part:1`), or `null` for none. */
 let focusKey: string | null = null;
-/** The running pulse, kept across frames so it does not restart. */
-let pulse: {box: HTMLElement; key: string; animation: Animation} | null = null;
 
 /** How far the unfocused regions fade while one is focused. */
 const FADED_OPACITY = '0.25';
-
-const stopPulse = (): void => {
-  pulse?.animation.cancel();
-  pulse = null;
-};
-
-/** Pulse `box` as the region `key`, unless it already is. */
-const startPulse = (box: HTMLElement, key: string, color: string): void => {
-  if (pulse?.box === box && pulse.key === key) return;
-  stopPulse();
-  const animation = box.animate(
-    [{boxShadow: `0 0 0 0 ${color}b3`}, {boxShadow: `0 0 0 10px ${color}00`}],
-    {duration: 900, iterations: Infinity, easing: 'ease-out'}
-  );
-  pulse = {box, key, animation};
-};
 
 const ensureLayer = (): HTMLElement => {
   if (layer === null) {
@@ -119,7 +101,6 @@ const drawer = (root: HTMLElement) => {
   // Labels already placed this frame. A part often wraps a slot exactly, so
   // their labels would land on the same spot; later ones shift right.
   const placed: DOMRect[] = [];
-  let focused = false;
   const draw = (
     box: Box,
     color: string,
@@ -135,6 +116,7 @@ const drawer = (root: HTMLElement) => {
     }
     i++;
     const {x, y, width, height} = toRect(box);
+    const focused = key === focusKey;
     Object.assign(el.style, {
       display: 'block',
       position: 'fixed',
@@ -144,15 +126,17 @@ const drawer = (root: HTMLElement) => {
       height: `${height}px`,
       boxSizing: 'border-box',
       border: `${style === 'slot' ? 2 : 1}px ${style === 'slot' ? 'solid' : 'dashed'} ${color}`,
-      background: style === 'slot' ? `${color}1f` : 'transparent',
+      background: focused
+        ? `${color}33`
+        : style === 'slot'
+          ? `${color}1f`
+          : 'transparent',
       borderRadius: '2px',
-      opacity: focusKey === null || focusKey === key ? '1' : FADED_OPACITY,
-      transition: 'opacity 150ms ease-out',
+      boxShadow: focused ? `0 0 0 3px ${color}59` : 'none',
+      opacity: focusKey === null || focused ? '1' : FADED_OPACITY,
+      transition:
+        'opacity 150ms ease-out, box-shadow 150ms ease-out, background 150ms ease-out',
     } satisfies Partial<CSSStyleDeclaration>);
-    if (key === focusKey) {
-      startPulse(el, key, color);
-      focused = true;
-    }
     const tag = el.firstElementChild as HTMLElement;
     tag.textContent = label;
     // Above the box, or inside it when the box touches the viewport's top.
@@ -192,8 +176,6 @@ const drawer = (root: HTMLElement) => {
     for (let j = i; j < root.children.length; j++) {
       (root.children[j] as HTMLElement).style.display = 'none';
     }
-    // The focused region rendered nothing this frame.
-    if (!focused) stopPulse();
   };
   return {draw, finish};
 };
@@ -230,7 +212,6 @@ export const clearAnatomy = (): void => {
   cancelAnimationFrame(frame);
   target = null;
   focusKey = null;
-  stopPulse();
   layer?.remove();
 };
 
@@ -258,7 +239,7 @@ export const anatomyById = (id: number | null): void => {
 };
 
 /**
- * Pulse one slot or part region and fade the others, or show them all
+ * Emphasise one slot or part region and fade the others, or show them all
  * evenly again for `null`. Takes effect on the next frame; does nothing
  * while no anatomy is drawn.
  */
