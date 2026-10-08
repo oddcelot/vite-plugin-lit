@@ -56,11 +56,13 @@ const mount = async (picker = false, roots: InspectorTreeNode[] = tree) => {
 
 const LIVE_LS_KEY = 'lit-devtools-components-live';
 const WIDTH_LS_KEY = 'lit-devtools-components-details-width';
+const COLLAPSED_LS_KEY = 'lit-devtools-components-collapsed';
 
 afterEach(() => {
   document.body.replaceChildren();
   localStorage.removeItem(LIVE_LS_KEY);
   localStorage.removeItem(WIDTH_LS_KEY);
+  localStorage.removeItem(COLLAPSED_LS_KEY);
   resetClient();
   resetHostInfo();
 });
@@ -210,6 +212,57 @@ test('tags a value with its type only where the preview does not show it', async
     (r) => r.querySelector('.type')?.textContent ?? null
   );
   expect(types).toEqual([null, 'Array(3)', null]);
+});
+
+const withAttributes = () => ({
+  ...detailsFor([{kind: 'signal', name: 'count', value: '7', type: 'Signal'}]),
+  attributes: [
+    {name: 'a', value: '1'},
+    {name: 'b', value: '2'},
+  ],
+});
+
+const sections = (root: ShadowRoot) =>
+  [
+    ...root.querySelectorAll<HTMLDetailsElement>('.details details.section'),
+  ].map(
+    (s) =>
+      `${s.querySelector('.label')!.textContent} ${s.querySelector('.count')!.textContent} ${s.open ? 'open' : 'folded'}`
+  );
+
+test('each section heading counts its rows', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: withAttributes()});
+  await flush(el);
+  expect(sections(root)).toEqual(['Attributes 2 open', 'Instance 1 open']);
+});
+
+test('a folded section stays folded, and is remembered', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: withAttributes()});
+  await flush(el);
+  const attrs = root.querySelector<HTMLDetailsElement>(
+    'details[data-section="Attributes"]'
+  )!;
+  attrs.open = false;
+  attrs.dispatchEvent(new Event('toggle'));
+  await flush(el);
+  expect(sections(root)).toEqual(['Attributes 2 folded', 'Instance 1 open']);
+  expect(JSON.parse(localStorage.getItem(COLLAPSED_LS_KEY)!)).toEqual([
+    'Attributes',
+  ]);
+
+  document.body.replaceChildren();
+  const again = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: withAttributes()});
+  await flush(again.el);
+  expect(sections(again.root)).toEqual([
+    'Attributes 2 folded',
+    'Instance 1 open',
+  ]);
 });
 
 test('attribute values read as quoted strings', async () => {
