@@ -79,6 +79,11 @@ export interface TimelineLayersState {
   litChangedValuesEnabled: boolean;
   mouseEventEnabled: boolean;
   keyboardEventEnabled: boolean;
+  /**
+   * Events a component dispatches on itself (`this.dispatchEvent(...)`): type,
+   * flags and a bounded detail preview. Off by default.
+   */
+  customEventsEnabled: boolean;
 }
 
 export const TIMELINE_LAYERS: readonly TimelineLayer[] = [
@@ -88,6 +93,7 @@ export const TIMELINE_LAYERS: readonly TimelineLayer[] = [
   {id: 'lit-changed-values', label: 'Changed values', color: 0x6b7bff},
   {id: 'mouse', label: 'Mouse', color: 0xa451af},
   {id: 'keyboard', label: 'Keyboard', color: 0x8151af},
+  {id: 'custom-events', label: 'Custom events', color: 0xaf7a51},
 ];
 
 export const DEFAULT_LAYERS_STATE: TimelineLayersState = {
@@ -98,6 +104,7 @@ export const DEFAULT_LAYERS_STATE: TimelineLayersState = {
   litChangedValuesEnabled: false,
   mouseEventEnabled: false,
   keyboardEventEnabled: false,
+  customEventsEnabled: false,
 };
 
 /**

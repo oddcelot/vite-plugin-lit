@@ -52,6 +52,7 @@ test('lifecycle layer reports update phases over the timeline source', async () 
     litChangedValuesEnabled: false,
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
+    customEventsEnabled: false,
   });
 
   // Poll: nudge an update on the demo child each round (recording may not be
@@ -116,6 +117,7 @@ test('changed values layer records the old and new value of a property', async (
     litChangedValuesEnabled: true,
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
+    customEventsEnabled: false,
   });
 
   const detail = () =>
@@ -172,6 +174,7 @@ test('async updated() rejections and failed tasks are attributed to their elemen
     litChangedValuesEnabled: false,
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
+    customEventsEnabled: false,
   });
   // Recording reaches the page over HMR; wait until updates are recorded.
   await expect
@@ -269,6 +272,7 @@ test('a component whose shouldUpdate returns false records an update skipped eve
     litChangedValuesEnabled: false,
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
+    customEventsEnabled: false,
   });
   await expect
     .poll(
