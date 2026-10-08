@@ -379,6 +379,55 @@
           <code>::part</code>: the Components tab's Anatomy view</span
         >
       </div>
+
+      <h2 class="section-header">DevTools Coverage</h2>
+
+      <div class="card">
+        <hmr-events></hmr-events>
+        <span class="problem"
+          >Child dispatches a bubbling, composed <code>pick</code> event and the
+          parent re-renders with it: the event and the update that follows sit
+          together on the Timeline custom-events layer. Record, then click a
+          fruit.</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-skipped-update></hmr-skipped-update>
+        <span class="problem"
+          ><code>shouldUpdate</code> returns false for odd counts: the update is
+          requested but skipped, which the DevTools flags. Click the button a
+          few times.</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-warnings></hmr-warnings>
+        <span class="problem"
+          >Changes state in <code>updated()</code> once per click: Lit's dev
+          build issues a <code>change-in-update</code> warning, badged on the
+          element and shown on the Timeline.</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-property-options></hmr-property-options>
+        <span class="problem"
+          >Custom <code>hasChanged</code>, custom <code>converter</code>,
+          <code>noAccessor</code>, <code>useDefault</code> and
+          <code>attribute: false</code>: select it in the Components tab to see
+          each option badged on its property.</span
+        >
+      </div>
+
+      <div class="card">
+        <hmr-undefined></hmr-undefined>
+        <span class="problem"
+          >Uses <code>&lt;hmr-not-defined&gt;</code>, a tag that is
+          intentionally never defined: the Components tree marks it "not
+          defined" until you click Define it.</span
+        >
+      </div>
     </main>
 
     <script type="module" src="/src/main.ts"></script>
