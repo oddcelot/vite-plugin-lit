@@ -25,6 +25,11 @@ import './hmr-vsheet-a.js';
 import './hmr-vsheet-b.js';
 import './hmr-modal.js';
 import './hmr-slots.js';
+import './hmr-events.js';
+import './hmr-skipped-update.js';
+import './hmr-warnings.js';
+import './hmr-property-options.js';
+import './hmr-undefined.js';
 
 export interface HmrProbeState {
   updates: number;
