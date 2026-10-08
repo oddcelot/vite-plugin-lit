@@ -5,6 +5,7 @@
  */
 
 import {idOf} from '../timeline/identity.js';
+import {collectAnatomy} from './anatomy.js';
 import {collectExtras} from './extras.js';
 import {serialize, typeTag} from './serialize.js';
 import type {
@@ -162,6 +163,7 @@ export const collectDetails = (el: Element): InspectorDetails => {
   })).filter((a) => a.name !== CALL_SITE_ATTR);
 
   const extras = collectExtras(el);
+  const anatomy = collectAnatomy(el);
   const meta = metaOf(el);
   return {
     id: idOf(el),
@@ -176,6 +178,7 @@ export const collectDetails = (el: Element): InspectorDetails => {
       isUpdatePending: re.isUpdatePending === true,
       hasShadowRoot: el.shadowRoot !== null,
     },
+    ...(anatomy !== undefined ? {anatomy} : {}),
     ...(extras.length > 0 ? {extras} : {}),
   };
 };

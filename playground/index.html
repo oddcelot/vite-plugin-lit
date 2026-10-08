@@ -364,6 +364,21 @@
           counter survive HMR updates</span
         >
       </div>
+
+      <div class="card">
+        <hmr-slots>
+          <strong slot="title">Slots and parts</strong>
+          <p>Default slot content.</p>
+          <em slot="aside">Asks for a slot that does not exist.</em>
+        </hmr-slots>
+        <hmr-slots-frame>
+          <p>Forwarded through the frame's default slot.</p>
+        </hmr-slots-frame>
+        <span class="problem"
+          >Named, default, fallback, empty and forwarded slots, plus
+          <code>::part</code>: the Components tab's Anatomy view</span
+        >
+      </div>
     </main>
 
     <script type="module" src="/src/main.ts"></script>

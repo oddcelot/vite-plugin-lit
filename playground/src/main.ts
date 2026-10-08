@@ -24,6 +24,7 @@ import './hmr-utility-badge.js';
 import './hmr-vsheet-a.js';
 import './hmr-vsheet-b.js';
 import './hmr-modal.js';
+import './hmr-slots.js';
 
 export interface HmrProbeState {
   updates: number;
