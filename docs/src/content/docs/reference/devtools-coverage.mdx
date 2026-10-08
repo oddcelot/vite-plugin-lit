@@ -1,0 +1,80 @@
+---
+title: DevTools coverage
+description: 'Which Lit concepts the DevTools panel shows, where to find each one, and what it does not show.'
+sidebar:
+  order: 9
+---
+
+import {CardGrid, LinkCard} from '@astrojs/starlight/components';
+
+Each Lit concept below has a row: where the panel shows it, and what it leaves
+out. Use it to check whether the panel can answer your question before you go
+looking; for how to use each view, read the
+[DevTools guides](/vite-plugin-lit/guides/devtools/).
+
+Status is one of **shown**, **partly shown** or **not shown**. The element
+tree, element details and update records are also open to agents over MCP; see
+[Agents](/vite-plugin-lit/guides/devtools/agents/).
+
+## Elements and state
+
+| Concept                   | Status       | Where                                                                                                                                | Not shown                                                                                           |
+| ------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Element tree              | shown        | [Components tree](/vite-plugin-lit/guides/devtools/components/#browse-the-tree), through shadow roots and light DOM                  | Elements that are not Lit elements, and tags that are not defined yet                               |
+| Custom element registry   | not shown    | —                                                                                                                                    | The list of defined tags, and scoped registries                                                     |
+| Reactive properties       | shown        | [Properties table](/vite-plugin-lit/guides/devtools/components/#read-the-details-pane), with the attribute name and a reflects badge | The `hasChanged`, `converter`, `noAccessor` and `useDefault` options. Values are read-only          |
+| `@state`                  | shown        | State table                                                                                                                          | Values are read-only                                                                                |
+| Attributes                | shown        | Attributes table, live                                                                                                               | When a reflected property wrote its attribute                                                       |
+| Shadow DOM                | partly shown | `shadow root` flag in the details pane                                                                                               | `shadowRootOptions` such as `delegatesFocus`, and whether `createRenderRoot` renders into light DOM |
+| Slots                     | not shown    | —                                                                                                                                    | Which nodes each slot holds                                                                         |
+| Reactive controllers      | shown        | Instance table, named by the field that holds them                                                                                   | Calls to `hostConnected`, `hostUpdate` and the other host hooks                                     |
+| `@query` and its siblings | not shown    | A queried element can appear as a plain field in the Instance table                                                                  | The selector and what it matched                                                                    |
+| Form-associated elements  | not shown    | —                                                                                                                                    | `ElementInternals`, form value and validity                                                         |
+| Source location           | shown        | Source link and **Rendered at** link in the details pane; [source overlay](/vite-plugin-lit/guides/source-overlay/)                  | —                                                                                                   |
+
+## Updates and rendering
+
+| Concept                    | Status       | Where                                                                                                                                                                                            | Not shown                                                                                                    |
+| -------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Update lifecycle           | shown        | Lit Lifecycle [layer](/vite-plugin-lit/guides/devtools/timeline/#choose-layers): `connectedCallback`, `performUpdate`, `willUpdate`, `update`, `updated`, `firstUpdated`, `disconnectedCallback` | `shouldUpdate`, so an update the component vetoed leaves no trace. `render` on its own, and `updateComplete` |
+| Changed properties         | shown        | [Updates tab](/vite-plugin-lit/guides/devtools/updates/#see-the-old-and-new-values), with old and new values when the Changed values layer is on                                                 | —                                                                                                            |
+| Update cause               | partly shown | Updates tab names a mouse or keyboard event from the 200ms before the update                                                                                                                     | Which code called `requestUpdate` or set the property                                                        |
+| Errors in an update        | shown        | Updates tab, _threw in update_ rows                                                                                                                                                              | Errors from timers or listeners the component set up                                                         |
+| Render timing              | shown        | Lit Render layer; Chrome Performance tracks                                                                                                                                                      | A flamechart inside the panel                                                                                |
+| Re-render frequency        | shown        | [Updates table](/vite-plugin-lit/guides/devtools/updates/#read-the-component-table); [flash on update](/vite-plugin-lit/guides/devtools/components/#flash-elements-that-update)                  | Updates whose output did not change                                                                          |
+| Template parts and commits | partly shown | Lit Render (verbose) layer, one event per binding                                                                                                                                                | A view of a template's parts, and template cache hits                                                        |
+| Directives                 | not shown    | Their commits appear in the verbose layer, unlabelled                                                                                                                                            | Which directive produced a commit                                                                            |
+| Event listeners            | partly shown | Verbose layer records each `@event` listener commit; Mouse and Keyboard layers record input                                                                                                      | Custom events a component dispatches, and `@eventOptions`                                                    |
+| Styles                     | not shown    | —                                                                                                                                                                                                | `static styles`, adopted stylesheets, `::part` and custom properties. Use the browser's Elements panel       |
+| Dev-mode warnings          | not shown    | Only the multiple-Lit-versions check, in the panel's About block                                                                                                                                 | The warnings Lit's dev build prints to the console                                                           |
+| Hot patches                | shown        | HMR banner and tab badge; see [HMR](/vite-plugin-lit/guides/hmr/)                                                                                                                                | —                                                                                                            |
+
+## Lit libraries
+
+| Library                                | Status       | Where                                                              | Not shown                                                                                             |
+| -------------------------------------- | ------------ | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `@lit/task`                            | shown        | Instance table with status and value or error; failures in Updates | The history of status changes                                                                         |
+| `@lit-labs/signals`                    | partly shown | Instance table shows a signal's value                              | Computed values, which are never evaluated; the `SignalWatcher` mixin; which signals an element reads |
+| `@lit/context`                         | not shown    | Provider and consumer controllers appear as controllers            | The context key, its value, and which provider a consumer uses                                        |
+| `@lit-labs/virtualizer`                | not shown    | —                                                                  | —                                                                                                     |
+| `@lit/localize`                        | not shown    | —                                                                  | —                                                                                                     |
+| `@lit-labs/ssr`                        | not shown    | —                                                                  | Hydration and `defer-hydration`                                                                       |
+| `@lit-labs/router`, `@lit-labs/motion` | not shown    | —                                                                  | —                                                                                                     |
+
+All of these libraries keep their state across a hot patch; see
+[Ecosystem](/vite-plugin-lit/guides/ecosystem/).
+
+## Related
+
+<CardGrid>
+  <LinkCard
+    title="Inspect live components"
+    href="/vite-plugin-lit/guides/devtools/components/"
+    description="The tree, the details pane and the element picker."
+  />
+  <LinkCard
+    title="Limitations"
+    href="/vite-plugin-lit/reference/limitations/"
+    description="The component shapes a hot patch cannot update in place."
+  />
+</CardGrid>
