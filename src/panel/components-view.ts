@@ -385,8 +385,23 @@ export class ComponentsView extends LitElement {
       .status.task-error {
         color: var(--lit-devtools-error);
       }
-      .status.pending {
+      .status.pending,
+      .status.warned {
         color: var(--lit-devtools-warning);
+      }
+      .warning {
+        grid-column: 1 / -1;
+        display: grid;
+        gap: var(--lit-devtools-space-1);
+        padding: var(--lit-devtools-space-2) 0;
+      }
+      .warning .code {
+        font-family: var(--lit-devtools-font-mono);
+        font-size: var(--lit-devtools-text-2xs);
+        color: var(--lit-devtools-warning);
+      }
+      .warning .text {
+        overflow-wrap: anywhere;
       }
       .meta {
         display: grid;
@@ -1680,13 +1695,19 @@ export class ComponentsView extends LitElement {
     const stateProps = allState.filter((p) => byRow(p.name, p.value));
     const attributes = d.attributes.filter((a) => byRow(a.name, a.value));
     const extras = allExtras.filter((e) => byRow(e.name, e.value));
+    const allWarnings = d.warnings ?? [];
+    const warnings = allWarnings.filter((w) => byRow(w.code, w.message));
     const anatomyHit =
       d.anatomy !== undefined &&
       Object.values(
         anatomyMatches(d.anatomy, (...t) => this._matches(...t))
       ).some((v) => (Array.isArray(v) ? v.includes(true) : v));
     const anyMatch =
-      props.length + stateProps.length + attributes.length + extras.length >
+      props.length +
+        stateProps.length +
+        attributes.length +
+        extras.length +
+        warnings.length >
         0 || anatomyHit;
     const rootLabel = describeRoot(d);
     return html`
@@ -1700,6 +1721,15 @@ export class ComponentsView extends LitElement {
                 >pending</span
               >`
             : nothing
+        }
+        ${
+          allWarnings.length === 0
+            ? nothing
+            : html`<span
+                class="status warned"
+                data-tip="Lit warned about this component in dev mode; see Warnings below"
+                >${allWarnings.length === 1 ? '1 warning' : `${allWarnings.length} warnings`}</span
+              >`
         }
         ${
           d.flags.hasUpdated
@@ -1776,6 +1806,30 @@ export class ComponentsView extends LitElement {
         <wa-icon slot="start" name="magnifying-glass"></wa-icon>
         <wa-icon slot="clear-icon" name="x"></wa-icon>
       </wa-input>
+      ${this._renderSection(
+        'Warnings',
+        warnings.length,
+        allWarnings.length,
+        html`<div class="kv">
+          ${warnings.map(
+            (w) =>
+              html`<div class="warning">
+                ${
+                  w.code === ''
+                    ? nothing
+                    : html`<a
+                        class="code"
+                        href=${`https://lit.dev/msg/${w.code}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        >${w.code}</a
+                      >`
+                }
+                <span class="text">${this._mark(w.message)}</span>
+              </div>`
+          )}
+        </div>`
+      )}
       ${d.anatomy === undefined ? nothing : this._renderAnatomy(d.anatomy)}
       ${this._renderSection(
         'Properties',
