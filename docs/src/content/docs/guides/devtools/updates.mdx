@@ -38,13 +38,14 @@ The upper pane holds one row per component **tag**, slowest first.
   alt="The Updates tab table: one row per component with update counts and total time."
 />
 
-| Column    | Meaning                                                       |
-| --------- | ------------------------------------------------------------- |
-| Component | The tag, with `×n` when more than one instance of it updated. |
-| Reasons   | The reactive properties that changed, most frequent first.    |
-| Updates   | How many update ticks were recorded.                          |
-| Total     | Summed time in `performUpdate` across those ticks.            |
-| Max       | The slowest single update.                                    |
+| Column    | Meaning                                                         |
+| --------- | --------------------------------------------------------------- |
+| Component | The tag, with `×n` when more than one instance of it updated.   |
+| Reasons   | The reactive properties that changed, most frequent first.      |
+| Updates   | How many update ticks were recorded.                            |
+| Skipped   | How many ticks `shouldUpdate` vetoed. Shown only when some did. |
+| Total     | Summed time in `performUpdate` across those ticks.              |
+| Max       | The slowest single update.                                      |
 
 Rows group by tag rather than by instance on purpose. A list of 200 rows that
 each updated twice is one component's problem, not two hundred.
@@ -75,6 +76,12 @@ name, so it is left out.
 The changed-property keys are the actual answer to "why did this re-render".
 They come from Lit's own `changedProperties` map, so they are what the element
 reacted to, not an inference.
+
+A row marked _skipped_ means the component's `shouldUpdate` returned false: the
+properties listed changed, but nothing re-rendered. Skipped ticks are counted
+under **Skipped** and not under **Updates** or **Total**, so those columns keep
+meaning renders. `lit_update-summary` returns `skipped` per component and
+`skipped: true` per cycle.
 
 A row marked _threw in update_ means that phase threw. The error's name is
 shown, and its message is in the tooltip. The component table counts such
