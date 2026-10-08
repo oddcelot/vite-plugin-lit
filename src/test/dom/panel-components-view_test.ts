@@ -371,6 +371,45 @@ test('tags a value with its type only where the preview does not show it', async
   expect(types).toEqual([null, 'Array(3)', null]);
 });
 
+test('badges the options a property sets beyond the defaults', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  const prop = (name: string, extra: object = {}) => ({
+    name,
+    value: '1',
+    type: 'number',
+    attribute: name,
+    reflects: false,
+    state: false,
+    ...extra,
+  });
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      properties: [
+        prop('plain'),
+        prop('custom', {options: ['hasChanged', 'converter']}),
+        prop('manual', {
+          attribute: false,
+          options: ['noAccessor', 'useDefault'],
+        }),
+        prop('hidden', {attribute: false, state: true}),
+      ],
+    },
+  });
+  await flush(el);
+  const badges = [...root.querySelectorAll('.details .entry')].map((r) =>
+    [...r.querySelectorAll('wa-badge')].map((b) => b.textContent?.trim())
+  );
+  expect(badges).toEqual([
+    [],
+    ['hasChanged', 'converter'],
+    ['no attr', 'noAccessor', 'useDefault'],
+    [],
+  ]);
+});
+
 const withAttributes = () => ({
   ...detailsFor([{kind: 'signal', name: 'count', value: '7', type: 'Signal'}]),
   attributes: [
