@@ -8,6 +8,9 @@ import '@awesome.me/webawesome/dist/components/split-panel/split-panel.js';
 import type WaSplitPanel from '@awesome.me/webawesome/dist/components/split-panel/split-panel.js';
 import {tokens} from '../lib/tokens.js';
 import {
+  ANATOMY_COLORS,
+  type AnatomyElementRef,
+  type InspectorAnatomy,
   type InspectorDetails,
   type InspectorExtra,
   type InspectorMessage,
@@ -220,6 +223,37 @@ export class ComponentsView extends LitElement {
         gap: var(--lit-devtools-space-4);
         flex-wrap: wrap;
       }
+      .swatch {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-right: var(--lit-devtools-space-2);
+        border-radius: 2px;
+        vertical-align: middle;
+      }
+      .slot-default {
+        font-style: italic;
+      }
+      .el-ref {
+        font-family: var(--lit-devtools-font-mono);
+        color: var(--lit-devtools-accent);
+        background: none;
+        border: 0;
+        padding: 0;
+        margin-right: var(--lit-devtools-space-2);
+        font-size: inherit;
+        cursor: pointer;
+      }
+      .el-ref:disabled {
+        color: var(--lit-devtools-text);
+        cursor: default;
+      }
+      tr.orphan td {
+        color: var(--lit-devtools-error);
+      }
+      .muted {
+        color: var(--lit-devtools-text-muted);
+      }
       .placeholder {
         color: var(--lit-devtools-text-muted);
         padding: var(--lit-devtools-space-8) 0;
@@ -326,6 +360,10 @@ export class ComponentsView extends LitElement {
   @state() private _snapshot = false;
   /** Mirror of the `flashUpdates` override; the Settings tab shows it too. */
   @state() private _flash = false;
+  /** Draw the selected element's slots and parts on the page. */
+  @state() private _anatomy = false;
+  /** The id the page is drawing the anatomy of, `null` for none. */
+  private _anatomyShown: number | null = null;
   /** Set when the devframe connection fails; rendered in place of the tree. */
   @state() private _error: string | null = null;
   /** Collapse state of the banner; the events themselves are never cleared. */
@@ -357,6 +395,20 @@ export class ComponentsView extends LitElement {
     this._unsubscribeSession?.();
     this._unsubscribeSession = null;
     this._session.dispose();
+    this._syncAnatomy(null);
+  }
+
+  protected override updated(): void {
+    this._syncAnatomy(
+      this._anatomy && !this._snapshot ? this._session.selectedId : null
+    );
+  }
+
+  /** Point the page's anatomy overlay at `id`, or clear it for `null`. */
+  private _syncAnatomy(id: number | null): void {
+    if (id === this._anatomyShown) return;
+    this._anatomyShown = id;
+    sendToPage({type: 'anatomy', id});
   }
 
   /**
@@ -509,6 +561,10 @@ export class ComponentsView extends LitElement {
     overrides.set('flashUpdates', !this._flash);
   }
 
+  private _toggleAnatomy(): void {
+    this._anatomy = !this._anatomy;
+  }
+
   /** Outline an element in the page; fires on every `mouseenter` in the tree. */
   private _highlight(id: number | null): void {
     sendToPage({type: 'highlight', id});
@@ -652,6 +708,141 @@ export class ComponentsView extends LitElement {
     `;
   }
 
+  /** An element in a slot or orphan row; inspectable ones select on click. */
+  private _renderElementRef(ref: AnatomyElementRef): TemplateResult {
+    const {id} = ref;
+    return html`<button
+      class="el-ref"
+      ?disabled=${id === undefined}
+      @click=${() => id !== undefined && this._session.select(id)}
+      @mouseenter=${() => id !== undefined && this._highlight(id)}
+      @mouseleave=${() => this._highlight(null)}
+    >
+      &lt;${ref.tagName}&gt;
+    </button>`;
+  }
+
+  private _renderSlotBadge(label: string, tip: string): TemplateResult {
+    return html`<wa-badge
+      class="badge"
+      variant="neutral"
+      appearance="outlined"
+      data-tip=${tip}
+      >${label}</wa-badge
+    >`;
+  }
+
+  /**
+   * Slots and parts, coloured like their regions in the page's anatomy
+   * overlay: slot `i` takes colour `i`, and parts continue after the slots.
+   */
+  private _renderAnatomy(a: InspectorAnatomy): TemplateResult {
+    const color = (i: number) => ANATOMY_COLORS[i % ANATOMY_COLORS.length];
+    const showSlots =
+      a.slots.length > 0 || a.orphans.length > 0 || a.orphanText > 0;
+    return html`
+      ${
+        showSlots
+          ? html`<section>
+              <div class="label">Slots</div>
+              <table>
+                ${a.slots.map(
+                  (s, i) => html`<tr>
+                    <td class="name">
+                      <span class="swatch" style="background:${color(i)}"></span
+                      >${
+                        s.name === ''
+                          ? html`<span class="slot-default">default</span>`
+                          : s.name
+                      }${
+                        s.status === 'assigned'
+                          ? nothing
+                          : this._renderSlotBadge(
+                              s.status,
+                              s.status === 'fallback'
+                                ? 'Nothing is assigned, so the slot shows its own content'
+                                : 'Nothing is assigned and the slot has no fallback content'
+                            )
+                      }${
+                        s.forwarded
+                          ? this._renderSlotBadge(
+                              'forwarded',
+                              'The content comes through a slot of an enclosing component'
+                            )
+                          : nothing
+                      }${
+                        s.duplicate
+                          ? this._renderSlotBadge(
+                              'duplicate',
+                              'An earlier slot has the same name, so this one never receives content'
+                            )
+                          : nothing
+                      }
+                    </td>
+                    <td class="val">
+                      ${s.elements.map((e) => this._renderElementRef(e))}${
+                        s.moreElements > 0
+                          ? html`<span class="muted">+${s.moreElements}</span>`
+                          : nothing
+                      }${
+                        s.textNodes > 0
+                          ? html`<span class="muted">${s.textNodes} text</span>`
+                          : nothing
+                      }
+                    </td>
+                  </tr>`
+                )}
+                ${a.orphans.map(
+                  (o) => html`<tr
+                    class="orphan"
+                    data-tip="No slot takes this child, so it is not rendered"
+                  >
+                    <td class="name">
+                      ${o.slot === '' ? 'no default slot' : `slot="${o.slot}"`}
+                    </td>
+                    <td class="val">
+                      ${this._renderElementRef(o)}<span class="muted"
+                        >not rendered</span
+                      >
+                    </td>
+                  </tr>`
+                )}
+                ${
+                  a.orphanText > 0
+                    ? html`<tr class="orphan">
+                        <td class="name">no default slot</td>
+                        <td class="val">${a.orphanText} text, not rendered</td>
+                      </tr>`
+                    : nothing
+                }
+              </table>
+            </section>`
+          : nothing
+      }
+      ${
+        a.parts.length > 0
+          ? html`<section>
+              <div class="label">Parts</div>
+              <table>
+                ${a.parts.map(
+                  (p, j) => html`<tr>
+                    <td class="name">
+                      <span
+                        class="swatch"
+                        style="background:${color(a.slots.length + j)}"
+                      ></span
+                      >${p.names.join(' ')}
+                    </td>
+                    <td class="val">&lt;${p.tagName}&gt;</td>
+                  </tr>`
+                )}
+              </table>
+            </section>`
+          : nothing
+      }
+    `;
+  }
+
   private _renderFlag(label: string, on: boolean): TemplateResult {
     return html`<wa-badge
       class="flag ${on ? 'on' : ''}"
@@ -737,8 +928,24 @@ export class ComponentsView extends LitElement {
           ${this._renderFlag('updated', d.flags.hasUpdated)}
           ${this._renderFlag('update pending', d.flags.isUpdatePending)}
           ${this._renderFlag('shadow root', d.flags.hasShadowRoot)}
+          ${
+            d.anatomy?.renderRoot === 'light'
+              ? this._renderFlag('light DOM', true)
+              : nothing
+          }
+          ${
+            d.anatomy?.mode === 'closed'
+              ? this._renderFlag('closed', true)
+              : nothing
+          }
+          ${
+            d.anatomy?.delegatesFocus === true
+              ? this._renderFlag('delegatesFocus', true)
+              : nothing
+          }
         </div>
       </section>
+      ${d.anatomy === undefined ? nothing : this._renderAnatomy(d.anatomy)}
       ${
         props.length > 0
           ? html`<section>
@@ -915,6 +1122,18 @@ export class ComponentsView extends LitElement {
           html`<wa-icon slot="start" name="lightning"></wa-icon>`,
           'Flash'
         )}
+        ${
+          this._snapshot
+            ? nothing
+            : this._renderToggle(
+                'anatomy',
+                this._anatomy,
+                "Draw the selected element's slots and parts on the page",
+                this._toggleAnatomy,
+                html`<wa-icon slot="start" name="bounding-box"></wa-icon>`,
+                'Anatomy'
+              )
+        }
       </div>
       ${this._renderHmrBanner()}${this._renderLastPatch()}
       <wa-split-panel

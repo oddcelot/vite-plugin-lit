@@ -43,7 +43,7 @@ Selecting an element fills the pane on the right: its tag name, a source link
 reading `file:line`, and three flags — `updated`, `update pending` and
 `shadow root`.
 
-Below those come up to four tables. **Properties** lists the public reactive
+Below those come up to six tables. **Properties** lists the public reactive
 properties, with a badge naming the attribute a property reflects to.
 **State** lists internal `@state`. **Attributes** lists the attributes the
 element currently carries.
@@ -56,6 +56,9 @@ the name shows the type. The table has limits. A computed signal shows as
 `(computed)` and is never evaluated, since that would run your code.
 Controllers are found through a private Lit field, so a Lit build that renames
 it lists none. Values use the same previews as properties.
+
+**Slots** and **Parts** show how the element composes its content; see
+[See an element's slots and parts](#see-an-elements-slots-and-parts).
 
 The playground fixture below fills all three. The two marked `@property`
 declarations land under Properties, `label` with an attribute badge; the two
@@ -134,6 +137,32 @@ second. Green for one, yellow at two, orange at four, red at eight.
 
 Both preferences live in the settings override, so the page picks them up at
 boot and they survive a reload.
+
+## See an element's slots and parts
+
+**Anatomy** draws the selected element's composition on the page: a grey
+outline round the element, one coloured region per slot, and a dashed box per
+`::part` export. Each region carries a label such as `slot "title"`,
+`default slot` or `::part(body)`. The toggle follows the selection, so picking
+another element moves the drawing with it.
+
+A `<slot>` has no box of its own, so each region is the bounding box of what
+the slot renders: the light children assigned to it, or its fallback content.
+A slot that renders nothing gets no region. The boxes are redrawn every frame
+while Anatomy is on, so they follow scrolling and content changes.
+
+The details pane lists the same slots and parts with matching colour swatches.
+Each slot row names the elements assigned to it; click an element to select
+it. Badges mark a slot that is `empty`, one that shows its own `fallback`
+content, one whose content is `forwarded` from an enclosing component's slot,
+and a `duplicate` name that never receives content. Light children that no
+slot takes are listed in red as _not rendered_, which catches a misspelled
+`slot` attribute or a missing default slot. Flags above the tables say when an
+element renders into `light DOM`, has a `closed` shadow root, or sets
+`delegatesFocus`.
+
+The tables refresh when the element updates. Moving a light child into another
+slot does not update the element, so click the element again to refresh them.
 
 ## When the tree is empty
 

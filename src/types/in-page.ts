@@ -36,12 +36,14 @@ export const LIT_IN_PAGE_CHANNEL = 'lit:in-page';
  * so a tree node, a details payload, and an outline all agree on identity.
  * `null` clears the outline. `reveal` scrolls an element into view and
  * outlines it for a moment, for the details pane's "Scroll into view".
+ * `anatomy` draws an element's slots and parts until it gets `null`.
  */
 export interface LitInPageProtocol {
   events: {
     pageScript: {
       highlight: (id: number | null) => void;
       reveal: (id: number) => void;
+      anatomy: (id: number | null) => void;
     };
   };
 }

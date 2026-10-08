@@ -14,6 +14,7 @@ import {pageChannel} from '../page-channel.js';
 import {PAGE_ID} from '../page-id.js';
 import type {ViteHotLike} from '../page-channel.js';
 import {buildTree, collectDetails} from './collect.js';
+import {anatomyById, clearAnatomy} from './anatomy-overlay.js';
 import {clearHighlight, highlightById, revealById} from './highlight.js';
 import {
   LIT_IN_PAGE_CHANNEL,
@@ -59,6 +60,7 @@ if (typeof window !== 'undefined') {
     events: {
       highlight: {handler: (id) => highlightById(id)},
       reveal: {handler: (id) => revealById(id)},
+      anatomy: {handler: (id) => anatomyById(id)},
     },
   });
   channel.events.on('panel:connected', (panel) => {
@@ -77,6 +79,7 @@ if (typeof window !== 'undefined') {
     clearHighlight();
     panels.delete(panel.id);
     if (panels.size > 0) return;
+    clearAnatomy();
     try {
       onPanelsGone?.();
     } catch {
@@ -375,6 +378,9 @@ if (typeof window !== 'undefined') {
         break;
       case 'reveal':
         revealById(cmd.id);
+        break;
+      case 'anatomy':
+        anatomyById(cmd.id);
         break;
       case 'observe':
         setObserving(cmd.enabled);

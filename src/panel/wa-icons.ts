@@ -21,6 +21,7 @@ import {
 import arrowCounterClockwise from '@phosphor-icons/core/assets/regular/arrow-counter-clockwise.svg?raw';
 import arrowRight from '@phosphor-icons/core/assets/regular/arrow-right.svg?raw';
 import arrowSquareOut from '@phosphor-icons/core/assets/regular/arrow-square-out.svg?raw';
+import boundingBox from '@phosphor-icons/core/assets/regular/bounding-box.svg?raw';
 import caretDown from '@phosphor-icons/core/assets/regular/caret-down.svg?raw';
 import caretLeft from '@phosphor-icons/core/assets/regular/caret-left.svg?raw';
 import caretRight from '@phosphor-icons/core/assets/regular/caret-right.svg?raw';
@@ -47,6 +48,7 @@ const ICONS = {
   'arrow-counter-clockwise': arrowCounterClockwise,
   'arrow-right': arrowRight,
   'arrow-square-out': arrowSquareOut,
+  'bounding-box': boundingBox,
   'caret-down': caretDown,
   'caret-right': caretRight,
   clock,

@@ -80,6 +80,79 @@ export interface InspectorExtra {
   status?: string;
 }
 
+/** An element named in an anatomy entry; `id` is set when it is inspectable. */
+export interface AnatomyElementRef {
+  tagName: string;
+  id?: number;
+}
+
+/** One `<slot>` in an element's shadow root. */
+export interface AnatomySlot {
+  /** The slot's `name`, `''` for the default slot. */
+  name: string;
+  /**
+   * `assigned` when light children land in it, `fallback` when it renders
+   * its own content instead, `empty` when it renders nothing at all.
+   */
+  status: 'assigned' | 'fallback' | 'empty';
+  /** Assigned elements, flattened through forwarded slots, at most 12. */
+  elements: AnatomyElementRef[];
+  /** Assigned elements past the first 12. */
+  moreElements: number;
+  /** Assigned text nodes that are not just whitespace. */
+  textNodes: number;
+  /** The content arrives through a slot of an enclosing shadow root. */
+  forwarded: boolean;
+  /**
+   * An earlier slot has the same name, so this one never receives content.
+   */
+  duplicate: boolean;
+}
+
+/** A light child that matches no slot, so the browser never renders it. */
+export interface AnatomyOrphan extends AnatomyElementRef {
+  /** The `slot` attribute it asks for, `''` for the default slot. */
+  slot: string;
+}
+
+/** An element in the shadow root that exposes itself to `::part()`. */
+export interface AnatomyPart {
+  names: string[];
+  tagName: string;
+}
+
+/**
+ * How an element composes its content: where it renders, its slots, the
+ * light children no slot takes, and its `::part` exports.
+ */
+export interface InspectorAnatomy {
+  /** `light` when `createRenderRoot` returns the element itself. */
+  renderRoot: 'shadow' | 'light';
+  /** The shadow root's mode; absent for light DOM. */
+  mode?: 'open' | 'closed';
+  delegatesFocus?: boolean;
+  slots: AnatomySlot[];
+  orphans: AnatomyOrphan[];
+  /** Light text that matches no slot (no default slot to take it). */
+  orphanText: number;
+  parts: AnatomyPart[];
+}
+
+/**
+ * Colours the anatomy overlay gives slots and parts, in order. The details
+ * pane uses the same list, so a slot row and its region on the page match.
+ */
+export const ANATOMY_COLORS = [
+  '#4d63ff',
+  '#e8590c',
+  '#2f9e44',
+  '#c2255c',
+  '#1098ad',
+  '#9c36b5',
+  '#f08c00',
+  '#5c940d',
+] as const;
+
 /** Full detail snapshot for a single inspected element. */
 export interface InspectorDetails {
   id: number;
@@ -96,6 +169,8 @@ export interface InspectorDetails {
     isUpdatePending: boolean;
     hasShadowRoot: boolean;
   };
+  /** Render root, slots and parts. Absent for an element with no render root. */
+  anatomy?: InspectorAnatomy;
   /**
    * Non-reactive instance state: controllers, tasks, signals, plain fields.
    * Absent when there is none.
@@ -142,6 +217,8 @@ export type InspectorCommand =
   | {type: 'highlight'; id: number | null}
   /** Scroll element `id` into view in the page and outline it briefly. */
   | {type: 'reveal'; id: number}
+  /** Draw element `id`'s slots and parts on the page; `null` clears it. */
+  | {type: 'anatomy'; id: number | null}
   /**
    * Opt-in live tree: when enabled, the runtime watches the DOM and pushes a
    * fresh `tree` message whenever the component hierarchy changes. Off by

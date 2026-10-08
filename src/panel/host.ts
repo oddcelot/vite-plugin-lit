@@ -71,7 +71,7 @@ export const resetHostInfo = (): void => {
 /**
  * Send an inspector command to the page. Best-effort: a failure is logged.
  *
- * Highlight and reveal prefer the direct page channel: highlight fires on
+ * Highlight, reveal and anatomy prefer the direct page channel: highlight fires on
  * every pointer move over the tree, and the RPC route is panel -> node ->
  * page, a full round trip through the dev server for something the page
  * could have drawn itself. The channel is not always there (a panel opened
@@ -88,6 +88,10 @@ export const sendToPage = (command: InspectorCommand): void => {
   }
   if (command.type === 'reveal' && inPageConnected()) {
     inPageChannel().emit('reveal', command.id);
+    return;
+  }
+  if (command.type === 'anatomy' && inPageConnected()) {
+    inPageChannel().emit('anatomy', command.id);
     return;
   }
   const send = (client: LitClient) =>
