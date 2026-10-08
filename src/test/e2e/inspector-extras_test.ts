@@ -80,3 +80,36 @@ test('lists a real @lit/task by its field name with its status and value', async
       })
     );
 });
+
+test('links a real @consume to its @provide and follows the value live', async () => {
+  const detailsOf = (tag: string) => {
+    const id = find(roots, tag);
+    if (id === undefined) {
+      fixture.server.hot.send(INSPECT_CMD_CHANNEL, {type: 'tree'});
+      return undefined;
+    }
+    fixture.server.hot.send(INSPECT_CMD_CHANNEL, {type: 'details', id});
+    return details.filter((d) => d.id === id).at(-1);
+  };
+  const contextOf = (tag: string) =>
+    detailsOf(tag)?.extras?.find((e) => e.kind === 'context');
+
+  await expect
+    .poll(() => contextOf('hmr-ctx-consumer')?.context?.provider, {
+      timeout: 10_000,
+    })
+    .toMatchObject({tagName: 'hmr-ctx-provider', id: expect.any(Number)});
+  expect(contextOf('hmr-ctx-consumer')?.context).toMatchObject({
+    role: 'consumer',
+    key: 'hmr-counter-context',
+  });
+  await expect
+    .poll(() => contextOf('hmr-ctx-provider')?.context?.consumers)
+    .toMatchObject([{tagName: 'hmr-ctx-consumer'}]);
+
+  const before = contextOf('hmr-ctx-consumer')?.value;
+  await fixture.page.click('hmr-ctx-provider #provide-increment');
+  await expect
+    .poll(() => contextOf('hmr-ctx-consumer')?.value, {timeout: 10_000})
+    .not.toBe(before);
+});

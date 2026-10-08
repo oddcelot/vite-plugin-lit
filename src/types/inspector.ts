@@ -86,7 +86,7 @@ export interface InspectorProp {
  * `@lit/task`, a signal, or a plain class field.
  */
 export interface InspectorExtra {
-  kind: 'controller' | 'task' | 'signal' | 'field';
+  kind: 'controller' | 'task' | 'signal' | 'field' | 'context';
   /**
    * The own-field name when the controller or signal is stored in one, else
    * its constructor name.
@@ -103,6 +103,27 @@ export interface InspectorExtra {
   status?: string;
   /** As {@link InspectorProp.expandable}. */
   expandable?: boolean;
+  /** `@lit/context` role of a `context` extra, and how it links to others. */
+  context?: InspectorContext;
+}
+
+/**
+ * A `@lit/context` provider or consumer on the element: the context key as
+ * written, and the elements on the other side of it.
+ */
+export interface InspectorContext {
+  role: 'provider' | 'consumer';
+  /** The context key: a Symbol's description, a string, else a preview. */
+  key: string;
+  /** Consumer only: the provider that answered it, when one is found. */
+  provider?: AnatomyElementRef;
+  /**
+   * Provider only: the consumers that subscribed to it, at most 12. A
+   * consumer that did not ask for updates is not recorded by the provider.
+   */
+  consumers?: AnatomyElementRef[];
+  /** Subscribed consumers past the first 12. */
+  moreConsumers?: number;
 }
 
 /**

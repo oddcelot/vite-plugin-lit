@@ -1,6 +1,7 @@
 import {afterEach, expect, test, vi} from 'vite-plus/test';
-import {LitElement} from 'lit';
+import {LitElement, html} from 'lit';
 import {Task} from '@lit/task';
+import {ContextConsumer, ContextProvider, createContext} from '@lit/context';
 import {Signal} from '@lit-labs/signals';
 import {collectExtras} from '../../lib/runtime/inspector/extras.js';
 
@@ -261,4 +262,97 @@ test('reading a signal inside a computed subscribes it (why the push is deferred
   collectExtras(el);
   outside.get();
   expect(Signal.subtle.introspectSources(outside)).toHaveLength(0);
+});
+
+const ctxKey = createContext<number>(Symbol('theme'));
+
+test('a context consumer links to the provider above it, across a shadow root', async () => {
+  class Provider extends LitElement {
+    provider = new ContextProvider(this, {context: ctxKey, initialValue: 1});
+    render() {
+      return html`<x-ctx-consumer></x-ctx-consumer>`;
+    }
+  }
+  class Consumer extends LitElement {
+    consumer = new ContextConsumer(this, {context: ctxKey, subscribe: true});
+  }
+  customElements.define('x-ctx-provider', Provider);
+  customElements.define('x-ctx-consumer', Consumer);
+  const p = new Provider();
+  document.body.append(p);
+  await p.updateComplete;
+  const c = p.shadowRoot!.querySelector('x-ctx-consumer') as Consumer;
+  await c.updateComplete;
+
+  const [consumer] = collectExtras(c);
+  expect(consumer).toMatchObject({
+    kind: 'context',
+    name: 'consumer',
+    value: '1',
+    type: 'ContextConsumer',
+    context: {
+      role: 'consumer',
+      key: 'Symbol(theme)',
+      provider: {tagName: 'x-ctx-provider', id: expect.any(Number)},
+    },
+  });
+
+  const [provider] = collectExtras(p);
+  expect(provider).toMatchObject({
+    kind: 'context',
+    name: 'provider',
+    value: '1',
+    type: 'ContextProvider',
+    context: {
+      role: 'provider',
+      consumers: [{tagName: 'x-ctx-consumer'}],
+    },
+  });
+  // A new value reaches the subscribed consumer, which re-renders.
+  p.provider.setValue(5);
+  await c.updateComplete;
+  expect(collectExtras(c)[0]!.value).toBe('5');
+});
+
+test('a consumer that does not subscribe still finds its provider', async () => {
+  class Provider extends LitElement {
+    provider = new ContextProvider(this, {
+      context: createContext<string>('plain-key'),
+      initialValue: 'a',
+    });
+  }
+  class Consumer extends LitElement {
+    consumer = new ContextConsumer(this, {
+      context: createContext<string>('plain-key'),
+    });
+  }
+  customElements.define('x-ctx-p2', Provider);
+  customElements.define('x-ctx-c2', Consumer);
+  const p = new Provider();
+  const c = new Consumer();
+  p.append(c);
+  document.body.append(p);
+  await c.updateComplete;
+  const [consumer] = collectExtras(c);
+  expect(consumer!.context).toMatchObject({
+    key: 'plain-key',
+    provider: {tagName: 'x-ctx-p2'},
+  });
+  expect(consumer!.value).toBe('"a"');
+  // Not subscribed, so the provider cannot list it.
+  expect(collectExtras(p)[0]!.context!.consumers).toBeUndefined();
+});
+
+test('a consumer with no provider says so by omitting the link', async () => {
+  class Consumer extends LitElement {
+    consumer = new ContextConsumer(this, {
+      context: createContext<string>('orphan-key'),
+    });
+  }
+  customElements.define('x-ctx-c3', Consumer);
+  const c = new Consumer();
+  document.body.append(c);
+  await c.updateComplete;
+  const [consumer] = collectExtras(c);
+  expect(consumer!.context).toEqual({role: 'consumer', key: 'orphan-key'});
 });
