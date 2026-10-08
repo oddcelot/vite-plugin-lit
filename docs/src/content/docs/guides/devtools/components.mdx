@@ -239,8 +239,11 @@ Forwarding is followed up to four components deep.
 With Anatomy on, hover a slot or part row to find its region on the page. The
 region gains a ring and the others fade until the pointer leaves the row.
 
-The tables refresh when the element updates. Moving a light child into another
-slot does not update the element, so click the element again to refresh them.
+The tables refresh when the element updates, and whenever a slot's assignment
+changes, so moving a light child into another slot or adding and removing
+children updates the Slots table without a re-render. A child that asks for a
+slot the element does not have changes no assignment; click the element again to
+refresh the _not rendered_ list.
 
 ## When the tree is empty
 

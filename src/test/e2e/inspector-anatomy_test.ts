@@ -114,6 +114,30 @@ test('lists parts forwarded by a nested component with exportparts', async () =>
   ]);
 });
 
+test('refreshes a watched element when a light child changes slot', async () => {
+  const {id} = await nodeFor('hmr-slots');
+  fixture.server.hot.send(INSPECT_CMD_CHANNEL, {type: 'watch', id});
+  const latest = () =>
+    details.filter((d) => d.id === id).at(-1)?.anatomy?.slots;
+  await expect.poll(latest, {timeout: 10_000}).toBeDefined();
+
+  // No re-render happens: only the child's `slot` attribute changes.
+  await fixture.page.evaluate(
+    `document.querySelector('hmr-slots > p').setAttribute('slot', 'icon')`
+  );
+  await expect
+    .poll(() => latest()?.[0].status, {timeout: 10_000})
+    .toBe('assigned');
+
+  await fixture.page.evaluate(
+    `document.querySelector('hmr-slots > p').removeAttribute('slot')`
+  );
+  await expect
+    .poll(() => latest()?.[0].status, {timeout: 10_000})
+    .toBe('empty');
+  fixture.server.hot.send(INSPECT_CMD_CHANNEL, {type: 'watch', id: null});
+});
+
 test('draws labelled slot and part regions until cleared', async () => {
   const {id} = await nodeFor('hmr-slots');
   await fixture.page.evaluate(
