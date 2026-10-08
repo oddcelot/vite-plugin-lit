@@ -51,8 +51,15 @@ is one category of recorded timeline events, with its own colour and toggle.
 | Changed values       | Adds the old and new value of each changed property to the update events. No events of its own, so it has no track; see [Updates](/vite-plugin-lit/guides/devtools/updates/)                                                                                                                      | off     |
 | Mouse                | `mousedown`, `mouseup`, `click`, `dblclick`                                                                                                                                                                                                                                                       | off     |
 | Keyboard             | `keydown`, `keyup`                                                                                                                                                                                                                                                                                | off     |
+| Custom events        | Events a component dispatches with `this.dispatchEvent(...)`: the type, `bubbles`/`composed`/`cancelable` and a short preview of `detail`                                                                                                                                                         | off     |
 
 Your toggles are remembered between sessions in `localStorage`.
+
+A custom event row is attributed to the component that dispatched it, so it
+links to that component like any other row. Only an element's own
+`dispatchEvent` call is recorded, not events the browser raises, and the
+detail preview is cut short like any value in the panel. One dispatched while
+its component is updating shares that update's group.
 
 An `update skipped` event means the component's own `shouldUpdate` returned
 false. Lit still runs `performUpdate` but skips `update` and `updated`, so the
