@@ -44,6 +44,7 @@ export interface CaptureController {
     readonly changedValues: () => boolean;
     readonly mouse: () => boolean;
     readonly keyboard: () => boolean;
+    readonly customEvents: () => boolean;
   };
   /** The panel started or stopped recording. */
   setRecording(recording: boolean): void;
@@ -65,6 +66,7 @@ export const createCaptureController = (
     litChangedValuesEnabled: false,
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
+    customEventsEnabled: false,
   };
   let chromeTracks = false;
 
@@ -88,6 +90,7 @@ export const createCaptureController = (
       changedValues: () => state.litChangedValuesEnabled,
       mouse: () => state.mouseEventEnabled,
       keyboard: () => state.keyboardEventEnabled,
+      customEvents: () => state.customEventsEnabled,
     },
     setRecording(recording) {
       // Re-zero on the rising edge so event times read as "ms since recording

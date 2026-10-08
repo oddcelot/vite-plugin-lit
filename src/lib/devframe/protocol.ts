@@ -401,6 +401,7 @@ export const LAYER_FLAGS: Readonly<Record<string, keyof TimelineLayersState>> =
     'lit-changed-values': 'litChangedValuesEnabled',
     mouse: 'mouseEventEnabled',
     keyboard: 'keyboardEventEnabled',
+    'custom-events': 'customEventsEnabled',
   };
 
 // Hand-typed rather than derived through `RpcDefinitionsToFunctionsWithNamespace`

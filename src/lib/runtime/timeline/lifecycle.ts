@@ -21,6 +21,7 @@
 import {idOf, metaOf, changedKeys} from './identity.js';
 import {now} from './clock.js';
 import {captureChangedValues} from './changed-values.js';
+import {wrapDispatchEvent} from './custom-events.js';
 import {erroredTasks} from '../inspector/extras.js';
 import type {TimelineEvent} from '../../../types/timeline.js';
 
@@ -105,6 +106,14 @@ export const currentlyUpdating = (): {
   updating === null
     ? null
     : {tagName: (updating as Element).localName, elementId: idOf(updating)};
+
+/**
+ * The groupId of the update tick `el` is inside right now, or undefined when
+ * it is not in `performUpdate` (an event another element dispatched during
+ * this update is not part of this element's tick).
+ */
+export const updateGroupOf = (el: object): string | undefined =>
+  updating === el ? `${idOf(el)}:${tickOf(el)}` : undefined;
 
 /** Name and message only: a stack would make every failed update a large event. */
 const describeError = (e: unknown): {name: string; message: string} => {
@@ -622,4 +631,5 @@ const patchBases = (
   for (const name of POINT_PHASES) {
     wrap(reProto, name, true, emit, recording, enabled, changedValues);
   }
+  wrapDispatchEvent(reProto);
 };

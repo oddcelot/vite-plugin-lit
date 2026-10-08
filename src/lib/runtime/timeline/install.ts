@@ -18,7 +18,12 @@ import {
   createChromeTracksSink,
   profilerStamp,
 } from './chrome-tracks.js';
-import {installLifecycleLayer, setUpdateHook} from './lifecycle.js';
+import {
+  installLifecycleLayer,
+  setUpdateHook,
+  updateGroupOf,
+} from './lifecycle.js';
+import {installCustomEventsLayer} from './custom-events.js';
 import {installLitWarningCapture} from './lit-warnings.js';
 import {installWarningsLayer} from './warnings-layer.js';
 import {installRenderLayer, setRenderDebugEnabled} from './render.js';
@@ -50,6 +55,12 @@ const capture = createCaptureController({
 // ---------------------------------------------------------------------------
 
 const {out, capturing, enabled} = capture;
+installCustomEventsLayer({
+  emit: out,
+  recording: capturing,
+  enabled: enabled.customEvents,
+  groupOf: updateGroupOf,
+});
 installLifecycleLayer(out, capturing, enabled.lifecycle, enabled.changedValues);
 // Normally hooked already by `warnings-boot`; this covers a page without it.
 installLitWarningCapture();

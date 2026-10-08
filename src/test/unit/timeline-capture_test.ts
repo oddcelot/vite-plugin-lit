@@ -88,7 +88,8 @@ describe('layer flags', () => {
       enabled.changedValues(),
       enabled.mouse(),
       enabled.keyboard(),
-    ]).toEqual([true, true, false, false, false, false]);
+      enabled.customEvents(),
+    ]).toEqual([true, true, false, false, false, false, false]);
   });
 
   test('follow the panel toggles', () => {
@@ -102,6 +103,14 @@ describe('layer flags', () => {
     const {capture} = setup();
     capture.setLayers({litChangedValuesEnabled: true});
     expect(capture.enabled.changedValues()).toBe(true);
+  });
+});
+
+describe('custom events flag', () => {
+  test('turns on from the panel', () => {
+    const {capture} = setup();
+    capture.setLayers({customEventsEnabled: true});
+    expect(capture.enabled.customEvents()).toBe(true);
   });
 });
 
