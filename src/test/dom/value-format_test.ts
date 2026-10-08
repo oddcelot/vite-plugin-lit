@@ -1,6 +1,7 @@
 import {expect, test} from 'vite-plus/test';
 import {serialize} from '../../lib/runtime/inspector/serialize.js';
 import {
+  formatLines,
   formatValue,
   tokenizeValue,
   type ValueToken,
@@ -128,4 +129,59 @@ test('nested groups open only where they do not fit', () => {
 test('an unbalanced preview is left as it came', () => {
   const value = `{a: "${'x'.repeat(40)}", b: [1, 2}`;
   expect(text(formatValue(value))).toBe(value);
+});
+
+test('a re-flowed preview splits into indented lines', () => {
+  const value = serialize({
+    user: {first: 'Ada', last: 'Lovelace'},
+    tags: ['math', 'engines', 'poetry', 'notes', 'letters'],
+  });
+  const lines = formatLines(value).map((l) => `${l.indent}|${text(l.tokens)}`);
+  expect(lines).toEqual([
+    '0|{',
+    '2|user: {first: "Ada", last: "Lovelace"},',
+    '2|tags: [',
+    '4|"math",',
+    '4|"engines",',
+    '4|"poetry",',
+    '4|"notes",',
+    '4|"letters"',
+    '2|]',
+    '0|}',
+  ]);
+});
+
+test('a short preview is one line at no indent', () => {
+  expect(formatLines('{a: 1}')).toEqual([
+    {indent: 0, tokens: tokenizeValue('{a: 1}')},
+  ]);
+});
+
+test('colours a Map preview and opens it up when long', () => {
+  const map = new Map<string, unknown>([
+    ['first', 'Ada'],
+    ['last', 'Lovelace'],
+    ['born', 1815],
+  ]);
+  const value = serialize(map);
+  expect(kinds(tokenizeValue(value)).slice(0, 9)).toEqual([
+    'type:Map',
+    'punct:(',
+    'number:3',
+    'punct:)',
+    'punct:{',
+    'string:"first"',
+    'punct:=',
+    'punct:>',
+    'string:"Ada"',
+  ]);
+  expect(text(formatValue(value))).toBe(
+    [
+      'Map(3) {',
+      '  "first" => "Ada",',
+      '  "last" => "Lovelace",',
+      '  "born" => 1815',
+      '}',
+    ].join('\n')
+  );
 });

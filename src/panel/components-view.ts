@@ -31,8 +31,9 @@ import {PanelLocation} from './panel-location.js';
 import {openInEditor} from './open-in-editor.js';
 import {hostInfo, sendToPage, touchPageChannel} from './host.js';
 import {overrides} from './settings-override.js';
-import {formatValue} from './value-format.js';
+import {formatLines, type ValueToken} from './value-format.js';
 import {filterTree, type TreeFilterResult} from './tree-filter.js';
+import {attrKey, changedRows, extraKey, propKey} from './details-diff.js';
 
 /**
  * localStorage key remembering a paused live tree. Live is the default, so
@@ -105,13 +106,28 @@ const markMatch = (text: string, query: string): TemplateResult | string => {
   return html`${text.slice(0, at)}<mark>${text.slice(at, at + q.length)}</mark>${text.slice(at + q.length)}`;
 };
 
-/** A serialized preview as coloured spans, re-flowed when long. */
-const renderCode = (value: string): TemplateResult[] =>
-  formatValue(value).map((t) =>
+const renderTokens = (tokens: ValueToken[]): TemplateResult[] =>
+  tokens.map((t) =>
     t.kind === 'text'
       ? html`${t.text}`
       : html`<span class="t-${t.kind}">${t.text}</span>`
   );
+
+/**
+ * A serialized preview as coloured spans. A re-flowed preview renders one
+ * block per line, indented by its depth with a hanging indent, so a long
+ * string that wraps continues under its own text instead of at the margin.
+ */
+const renderCode = (value: string): TemplateResult | TemplateResult[] => {
+  const lines = formatLines(value);
+  if (lines.length === 1) return renderTokens(lines[0]!.tokens);
+  return lines.map(
+    (l) =>
+      html`<span class="line" style="--indent:${l.indent}"
+        >${renderTokens(l.tokens)}</span
+      >`
+  );
+};
 
 /** Types the value's own spelling already shows, so no tag is needed. */
 const SELF_EVIDENT_TYPES = new Set([
@@ -440,6 +456,12 @@ export class ComponentsView extends LitElement {
         color: var(--lit-devtools-text);
         white-space: pre-wrap;
       }
+      /* Indent by depth; wrapped rows hang two columns further in. */
+      .val .line {
+        display: block;
+        padding-left: calc((var(--indent) + 2) * 1ch);
+        text-indent: -2ch;
+      }
       .t-key {
         color: var(--lit-devtools-code-property);
       }
@@ -646,6 +668,10 @@ export class ComponentsView extends LitElement {
   private readonly _detailsWidth = readDetailsWidth();
   private _unsubscribeOverride: (() => void) | null = null;
   private _unsubscribeSession: (() => void) | null = null;
+  /** The details last rendered, to tell which rows a refresh changed. */
+  private _shownDetails: InspectorDetails | null = null;
+  /** Rows to highlight once the render that changed them lands. */
+  private _pendingFlash = new Set<string>();
   private _reportedIncompatibilities: unknown = null;
 
   override connectedCallback() {
@@ -671,10 +697,52 @@ export class ComponentsView extends LitElement {
     this._syncAnatomy(null);
   }
 
+  protected override willUpdate(): void {
+    const d = this._session.details;
+    if (d === this._shownDetails) return;
+    // Only a refresh of the same element can change a row; a new selection
+    // or the first snapshot flashes nothing.
+    for (const key of changedRows(this._shownDetails, d)) {
+      this._pendingFlash.add(key);
+    }
+    this._shownDetails = d;
+  }
+
   protected override updated(): void {
+    this._flashChangedRows();
     this._syncAnatomy(
       this._anatomy && !this._snapshot ? this._session.selectedId : null
     );
+  }
+
+  /**
+   * Fade a highlight out of each row whose value just changed. The Web
+   * Animations API restarts cleanly when a value changes again mid-fade,
+   * which a CSS class would not. A colour fade without motion, so it runs
+   * under reduced motion too.
+   */
+  private _flashChangedRows(): void {
+    if (this._pendingFlash.size === 0) return;
+    const keys = this._pendingFlash;
+    this._pendingFlash = new Set();
+    for (const row of this.renderRoot.querySelectorAll<HTMLElement>(
+      '.details .entry[data-key]'
+    )) {
+      if (!keys.has(row.dataset['key']!) || typeof row.animate !== 'function') {
+        continue;
+      }
+      // Keyframes take resolved colours, not var() references.
+      const from = getComputedStyle(row)
+        .getPropertyValue('--lit-devtools-warning-soft')
+        .trim();
+      row.animate(
+        [
+          {backgroundColor: from || 'transparent'},
+          {backgroundColor: 'transparent'},
+        ],
+        {duration: 1200, easing: 'ease-out'}
+      );
+    }
   }
 
   /** Point the page's anatomy overlay at `id`, or clear it for `null`. */
@@ -952,9 +1020,13 @@ export class ComponentsView extends LitElement {
     name: TemplateResult | string,
     value: string,
     trailing: unknown = nothing,
-    code = false
+    code = false,
+    key?: string
   ): TemplateResult {
-    return html`<div class="entry ${value.length > WIDE_VALUE ? 'wide' : ''}">
+    return html`<div
+      class="entry ${value.length > WIDE_VALUE ? 'wide' : ''}"
+      data-key=${key ?? nothing}
+    >
       <span class="name">${name}</span>
       <span class="val ${code ? 'code' : ''}"
         >${code ? renderCode(value) : value}${trailing}</span
@@ -982,7 +1054,8 @@ export class ComponentsView extends LitElement {
                   }</wa-badge
                 >`
               : nothing,
-            true
+            true,
+            propKey(p.name)
           )
         )}
       </div>
@@ -1012,7 +1085,8 @@ export class ComponentsView extends LitElement {
             }`,
             e.value,
             nothing,
-            true
+            true,
+            extraKey(e.name)
           )
         )}
       </div>
@@ -1419,7 +1493,8 @@ export class ComponentsView extends LitElement {
                 this._mark(a.name),
                 JSON.stringify(a.value),
                 nothing,
-                true
+                true,
+                attrKey(a.name)
               )
             )}
           </div>

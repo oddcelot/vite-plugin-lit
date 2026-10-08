@@ -520,6 +520,42 @@ test('filtering slots keeps each row on its own colour', async () => {
   expect(swatch.getAttribute('style')).toContain(ANATOMY_COLORS[1]);
 });
 
+test('a refresh highlights the rows whose value changed', async () => {
+  const animate = vi.fn();
+  const original = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'animate'
+  );
+  Object.defineProperty(HTMLElement.prototype, 'animate', {
+    value: animate,
+    configurable: true,
+  });
+  try {
+    const {el} = await mount(true);
+    push('inspector-message', {type: 'pick', id: 2});
+    push('inspector-message', {type: 'details', details: filterable()});
+    await flush(el);
+    // The first snapshot of a selection changes nothing.
+    expect(animate).not.toHaveBeenCalled();
+
+    const next = filterable();
+    next.properties[1] = {...next.properties[1]!, value: '2'};
+    next.attributes = [{name: 'data-renders', value: '4'}];
+    push('inspector-message', {type: 'details', details: next});
+    await flush(el);
+    const flashed = animate.mock.contexts.map(
+      (row) => (row as HTMLElement).dataset['key']
+    );
+    expect(flashed).toEqual(['p:userId', 'a:data-renders']);
+  } finally {
+    if (original === undefined) {
+      delete (HTMLElement.prototype as {animate?: unknown}).animate;
+    } else {
+      Object.defineProperty(HTMLElement.prototype, 'animate', original);
+    }
+  }
+});
+
 test('attribute values read as quoted strings', async () => {
   const {el, root} = await mount(true);
   push('inspector-message', {type: 'pick', id: 2});

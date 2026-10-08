@@ -210,3 +210,34 @@ export const formatValue = (value: string, width = 40): ValueToken[] => {
   emit(nodes, 0, width, out);
   return out;
 };
+
+/** One line of a re-flowed preview: its depth in spaces, and its tokens. */
+export interface ValueLine {
+  indent: number;
+  tokens: ValueToken[];
+}
+
+/**
+ * {@link formatValue}, split at its line breaks. Each line's leading spaces
+ * become `indent`, so a renderer can indent the whole line, wrapped
+ * continuation included, rather than only its first row.
+ */
+export const formatLines = (value: string, width = 40): ValueLine[] => {
+  const lines: ValueLine[] = [{indent: 0, tokens: []}];
+  for (const token of formatValue(value, width)) {
+    if (token.kind !== 'text' || !token.text.includes('\n')) {
+      lines.at(-1)!.tokens.push(token);
+      continue;
+    }
+    const [head, ...rest] = token.text.split('\n');
+    if (head !== '') lines.at(-1)!.tokens.push({kind: 'text', text: head!});
+    for (const part of rest) {
+      const body = part.trimStart();
+      lines.push({
+        indent: part.length - body.length,
+        tokens: body === '' ? [] : [{kind: 'text', text: body}],
+      });
+    }
+  }
+  return lines;
+};

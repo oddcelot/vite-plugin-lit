@@ -148,11 +148,38 @@ describe('arrays and objects', () => {
 });
 
 describe('collections and built-ins', () => {
-  test('Map and Set show only their size', () => {
-    expect(serialize(new Map([[1, 2]]))).toBe('Map(1)');
-    expect(serialize(new Set([1, 2]))).toBe('Set(2)');
+  test('Map and Set list their entries after their size', () => {
+    expect(
+      serialize(
+        new Map<unknown, unknown>([
+          ['a', 1],
+          [2, {x: true}],
+        ])
+      )
+    ).toBe('Map(2) {"a" => 1, 2 => {x: true}}');
+    expect(serialize(new Set([1, 'two']))).toBe('Set(2) {1, "two"}');
     expect(typeTag(new Map())).toBe('Map(0)');
     expect(typeTag(new Set([1]))).toBe('Set(1)');
+  });
+
+  test('an empty Map or Set is just its size', () => {
+    expect(serialize(new Map())).toBe('Map(0)');
+    expect(serialize(new Set())).toBe('Set(0)');
+  });
+
+  test('a large Set lists the first entries and counts the rest', () => {
+    const set = new Set(Array.from({length: 11}, (_, i) => i));
+    expect(serialize(set)).toBe('Set(11) {0, 1, 2, 3, 4, 5, 6, 7, …+3}');
+  });
+
+  test('a nested Map past the depth limit is its size alone', () => {
+    expect(serialize({a: {b: new Map([[1, 2]])}})).toBe('{a: {b: Map(1)}}');
+  });
+
+  test('a Map that holds itself is marked circular', () => {
+    const m = new Map<string, unknown>();
+    m.set('self', m);
+    expect(serialize(m)).toBe('Map(1) {"self" => [Circular]}');
   });
 
   test('RegExp previews as its literal', () => {

@@ -82,9 +82,6 @@ const serializeAt = (
     return `${temporal}(${(obj as {toString(): string}).toString()})`;
   }
   if (value instanceof RegExp) return String(value);
-  if (value instanceof Map) return `Map(${value.size})`;
-  if (value instanceof Set) return `Set(${value.size})`;
-
   if (depth >= MAX_DEPTH) {
     return Array.isArray(value) ? `Array(${value.length})` : typeTag(value);
   }
@@ -103,6 +100,22 @@ const serializeAt = (
 
   seen.add(obj);
   try {
+    // Map and Set list their first entries like an array does, after the
+    // size the depth-limited form shows: `Map(2) {"a" => 1, "b" => 2}`.
+    if (value instanceof Map || value instanceof Set) {
+      const items: string[] = [];
+      for (const entry of value instanceof Map ? value : value.values()) {
+        if (items.length === MAX_ITEMS) break;
+        items.push(
+          value instanceof Map
+            ? `${serializeAt((entry as [unknown, unknown])[0], depth + 1, seen)} => ${serializeAt((entry as [unknown, unknown])[1], depth + 1, seen)}`
+            : serializeAt(entry, depth + 1, seen)
+        );
+      }
+      if (value.size > MAX_ITEMS) items.push(`…+${value.size - MAX_ITEMS}`);
+      const tag = `${value instanceof Map ? 'Map' : 'Set'}(${value.size})`;
+      return items.length === 0 ? tag : `${tag} {${items.join(', ')}}`;
+    }
     if (Array.isArray(value)) {
       const items = value
         .slice(0, MAX_ITEMS)
