@@ -6,7 +6,8 @@ import {customElement} from 'lit/decorators.js';
  * slot, the default slot, a slot showing fallback content, an empty slot,
  * two parts, and (from the page) a child asking for a slot that does not
  * exist. `<hmr-slots-frame>` forwards its own default slot into the card,
- * so the card's default slot receives forwarded content.
+ * so the card's default slot receives forwarded content. It also forwards
+ * the card's parts with `exportparts`, one of them renamed.
  */
 @customElement('hmr-slots')
 export class HmrSlots extends LitElement {
@@ -48,7 +49,7 @@ export class HmrSlots extends LitElement {
 @customElement('hmr-slots-frame')
 export class HmrSlotsFrame extends LitElement {
   override render() {
-    return html`<hmr-slots>
+    return html`<hmr-slots exportparts="header, body: card-body">
       <strong slot="title">Forwarded card</strong>
       <slot></slot>
     </hmr-slots>`;

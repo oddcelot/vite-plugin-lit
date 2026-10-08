@@ -15,6 +15,7 @@ import {PAGE_ID} from '../page-id.js';
 import type {ViteHotLike} from '../page-channel.js';
 import {buildTree, collectDetails, expandPath} from './collect.js';
 import {anatomyById, clearAnatomy, focusAnatomy} from './anatomy-overlay.js';
+import {shadowOf} from './anatomy.js';
 import {
   clearHighlight,
   highlightAll,
@@ -135,7 +136,8 @@ if (typeof window !== 'undefined') {
   };
 
   // -------------------------------------------------------------------------
-  // Live-watch: re-push details whenever the watched element finishes updating.
+  // Live-watch: re-push details whenever the watched element finishes updating
+  // or its slot assignments change.
   // We wrap the instance's `updated` (not the prototype) so the hook is scoped
   // to one element and trivially removable, and it works without the timeline's
   // recording gate.
@@ -171,6 +173,34 @@ if (typeof window !== 'undefined') {
     // the lookup skips it and cannot recurse.
     const ownPrev = hadOwn ? el.updated : undefined;
     const ref = new WeakRef(el);
+    const push = (): void => {
+      // Skip if the watch ended or moved on in the meantime.
+      if (watched?.ref !== ref) return;
+      const cur = ref.deref();
+      if (cur !== undefined) {
+        send({type: 'details', details: collectDetails(cur)});
+      }
+    };
+    // Moving a light child between slots, or adding or removing one, does
+    // not update the element, so its slots' `slotchange` re-pushes details
+    // too. The event bubbles to the shadow root; one listener there covers
+    // every slot, including ones a later render adds. Several slots usually
+    // change together, so they share one push.
+    let pushQueued = false;
+    const onSlotChange = (): void => {
+      if (pushQueued) return;
+      pushQueued = true;
+      queueMicrotask(() => {
+        pushQueued = false;
+        push();
+      });
+    };
+    // The shadow root can appear after the first render, so `updated` retries.
+    // Re-adding the same listener to the same root is a no-op.
+    const listen = (target: Element): void => {
+      shadowOf(target)?.addEventListener('slotchange', onSlotChange);
+    };
+    listen(el);
     el.updated = function (this: Updatable, changed: unknown) {
       const current =
         ownPrev ?? (Object.getPrototypeOf(this) as Updatable | null)?.updated;
@@ -179,12 +209,9 @@ if (typeof window !== 'undefined') {
       // in a Computed, so reading a signal here would subscribe the element's
       // render to it. A microtask runs outside any tracking context.
       queueMicrotask(() => {
-        // Skip if the watch ended or moved on in the meantime.
-        if (watched?.ref !== ref) return;
         const cur = ref.deref();
-        if (cur !== undefined) {
-          send({type: 'details', details: collectDetails(cur)});
-        }
+        if (cur !== undefined && watched?.ref === ref) listen(cur);
+        push();
       });
     };
     watched = {
@@ -192,6 +219,7 @@ if (typeof window !== 'undefined') {
       restore: () => {
         const cur = ref.deref();
         if (cur === undefined) return;
+        shadowOf(cur)?.removeEventListener('slotchange', onSlotChange);
         if (hadOwn) cur.updated = ownPrev;
         else delete cur.updated;
       },

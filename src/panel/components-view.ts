@@ -112,7 +112,9 @@ const anatomyMatches = (
     matches(o.slot === '' ? 'no default slot' : `slot="${o.slot}"`, o.tagName)
   ),
   orphanText: a.orphanText > 0 && matches('no default slot'),
-  parts: a.parts.map((p) => matches(...p.names, p.tagName)),
+  parts: a.parts.map((p) =>
+    matches(...p.names, p.tagName, ...(p.forwarded ? [p.forwarded.from] : []))
+  ),
 });
 
 /** Ids of every node in the tree with this tag, in tree order. */
@@ -1608,7 +1610,16 @@ export class ComponentsView extends LitElement {
                         class="swatch"
                         style="background:${color(a.slots.length + j)}"
                       ></span
-                      >${this._mark(p.names.join(' '))}
+                      >${this._mark(p.names.join(' '))}${
+                        p.forwarded
+                          ? this._renderSlotBadge(
+                              'forwarded',
+                              p.forwarded.inner
+                                ? `Forwarded by <${p.forwarded.from}> with exportparts, which renames "${p.forwarded.inner}"`
+                                : `Forwarded by <${p.forwarded.from}> with exportparts`
+                            )
+                          : nothing
+                      }
                     </span>
                     <span class="val code"
                       ><span class="t-punct">&lt;</span

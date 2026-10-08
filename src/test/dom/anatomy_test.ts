@@ -135,4 +135,45 @@ describe('collectAnatomy', () => {
     expect(ref.tagName).toBe(child);
     expect(typeof ref.id).toBe('number');
   });
+
+  test('lists parts a nested component forwards with exportparts', () => {
+    const inner = define(
+      '<div part="a"></div><b part="b c"></b><i part="hidden"></i>'
+    );
+    const outer = mount(
+      define(
+        `<span part="own"></span><${inner} exportparts="a, b: renamed"></${inner}>`
+      )
+    );
+    expect(collectAnatomy(outer)!.parts).toEqual([
+      {names: ['own'], tagName: 'span'},
+      {names: ['a'], tagName: 'div', forwarded: {from: inner}},
+      {names: ['renamed'], tagName: 'b', forwarded: {from: inner, inner: 'b'}},
+    ]);
+  });
+
+  test('follows exportparts through two levels and stops at a depth limit', () => {
+    const leaf = define('<p part="deep"></p>');
+    const mid = define(`<${leaf} exportparts="deep: mid"></${leaf}>`);
+    const top = mount(define(`<${mid} exportparts="mid: top"></${mid}>`));
+    expect(collectAnatomy(top)!.parts).toEqual([
+      {names: ['top'], tagName: 'p', forwarded: {from: mid, inner: 'mid'}},
+    ]);
+
+    let tag = leaf;
+    for (let i = 0; i < 6; i++) {
+      const prev = tag;
+      tag = define(`<${prev} exportparts="deep"></${prev}>`);
+    }
+    expect(
+      collectAnatomy(mount(define(`<${tag} exportparts="deep"></${tag}>`)))!
+        .parts
+    ).toEqual([]);
+  });
+
+  test('ignores exportparts on a host with no shadow root', () => {
+    const plain = define(null);
+    const el = mount(define(`<${plain} exportparts="a"></${plain}>`));
+    expect(collectAnatomy(el)!.parts).toEqual([]);
+  });
 });

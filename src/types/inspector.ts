@@ -169,10 +169,18 @@ export interface AnatomyOrphan extends AnatomyElementRef {
   slot: string;
 }
 
-/** An element in the shadow root that exposes itself to `::part()`. */
+/**
+ * An element in the shadow root that exposes itself to `::part()`, or one
+ * deeper in a nested component's shadow root that is forwarded up.
+ */
 export interface AnatomyPart {
   names: string[];
   tagName: string;
+  /**
+   * A nested component forwards this part with `exportparts`: `from` is its
+   * tag, `inner` the part's name inside it when `exportparts` renames it.
+   */
+  forwarded?: {from: string; inner?: string};
 }
 
 /**

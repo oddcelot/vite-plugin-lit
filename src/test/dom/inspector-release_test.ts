@@ -194,3 +194,56 @@ test('drops a queued live push once the watch ended', async () => {
   await Promise.resolve();
   expect(details(carrier)).toBe(afterWatch);
 });
+
+const makeSlotted = () => {
+  const tag = `x-slotted-${n++}`;
+  customElements.define(
+    tag,
+    class extends HTMLElement {
+      renderRoot = this.attachShadow({mode: 'open'});
+      constructor() {
+        super();
+        this.renderRoot.innerHTML = '<slot name="a"></slot><slot></slot>';
+      }
+      requestUpdate() {}
+    }
+  );
+  return document.createElement(tag);
+};
+
+test('re-pushes details when a light child changes slot', async () => {
+  const {carrier, idOf} = await load();
+  const el = makeSlotted();
+  el.innerHTML = '<p>one</p>';
+  document.body.append(el);
+  fire('panel:connected', 'p1');
+  carrier.deliver(INSPECT_CMD_CHANNEL, {type: 'watch', id: idOf(el)});
+  await settle();
+  const afterWatch = details(carrier);
+  el.firstElementChild!.setAttribute('slot', 'a');
+  await settle();
+  // Both the slot it left and the one it joined fire, but share one push.
+  expect(details(carrier)).toBe(afterWatch + 1);
+  const last = carrier.sent
+    .filter(([, m]) => (m as {type: string}).type === 'details')
+    .at(-1)![1] as {
+    details: {anatomy: {slots: {name: string; status: string}[]}};
+  };
+  expect(last.details.anatomy.slots).toMatchObject([
+    {name: 'a', status: 'assigned'},
+    {name: '', status: 'empty'},
+  ]);
+});
+
+test('stops listening for slot changes when the watch ends', async () => {
+  const {carrier, idOf} = await load();
+  const el = makeSlotted();
+  document.body.append(el);
+  fire('panel:connected', 'p1');
+  carrier.deliver(INSPECT_CMD_CHANNEL, {type: 'watch', id: idOf(el)});
+  carrier.deliver(INSPECT_CMD_CHANNEL, {type: 'watch', id: null});
+  const afterUnwatch = details(carrier);
+  el.append(document.createElement('p'));
+  await settle();
+  expect(details(carrier)).toBe(afterUnwatch);
+});
