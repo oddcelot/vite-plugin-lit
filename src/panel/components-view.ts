@@ -29,6 +29,7 @@ import {PanelLocation} from './panel-location.js';
 import {openInEditor} from './open-in-editor.js';
 import {hostInfo, sendToPage, touchPageChannel} from './host.js';
 import {overrides} from './settings-override.js';
+import {formatValue} from './value-format.js';
 
 /**
  * localStorage key remembering a paused live tree. Live is the default, so
@@ -52,6 +53,14 @@ const readDetailsWidth = (): number => {
 
 /** Values longer than this take a full line under their name. */
 const WIDE_VALUE = 32;
+
+/** A serialized preview as coloured spans, re-flowed when long. */
+const renderCode = (value: string): TemplateResult[] =>
+  formatValue(value).map((t) =>
+    t.kind === 'text'
+      ? html`${t.text}`
+      : html`<span class="t-${t.kind}">${t.text}</span>`
+  );
 
 /** Types the value's own spelling already shows, so no tag is needed. */
 const SELF_EVIDENT_TYPES = new Set([
@@ -304,6 +313,33 @@ export class ComponentsView extends LitElement {
         color: var(--lit-devtools-warning);
         min-width: 0;
         overflow-wrap: anywhere;
+      }
+      .entry > .val.code {
+        color: var(--lit-devtools-text);
+        white-space: pre-wrap;
+      }
+      .t-key {
+        color: var(--lit-devtools-code-property);
+      }
+      .t-string {
+        color: var(--lit-devtools-code-string);
+      }
+      .t-number {
+        color: var(--lit-devtools-code-number);
+      }
+      .t-keyword {
+        color: var(--lit-devtools-code-keyword);
+      }
+      .t-type,
+      .t-tag {
+        color: var(--lit-devtools-code-tag);
+      }
+      .t-callee {
+        color: var(--lit-devtools-code-callee);
+      }
+      .t-punct,
+      .t-muted {
+        color: var(--lit-devtools-text-muted);
       }
       .entry.wide > .val {
         grid-column: 1 / -1;
@@ -749,15 +785,21 @@ export class ComponentsView extends LitElement {
     `;
   }
 
-  /** One `name value` line; long values drop below the name. */
+  /**
+   * One `name value` line; long values drop below the name. A `code` value
+   * is a serialized JS preview and is coloured and re-flowed as one.
+   */
   private _renderEntry(
     name: TemplateResult | string,
     value: string,
-    trailing: unknown = nothing
+    trailing: unknown = nothing,
+    code = false
   ): TemplateResult {
     return html`<div class="entry ${value.length > WIDE_VALUE ? 'wide' : ''}">
       <span class="name">${name}</span>
-      <span class="val">${value}${trailing}</span>
+      <span class="val ${code ? 'code' : ''}"
+        >${code ? renderCode(value) : value}${trailing}</span
+      >
     </div>`;
   }
 
@@ -780,7 +822,8 @@ export class ComponentsView extends LitElement {
                     typeof p.attribute === 'string' ? p.attribute : 'attr'
                   }</wa-badge
                 >`
-              : nothing
+              : nothing,
+            true
           )
         )}
       </div>
@@ -809,7 +852,8 @@ export class ComponentsView extends LitElement {
                       >${e.status}</wa-badge
                     >`
                   : nothing
-              }`
+              }`,
+            true
           )
         )}
       </div>
