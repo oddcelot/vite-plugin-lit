@@ -41,6 +41,13 @@ ancestors, dimmed, so you can see where it sits, and every kept branch shows
 open. Clearing the filter, with the clear button or **Escape**, brings back the
 branches you had expanded.
 
+A tag that nothing has defined, because the import is missing, the tag is
+misspelled or its chunk has not loaded, stays in the tree where the page uses
+it, with a `not defined` chip. Selecting it shows the same chip, a note on the
+usual causes, and the **rendered** line when the template position is known;
+it has no properties because it has no class. Once the tag is defined the
+chip goes away on its own, as long as the tree is [live](#follow-changes-live).
+
 When an edit is hot-patched in place, a line above the tree reads
 `Patched <tag> ×N in M ms (childState: …)` for the most recent patch. It is not
 an issue, so the tab badge does not count it. Components that could not be

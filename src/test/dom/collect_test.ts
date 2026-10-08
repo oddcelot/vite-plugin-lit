@@ -3,6 +3,7 @@ import {
   buildTree,
   collectDetails,
   isInspectable,
+  isUndefinedElement,
 } from '../../lib/runtime/inspector/collect.js';
 
 const SOURCE_META_KEY = Symbol.for('@oddsquad/vite-plugin-lit#source');
@@ -128,6 +129,66 @@ describe('buildTree', () => {
     document.body.append(host);
     const tree = buildTree();
     expect(tree.map((n) => n.tagName)).toEqual([inner]);
+  });
+});
+
+describe('undefined elements', () => {
+  test('flags a custom tag nothing defines, not plain or defined ones', () => {
+    expect(isUndefinedElement(document.createElement('never-defined'))).toBe(
+      true
+    );
+    expect(isUndefinedElement(document.createElement('div'))).toBe(false);
+    expect(isUndefinedElement(document.createElement(define()))).toBe(false);
+    expect(isUndefinedElement(document.createElement('lit-devtools-x'))).toBe(
+      false
+    );
+  });
+
+  test('keeps it in place, with its call site and light children', () => {
+    const outer = document.createElement(define({shadow: true}));
+    const missing = document.createElement('missing-thing');
+    missing.setAttribute('data-lit-source', 'src/app.ts:8:5');
+    const inner = define();
+    missing.append(document.createElement(inner));
+    outer.shadowRoot!.append(missing);
+    document.body.append(outer);
+
+    const [root] = buildTree();
+    expect(root!.notDefined).toBeUndefined();
+    const [node] = root!.children;
+    expect(node).toMatchObject({
+      tagName: 'missing-thing',
+      notDefined: true,
+      callSite: {file: 'src/app.ts', line: 8, column: 5},
+    });
+    expect(node!.children.map((c) => c.tagName)).toEqual([inner]);
+  });
+
+  test('reports each undefined tag to the caller, and drops it once defined', async () => {
+    const tag = uniqueTag('late-comp');
+    document.body.append(document.createElement(tag));
+    const heard: string[] = [];
+    expect(buildTree((t) => heard.push(t))[0]!.notDefined).toBe(true);
+    expect(heard).toEqual([tag]);
+
+    define({tag});
+    await customElements.whenDefined(tag);
+    const [node] = buildTree();
+    expect(node!.notDefined).toBeUndefined();
+  });
+
+  test('details of one say so, with no Lit state', () => {
+    const el = document.createElement('missing-thing');
+    el.setAttribute('data-lit-source', 'src/app.ts:8:5');
+    document.body.append(el);
+    const d = collectDetails(el);
+    expect(d).toMatchObject({
+      tagName: 'missing-thing',
+      notDefined: true,
+      callSite: {file: 'src/app.ts', line: 8},
+      properties: [],
+    });
+    expect(d.source).toBeUndefined();
   });
 });
 

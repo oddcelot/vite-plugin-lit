@@ -30,6 +30,7 @@ import {
   INSPECT_DATA_CHANNEL,
   type InspectorCommand,
   type InspectorMessage,
+  type InspectorTreeNode,
   type LitPackageVersions,
 } from '../../../types/inspector.js';
 
@@ -239,8 +240,31 @@ if (typeof window !== 'undefined') {
     observeShadowRoots(obs, document);
   };
 
+  // Tags already awaited, so a tag that stays undefined across many rebuilds
+  // gets one listener.
+  const awaiting = new Set<string>();
+
+  /**
+   * Build the tree, and for each undefined tag in it wait for its definition:
+   * defining one upgrades its elements without touching the DOM, so the live
+   * observer never hears of it and the row would stay flagged.
+   */
+  const build = (): InspectorTreeNode[] =>
+    buildTree((tag) => {
+      if (awaiting.has(tag)) return;
+      awaiting.add(tag);
+      void customElements.whenDefined(tag).then(
+        () => {
+          awaiting.delete(tag);
+          // A paused tree (Live off) stays a snapshot until refreshed.
+          if (observer !== null) setTimeout(pushTreeIfChanged, 0);
+        },
+        () => awaiting.delete(tag)
+      );
+    });
+
   const pushTreeIfChanged = (): void => {
-    const roots = buildTree();
+    const roots = build();
     const json = JSON.stringify(roots);
     if (json === lastTreeJson) return;
     lastTreeJson = json;
@@ -360,7 +384,7 @@ if (typeof window !== 'undefined') {
     const cmd = data as InspectorCommand;
     switch (cmd.type) {
       case 'tree': {
-        const roots = buildTree();
+        const roots = build();
         lastTreeJson = JSON.stringify(roots);
         send({type: 'tree', roots});
         break;

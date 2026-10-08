@@ -386,8 +386,17 @@ export class ComponentsView extends LitElement {
         color: var(--lit-devtools-error);
       }
       .status.pending,
-      .status.warned {
+      .status.warned,
+      .status.undefined {
         color: var(--lit-devtools-warning);
+      }
+      .row .status.undefined {
+        margin-left: var(--lit-devtools-space-3);
+      }
+      .not-defined-note {
+        margin: var(--lit-devtools-space-3) 0;
+        color: var(--lit-devtools-text-muted);
+        font-size: var(--lit-devtools-text-xs);
       }
       .warning {
         grid-column: 1 / -1;
@@ -1196,6 +1205,15 @@ export class ComponentsView extends LitElement {
               : markMatch(node.tagName, this._treeQuery)
           }<span class="punct">&gt;</span></span
         >
+        ${
+          node.notDefined === true
+            ? html`<span
+                class="status undefined"
+                data-tip="No custom element is defined for this tag"
+                >not defined</span
+              >`
+            : nothing
+        }
       </div>
       ${
         hasChildren && expanded
@@ -1732,7 +1750,16 @@ export class ComponentsView extends LitElement {
               >`
         }
         ${
-          d.flags.hasUpdated
+          d.notDefined === true
+            ? html`<span
+                class="status undefined"
+                data-tip="No custom element is defined for this tag"
+                >not defined</span
+              >`
+            : nothing
+        }
+        ${
+          d.flags.hasUpdated || d.notDefined === true
             ? nothing
             : html`<span
                 class="status"
@@ -1789,6 +1816,16 @@ export class ComponentsView extends LitElement {
                 <dd class="root">${rootLabel}</dd>`
         }
       </dl>
+      ${
+        d.notDefined === true
+          ? html`<p class="not-defined-note">
+              Nothing has called
+              <code>customElements.define('${d.tagName}')</code>, so the browser
+              treats this as an unknown element. Check that the component's
+              module is imported and the tag is spelled the same in both places.
+            </p>`
+          : nothing
+      }
       <wa-input
         class="filter"
         size="small"

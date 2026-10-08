@@ -35,6 +35,11 @@ export interface InspectorTreeNode {
    * tag).
    */
   callSite?: ElementSource;
+  /**
+   * Set when the tag is a custom element name nothing has defined: a missing
+   * import, a typo, or a chunk that has not loaded. It has no Lit state.
+   */
+  notDefined?: true;
   children: InspectorTreeNode[];
   /**
    * Set only when a depth limit pruned this node's children: how many
@@ -218,6 +223,8 @@ export interface InspectorDetails {
   source?: ElementSource;
   /** Where this instance was written in a template; see {@link InspectorTreeNode.callSite}. */
   callSite?: ElementSource;
+  /** As {@link InspectorTreeNode.notDefined}. */
+  notDefined?: true;
   attributes: Array<{name: string; value: string}>;
   properties: InspectorProp[];
   flags: {
