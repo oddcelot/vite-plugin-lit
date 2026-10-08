@@ -61,12 +61,14 @@ const mount = async (picker = false, roots: InspectorTreeNode[] = tree) => {
 const LIVE_LS_KEY = 'lit-devtools-components-live';
 const WIDTH_LS_KEY = 'lit-devtools-components-details-width';
 const COLLAPSED_LS_KEY = 'lit-devtools-components-collapsed';
+const ANATOMY_LS_KEY = 'lit-devtools-components-anatomy';
 
 afterEach(() => {
   document.body.replaceChildren();
   localStorage.removeItem(LIVE_LS_KEY);
   localStorage.removeItem(WIDTH_LS_KEY);
   localStorage.removeItem(COLLAPSED_LS_KEY);
+  localStorage.removeItem(ANATOMY_LS_KEY);
   resetClient();
   resetHostInfo();
 });
@@ -246,6 +248,31 @@ test('Shift does nothing with no row under the pointer', async () => {
   window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Shift'}));
   await flush(el);
   expect(inspects()).toHaveLength(before);
+});
+
+test('Anatomy stays on across a reload', async () => {
+  const first = await mount(true);
+  first.root.querySelector<HTMLElement>('wa-button.anatomy')!.click();
+  await flush(first.el);
+  expect(localStorage.getItem(ANATOMY_LS_KEY)).toBe('true');
+
+  document.body.replaceChildren();
+  const {el, root, inspects} = await mount(true);
+  expect(
+    root.querySelector('wa-button.anatomy')!.classList.contains('active')
+  ).toBe(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  await flush(el);
+  // On again, so selecting draws the selection's anatomy straight away.
+  expect(inspects()).toContainEqual({type: 'anatomy', id: 2});
+});
+
+test('Anatomy turned off stays off', async () => {
+  localStorage.setItem(ANATOMY_LS_KEY, 'true');
+  const {el, root} = await mount(true);
+  root.querySelector<HTMLElement>('wa-button.anatomy')!.click();
+  await flush(el);
+  expect(localStorage.getItem(ANATOMY_LS_KEY)).toBe('false');
 });
 
 // The session's rules are `components-session_test.ts`'s; these check the
