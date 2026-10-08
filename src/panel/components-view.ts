@@ -29,6 +29,7 @@ import {PanelLocation} from './panel-location.js';
 import {openInEditor} from './open-in-editor.js';
 import {hostInfo, sendToPage, touchPageChannel} from './host.js';
 import {overrides} from './settings-override.js';
+import {formatValue} from './value-format.js';
 
 /**
  * localStorage key remembering a paused live tree. Live is the default, so
@@ -39,6 +40,24 @@ const DETAILS_WIDTH_LS_KEY = 'lit-devtools-components-details-width';
 const DETAILS_WIDTH_DEFAULT = 340;
 const DETAILS_WIDTH_MIN = 220;
 
+/** localStorage key listing the details sections the user folded. */
+const COLLAPSED_LS_KEY = 'lit-devtools-components-collapsed';
+
+const readCollapsed = (): ReadonlySet<string> => {
+  try {
+    const list: unknown = JSON.parse(
+      localStorage.getItem(COLLAPSED_LS_KEY) ?? '[]'
+    );
+    return new Set(
+      Array.isArray(list)
+        ? list.filter((x): x is string => typeof x === 'string')
+        : []
+    );
+  } catch {
+    return new Set();
+  }
+};
+
 const readDetailsWidth = (): number => {
   try {
     const n = Number(localStorage.getItem(DETAILS_WIDTH_LS_KEY));
@@ -48,6 +67,56 @@ const readDetailsWidth = (): number => {
   } catch {
     return DETAILS_WIDTH_DEFAULT;
   }
+};
+
+/** Values longer than this take a full line under their name. */
+const WIDE_VALUE = 32;
+
+/** A serialized preview as coloured spans, re-flowed when long. */
+const renderCode = (value: string): TemplateResult[] =>
+  formatValue(value).map((t) =>
+    t.kind === 'text'
+      ? html`${t.text}`
+      : html`<span class="t-${t.kind}">${t.text}</span>`
+  );
+
+/** Types the value's own spelling already shows, so no tag is needed. */
+const SELF_EVIDENT_TYPES = new Set([
+  'string',
+  'number',
+  'boolean',
+  'bigint',
+  'symbol',
+  'undefined',
+  'null',
+  'function',
+  'object',
+]);
+
+/**
+ * A muted type tag after a name, for values whose preview does not already
+ * say what they are: `Array(3)` for `[1, 2, 3]`, but nothing for `"a"` or
+ * `MyClass {…}`.
+ */
+const typeLabel = (
+  type: string,
+  value: string
+): TemplateResult | typeof nothing =>
+  SELF_EVIDENT_TYPES.has(type) || value.startsWith(type)
+    ? nothing
+    : html`<span class="type">${type}</span>`;
+
+/**
+ * The render root in a few words: `shadow, open, delegatesFocus`, or
+ * `light DOM`. Undefined when the element has no render root yet.
+ */
+const describeRoot = (d: InspectorDetails): string | undefined => {
+  const a = d.anatomy;
+  if (a === undefined) return d.flags.hasShadowRoot ? 'shadow' : undefined;
+  if (a.renderRoot === 'light') return 'light DOM';
+  return ['shadow', a.mode, a.delegatesFocus === true ? 'delegatesFocus' : '']
+    .filter(Boolean)
+    .join(', ');
 };
 
 /**
@@ -158,71 +227,191 @@ export class ComponentsView extends LitElement {
       .details .head {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: var(--lit-devtools-space-2);
-        margin: 0 0 var(--lit-devtools-space-1);
+        gap: var(--lit-devtools-space-3);
+        margin: 0 0 var(--lit-devtools-space-3);
       }
       .details h2 {
-        font-size: var(--lit-devtools-text-xs);
+        font-size: var(--lit-devtools-text-sm);
         font-family: var(--lit-devtools-font-mono);
         color: var(--lit-devtools-accent);
         margin: 0;
         min-width: 0;
         overflow-wrap: anywhere;
       }
-      .src {
-        max-width: 100%;
+      .details .head .reveal {
+        margin-left: auto;
       }
-      .src-text {
-        display: block;
-        font-family: var(--lit-devtools-font-mono);
-        font-size: var(--lit-devtools-text-xs);
-        color: var(--lit-devtools-text-muted);
-        word-break: break-all;
-      }
-      .src::part(base) {
-        padding-inline: 0;
-        font-family: var(--lit-devtools-font-mono);
-        word-break: break-all;
-        white-space: normal;
-        text-align: left;
-      }
-      section {
-        margin-top: var(--lit-devtools-space-5);
-      }
-      section > .label {
-        text-transform: uppercase;
-        letter-spacing: var(--lit-devtools-tracking-caps);
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--lit-devtools-space-2);
+        flex-shrink: 0;
         font-size: var(--lit-devtools-text-2xs);
         color: var(--lit-devtools-text-muted);
-        margin-bottom: var(--lit-devtools-space-2);
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-family: var(--lit-devtools-font-mono);
-      }
-      td {
-        padding: 2px var(--lit-devtools-space-4) 2px 0;
-        vertical-align: top;
-        word-break: break-word;
-      }
-      td.name {
-        color: var(--lit-devtools-text);
         white-space: nowrap;
       }
-      td.val {
+      .status::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .name > .status {
+        margin-left: var(--lit-devtools-space-3);
+      }
+      .status.task-pending {
         color: var(--lit-devtools-warning);
-        width: 100%;
+      }
+      .status.task-complete {
+        color: var(--lit-devtools-success);
+      }
+      .status.task-error {
+        color: var(--lit-devtools-error);
+      }
+      .status.pending {
+        color: var(--lit-devtools-warning);
+      }
+      .meta {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        column-gap: var(--lit-devtools-space-4);
+        row-gap: var(--lit-devtools-space-1);
+        margin: 0;
+        font-family: var(--lit-devtools-font-mono);
+      }
+      .meta dt {
+        color: var(--lit-devtools-text-muted);
+      }
+      .meta dd {
+        margin: 0;
+        min-width: 0;
+        color: var(--lit-devtools-text-secondary);
+        overflow-wrap: anywhere;
+      }
+      .link {
+        font: inherit;
+        color: var(--lit-devtools-text-link);
+        background: none;
+        border: 0;
+        padding: 0;
+        cursor: pointer;
+        text-align: left;
+        overflow-wrap: anywhere;
+      }
+      .link:hover {
+        text-decoration: underline;
+      }
+      .link:focus-visible {
+        outline: 2px solid var(--lit-devtools-accent-ring);
+        outline-offset: 1px;
+        border-radius: 2px;
+      }
+      .link wa-icon {
+        margin-left: var(--lit-devtools-space-1);
+        vertical-align: -0.125em;
+      }
+      .section {
+        margin-top: var(--lit-devtools-space-5);
+      }
+      .section > summary {
+        display: flex;
+        align-items: center;
+        gap: var(--lit-devtools-space-2);
+        margin-bottom: var(--lit-devtools-space-2);
+        list-style: none;
+        cursor: pointer;
+        user-select: none;
+        font-size: var(--lit-devtools-text-2xs);
+        color: var(--lit-devtools-text-muted);
+      }
+      .section > summary::-webkit-details-marker {
+        display: none;
+      }
+      .section > summary:hover {
+        color: var(--lit-devtools-text-secondary);
+      }
+      .section > summary:focus-visible {
+        outline: 2px solid var(--lit-devtools-accent-ring);
+        outline-offset: 2px;
+        border-radius: 2px;
+      }
+      .section:not([open]) > summary {
+        margin-bottom: 0;
+      }
+      summary .label {
+        text-transform: uppercase;
+        letter-spacing: var(--lit-devtools-tracking-caps);
+      }
+      summary .count {
+        font-family: var(--lit-devtools-font-mono);
+      }
+      .kv {
+        display: grid;
+        grid-template-columns: fit-content(45%) minmax(0, 1fr);
+        column-gap: var(--lit-devtools-space-4);
+        font-family: var(--lit-devtools-font-mono);
+      }
+      .entry {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: subgrid;
+        align-items: baseline;
+        padding: 2px 0;
+      }
+      .entry > .name {
+        color: var(--lit-devtools-text);
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .entry > .val {
+        color: var(--lit-devtools-warning);
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .entry > .val.code {
+        color: var(--lit-devtools-text);
+        white-space: pre-wrap;
+      }
+      .t-key {
+        color: var(--lit-devtools-code-property);
+      }
+      .t-string {
+        color: var(--lit-devtools-code-string);
+      }
+      .t-number {
+        color: var(--lit-devtools-code-number);
+      }
+      .t-keyword {
+        color: var(--lit-devtools-code-keyword);
+      }
+      .t-type,
+      .t-tag {
+        color: var(--lit-devtools-code-tag);
+      }
+      .t-callee {
+        color: var(--lit-devtools-code-callee);
+      }
+      .t-punct,
+      .t-muted {
+        color: var(--lit-devtools-text-muted);
+      }
+      /* A wide row is two full lines, so neither half sizes the name column. */
+      .entry.wide > .name {
+        grid-column: 1 / -1;
+      }
+      .entry.wide > .val {
+        grid-column: 1 / -1;
+        padding-left: var(--lit-devtools-space-5);
+      }
+      .type {
+        margin-left: var(--lit-devtools-space-2);
+        font-size: var(--lit-devtools-text-2xs);
+        color: var(--lit-devtools-text-muted);
       }
       .badge {
         margin-left: var(--lit-devtools-space-2);
         vertical-align: middle;
-      }
-      .flags {
-        display: flex;
-        gap: var(--lit-devtools-space-4);
-        flex-wrap: wrap;
       }
       .swatch {
         display: inline-block;
@@ -249,10 +438,10 @@ export class ComponentsView extends LitElement {
         color: var(--lit-devtools-text);
         cursor: default;
       }
-      tr.region:hover td {
+      .entry.region:hover {
         background: var(--lit-devtools-surface-hover);
       }
-      tr.orphan td {
+      .entry.orphan > * {
         color: var(--lit-devtools-error);
       }
       .muted {
@@ -370,6 +559,8 @@ export class ComponentsView extends LitElement {
   private _anatomyShown: number | null = null;
   /** Set when the devframe connection fails; rendered in place of the tree. */
   @state() private _error: string | null = null;
+  /** Details sections the user folded, by label. */
+  @state() private _collapsed: ReadonlySet<string> = readCollapsed();
   /** Collapse state of the banner; the events themselves are never cleared. */
   @state() private _hmrExpanded = true;
   /** Details pane width in pixels, restored once; the split panel owns it
@@ -655,65 +846,78 @@ export class ComponentsView extends LitElement {
     `;
   }
 
+  /**
+   * One `name value` line; long values drop below the name. A `code` value
+   * is a serialized JS preview and is coloured and re-flowed as one.
+   */
+  private _renderEntry(
+    name: TemplateResult | string,
+    value: string,
+    trailing: unknown = nothing,
+    code = false
+  ): TemplateResult {
+    return html`<div class="entry ${value.length > WIDE_VALUE ? 'wide' : ''}">
+      <span class="name">${name}</span>
+      <span class="val ${code ? 'code' : ''}"
+        >${code ? renderCode(value) : value}${trailing}</span
+      >
+    </div>`;
+  }
+
   private _renderPropTable(
     props: InspectorDetails['properties']
   ): TemplateResult {
     return html`
-      <table>
-        ${props.map(
-          (p) => html`
-            <tr>
-              <td class="name">
-                ${p.name}${
-                  p.reflects
-                    ? html`<wa-badge
-                        class="badge"
-                        variant="neutral"
-                        appearance="outlined"
-                        data-tip="Reflects to an attribute"
-                        >${
-                          typeof p.attribute === 'string' ? p.attribute : 'attr'
-                        }</wa-badge
-                      >`
-                    : nothing
-                }
-              </td>
-              <td class="val">${p.value}</td>
-            </tr>
-          `
-        )}
-      </table>
-    `;
-  }
-
-  private _renderExtraTable(extras: InspectorExtra[]): TemplateResult {
-    return html`
-      <table>
-        ${extras.map(
-          (e) => html`
-            <tr>
-              <td class="name" title=${e.type}>
-                ${e.name}<wa-badge
+      <div class="kv">
+        ${props.map((p) =>
+          this._renderEntry(
+            html`${p.name}${typeLabel(p.type, p.value)}`,
+            p.value,
+            p.reflects
+              ? html`<wa-badge
                   class="badge"
                   variant="neutral"
                   appearance="outlined"
-                  >${e.kind}</wa-badge
-                >${
-                  e.status !== undefined
-                    ? html`<wa-badge
-                        class="badge"
-                        variant="neutral"
-                        appearance="outlined"
-                        >${e.status}</wa-badge
-                      >`
-                    : nothing
-                }
-              </td>
-              <td class="val">${e.value}</td>
-            </tr>
-          `
+                  data-tip="Reflects to an attribute"
+                  >${
+                    typeof p.attribute === 'string' ? p.attribute : 'attr'
+                  }</wa-badge
+                >`
+              : nothing,
+            true
+          )
         )}
-      </table>
+      </div>
+    `;
+  }
+
+  /**
+   * Instance state. The kind follows the name like a type tag (a field shows
+   * its type instead, since "field" says nothing), then a task's status as
+   * a coloured dot.
+   */
+  private _renderExtraTable(extras: InspectorExtra[]): TemplateResult {
+    return html`
+      <div class="kv">
+        ${extras.map((e) =>
+          this._renderEntry(
+            html`${e.name}${
+              e.kind === 'field'
+                ? typeLabel(e.type, e.value)
+                : html`<span class="type kind" data-tip=${e.type}
+                    >${e.kind}</span
+                  >`
+            }${
+              e.status === undefined
+                ? nothing
+                : html`<span class="status task-${e.status}">${e.status}</span>`
+            }`,
+            e.value,
+            nothing,
+            true
+          )
+        )}
+      </div>
     `;
   }
 
@@ -752,121 +956,186 @@ export class ComponentsView extends LitElement {
     return html`
       ${
         showSlots
-          ? html`<section>
-              <div class="label">Slots</div>
-              <table>
-                ${a.slots.map(
-                  (s, i) => html`<tr
-                    class="region"
-                    @mouseenter=${() => this._focusRegion({kind: 'slot', index: i})}
-                    @mouseleave=${() => this._focusRegion(null)}
-                  >
-                    <td class="name">
-                      <span class="swatch" style="background:${color(i)}"></span
-                      >${
-                        s.name === ''
-                          ? html`<span class="slot-default">default</span>`
-                          : s.name
-                      }${
-                        s.status === 'assigned'
-                          ? nothing
-                          : this._renderSlotBadge(
-                              s.status,
-                              s.status === 'fallback'
-                                ? 'Nothing is assigned, so the slot shows its own content'
-                                : 'Nothing is assigned and the slot has no fallback content'
-                            )
-                      }${
-                        s.forwarded
-                          ? this._renderSlotBadge(
-                              'forwarded',
-                              'The content comes through a slot of an enclosing component'
-                            )
-                          : nothing
-                      }${
-                        s.duplicate
-                          ? this._renderSlotBadge(
-                              'duplicate',
-                              'An earlier slot has the same name, so this one never receives content'
-                            )
-                          : nothing
-                      }
-                    </td>
-                    <td class="val">
-                      ${s.elements.map((e) => this._renderElementRef(e))}${
-                        s.moreElements > 0
-                          ? html`<span class="muted">+${s.moreElements}</span>`
-                          : nothing
-                      }${
-                        s.textNodes > 0
-                          ? html`<span class="muted">${s.textNodes} text</span>`
-                          : nothing
-                      }
-                    </td>
-                  </tr>`
-                )}
-                ${a.orphans.map(
-                  (o) => html`<tr
-                    class="orphan"
-                    data-tip="No slot takes this child, so it is not rendered"
-                  >
-                    <td class="name">
-                      ${o.slot === '' ? 'no default slot' : `slot="${o.slot}"`}
-                    </td>
-                    <td class="val">
-                      ${this._renderElementRef(o)}<span class="muted"
-                        >not rendered</span
-                      >
-                    </td>
-                  </tr>`
-                )}
-                ${
-                  a.orphanText > 0
-                    ? html`<tr class="orphan">
-                        <td class="name">no default slot</td>
-                        <td class="val">${a.orphanText} text, not rendered</td>
-                      </tr>`
-                    : nothing
-                }
-              </table>
-            </section>`
+          ? this._renderSection(
+              'Slots',
+              a.slots.length + a.orphans.length + (a.orphanText > 0 ? 1 : 0),
+              html`
+                <div class="kv">
+                  ${a.slots.map(
+                    (s, i) => html`<div
+                      class="entry region"
+                      @mouseenter=${() => this._focusRegion({kind: 'slot', index: i})}
+                      @mouseleave=${() => this._focusRegion(null)}
+                    >
+                      <span class="name">
+                        <span
+                          class="swatch"
+                          style="background:${color(i)}"
+                        ></span
+                        >${
+                          s.name === ''
+                            ? html`<span class="slot-default">default</span>`
+                            : s.name
+                        }${
+                          s.status === 'assigned'
+                            ? nothing
+                            : this._renderSlotBadge(
+                                s.status,
+                                s.status === 'fallback'
+                                  ? 'Nothing is assigned, so the slot shows its own content'
+                                  : 'Nothing is assigned and the slot has no fallback content'
+                              )
+                        }${
+                          s.forwarded
+                            ? this._renderSlotBadge(
+                                'forwarded',
+                                'The content comes through a slot of an enclosing component'
+                              )
+                            : nothing
+                        }${
+                          s.duplicate
+                            ? this._renderSlotBadge(
+                                'duplicate',
+                                'An earlier slot has the same name, so this one never receives content'
+                              )
+                            : nothing
+                        }
+                      </span>
+                      <span class="val">
+                        ${s.elements.map((e) => this._renderElementRef(e))}${
+                          s.moreElements > 0
+                            ? html`<span class="muted"
+                                >+${s.moreElements}</span
+                              >`
+                            : nothing
+                        }${
+                          s.textNodes > 0
+                            ? html`<span class="muted"
+                                >${s.textNodes} text</span
+                              >`
+                            : nothing
+                        }
+                      </span>
+                    </div>`
+                  )}
+                  ${a.orphans.map(
+                    (o) => html`<div
+                      class="entry orphan"
+                      data-tip="No slot takes this child, so it is not rendered"
+                    >
+                      <span class="name">
+                        ${o.slot === '' ? 'no default slot' : `slot="${o.slot}"`}
+                      </span>
+                      <span class="val">
+                        ${this._renderElementRef(o)}<span class="muted"
+                          >not rendered</span
+                        >
+                      </span>
+                    </div>`
+                  )}
+                  ${
+                    a.orphanText > 0
+                      ? html`<div class="entry orphan">
+                          <span class="name">no default slot</span>
+                          <span class="val"
+                            >${a.orphanText} text, not rendered</span
+                          >
+                        </div>`
+                      : nothing
+                  }
+                </div>
+              `
+            )
           : nothing
       }
       ${
         a.parts.length > 0
-          ? html`<section>
-              <div class="label">Parts</div>
-              <table>
-                ${a.parts.map(
-                  (p, j) => html`<tr
-                    class="region"
-                    @mouseenter=${() => this._focusRegion({kind: 'part', index: j})}
-                    @mouseleave=${() => this._focusRegion(null)}
-                  >
-                    <td class="name">
-                      <span
-                        class="swatch"
-                        style="background:${color(a.slots.length + j)}"
-                      ></span
-                      >${p.names.join(' ')}
-                    </td>
-                    <td class="val">&lt;${p.tagName}&gt;</td>
-                  </tr>`
-                )}
-              </table>
-            </section>`
+          ? this._renderSection(
+              'Parts',
+              a.parts.length,
+              html`
+                <div class="kv">
+                  ${a.parts.map(
+                    (p, j) => html`<div
+                      class="entry region"
+                      @mouseenter=${() => this._focusRegion({kind: 'part', index: j})}
+                      @mouseleave=${() => this._focusRegion(null)}
+                    >
+                      <span class="name">
+                        <span
+                          class="swatch"
+                          style="background:${color(a.slots.length + j)}"
+                        ></span
+                        >${p.names.join(' ')}
+                      </span>
+                      <span class="val code"
+                        ><span class="t-punct">&lt;</span
+                        ><span class="t-tag">${p.tagName}</span
+                        ><span class="t-punct">&gt;</span></span
+                      >
+                    </div>`
+                  )}
+                </div>
+              `
+            )
           : nothing
       }
     `;
   }
 
-  private _renderFlag(label: string, on: boolean): TemplateResult {
-    return html`<wa-badge
-      class="flag ${on ? 'on' : ''}"
-      variant=${on ? 'brand' : 'neutral'}
-      appearance=${on ? 'filled' : 'outlined'}
-      >${label}</wa-badge
-    >`;
+  /**
+   * A details section that folds on its heading, with its row count beside
+   * the label. Which sections are folded is remembered across selections and
+   * reloads, keyed by label.
+   */
+  private _renderSection(
+    label: string,
+    count: number,
+    body: TemplateResult
+  ): TemplateResult {
+    const open = !this._collapsed.has(label);
+    return html`<details
+      class="section"
+      data-section=${label}
+      ?open=${open}
+      @toggle=${(e: Event) =>
+        this._setCollapsed(label, !(e.target as HTMLDetailsElement).open)}
+    >
+      <summary>
+        <wa-icon name=${open ? 'caret-down' : 'caret-right'}></wa-icon>
+        <span class="label">${label}</span>
+        <span class="count">${count}</span>
+      </summary>
+      ${body}
+    </details>`;
+  }
+
+  private _setCollapsed(label: string, collapsed: boolean): void {
+    if (this._collapsed.has(label) === collapsed) return;
+    const next = new Set(this._collapsed);
+    if (collapsed) next.add(label);
+    else next.delete(label);
+    this._collapsed = next;
+    try {
+      localStorage.setItem(COLLAPSED_LS_KEY, JSON.stringify([...next]));
+    } catch {
+      // Storage unavailable: the fold just won't be remembered.
+    }
+  }
+
+  /** A `file:line` that opens in the editor, or plain text without one. */
+  private _renderLocation(
+    loc: {file: string; line: number},
+    cls: string,
+    tip: string,
+    open: () => void
+  ): TemplateResult {
+    const text = `${loc.file}:${loc.line}`;
+    return this._canOpen
+      ? html`<button class="link ${cls}" data-tip=${tip} @click=${open}>
+          ${text}<wa-icon name="arrow-square-out"></wa-icon>
+        </button>`
+      : html`<span class="${cls} src-text">${text}</span>`;
   }
 
   private _renderDetails(): TemplateResult {
@@ -885,9 +1154,28 @@ export class ComponentsView extends LitElement {
     const props = d.properties.filter((p) => !p.state);
     const stateProps = d.properties.filter((p) => p.state);
     const extras = d.extras ?? [];
+    const rootLabel = describeRoot(d);
     return html`
       <div class="head">
         <h2>&lt;${d.tagName}&gt;</h2>
+        ${
+          d.flags.isUpdatePending
+            ? html`<span
+                class="status pending"
+                data-tip="An update is queued and has not run yet"
+                >pending</span
+              >`
+            : nothing
+        }
+        ${
+          d.flags.hasUpdated
+            ? nothing
+            : html`<span
+                class="status"
+                data-tip="The element has not finished its first update"
+                >not rendered</span
+              >`
+        }
         ${
           this._snapshot
             ? nothing
@@ -903,104 +1191,87 @@ export class ComponentsView extends LitElement {
               </wa-button>`
         }
       </div>
-      ${
-        d.source === undefined
-          ? nothing
-          : this._canOpen
-            ? html`<wa-button
-                class="src"
-                appearance="plain"
-                size="small"
-                data-tip="Open this file in your editor"
-                @click=${this._openSource}
-              >
-                ${d.source.file}:${d.source.line}
-                <wa-icon slot="end" name="arrow-square-out"></wa-icon>
-              </wa-button>`
-            : // No editor on this host: still worth knowing where it lives.
-              html`<span class="src src-text"
-                >${d.source.file}:${d.source.line}</span
-              >`
-      }
-      ${
-        d.callSite === undefined
-          ? nothing
-          : this._canOpen
-            ? html`<wa-button
-                class="src call-site"
-                appearance="plain"
-                size="small"
-                data-tip="Open the template that renders this element"
-                @click=${this._openCallSite}
-              >
-                Rendered at ${d.callSite.file}:${d.callSite.line}
-                <wa-icon slot="end" name="arrow-square-out"></wa-icon>
-              </wa-button>`
-            : html`<span class="src src-text call-site"
-                >Rendered at ${d.callSite.file}:${d.callSite.line}</span
-              >`
-      }
-      <section>
-        <div class="flags">
-          ${this._renderFlag('updated', d.flags.hasUpdated)}
-          ${this._renderFlag('update pending', d.flags.isUpdatePending)}
-          ${this._renderFlag('shadow root', d.flags.hasShadowRoot)}
-          ${
-            d.anatomy?.renderRoot === 'light'
-              ? this._renderFlag('light DOM', true)
-              : nothing
-          }
-          ${
-            d.anatomy?.mode === 'closed'
-              ? this._renderFlag('closed', true)
-              : nothing
-          }
-          ${
-            d.anatomy?.delegatesFocus === true
-              ? this._renderFlag('delegatesFocus', true)
-              : nothing
-          }
-        </div>
-      </section>
+      <dl class="meta">
+        ${
+          d.source === undefined
+            ? nothing
+            : html`<dt>defined</dt>
+                <dd>
+                  ${this._renderLocation(
+                    d.source,
+                    'src',
+                    'Open the class definition in your editor',
+                    this._openSource
+                  )}
+                </dd>`
+        }
+        ${
+          d.callSite === undefined
+            ? nothing
+            : html`<dt>rendered</dt>
+                <dd>
+                  ${this._renderLocation(
+                    d.callSite,
+                    'src call-site',
+                    'Open the template that renders this element',
+                    this._openCallSite
+                  )}
+                </dd>`
+        }
+        ${
+          rootLabel === undefined
+            ? nothing
+            : html`<dt>root</dt>
+                <dd class="root">${rootLabel}</dd>`
+        }
+      </dl>
       ${d.anatomy === undefined ? nothing : this._renderAnatomy(d.anatomy)}
       ${
         props.length > 0
-          ? html`<section>
-              <div class="label">Properties</div>
-              ${this._renderPropTable(props)}
-            </section>`
+          ? this._renderSection(
+              'Properties',
+              props.length,
+              html` ${this._renderPropTable(props)} `
+            )
           : nothing
       }
       ${
         stateProps.length > 0
-          ? html`<section>
-              <div class="label">State</div>
-              ${this._renderPropTable(stateProps)}
-            </section>`
+          ? this._renderSection(
+              'State',
+              stateProps.length,
+              html` ${this._renderPropTable(stateProps)} `
+            )
           : nothing
       }
       ${
         d.attributes.length > 0
-          ? html`<section>
-              <div class="label">Attributes</div>
-              <table>
-                ${d.attributes.map(
-                  (a) =>
-                    html`<tr>
-                      <td class="name">${a.name}</td>
-                      <td class="val">${a.value}</td>
-                    </tr>`
-                )}
-              </table>
-            </section>`
+          ? this._renderSection(
+              'Attributes',
+              d.attributes.length,
+              html`
+                <div class="kv">
+                  ${d.attributes.map((a) =>
+                    // Quoted, so it colours as the string it is.
+                    this._renderEntry(
+                      a.name,
+                      JSON.stringify(a.value),
+                      nothing,
+                      true
+                    )
+                  )}
+                </div>
+              `
+            )
           : nothing
       }
       ${
         extras.length > 0
-          ? html`<section>
-              <div class="label">Instance</div>
-              ${this._renderExtraTable(extras)}
-            </section>`
+          ? this._renderSection(
+              'Instance',
+              extras.length,
+              html` ${this._renderExtraTable(extras)} `
+            )
           : nothing
       }
     `;

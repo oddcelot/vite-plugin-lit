@@ -185,15 +185,15 @@ test('the tree and inspector show a minified production component', async () => 
   const details = panel.locator('components-view .details');
   await details.getByText('Properties').waitFor({timeout: 15_000});
   // The reactive property, by its declared name.
-  await details.locator('td.name', {hasText: 'name'}).waitFor();
-  await details.locator('td.val', {hasText: '"world"'}).waitFor();
+  await details.locator('.entry .name', {hasText: 'name'}).waitFor();
+  await details.locator('.entry .val', {hasText: '"world"'}).waitFor();
   // Lit's controller set is a mangled private field in the production build;
   // the plain controller and the task are still found through it.
   await details
-    .locator('td.name', {hasText: 'ticker'})
+    .locator('.entry', {hasText: 'ticker'})
     .getByText('controller')
     .waitFor();
-  const loader = details.locator('td.name', {hasText: 'loader'});
+  const loader = details.locator('.entry', {hasText: 'loader'});
   await loader.getByText('task').waitFor();
   await loader.getByText('complete').waitFor();
 }, 60_000);

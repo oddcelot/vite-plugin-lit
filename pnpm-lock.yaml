@@ -199,6 +199,9 @@ importers:
       playwright-core:
         specifier: ^1.63.0
         version: 1.63.0
+      sugar-high:
+        specifier: ^2.5.2
+        version: 2.5.2
       temporal-polyfill:
         specifier: ^1.0.5
         version: 1.0.5
@@ -3475,6 +3478,14 @@ packages:
   strip-final-newline@4.0.0:
     resolution: {integrity: sha512-aulFJcD6YK8V1G7iRB5tigAP4TsHBZZrOV8pjV++zdUwmeV8uzbY7yn6h9MswN62adStNZFuCIx4haBnRuMDaw==}
     engines: {node: '>=18'}
+
+  sugar-high@2.5.2:
+    resolution: {integrity: sha512-6bWenmZIfwfSaTWr4NYOdlJvJ92zVMLY6duRY8zxdoDbJ9++Y4rkZq1PvzwVmuSx4gBHj2ne9wFA6T09watbkg==}
+    peerDependencies:
+      gpu-lexer: '>=0.0.2'
+    peerDependenciesMeta:
+      gpu-lexer:
+        optional: true
 
   supports-color@10.2.2:
     resolution: {integrity: sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g==}
@@ -7116,6 +7127,8 @@ snapshots:
       character-entities-legacy: 3.0.0
 
   strip-final-newline@4.0.0: {}
+
+  sugar-high@2.5.2: {}
 
   supports-color@10.2.2: {}
 

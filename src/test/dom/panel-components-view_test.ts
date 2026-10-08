@@ -56,11 +56,13 @@ const mount = async (picker = false, roots: InspectorTreeNode[] = tree) => {
 
 const LIVE_LS_KEY = 'lit-devtools-components-live';
 const WIDTH_LS_KEY = 'lit-devtools-components-details-width';
+const COLLAPSED_LS_KEY = 'lit-devtools-components-collapsed';
 
 afterEach(() => {
   document.body.replaceChildren();
   localStorage.removeItem(LIVE_LS_KEY);
   localStorage.removeItem(WIDTH_LS_KEY);
+  localStorage.removeItem(COLLAPSED_LS_KEY);
   resetClient();
   resetHostInfo();
 });
@@ -170,11 +172,133 @@ test('lists instance state below the other tables', async () => {
     (l) => l.textContent
   );
   expect(labels).toEqual(['Instance']);
-  const rows = [...details.querySelectorAll('tr')].map((r) =>
-    r.textContent!.replace(/\s+/g, ' ').trim()
+  const rows = [...details.querySelectorAll('.entry')].map((r) =>
+    [...r.children].map((c) => c.textContent!.replace(/\s+/g, ' ').trim())
   );
-  // The badges sit flush against the name, so the cell text runs together.
-  expect(rows).toEqual(['userTasktaskcomplete [1, 2]', 'countsignal 7']);
+  // The kind and a task's status follow the name.
+  expect(rows).toEqual([
+    ['userTasktaskcomplete', '[1, 2]'],
+    ['countsignal', '7'],
+  ]);
+  expect(
+    details.querySelector('.entry .status')!.classList.contains('task-complete')
+  ).toBe(true);
+});
+
+test('tags a value with its type only where the preview does not show it', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  const prop = (name: string, value: string, type: string) => ({
+    name,
+    value,
+    type,
+    attribute: name,
+    reflects: false,
+    state: false,
+  });
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      properties: [
+        prop('label', '"Save"', 'string'),
+        prop('items', '[1, 2, 3]', 'Array(3)'),
+        prop('lookup', 'Map(2)', 'Map(2)'),
+      ],
+    },
+  });
+  await flush(el);
+  const types = [...root.querySelectorAll('.details .entry')].map(
+    (r) => r.querySelector('.type')?.textContent ?? null
+  );
+  expect(types).toEqual([null, 'Array(3)', null]);
+});
+
+const withAttributes = () => ({
+  ...detailsFor([{kind: 'signal', name: 'count', value: '7', type: 'Signal'}]),
+  attributes: [
+    {name: 'a', value: '1'},
+    {name: 'b', value: '2'},
+  ],
+});
+
+const sections = (root: ShadowRoot) =>
+  [
+    ...root.querySelectorAll<HTMLDetailsElement>('.details details.section'),
+  ].map(
+    (s) =>
+      `${s.querySelector('.label')!.textContent} ${s.querySelector('.count')!.textContent} ${s.open ? 'open' : 'folded'}`
+  );
+
+test('each section heading counts its rows', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: withAttributes()});
+  await flush(el);
+  expect(sections(root)).toEqual(['Attributes 2 open', 'Instance 1 open']);
+});
+
+test('a folded section stays folded, and is remembered', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: withAttributes()});
+  await flush(el);
+  const attrs = root.querySelector<HTMLDetailsElement>(
+    'details[data-section="Attributes"]'
+  )!;
+  attrs.open = false;
+  attrs.dispatchEvent(new Event('toggle'));
+  await flush(el);
+  expect(sections(root)).toEqual(['Attributes 2 folded', 'Instance 1 open']);
+  expect(JSON.parse(localStorage.getItem(COLLAPSED_LS_KEY)!)).toEqual([
+    'Attributes',
+  ]);
+
+  document.body.replaceChildren();
+  const again = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: withAttributes()});
+  await flush(again.el);
+  expect(sections(again.root)).toEqual([
+    'Attributes 2 folded',
+    'Instance 1 open',
+  ]);
+});
+
+test('attribute values read as quoted strings', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      attributes: [{name: 'data-renders', value: '2'}],
+    },
+  });
+  await flush(el);
+  const val = root.querySelector('.details .entry .val')!;
+  expect(val.textContent).toBe('"2"');
+  expect(val.querySelector('.t-string')!.textContent).toBe('"2"');
+});
+
+test('a long value takes its own line under the name', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      attributes: [
+        {name: 'short', value: 'a'},
+        {name: 'long', value: 'x'.repeat(60)},
+      ],
+    },
+  });
+  await flush(el);
+  const wide = [...root.querySelectorAll('.details .entry')].map((r) =>
+    r.classList.contains('wide')
+  );
+  expect(wide).toEqual([false, true]);
 });
 
 test('Scroll into view reveals the selected element in the page', async () => {
@@ -203,6 +327,84 @@ test('shows no Instance section without extras', async () => {
   await flush(el);
   expect(root.querySelector('.details h2')!.textContent).toBe('<x-button>');
   expect(root.querySelector('.details .label')).toBeNull();
+});
+
+const metaRows = (root: ShadowRoot) =>
+  [...root.querySelectorAll('.details .meta dt')].map(
+    (dt) => `${dt.textContent} ${dt.nextElementSibling!.textContent!.trim()}`
+  );
+
+const statuses = (root: ShadowRoot) =>
+  [...root.querySelectorAll('.details .head .status')].map(
+    (s) => s.textContent
+  );
+
+test('a settled element shows no status next to its tag', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: detailsFor()});
+  await flush(el);
+  expect(statuses(root)).toEqual([]);
+});
+
+test('a queued or first update shows as a status next to the tag', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      flags: {hasUpdated: false, isUpdatePending: true, hasShadowRoot: true},
+    },
+  });
+  await flush(el);
+  expect(statuses(root)).toEqual(['pending', 'not rendered']);
+});
+
+test('the render root reads as one line under the locations', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      source: {file: 'src/b.ts', line: 4},
+      anatomy: {
+        renderRoot: 'shadow',
+        mode: 'open',
+        delegatesFocus: true,
+        slots: [],
+        orphans: [],
+        orphanText: 0,
+        parts: [],
+      },
+    },
+  });
+  await flush(el);
+  expect(metaRows(root)).toEqual([
+    'defined src/b.ts:4',
+    'root shadow, open, delegatesFocus',
+  ]);
+});
+
+test('a light DOM element says so', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      anatomy: {
+        renderRoot: 'light',
+        slots: [],
+        orphans: [],
+        orphanText: 0,
+        parts: [],
+      },
+    },
+  });
+  await flush(el);
+  expect(metaRows(root)).toEqual(['root light DOM']);
 });
 
 const emptyText = async () => {
@@ -387,9 +589,7 @@ test('a source location opens in the editor where the host has one', async () =>
     details: {...detailsFor(), source: {file: 'src/b.ts', line: 4}},
   });
   await flush(el);
-  expect(root.querySelector('wa-button.src')!.textContent).toContain(
-    'src/b.ts:4'
-  );
+  expect(root.querySelector('button.src')!.textContent).toContain('src/b.ts:4');
 });
 
 test('a source location is plain text where the host has no editor', async () => {
@@ -401,7 +601,7 @@ test('a source location is plain text where the host has no editor', async () =>
     details: {...detailsFor(), source: {file: 'src/b.ts', line: 4}},
   });
   await flush(el);
-  expect(root.querySelector('wa-button.src')).toBeNull();
+  expect(root.querySelector('button.src')).toBeNull();
   expect(root.querySelector('.src-text')!.textContent).toBe('src/b.ts:4');
 });
 
@@ -418,8 +618,8 @@ test('a call site renders a second link that opens at its column', async () => {
     },
   });
   await flush(el);
-  const link = root.querySelector<HTMLElement>('wa-button.call-site')!;
-  expect(link.textContent).toContain('Rendered at src/app.ts:12');
+  const link = root.querySelector<HTMLElement>('button.call-site')!;
+  expect(link.textContent).toContain('src/app.ts:12');
   link.click();
   await flush(el);
   expect(calls.find((c) => c.name === 'open-source')?.args).toEqual([
@@ -439,10 +639,8 @@ test('a call site is plain text where the host has no editor', async () => {
     },
   });
   await flush(el);
-  expect(root.querySelector('wa-button.call-site')).toBeNull();
-  expect(root.querySelector('.call-site')!.textContent).toBe(
-    'Rendered at src/app.ts:12'
-  );
+  expect(root.querySelector('button.call-site')).toBeNull();
+  expect(root.querySelector('.call-site')!.textContent).toBe('src/app.ts:12');
 });
 
 test('no call site, no row', async () => {
