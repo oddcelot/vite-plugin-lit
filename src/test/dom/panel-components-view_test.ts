@@ -888,6 +888,72 @@ test('never offers Scroll into view in a snapshot', async () => {
   expect(root.querySelector('wa-button.reveal')).toBeNull();
 });
 
+test('a context row shows its key and links to the provider element', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: detailsFor([
+      {
+        kind: 'context',
+        name: 'theme',
+        value: '"dark"',
+        type: 'ContextConsumer',
+        context: {
+          role: 'consumer',
+          key: 'Symbol(theme)',
+          provider: {tagName: 'x-app', id: 1},
+        },
+      },
+      {
+        kind: 'context',
+        name: 'orphan',
+        value: '1',
+        type: 'ContextConsumer',
+        context: {role: 'consumer', key: 'lost'},
+      },
+    ]),
+  });
+  await flush(el);
+  const rows = [...root.querySelectorAll('.details .entry')];
+  expect(rows[0]!.textContent).toContain('Symbol(theme)');
+  expect(rows[1]!.textContent).toContain('no provider found');
+  rows[0]!.querySelector<HTMLButtonElement>('.el-ref')!.click();
+  await flush(el);
+  expect(el.location.selected('components')).toBe(1);
+});
+
+test('a provider row lists its consumers as links', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 1});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor([
+        {
+          kind: 'context',
+          name: 'provider',
+          value: '1',
+          type: 'ContextProvider',
+          context: {
+            role: 'provider',
+            key: 'k',
+            consumers: [{tagName: 'x-button', id: 2}],
+            moreConsumers: 3,
+          },
+        },
+      ]),
+      id: 1,
+    },
+  });
+  await flush(el);
+  const links = root.querySelectorAll('.details .ctx-links .el-ref');
+  expect([...links].map((l) => l.textContent!.trim())).toEqual(['<x-button>']);
+  expect(root.querySelector('.details .ctx-links')!.textContent).toContain(
+    '+3 more'
+  );
+});
+
 test('shows no Instance section without extras', async () => {
   const {el, root} = await mount(true);
   push('inspector-message', {type: 'pick', id: 2});
