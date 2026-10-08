@@ -75,13 +75,33 @@ export const isInspectable = (el: Element): boolean => {
   return typeof (el as ReactiveElementLike).requestUpdate === 'function';
 };
 
+/**
+ * A custom-element tag nothing has defined: a forgotten import, a typo, a
+ * chunk that has not loaded. Plain tags (no hyphen) are never custom, so they
+ * skip the selector match. Devtools' own UI is left out as in
+ * {@link isInspectable}.
+ */
+export const isUndefinedElement = (el: Element): boolean => {
+  const tag = el.localName;
+  if (!tag.includes('-')) return false;
+  if (tag === 'lit-source-overlay' || tag.startsWith('lit-devtools-')) {
+    return false;
+  }
+  // The registry lookup is the cheap rejection for the usual, defined case;
+  // the selector settles the rest, since an element can be defined in a
+  // registry other than the global one.
+  return customElements.get(tag) === undefined && el.matches(':not(:defined)');
+};
+
 const nodeFor = (
   el: Element,
-  children: InspectorTreeNode[]
+  children: InspectorTreeNode[],
+  notDefined = false
 ): InspectorTreeNode => {
   const meta = metaOf(el);
   return {
     id: idOf(el),
+    ...(notDefined ? {notDefined: true} : {}),
     tagName: el.tagName.toLowerCase(),
     componentName: meta?.componentName,
     source:
@@ -99,28 +119,49 @@ const nodeFor = (
  * any inspectables we find into the current `sink` (so non-component wrappers
  * are flattened away).
  */
-const visit = (el: Element, sink: InspectorTreeNode[]): void => {
+const visit = (
+  el: Element,
+  sink: InspectorTreeNode[],
+  onUndefined?: (tag: string) => void
+): void => {
   if (isInspectable(el)) {
     const children: InspectorTreeNode[] = [];
-    descend(el, children);
+    descend(el, children, onUndefined);
     sink.push(nodeFor(el, children));
+  } else if (isUndefinedElement(el)) {
+    // Kept in its real position so the tree shows where the missing component
+    // sits; light children are still walked, they may be components.
+    onUndefined?.(el.localName);
+    const children: InspectorTreeNode[] = [];
+    descend(el, children, onUndefined);
+    sink.push(nodeFor(el, children, true));
   } else {
-    descend(el, sink);
+    descend(el, sink, onUndefined);
   }
 };
 
-const descend = (el: Element, sink: InspectorTreeNode[]): void => {
+const descend = (
+  el: Element,
+  sink: InspectorTreeNode[],
+  onUndefined?: (tag: string) => void
+): void => {
   const shadow = el.shadowRoot;
   if (shadow !== null) {
-    for (const child of shadow.children) visit(child, sink);
+    for (const child of shadow.children) visit(child, sink, onUndefined);
   }
-  for (const child of el.children) visit(child, sink);
+  for (const child of el.children) visit(child, sink, onUndefined);
 };
 
-/** Build the full component render tree rooted at the document body. */
-export const buildTree = (): InspectorTreeNode[] => {
+/**
+ * Build the full component render tree rooted at the document body.
+ * `onUndefined` hears the tag of each element that has no definition yet, so
+ * the caller can rebuild once one is defined.
+ */
+export const buildTree = (
+  onUndefined?: (tag: string) => void
+): InspectorTreeNode[] => {
   const roots: InspectorTreeNode[] = [];
-  for (const child of document.body.children) visit(child, roots);
+  for (const child of document.body.children) visit(child, roots, onUndefined);
   return roots;
 };
 
@@ -180,6 +221,7 @@ export const collectDetails = (el: Element): InspectorDetails => {
     componentName: meta?.componentName,
     source: sourceOf(el),
     callSite: callSiteOf(el),
+    ...(isUndefinedElement(el) ? {notDefined: true} : {}),
     attributes,
     properties,
     flags: {
