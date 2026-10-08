@@ -337,6 +337,8 @@ export class ComponentsView extends LitElement {
       }
       .section {
         margin-top: var(--lit-devtools-space-5);
+        padding-top: var(--lit-devtools-space-4);
+        border-top: 1px solid var(--lit-devtools-border);
       }
       .section > summary {
         display: flex;
