@@ -10,6 +10,7 @@ import {tokens} from '../lib/tokens.js';
 import {
   ANATOMY_COLORS,
   type AnatomyElementRef,
+  type AnatomyFocus,
   type InspectorAnatomy,
   type InspectorDetails,
   type InspectorExtra,
@@ -247,6 +248,9 @@ export class ComponentsView extends LitElement {
       .el-ref:disabled {
         color: var(--lit-devtools-text);
         cursor: default;
+      }
+      tr.region:hover td {
+        background: var(--lit-devtools-surface-hover);
       }
       tr.orphan td {
         color: var(--lit-devtools-error);
@@ -570,6 +574,11 @@ export class ComponentsView extends LitElement {
     sendToPage({type: 'highlight', id});
   }
 
+  /** Single out a slot or part in the page's anatomy overlay while hovered. */
+  private _focusRegion(focus: AnatomyFocus | null): void {
+    if (this._anatomy) sendToPage({type: 'anatomy-focus', focus});
+  }
+
   /** Scroll the selected element into view in the page. */
   private _reveal(): void {
     const id = this._session.details?.id;
@@ -747,7 +756,11 @@ export class ComponentsView extends LitElement {
               <div class="label">Slots</div>
               <table>
                 ${a.slots.map(
-                  (s, i) => html`<tr>
+                  (s, i) => html`<tr
+                    class="region"
+                    @mouseenter=${() => this._focusRegion({kind: 'slot', index: i})}
+                    @mouseleave=${() => this._focusRegion(null)}
+                  >
                     <td class="name">
                       <span class="swatch" style="background:${color(i)}"></span
                       >${
@@ -825,7 +838,11 @@ export class ComponentsView extends LitElement {
               <div class="label">Parts</div>
               <table>
                 ${a.parts.map(
-                  (p, j) => html`<tr>
+                  (p, j) => html`<tr
+                    class="region"
+                    @mouseenter=${() => this._focusRegion({kind: 'part', index: j})}
+                    @mouseleave=${() => this._focusRegion(null)}
+                  >
                     <td class="name">
                       <span
                         class="swatch"
