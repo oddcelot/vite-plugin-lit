@@ -156,3 +156,32 @@ test('a short preview is one line at no indent', () => {
     {indent: 0, tokens: tokenizeValue('{a: 1}')},
   ]);
 });
+
+test('colours a Map preview and opens it up when long', () => {
+  const map = new Map<string, unknown>([
+    ['first', 'Ada'],
+    ['last', 'Lovelace'],
+    ['born', 1815],
+  ]);
+  const value = serialize(map);
+  expect(kinds(tokenizeValue(value)).slice(0, 9)).toEqual([
+    'type:Map',
+    'punct:(',
+    'number:3',
+    'punct:)',
+    'punct:{',
+    'string:"first"',
+    'punct:=',
+    'punct:>',
+    'string:"Ada"',
+  ]);
+  expect(text(formatValue(value))).toBe(
+    [
+      'Map(3) {',
+      '  "first" => "Ada",',
+      '  "last" => "Lovelace",',
+      '  "born" => 1815',
+      '}',
+    ].join('\n')
+  );
+});

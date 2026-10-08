@@ -167,7 +167,7 @@ test('a Map is not mistaken for a signal', () => {
   const el = host();
   el['cache'] = new Map([[1, 2]]);
   expect(collectExtras(el)).toEqual([
-    {kind: 'field', name: 'cache', value: 'Map(1)', type: 'Map(1)'},
+    {kind: 'field', name: 'cache', value: 'Map(1) {1 => 2}', type: 'Map(1)'},
   ]);
 });
 
