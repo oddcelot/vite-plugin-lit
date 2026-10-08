@@ -15,7 +15,12 @@ import {PAGE_ID} from '../page-id.js';
 import type {ViteHotLike} from '../page-channel.js';
 import {buildTree, collectDetails, expandPath} from './collect.js';
 import {anatomyById, clearAnatomy, focusAnatomy} from './anatomy-overlay.js';
-import {clearHighlight, highlightById, revealById} from './highlight.js';
+import {
+  clearHighlight,
+  highlightAll,
+  highlightById,
+  revealById,
+} from './highlight.js';
 import {
   LIT_IN_PAGE_CHANNEL,
   type LitInPageProtocol,
@@ -59,6 +64,7 @@ if (typeof window !== 'undefined') {
     functions: {},
     events: {
       highlight: {handler: (id) => highlightById(id)},
+      highlightAll: {handler: (ids) => void highlightAll(ids)},
       reveal: {handler: (id) => revealById(id)},
       anatomy: {handler: (id) => anatomyById(id)},
       anatomyFocus: {handler: (focus) => focusAnatomy(focus)},
@@ -392,6 +398,10 @@ if (typeof window !== 'undefined') {
         // Fallback path. A panel that handshaked over the in-page channel
         // emits there instead and never reaches this.
         highlightById(cmd.id);
+        break;
+      case 'highlight-all':
+        // Fallback path, as for `highlight`.
+        highlightAll(cmd.ids);
         break;
       case 'reveal':
         revealById(cmd.id);

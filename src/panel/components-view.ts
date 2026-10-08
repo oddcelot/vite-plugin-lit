@@ -36,6 +36,7 @@ import {overrides} from './settings-override.js';
 import {formatLines, type ValueToken} from './value-format.js';
 import {filterTree, type TreeFilterResult} from './tree-filter.js';
 import {ValueExpansion} from './value-expansion.js';
+import {copyText} from './copy-text.js';
 import {attrKey, changedRows, extraKey, propKey} from './details-diff.js';
 
 /**
@@ -101,6 +102,20 @@ const anatomyMatches = (
   parts: a.parts.map((p) => matches(...p.names, p.tagName)),
 });
 
+/** Ids of every node in the tree with this tag, in tree order. */
+const idsWithTag = (
+  roots: readonly InspectorTreeNode[],
+  tagName: string
+): number[] => {
+  const ids: number[] = [];
+  const visit = (n: InspectorTreeNode): void => {
+    if (n.tagName === tagName) ids.push(n.id);
+    n.children.forEach(visit);
+  };
+  roots.forEach(visit);
+  return ids;
+};
+
 /** `text` with the first match of `query` wrapped in `<mark>`. */
 const markMatch = (text: string, query: string): TemplateResult | string => {
   const q = query.trim().toLowerCase();
@@ -121,13 +136,17 @@ const renderTokens = (tokens: ValueToken[]): TemplateResult[] =>
  * block per line, indented by its depth with a hanging indent, so a long
  * string that wraps continues under its own text instead of at the margin.
  */
-const renderCode = (value: string): TemplateResult | TemplateResult[] => {
+const renderCode = (
+  value: string,
+  /** Leads the first line, so a caret sits beside the value's opening. */
+  lead: unknown = nothing
+): TemplateResult | TemplateResult[] => {
   const lines = formatLines(value);
-  if (lines.length === 1) return renderTokens(lines[0]!.tokens);
+  if (lines.length === 1) return html`${lead}${renderTokens(lines[0]!.tokens)}`;
   return lines.map(
-    (l) =>
+    (l, i) =>
       html`<span class="line" style="--indent:${l.indent}"
-        >${renderTokens(l.tokens)}</span
+        >${i === 0 ? lead : nothing}${renderTokens(l.tokens)}</span
       >`
   );
 };
@@ -243,6 +262,9 @@ export class ComponentsView extends LitElement {
       }
       .match-count {
         font-size: var(--lit-devtools-text-2xs);
+      }
+      .row.same-tag {
+        background: var(--lit-devtools-accent-soft);
       }
       .row.context .tag {
         opacity: 0.55;
@@ -460,6 +482,36 @@ export class ComponentsView extends LitElement {
         align-items: baseline;
         padding: 2px 0;
       }
+      .entry {
+        position: relative;
+      }
+      .copy {
+        position: absolute;
+        top: 0;
+        right: 0;
+        display: inline-flex;
+        padding: 2px var(--lit-devtools-space-2);
+        border: 0;
+        border-radius: 2px;
+        background: var(--lit-devtools-bg);
+        color: var(--lit-devtools-text-muted);
+        cursor: pointer;
+        opacity: 0;
+      }
+      .entry:hover > .copy,
+      .copy:focus-visible,
+      .copy.copied {
+        opacity: 1;
+      }
+      .copy:hover {
+        color: var(--lit-devtools-text);
+      }
+      .copy.copied {
+        color: var(--lit-devtools-success);
+      }
+      .copy:focus-visible {
+        outline: 2px solid var(--lit-devtools-accent-ring);
+      }
       .entry > .name {
         color: var(--lit-devtools-text);
         min-width: 0;
@@ -473,6 +525,10 @@ export class ComponentsView extends LitElement {
       .entry > .val.code {
         color: var(--lit-devtools-text);
         white-space: pre-wrap;
+      }
+      /* A caret leads the first line, so the rest move over to match. */
+      .val.has-caret .line:not(:first-child) {
+        padding-left: calc((var(--indent) + 4) * 1ch);
       }
       /* Indent by depth; wrapped rows hang two columns further in. */
       .val .line {
@@ -721,6 +777,13 @@ export class ComponentsView extends LitElement {
   private readonly _detailsWidth = readDetailsWidth();
   private _unsubscribeOverride: (() => void) | null = null;
   private _unsubscribeSession: (() => void) | null = null;
+  /** The tree row under the pointer, so Shift can act on it. */
+  private _hovered: InspectorTreeNode | null = null;
+  /** The tag whose rows are marked while Shift-hovering, or null. */
+  @state() private _tagHover: string | null = null;
+  /** The row whose value was just copied, for a moment of feedback. */
+  @state() private _copied: string | null = null;
+  private _copiedTimer: ReturnType<typeof setTimeout> | undefined;
   /** Values opened in the details pane, and their children. */
   private readonly _expansion = new ValueExpansion(sendToPage, () =>
     this.requestUpdate()
@@ -733,6 +796,8 @@ export class ComponentsView extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
+    window.addEventListener('keydown', this._onShift);
+    window.addEventListener('keyup', this._onShift);
     this._unsubscribeSession = this._session.subscribe(() => {
       this.requestUpdate();
       this._reportIncompatibilities();
@@ -746,6 +811,8 @@ export class ComponentsView extends LitElement {
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+    window.removeEventListener('keydown', this._onShift);
+    window.removeEventListener('keyup', this._onShift);
     this._unsubscribeOverride?.();
     this._unsubscribeOverride = null;
     this._unsubscribeSession?.();
@@ -976,6 +1043,36 @@ export class ComponentsView extends LitElement {
     sendToPage({type: 'highlight', id});
   }
 
+  /**
+   * Outline a hovered tree row's element on the page, or with Shift held,
+   * every element with the same tag, and mark their rows here.
+   */
+  private _hoverRow(node: InspectorTreeNode, all: boolean): void {
+    this._hovered = node;
+    if (!all) {
+      this._tagHover = null;
+      this._highlight(node.id);
+      return;
+    }
+    this._tagHover = node.tagName;
+    sendToPage({
+      type: 'highlight-all',
+      ids: idsWithTag(this._session.roots, node.tagName),
+    });
+  }
+
+  private readonly _leaveTree = (): void => {
+    this._hovered = null;
+    this._tagHover = null;
+    this._highlight(null);
+  };
+
+  /** Shift pressed or released over a row switches between one and all. */
+  private readonly _onShift = (e: KeyboardEvent): void => {
+    if (e.key !== 'Shift' || e.repeat || this._hovered === null) return;
+    this._hoverRow(this._hovered, e.type === 'keydown');
+  };
+
   /** Single out a slot or part in the page's anatomy overlay while hovered. */
   private _focusRegion(focus: AnatomyFocus | null): void {
     if (this._anatomy) sendToPage({type: 'anatomy-focus', focus});
@@ -1042,10 +1139,10 @@ export class ComponentsView extends LitElement {
       <div
         class="row ${node.id === this._session.selectedId ? 'selected' : ''} ${
           dimmed ? 'context' : ''
-        }"
+        } ${this._tagHover === node.tagName ? 'same-tag' : ''}"
         style="padding-left:${8 + depth * 14}px"
         @click=${() => this._session.select(node.id)}
-        @mouseenter=${() => this._highlight(node.id)}
+        @mouseenter=${(e: MouseEvent) => this._hoverRow(node, e.shiftKey)}
       >
         <span
           class="twisty"
@@ -1090,9 +1187,11 @@ export class ComponentsView extends LitElement {
       key?: string;
       /** Where to expand the value from, when it has children to list. */
       expand?: {path: ValuePath; type: string};
+      /** What the copy button puts on the clipboard; no button without it. */
+      copy?: string;
     } = {}
   ): TemplateResult {
-    const {trailing = nothing, code = false, key, expand} = opts;
+    const {trailing = nothing, code = false, key, expand, copy} = opts;
     const expandable = expand !== undefined && !this._snapshot;
     const open = expandable && this._expansion.isOpen(expand.path);
     return html`<div
@@ -1100,12 +1199,51 @@ export class ComponentsView extends LitElement {
       data-key=${key ?? nothing}
     >
       <span class="name">${name}</span>
-      <span class="val ${code ? 'code' : ''}"
-        >${expandable ? this._renderExpander(expand.path, name) : nothing}${
-          open ? summarize(expand.type) : code ? renderCode(value) : value
-        }${trailing}${open ? this._renderLevel(expand.path) : nothing}</span
-      >
+      <span class="val ${code ? 'code' : ''} ${expandable ? 'has-caret' : ''}"
+        >${(() => {
+          const caret = expandable
+            ? this._renderExpander(expand.path, name)
+            : nothing;
+          if (open) return html`${caret}${summarize(expand.type)}`;
+          return code ? renderCode(value, caret) : html`${caret}${value}`;
+        })()}${trailing}${open ? this._renderLevel(expand.path) : nothing}</span
+      >${
+        copy === undefined || key === undefined
+          ? nothing
+          : this._renderCopy(key, copy)
+      }
     </div>`;
+  }
+
+  /**
+   * A button that copies a row's value as the pane shows it: the preview
+   * string, not the live object, so a truncated value copies truncated.
+   */
+  private _renderCopy(key: string, text: string): TemplateResult {
+    const copied = this._copied === key;
+    return html`<button
+      class="copy ${copied ? 'copied' : ''}"
+      data-tip=${copied ? 'Copied' : 'Copy the value as shown'}
+      aria-label=${copied ? 'Copied' : 'Copy value'}
+      @click=${(e: Event) =>
+        void this._copy(key, text, e.currentTarget as HTMLElement)}
+    >
+      <wa-icon name=${copied ? 'check' : 'copy'}></wa-icon>
+    </button>`;
+  }
+
+  private async _copy(
+    key: string,
+    text: string,
+    button: HTMLElement
+  ): Promise<void> {
+    const ok = await copyText(text);
+    // The fallback path selects a textarea outside this shadow root.
+    button.focus();
+    if (!ok) return;
+    this._copied = key;
+    clearTimeout(this._copiedTimer);
+    this._copiedTimer = setTimeout(() => (this._copied = null), 1500);
   }
 
   private _renderExpander(
@@ -1187,6 +1325,7 @@ export class ComponentsView extends LitElement {
                 : nothing,
               code: true,
               key: propKey(p.name),
+              copy: p.value,
               ...(p.expandable === true
                 ? {
                     expand: {
@@ -1227,6 +1366,7 @@ export class ComponentsView extends LitElement {
             {
               code: true,
               key: extraKey(e.name),
+              copy: e.value,
               ...(e.expandable === true
                 ? {
                     expand: {
@@ -1644,6 +1784,8 @@ export class ComponentsView extends LitElement {
               this._renderEntry(this._mark(a.name), JSON.stringify(a.value), {
                 code: true,
                 key: attrKey(a.name),
+                // The attribute's own text, without the quotes shown.
+                copy: a.value,
               })
             )}
           </div>
@@ -1848,11 +1990,7 @@ export class ComponentsView extends LitElement {
         position-in-pixels=${this._detailsWidth}
         @wa-reposition=${this._saveDetailsWidth}
       >
-        <div
-          slot="start"
-          class="tree"
-          @mouseleave=${() => this._highlight(null)}
-        >
+        <div slot="start" class="tree" @mouseleave=${this._leaveTree}>
           ${
             this._error !== null
               ? html`<div class="empty">${this._error}</div>`

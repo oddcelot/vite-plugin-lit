@@ -29,6 +29,7 @@ import caretUp from '@phosphor-icons/core/assets/regular/caret-up.svg?raw';
 import check from '@phosphor-icons/core/assets/regular/check.svg?raw';
 import clock from '@phosphor-icons/core/assets/regular/clock.svg?raw';
 import crosshair from '@phosphor-icons/core/assets/regular/crosshair.svg?raw';
+import copy from '@phosphor-icons/core/assets/regular/copy.svg?raw';
 import cube from '@phosphor-icons/core/assets/regular/cube.svg?raw';
 import equals from '@phosphor-icons/core/assets/regular/equals.svg?raw';
 import exportIcon from '@phosphor-icons/core/assets/regular/export.svg?raw';
@@ -52,7 +53,9 @@ const ICONS = {
   'bounding-box': boundingBox,
   'caret-down': caretDown,
   'caret-right': caretRight,
+  check,
   clock,
+  copy,
   crosshair,
   cube,
   equals,

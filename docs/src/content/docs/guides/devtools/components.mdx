@@ -21,7 +21,9 @@ file, and watch which ones re-render. Everything here works without recording.
 
 The **Components** tab shows a live, hierarchical tree of the Lit elements on
 the page, descending through shadow roots. Click a row to select it. Hover a
-row to outline that element in the page.
+row to outline that element in the page. Hold **Shift** while hovering to
+outline every element with the same tag at once, in dashed boxes, and to mark
+their rows in the tree. That shows how often a component is used and where.
 
 <ThemedImage
   light={devtoolsComponentsTreeLight}
@@ -73,6 +75,11 @@ preview, and any child that holds more has a caret of its own. Each level
 lists up to 100 children and counts the rest. Open levels follow the value as
 it changes, and selecting another element closes them. A snapshot has no live
 page to ask, so it shows no carets.
+
+Hover a row, or tab to it, to show a copy button at its right edge. It copies
+the value as the pane shows it, which is the preview and not the live object,
+so a truncated value copies truncated. An attribute copies its text without
+the quotes.
 
 Each section heading shows how many rows it holds. Click a heading to fold
 the section. It stays folded as you select other elements and after a

@@ -210,6 +210,44 @@ test('a tree filter with no match says so, and Escape clears it', async () => {
   expect(tags(rows())).toEqual(['<x-app>']);
 });
 
+test('Shift-hover outlines every element with that tag', async () => {
+  const {el, root, rows, inspects} = await mount(false, bigTree);
+  await filterTree(el, root, 'item');
+  const item = rows().find((r) => r.textContent!.includes('x-item'))!;
+  item.dispatchEvent(new MouseEvent('mouseenter', {shiftKey: true}));
+  await flush(el);
+  expect(inspects().at(-1)).toEqual({type: 'highlight-all', ids: [5, 6]});
+  expect(
+    rows()
+      .filter((r) => r.classList.contains('same-tag'))
+      .map((r) => r.querySelector('.tag')!.textContent)
+  ).toEqual(['<x-item>', '<x-item>']);
+
+  // Letting go of Shift drops back to the one row under the pointer.
+  window.dispatchEvent(new KeyboardEvent('keyup', {key: 'Shift'}));
+  await flush(el);
+  expect(inspects().at(-1)).toEqual({type: 'highlight', id: 5});
+  expect(root.querySelector('.row.same-tag')).toBeNull();
+
+  // And pressing it again goes back to all of them.
+  window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Shift'}));
+  await flush(el);
+  expect(inspects().at(-1)).toEqual({type: 'highlight-all', ids: [5, 6]});
+
+  root.querySelector('.tree')!.dispatchEvent(new MouseEvent('mouseleave'));
+  await flush(el);
+  expect(inspects().at(-1)).toEqual({type: 'highlight', id: null});
+  expect(root.querySelector('.row.same-tag')).toBeNull();
+});
+
+test('Shift does nothing with no row under the pointer', async () => {
+  const {el, inspects} = await mount(false, bigTree);
+  const before = inspects().length;
+  window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Shift'}));
+  await flush(el);
+  expect(inspects()).toHaveLength(before);
+});
+
 // The session's rules are `components-session_test.ts`'s; these check the
 // element wires them to the page, the shell and storage.
 
@@ -263,7 +301,9 @@ test('lists instance state below the other tables', async () => {
   );
   expect(labels).toEqual(['Instance']);
   const rows = [...details.querySelectorAll('.entry')].map((r) =>
-    [...r.children].map((c) => c.textContent!.replace(/\s+/g, ' ').trim())
+    [...r.querySelectorAll(':scope > .name, :scope > .val')].map((c) =>
+      c.textContent!.replace(/\s+/g, ' ').trim()
+    )
   );
   // The kind and a task's status follow the name.
   expect(rows).toEqual([
@@ -673,6 +713,58 @@ test('a snapshot cannot expand values', async () => {
   push('inspector-message', {type: 'details', details: expandable()});
   await flush(el);
   expect(root.querySelector('.details .expander')).toBeNull();
+});
+
+test('a row copies its value as shown, an attribute without quotes', async () => {
+  const writeText = vi.fn(async () => {});
+  Object.defineProperty(navigator, 'clipboard', {
+    value: {writeText},
+    configurable: true,
+  });
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: filterable()});
+  await flush(el);
+  const copyOf = (key: string) =>
+    root.querySelector<HTMLElement>(
+      `.details .entry[data-key="${key}"] .copy`
+    )!;
+
+  copyOf('p:label').click();
+  await flush(el);
+  copyOf('a:data-renders').click();
+  await flush(el);
+  expect(writeText.mock.calls).toEqual([['"Save"'], ['3']]);
+  // The last one copied says so until the moment passes.
+  expect(copyOf('a:data-renders').classList.contains('copied')).toBe(true);
+  expect(copyOf('p:label').classList.contains('copied')).toBe(false);
+});
+
+test('a refused clipboard falls back to a selected textarea', async () => {
+  Object.defineProperty(navigator, 'clipboard', {
+    value: {writeText: vi.fn(async () => Promise.reject(new Error('denied')))},
+    configurable: true,
+  });
+  const exec = vi.fn(() => true);
+  Object.defineProperty(document, 'execCommand', {
+    value: exec,
+    configurable: true,
+  });
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: filterable()});
+  await flush(el);
+  root
+    .querySelector<HTMLElement>('.details .entry[data-key="p:label"] .copy')!
+    .click();
+  await flush(el);
+  expect(exec).toHaveBeenCalledWith('copy');
+  expect(document.querySelector('textarea')).toBeNull();
+  expect(
+    root
+      .querySelector('.details .entry[data-key="p:label"] .copy')!
+      .classList.contains('copied')
+  ).toBe(true);
 });
 
 test('attribute values read as quoted strings', async () => {

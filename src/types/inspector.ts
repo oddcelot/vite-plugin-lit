@@ -272,6 +272,11 @@ export type InspectorCommand =
   | {type: 'watch'; id: number | null}
   /** Outline element `id` in the page on tree hover; `null` clears it. */
   | {type: 'highlight'; id: number | null}
+  /**
+   * Outline every element in `ids` at once, replacing the single hover
+   * outline; an empty list clears them.
+   */
+  | {type: 'highlight-all'; ids: number[]}
   /** Scroll element `id` into view in the page and outline it briefly. */
   | {type: 'reveal'; id: number}
   /** List the children of the value at `path` on element `id`. */
