@@ -356,3 +356,38 @@ test('a consumer with no provider says so by omitting the link', async () => {
   const [consumer] = collectExtras(c);
   expect(consumer!.context).toEqual({role: 'consumer', key: 'orphan-key'});
 });
+
+test('detects a consumer whose callback is minified, as in the production build', async () => {
+  const key = createContext<string>('prod-key');
+  class Provider extends LitElement {
+    provider = new ContextProvider(this, {context: key, initialValue: 'v'});
+  }
+  customElements.define('x-ctx-p4', Provider);
+  const p = new Provider();
+  // Production's ContextConsumer, whose `_callback` is `t`.
+  const {ContextConsumer: ProdConsumer} = (await import(
+    // The package's exports map hides `lib/`, so reach it by path.
+    '../../../node_modules/@lit/context/lib/controllers/context-consumer.js' as string
+  )) as {ContextConsumer: typeof ContextConsumer};
+  customElements.define(
+    'x-ctx-c4',
+    class extends LitElement {
+      consumer = new ProdConsumer(this, {context: key, subscribe: true});
+    }
+  );
+  const consumerEl = document.createElement('x-ctx-c4') as LitElement;
+  p.append(consumerEl);
+  document.body.append(p);
+  await consumerEl.updateComplete;
+  const [consumer] = collectExtras(consumerEl);
+  expect(consumer).toMatchObject({
+    kind: 'context',
+    value: '"v"',
+    context: {role: 'consumer', provider: {tagName: 'x-ctx-p4'}},
+  });
+  expect(
+    (consumerEl as unknown as {consumer: Record<string, unknown>}).consumer[
+      '_callback'
+    ]
+  ).toBeUndefined();
+});

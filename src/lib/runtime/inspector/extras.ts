@@ -185,10 +185,17 @@ const isProvider = (v: Dict): boolean =>
   hasFn(v, 'onContextRequest') &&
   dataProp(v, 'context') !== undefined;
 
-/** `ContextConsumer`: a `context` key, the `_callback` it hands to providers and `dispatchRequest`. */
+/**
+ * `ContextConsumer`: a `context` key, a `host`, boolean `subscribe` and
+ * `provided` flags and `dispatchRequest`. The callback it hands to providers
+ * is `_callback` in the development build but renamed in production, so it is
+ * not part of the shape.
+ */
 const isConsumer = (v: Dict): boolean =>
   dataProp(v, 'context') !== undefined &&
-  typeof dataProp(v, '_callback')?.value === 'function' &&
+  dataProp(v, 'host')?.value instanceof Element &&
+  typeof dataProp(v, 'subscribe')?.value === 'boolean' &&
+  typeof dataProp(v, 'provided')?.value === 'boolean' &&
   hasFn(v, 'dispatchRequest');
 
 const contextKey = (key: unknown): string =>
@@ -208,14 +215,13 @@ const providersOn = (el: Element, context: unknown): Dict[] =>
  * The provider that answers a consumer, by what `ContextProvider` does with
  * the request: it bubbles (composed) from the consumer's host and the first
  * matching provider above it takes it. A subscribing consumer is confirmed
- * by its callback sitting in that provider's subscriptions; a non-subscribing
+ * by its host sitting in that provider's subscriptions; a non-subscribing
  * one leaves no trace, so the nearest provider of the key stands in.
  */
 const providerOf = (consumer: Dict): Element | undefined => {
   const host = dataProp(consumer, 'host')?.value;
   if (!(host instanceof Element)) return undefined;
   const context = dataProp(consumer, 'context')?.value;
-  const callback = dataProp(consumer, '_callback')?.value;
   let nearest: Element | undefined;
   let el: Node | null = host;
   for (let i = 0; el !== null && i < MAX_DEPTH; i++) {
@@ -224,8 +230,13 @@ const providerOf = (consumer: Dict): Element | undefined => {
     el = parent instanceof ShadowRoot ? parent.host : parent;
     if (!(el instanceof Element)) continue;
     for (const p of providersOn(el, context)) {
-      const subs = dataProp(p, 'subscriptions')?.value as Map<unknown, unknown>;
-      if (subs.has(callback)) return el;
+      const subs = dataProp(p, 'subscriptions')?.value as Map<
+        unknown,
+        {consumerHost?: unknown}
+      >;
+      for (const {consumerHost} of subs.values()) {
+        if (consumerHost === host) return el;
+      }
       nearest ??= el;
     }
   }
