@@ -102,6 +102,20 @@ const anatomyMatches = (
   parts: a.parts.map((p) => matches(...p.names, p.tagName)),
 });
 
+/** Ids of every node in the tree with this tag, in tree order. */
+const idsWithTag = (
+  roots: readonly InspectorTreeNode[],
+  tagName: string
+): number[] => {
+  const ids: number[] = [];
+  const visit = (n: InspectorTreeNode): void => {
+    if (n.tagName === tagName) ids.push(n.id);
+    n.children.forEach(visit);
+  };
+  roots.forEach(visit);
+  return ids;
+};
+
 /** `text` with the first match of `query` wrapped in `<mark>`. */
 const markMatch = (text: string, query: string): TemplateResult | string => {
   const q = query.trim().toLowerCase();
@@ -248,6 +262,9 @@ export class ComponentsView extends LitElement {
       }
       .match-count {
         font-size: var(--lit-devtools-text-2xs);
+      }
+      .row.same-tag {
+        background: var(--lit-devtools-accent-soft);
       }
       .row.context .tag {
         opacity: 0.55;
@@ -760,6 +777,10 @@ export class ComponentsView extends LitElement {
   private readonly _detailsWidth = readDetailsWidth();
   private _unsubscribeOverride: (() => void) | null = null;
   private _unsubscribeSession: (() => void) | null = null;
+  /** The tree row under the pointer, so Shift can act on it. */
+  private _hovered: InspectorTreeNode | null = null;
+  /** The tag whose rows are marked while Shift-hovering, or null. */
+  @state() private _tagHover: string | null = null;
   /** The row whose value was just copied, for a moment of feedback. */
   @state() private _copied: string | null = null;
   private _copiedTimer: ReturnType<typeof setTimeout> | undefined;
@@ -775,6 +796,8 @@ export class ComponentsView extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
+    window.addEventListener('keydown', this._onShift);
+    window.addEventListener('keyup', this._onShift);
     this._unsubscribeSession = this._session.subscribe(() => {
       this.requestUpdate();
       this._reportIncompatibilities();
@@ -788,6 +811,8 @@ export class ComponentsView extends LitElement {
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+    window.removeEventListener('keydown', this._onShift);
+    window.removeEventListener('keyup', this._onShift);
     this._unsubscribeOverride?.();
     this._unsubscribeOverride = null;
     this._unsubscribeSession?.();
@@ -1018,6 +1043,36 @@ export class ComponentsView extends LitElement {
     sendToPage({type: 'highlight', id});
   }
 
+  /**
+   * Outline a hovered tree row's element on the page, or with Shift held,
+   * every element with the same tag, and mark their rows here.
+   */
+  private _hoverRow(node: InspectorTreeNode, all: boolean): void {
+    this._hovered = node;
+    if (!all) {
+      this._tagHover = null;
+      this._highlight(node.id);
+      return;
+    }
+    this._tagHover = node.tagName;
+    sendToPage({
+      type: 'highlight-all',
+      ids: idsWithTag(this._session.roots, node.tagName),
+    });
+  }
+
+  private readonly _leaveTree = (): void => {
+    this._hovered = null;
+    this._tagHover = null;
+    this._highlight(null);
+  };
+
+  /** Shift pressed or released over a row switches between one and all. */
+  private readonly _onShift = (e: KeyboardEvent): void => {
+    if (e.key !== 'Shift' || e.repeat || this._hovered === null) return;
+    this._hoverRow(this._hovered, e.type === 'keydown');
+  };
+
   /** Single out a slot or part in the page's anatomy overlay while hovered. */
   private _focusRegion(focus: AnatomyFocus | null): void {
     if (this._anatomy) sendToPage({type: 'anatomy-focus', focus});
@@ -1084,10 +1139,10 @@ export class ComponentsView extends LitElement {
       <div
         class="row ${node.id === this._session.selectedId ? 'selected' : ''} ${
           dimmed ? 'context' : ''
-        }"
+        } ${this._tagHover === node.tagName ? 'same-tag' : ''}"
         style="padding-left:${8 + depth * 14}px"
         @click=${() => this._session.select(node.id)}
-        @mouseenter=${() => this._highlight(node.id)}
+        @mouseenter=${(e: MouseEvent) => this._hoverRow(node, e.shiftKey)}
       >
         <span
           class="twisty"
@@ -1935,11 +1990,7 @@ export class ComponentsView extends LitElement {
         position-in-pixels=${this._detailsWidth}
         @wa-reposition=${this._saveDetailsWidth}
       >
-        <div
-          slot="start"
-          class="tree"
-          @mouseleave=${() => this._highlight(null)}
-        >
+        <div slot="start" class="tree" @mouseleave=${this._leaveTree}>
           ${
             this._error !== null
               ? html`<div class="empty">${this._error}</div>`

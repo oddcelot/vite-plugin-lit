@@ -8,7 +8,9 @@ import {
 } from 'vite-plus/test';
 import {
   clearHighlight,
+  highlightAll,
   highlightById,
+  MAX_OUTLINES,
   revealById,
   showHighlight,
 } from '../../lib/runtime/inspector/highlight.js';
@@ -122,5 +124,62 @@ describe('revealById', () => {
 
   test('ignores an id that does not resolve', () => {
     expect(() => revealById(987654321)).not.toThrow();
+  });
+});
+
+describe('highlightAll', () => {
+  const shown = () =>
+    [
+      ...document.querySelectorAll<HTMLElement>(
+        '[data-lit-devtools-highlight-all]'
+      ),
+    ].filter((b) => b.style.display === 'block');
+
+  const sized = (l: number) => {
+    const el = document.createElement('div');
+    rectOf(el, {l, t: 0, w: 10, h: 10});
+    document.body.append(el);
+    return el;
+  };
+
+  test('outlines every element that resolves and has a size', () => {
+    const a = sized(1);
+    const b = sized(2);
+    const hidden = document.createElement('div');
+    rectOf(hidden, {l: 0, t: 0, w: 0, h: 0});
+    document.body.append(hidden);
+    expect(highlightAll([idOf(a), idOf(hidden), 999_999, idOf(b)])).toBe(2);
+    expect(shown().map((x) => x.style.left)).toEqual(['1px', '2px']);
+    a.remove();
+    b.remove();
+    hidden.remove();
+  });
+
+  test('a single highlight replaces the set, and the set replaces it', () => {
+    const a = sized(1);
+    highlightAll([idOf(a)]);
+    showHighlight(target);
+    expect(shown()).toHaveLength(0);
+    expect(box()!.style.display).toBe('block');
+    highlightAll([idOf(a)]);
+    expect(box()!.style.display).toBe('none');
+    expect(shown()).toHaveLength(1);
+    a.remove();
+  });
+
+  test('a shorter list hides the boxes it no longer needs', () => {
+    const els = [sized(1), sized(2), sized(3)];
+    highlightAll(els.map(idOf));
+    highlightAll([idOf(els[0]!)]);
+    expect(shown()).toHaveLength(1);
+    clearHighlight();
+    expect(shown()).toHaveLength(0);
+    for (const el of els) el.remove();
+  });
+
+  test('stops at the cap', () => {
+    const els = Array.from({length: MAX_OUTLINES + 3}, (_, i) => sized(i));
+    expect(highlightAll(els.map(idOf))).toBe(MAX_OUTLINES);
+    for (const el of els) el.remove();
   });
 });

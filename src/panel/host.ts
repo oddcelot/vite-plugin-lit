@@ -86,6 +86,10 @@ export const sendToPage = (command: InspectorCommand): void => {
     inPageChannel().emit('highlight', command.id);
     return;
   }
+  if (command.type === 'highlight-all' && inPageConnected()) {
+    inPageChannel().emit('highlightAll', command.ids);
+    return;
+  }
   if (command.type === 'reveal' && inPageConnected()) {
     inPageChannel().emit('reveal', command.id);
     return;

@@ -35,6 +35,7 @@ const ensureBox = (): HTMLElement => {
 
 /** Draw the outline over `el`. */
 export const showHighlight = (el: Element): void => {
+  hideMany();
   const r = el.getBoundingClientRect();
   Object.assign(ensureBox().style, {
     display: 'block',
@@ -45,9 +46,66 @@ export const showHighlight = (el: Element): void => {
   });
 };
 
-/** Hide the outline. Cheap and safe before the box has ever been built. */
+/** Most elements outlined at once, so a long list cannot flood the page. */
+export const MAX_OUTLINES = 200;
+
+/** The outlines for {@link highlightAll}, grown on demand and reused. */
+const many: HTMLElement[] = [];
+
+const manyBox = (i: number): HTMLElement => {
+  let b = many[i];
+  if (b === undefined) {
+    b = document.createElement('div');
+    b.setAttribute('data-lit-devtools-highlight-all', '');
+    Object.assign(b.style, {
+      position: 'fixed',
+      zIndex: '2147483646',
+      pointerEvents: 'none',
+      // Lighter and dashed, so many at once read as a set, not as one pick.
+      background: 'rgba(77, 99, 255, 0.12)',
+      outline: '1px dashed #4d63ff',
+      borderRadius: '2px',
+    } satisfies Partial<CSSStyleDeclaration>);
+    document.body.append(b);
+    many[i] = b;
+  }
+  return b;
+};
+
+const hideMany = (from = 0): void => {
+  for (let i = from; i < many.length; i++) many[i]!.style.display = 'none';
+};
+
+/** Hide every outline. Cheap and safe before any box has been built. */
 export const clearHighlight = (): void => {
   if (box !== null) box.style.display = 'none';
+  hideMany();
+};
+
+/**
+ * Outline each element in `ids` that still resolves and is on screen,
+ * replacing the single hover outline. Returns how many were drawn.
+ */
+export const highlightAll = (ids: readonly number[]): number => {
+  if (box !== null) box.style.display = 'none';
+  let drawn = 0;
+  for (const id of ids) {
+    if (drawn === MAX_OUTLINES) break;
+    const el = elementById(id);
+    if (el === undefined) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    Object.assign(manyBox(drawn).style, {
+      display: 'block',
+      left: `${r.left}px`,
+      top: `${r.top}px`,
+      width: `${r.width}px`,
+      height: `${r.height}px`,
+    });
+    drawn++;
+  }
+  hideMany(drawn);
+  return drawn;
 };
 
 /**

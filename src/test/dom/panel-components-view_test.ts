@@ -210,6 +210,44 @@ test('a tree filter with no match says so, and Escape clears it', async () => {
   expect(tags(rows())).toEqual(['<x-app>']);
 });
 
+test('Shift-hover outlines every element with that tag', async () => {
+  const {el, root, rows, inspects} = await mount(false, bigTree);
+  await filterTree(el, root, 'item');
+  const item = rows().find((r) => r.textContent!.includes('x-item'))!;
+  item.dispatchEvent(new MouseEvent('mouseenter', {shiftKey: true}));
+  await flush(el);
+  expect(inspects().at(-1)).toEqual({type: 'highlight-all', ids: [5, 6]});
+  expect(
+    rows()
+      .filter((r) => r.classList.contains('same-tag'))
+      .map((r) => r.querySelector('.tag')!.textContent)
+  ).toEqual(['<x-item>', '<x-item>']);
+
+  // Letting go of Shift drops back to the one row under the pointer.
+  window.dispatchEvent(new KeyboardEvent('keyup', {key: 'Shift'}));
+  await flush(el);
+  expect(inspects().at(-1)).toEqual({type: 'highlight', id: 5});
+  expect(root.querySelector('.row.same-tag')).toBeNull();
+
+  // And pressing it again goes back to all of them.
+  window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Shift'}));
+  await flush(el);
+  expect(inspects().at(-1)).toEqual({type: 'highlight-all', ids: [5, 6]});
+
+  root.querySelector('.tree')!.dispatchEvent(new MouseEvent('mouseleave'));
+  await flush(el);
+  expect(inspects().at(-1)).toEqual({type: 'highlight', id: null});
+  expect(root.querySelector('.row.same-tag')).toBeNull();
+});
+
+test('Shift does nothing with no row under the pointer', async () => {
+  const {el, inspects} = await mount(false, bigTree);
+  const before = inspects().length;
+  window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Shift'}));
+  await flush(el);
+  expect(inspects()).toHaveLength(before);
+});
+
 // The session's rules are `components-session_test.ts`'s; these check the
 // element wires them to the page, the shell and storage.
 

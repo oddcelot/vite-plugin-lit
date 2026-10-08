@@ -40,11 +40,14 @@ export const LIT_IN_PAGE_CHANNEL = 'lit:in-page';
  * outlines it for a moment, for the details pane's "Scroll into view".
  * `anatomy` draws an element's slots and parts until it gets `null`, and
  * `anatomyFocus` singles one of them out while a pane row is hovered.
+ * `highlightAll` outlines several elements at once (every instance of a tag,
+ * for a Shift-hovered tree row); a single `highlight` replaces it.
  */
 export interface LitInPageProtocol {
   events: {
     pageScript: {
       highlight: (id: number | null) => void;
+      highlightAll: (ids: number[]) => void;
       reveal: (id: number) => void;
       anatomy: (id: number | null) => void;
       anatomyFocus: (focus: AnatomyFocus | null) => void;
