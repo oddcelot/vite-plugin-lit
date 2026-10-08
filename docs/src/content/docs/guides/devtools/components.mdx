@@ -63,7 +63,11 @@ lines say where the class is **defined**, where this instance is **rendered**,
 and its **root**: `shadow` with its mode and `delegatesFocus`, or `light DOM`.
 
 Below those come up to seven sections. **Properties** lists the public reactive
-properties, with a badge naming the attribute a property reflects to.
+properties, with a badge naming the attribute a property reflects to. A
+property declared with options beyond Lit's defaults gets one more badge per
+option: `hasChanged` and `converter` for a custom function, `noAccessor`,
+`useDefault`, and `no attr` for `attribute: false`. A plain `@property()` has
+none. The badges only say an option is set; no custom function is called.
 **State** lists internal `@state`. **Attributes** lists the attributes the
 element currently carries, as quoted strings.
 
