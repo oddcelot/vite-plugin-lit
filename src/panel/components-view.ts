@@ -17,6 +17,7 @@ import {
   type InspectorDetails,
   type InspectorProp,
   type InspectorPropOption,
+  type InspectorContext,
   type InspectorExtra,
   type InspectorMessage,
   type InspectorTreeNode,
@@ -695,6 +696,9 @@ export class ComponentsView extends LitElement {
         margin-right: var(--lit-devtools-space-2);
         font-size: inherit;
         cursor: pointer;
+      }
+      .ctx-links {
+        margin-top: var(--lit-devtools-space-1);
       }
       .el-ref:disabled {
         color: var(--lit-devtools-text);
@@ -1438,6 +1442,12 @@ export class ComponentsView extends LitElement {
                     >${e.kind}</span
                   >`
             }${
+              e.context === undefined
+                ? nothing
+                : html`<span class="type kind" data-tip=${e.context.role}
+                    >${e.context.key}</span
+                  >`
+            }${
               e.status === undefined
                 ? nothing
                 : html`<span class="status task-${e.status}">${e.status}</span>`
@@ -1445,6 +1455,10 @@ export class ComponentsView extends LitElement {
             e.value,
             {
               code: true,
+              trailing:
+                e.context === undefined
+                  ? nothing
+                  : this._renderContextLinks(e.context),
               key: extraKey(e.name),
               copy: e.value,
               ...(e.expandable === true
@@ -1463,6 +1477,36 @@ export class ComponentsView extends LitElement {
         )}
       </div>
     `;
+  }
+
+  /**
+   * Who is on the other side of a context: the provider a consumer reads
+   * from, or the consumers subscribed to a provider.
+   */
+  private _renderContextLinks(c: InspectorContext): TemplateResult {
+    const refs =
+      c.role === 'consumer'
+        ? c.provider === undefined
+          ? []
+          : [c.provider]
+        : (c.consumers ?? []);
+    const label = c.role === 'consumer' ? 'from' : 'to';
+    if (refs.length === 0) {
+      return html`<div class="ctx-links">
+        <span class="muted"
+          >${c.role === 'consumer' ? 'no provider found' : 'no subscribers'}</span
+        >
+      </div>`;
+    }
+    return html`<div class="ctx-links">
+      <span class="muted">${label}</span>
+      ${refs.map((r) => this._renderElementRef(r))}
+      ${
+        c.moreConsumers === undefined
+          ? nothing
+          : html`<span class="muted">+${c.moreConsumers} more</span>`
+      }
+    </div>`;
   }
 
   /** An element in a slot or orphan row; inspectable ones select on click. */

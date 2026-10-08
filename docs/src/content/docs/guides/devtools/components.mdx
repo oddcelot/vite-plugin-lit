@@ -116,6 +116,18 @@ on error. The section has limits. A computed signal shows as
 Controllers are found through a private Lit field, so a Lit build that renames
 it lists none. Values use the same previews as properties.
 
+`@lit/context` providers and consumers, including ones made with `@provide`
+and `@consume`, are tagged `context` and show the context key (a Symbol's
+description, or the string) next to the name. The value expands like a
+property. A consumer row links to the provider element it reads from, and a
+provider row links to its consumers; clicking a link selects that element.
+The provider is found by walking up from the consumer and, for a subscribing
+consumer, confirmed against the provider's subscriptions. A consumer that
+did not set `subscribe` leaves no trace, so a provider cannot list it. A
+subscribed consumer's row follows the provider's value live. A provider whose
+value is set directly, without the host updating, refreshes on its next
+update.
+
 **Warnings** appears above the tables when Lit's development build has warned
 about the component, for example `change-in-update` for an update scheduled
 from inside `updated()`. Each row has Lit's message and its code, which links

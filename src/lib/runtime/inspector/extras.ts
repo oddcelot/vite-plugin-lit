@@ -9,11 +9,21 @@
 
 import {isExpandable} from './inspect-value.js';
 import {serialize, typeTag} from './serialize.js';
-import type {InspectorExtra} from '../../../types/inspector.js';
+import {idOf} from '../timeline/identity.js';
+import {isInspectable} from './collect.js';
+import type {
+  AnatomyElementRef,
+  InspectorContext,
+  InspectorExtra,
+} from '../../../types/inspector.js';
 
 /** Most extras reported for one element; keeps a field-heavy class cheap. */
 const MAX_EXTRAS = 24;
 const MAX_NAME = 80;
+/** Consumers listed on a provider; the rest are counted. */
+const MAX_CONSUMERS = 12;
+/** Ancestors walked looking for a consumer's provider. */
+const MAX_DEPTH = 256;
 
 const TASK_STATUS = ['initial', 'pending', 'complete', 'error'];
 const TASK_ERROR = TASK_STATUS.indexOf('error');
@@ -159,6 +169,128 @@ export const erroredTasks = (
   return out;
 };
 
+const refOf = (el: Element): AnatomyElementRef => ({
+  tagName: el.localName,
+  ...(isInspectable(el) ? {id: idOf(el)} : {}),
+});
+
+/**
+ * `@lit/context` `ContextProvider`: a `ValueNotifier` (a `subscriptions` Map
+ * and `addCallback`) with a `context` key and a `host`. Same class whether
+ * made directly or by `@provide`.
+ */
+const isProvider = (v: Dict): boolean =>
+  dataProp(v, 'subscriptions')?.value instanceof Map &&
+  hasFn(v, 'addCallback') &&
+  hasFn(v, 'onContextRequest') &&
+  dataProp(v, 'context') !== undefined;
+
+/**
+ * `ContextConsumer`: a `context` key, a `host`, boolean `subscribe` and
+ * `provided` flags and `dispatchRequest`. The callback it hands to providers
+ * is `_callback` in the development build but renamed in production, so it is
+ * not part of the shape.
+ */
+const isConsumer = (v: Dict): boolean =>
+  dataProp(v, 'context') !== undefined &&
+  dataProp(v, 'host')?.value instanceof Element &&
+  typeof dataProp(v, 'subscribe')?.value === 'boolean' &&
+  typeof dataProp(v, 'provided')?.value === 'boolean' &&
+  hasFn(v, 'dispatchRequest');
+
+const contextKey = (key: unknown): string =>
+  clip(
+    typeof key === 'symbol' || typeof key === 'string'
+      ? String(key)
+      : serialize(key)
+  );
+
+/** Providers of `context` on `el` itself. */
+const providersOn = (el: Element, context: unknown): Dict[] =>
+  controllersOf(el).filter(
+    (c) => isProvider(c as Dict) && dataProp(c, 'context')?.value === context
+  ) as Dict[];
+
+/**
+ * The provider that answers a consumer, by what `ContextProvider` does with
+ * the request: it bubbles (composed) from the consumer's host and the first
+ * matching provider above it takes it. A subscribing consumer is confirmed
+ * by its host sitting in that provider's subscriptions; a non-subscribing
+ * one leaves no trace, so the nearest provider of the key stands in.
+ */
+const providerOf = (consumer: Dict): Element | undefined => {
+  const host = dataProp(consumer, 'host')?.value;
+  if (!(host instanceof Element)) return undefined;
+  const context = dataProp(consumer, 'context')?.value;
+  let nearest: Element | undefined;
+  let el: Node | null = host;
+  for (let i = 0; el !== null && i < MAX_DEPTH; i++) {
+    const parent: Node | null =
+      el.parentNode ?? (el instanceof ShadowRoot ? el.host : null);
+    el = parent instanceof ShadowRoot ? parent.host : parent;
+    if (!(el instanceof Element)) continue;
+    for (const p of providersOn(el, context)) {
+      const subs = dataProp(p, 'subscriptions')?.value as Map<
+        unknown,
+        {consumerHost?: unknown}
+      >;
+      for (const {consumerHost} of subs.values()) {
+        if (consumerHost === host) return el;
+      }
+      nearest ??= el;
+    }
+  }
+  const subscribed = dataProp(consumer, 'subscribe')?.value === true;
+  return subscribed && dataProp(consumer, 'unsubscribe')?.value !== undefined
+    ? undefined
+    : nearest;
+};
+
+/** Context details for a provider or consumer controller; `undefined` for neither. */
+const classifyContext = (
+  v: Dict,
+  name: string
+): {extra: InspectorExtra; raw: () => unknown} | undefined => {
+  const provider = isProvider(v);
+  if (!provider && !isConsumer(v)) return undefined;
+  const key = contextKey(dataProp(v, 'context')?.value);
+  const info: InspectorContext = {
+    role: provider ? 'provider' : 'consumer',
+    key,
+  };
+  if (provider) {
+    const subs = dataProp(v, 'subscriptions')?.value as Map<
+      unknown,
+      {consumerHost?: unknown}
+    >;
+    const hosts = new Set<Element>();
+    for (const {consumerHost} of subs.values()) {
+      if (consumerHost instanceof Element) hosts.add(consumerHost);
+    }
+    const all = [...hosts];
+    if (all.length > 0) info.consumers = all.slice(0, MAX_CONSUMERS).map(refOf);
+    if (all.length > MAX_CONSUMERS) {
+      info.moreConsumers = all.length - MAX_CONSUMERS;
+    }
+  } else {
+    const found = providerOf(v);
+    if (found !== undefined) info.provider = refOf(found);
+  }
+  // ValueNotifier's `value` is a plain getter over `_value`; a consumer
+  // stores `value` as a field.
+  const raw = provider ? () => v['value'] : () => dataProp(v, 'value')?.value;
+  return {
+    extra: {
+      kind: 'context',
+      name,
+      ...sample(raw),
+      type: provider ? 'ContextProvider' : 'ContextConsumer',
+      context: info,
+    },
+    raw,
+  };
+};
+
 /** Classify one object the element holds; `undefined` if it is none of ours. */
 /** An extra and a way to read the live value its preview shows. */
 interface ExtraEntry {
@@ -204,6 +336,8 @@ const classify = (
     };
   }
   if (!controller) return undefined;
+  const ctx = classifyContext(v, name);
+  if (ctx !== undefined) return ctx;
   const held = dataProp(v, 'value');
   return {
     extra: {
