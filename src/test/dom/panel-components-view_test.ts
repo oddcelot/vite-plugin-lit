@@ -556,6 +556,125 @@ test('a refresh highlights the rows whose value changed', async () => {
   }
 });
 
+const expandable = () => ({
+  ...detailsFor(),
+  properties: [
+    {
+      name: 'config',
+      value: '{theme: {mode: "dark"}}',
+      type: 'object',
+      attribute: false as const,
+      reflects: false,
+      state: false,
+      expandable: true,
+    },
+    {
+      name: 'label',
+      value: '"Save"',
+      type: 'string',
+      attribute: 'label',
+      reflects: false,
+      state: false,
+    },
+  ],
+});
+
+const configPath = (...keys: Array<string | number>) => ({
+  section: 'prop' as const,
+  name: 'config',
+  keys,
+});
+
+test('an expandable value opens to its children on demand', async () => {
+  const {el, root, inspects} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: expandable()});
+  await flush(el);
+  const expanders = root.querySelectorAll<HTMLElement>('.details .expander');
+  // Only the object expands; a string has nothing under it.
+  expect(expanders).toHaveLength(1);
+  expanders[0]!.click();
+  await flush(el);
+  expect(inspects()).toContainEqual({
+    type: 'expand',
+    id: 2,
+    path: configPath(),
+  });
+  expect(root.querySelector('.details .children')!.textContent!.trim()).toBe(
+    '…'
+  );
+
+  push('inspector-message', {
+    type: 'expanded',
+    id: 2,
+    path: configPath(),
+    children: [
+      {
+        label: 'theme',
+        key: 'theme',
+        value: '{mode: "dark"}',
+        type: 'object',
+        expandable: true,
+      },
+      {
+        label: 'size',
+        key: 'size',
+        value: '3',
+        type: 'number',
+        expandable: false,
+      },
+    ],
+    more: 4,
+  });
+  await flush(el);
+  const children = [
+    ...root.querySelectorAll('.details .children > .child'),
+  ].map((c) => c.textContent!.replace(/\s+/g, ' ').trim());
+  expect(children).toEqual(['theme: {mode: "dark"}', 'size: 3', '+4 more']);
+  // The open row shows its type in place of the preview.
+  expect(
+    root.querySelector('.details .entry[data-key="p:config"] .val > .t-type')!
+      .textContent
+  ).toBe('Object');
+
+  root.querySelector<HTMLElement>('.details .child .expander')!.click();
+  await flush(el);
+  expect(inspects()).toContainEqual({
+    type: 'expand',
+    id: 2,
+    path: configPath('theme'),
+  });
+});
+
+test('a changed value asks again for what is open under it', async () => {
+  const {el, root, inspects} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: expandable()});
+  await flush(el);
+  root.querySelector<HTMLElement>('.details .expander')!.click();
+  await flush(el);
+  const expands = () =>
+    inspects().filter((c) => (c as {type: string}).type === 'expand');
+  const before = expands().length;
+  const next = expandable();
+  next.properties[0] = {
+    ...next.properties[0]!,
+    value: '{theme: {mode: "light"}}',
+  };
+  push('inspector-message', {type: 'details', details: next});
+  await flush(el);
+  expect(expands()).toHaveLength(before + 1);
+});
+
+test('a snapshot cannot expand values', async () => {
+  setSnapshot(true);
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: expandable()});
+  await flush(el);
+  expect(root.querySelector('.details .expander')).toBeNull();
+});
+
 test('attribute values read as quoted strings', async () => {
   const {el, root} = await mount(true);
   push('inspector-message', {type: 'pick', id: 2});

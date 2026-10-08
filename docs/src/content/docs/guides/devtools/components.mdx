@@ -67,6 +67,13 @@ Previews go two levels deep and show the first eight items of an array,
 object, `Map` or `Set`, with a count of the rest. A `Map` lists its entries
 as `key => value`.
 
+To see past those limits, click the caret before an object, array, `Map` or
+`Set`. The row opens one level, listing each key, index or entry with its own
+preview, and any child that holds more has a caret of its own. Each level
+lists up to 100 children and counts the rest. Open levels follow the value as
+it changes, and selecting another element closes them. A snapshot has no live
+page to ask, so it shows no carets.
+
 Each section heading shows how many rows it holds. Click a heading to fold
 the section. It stays folded as you select other elements and after a
 reload.

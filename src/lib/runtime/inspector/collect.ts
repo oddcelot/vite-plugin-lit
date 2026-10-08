@@ -4,15 +4,18 @@
  * the results are sent over the transport as plain JSON.
  */
 
+import {childrenOf, isExpandable, stepInto} from './inspect-value.js';
 import {idOf} from '../timeline/identity.js';
 import {collectAnatomy} from './anatomy.js';
-import {collectExtras} from './extras.js';
+import {collectExtras, extraValue} from './extras.js';
 import {serialize, typeTag} from './serialize.js';
 import type {
   ElementSource,
   InspectorDetails,
   InspectorProp,
   InspectorTreeNode,
+  ValueChild,
+  ValuePath,
 } from '../../../types/inspector.js';
 import {CALL_SITE_ATTR, SOURCE_META_KEY, readCallSite} from '../source-meta.js';
 
@@ -152,6 +155,7 @@ export const collectDetails = (el: Element): InspectorDetails => {
         attribute: attributeName(key, decl),
         reflects: decl.reflect === true,
         state: decl.state === true,
+        ...(!threw && isExpandable(value) ? {expandable: true} : {}),
       });
     }
   }
@@ -181,4 +185,33 @@ export const collectDetails = (el: Element): InspectorDetails => {
     ...(anatomy !== undefined ? {anatomy} : {}),
     ...(extras.length > 0 ? {extras} : {}),
   };
+};
+
+/**
+ * Answer an `expand` command: the children of the value at `path` on `el`,
+ * or null when a step no longer resolves (the value changed shape since the
+ * panel saw it). Only declared reactive properties and listed extras are
+ * reachable, so a path cannot read arbitrary fields.
+ */
+export const expandPath = (
+  el: Element,
+  path: ValuePath
+): {children: ValueChild[]; more: number} | null => {
+  let at: {value: unknown} | undefined;
+  if (path.section === 'prop') {
+    const declared = (el as ReactiveElementLike).constructor.elementProperties;
+    if (declared?.has(path.name) !== true) return null;
+    try {
+      at = {value: (el as unknown as Record<string, unknown>)[path.name]};
+    } catch {
+      return null;
+    }
+  } else {
+    at = extraValue(el, path.name);
+  }
+  for (const key of path.keys) {
+    if (at === undefined) return null;
+    at = stepInto(at.value, key);
+  }
+  return at === undefined ? null : childrenOf(at.value);
 };

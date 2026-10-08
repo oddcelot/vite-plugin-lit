@@ -56,6 +56,11 @@ export interface InspectorProp {
   reflects: boolean;
   /** Whether it's an internal `@state()` (no public attribute). */
   state: boolean;
+  /**
+   * Whether the value has children to list with an `expand` command. Absent
+   * from an older runtime, which cannot answer one.
+   */
+  expandable?: boolean;
 }
 
 /**
@@ -78,6 +83,37 @@ export interface InspectorExtra {
   type: string;
   /** A task's status (`initial`, `pending`, `complete`, `error`). */
   status?: string;
+  /** As {@link InspectorProp.expandable}. */
+  expandable?: boolean;
+}
+
+/**
+ * One step into a value: an object key, or the position of an item in an
+ * array, `Map` or `Set` (iteration order for the latter two).
+ */
+export type ValueSegment = string | number;
+
+/**
+ * Where a value sits on an element: a details row, by section and name, then
+ * the steps from that row's value down to the one meant.
+ */
+export interface ValuePath {
+  section: 'prop' | 'extra';
+  name: string;
+  keys: ValueSegment[];
+}
+
+/** One child of an expanded value. */
+export interface ValueChild {
+  /** The key, index or (for a `Map`) serialized key, as shown. */
+  label: string;
+  /** The segment that reaches this child from its parent. */
+  key: ValueSegment;
+  /** Whether `label` is a `Map` key, shown as `label => value`. */
+  entry?: boolean;
+  value: string;
+  type: string;
+  expandable: boolean;
 }
 
 /** An element named in an anatomy entry; `id` is set when it is inspectable. */
@@ -214,7 +250,19 @@ export type InspectorMessage =
   /** The requested element id couldn't be resolved (removed / GC'd). */
   | {type: 'gone'; id: number}
   /** An inspect-mode overlay pick — select this element in the panel. */
-  | {type: 'pick'; id: number};
+  | {type: 'pick'; id: number}
+  /**
+   * The children of the value at `path` on element `id`, answering an
+   * `expand` command. `children` is null when the path no longer resolves;
+   * `more` counts children past the ones listed.
+   */
+  | {
+      type: 'expanded';
+      id: number;
+      path: ValuePath;
+      children: ValueChild[] | null;
+      more?: number;
+    };
 
 /** Panel → app runtime commands, POSTed to {@link INSPECT_PATH}. */
 export type InspectorCommand =
@@ -226,6 +274,8 @@ export type InspectorCommand =
   | {type: 'highlight'; id: number | null}
   /** Scroll element `id` into view in the page and outline it briefly. */
   | {type: 'reveal'; id: number}
+  /** List the children of the value at `path` on element `id`. */
+  | {type: 'expand'; id: number; path: ValuePath}
   /** Draw element `id`'s slots and parts on the page; `null` clears it. */
   | {type: 'anatomy'; id: number | null}
   /**

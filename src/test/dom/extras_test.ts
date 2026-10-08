@@ -85,6 +85,7 @@ test('reads a real @lit/task and its field name', async () => {
       value: '[1, 2]',
       type: 'Task',
       status: 'complete',
+      expandable: true,
     },
   ]);
 });
@@ -135,6 +136,7 @@ test('a task in a field and in the controller set is listed once', () => {
       value: '[1, 2]',
       type: 'Task',
       status: 'complete',
+      expandable: true,
     },
   ]);
 });
@@ -167,7 +169,13 @@ test('a Map is not mistaken for a signal', () => {
   const el = host();
   el['cache'] = new Map([[1, 2]]);
   expect(collectExtras(el)).toEqual([
-    {kind: 'field', name: 'cache', value: 'Map(1) {1 => 2}', type: 'Map(1)'},
+    {
+      kind: 'field',
+      name: 'cache',
+      value: 'Map(1) {1 => 2}',
+      type: 'Map(1)',
+      expandable: true,
+    },
   ]);
 });
 
@@ -183,7 +191,13 @@ test('lists plain fields and filters out the rest', () => {
   el['child'] = document.createElement('div');
   expect(collectExtras(el)).toEqual([
     {kind: 'field', name: 'counter', value: '0', type: 'number'},
-    {kind: 'field', name: 'items', value: '[1]', type: 'Array(1)'},
+    {
+      kind: 'field',
+      name: 'items',
+      value: '[1]',
+      type: 'Array(1)',
+      expandable: true,
+    },
   ]);
 });
 

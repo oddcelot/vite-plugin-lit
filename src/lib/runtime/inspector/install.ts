@@ -13,7 +13,7 @@ import {elementById} from '../timeline/identity.js';
 import {pageChannel} from '../page-channel.js';
 import {PAGE_ID} from '../page-id.js';
 import type {ViteHotLike} from '../page-channel.js';
-import {buildTree, collectDetails} from './collect.js';
+import {buildTree, collectDetails, expandPath} from './collect.js';
 import {anatomyById, clearAnatomy, focusAnatomy} from './anatomy-overlay.js';
 import {clearHighlight, highlightById, revealById} from './highlight.js';
 import {
@@ -366,6 +366,22 @@ if (typeof window !== 'undefined') {
         } else {
           send({type: 'gone', id: cmd.id});
         }
+        break;
+      }
+      case 'expand': {
+        const el = elementById(cmd.id);
+        if (el === undefined) {
+          send({type: 'gone', id: cmd.id});
+          break;
+        }
+        const listed = expandPath(el, cmd.path);
+        send({
+          type: 'expanded',
+          id: cmd.id,
+          path: cmd.path,
+          children: listed?.children ?? null,
+          ...(listed !== null && listed.more > 0 ? {more: listed.more} : {}),
+        });
         break;
       }
       case 'watch':
