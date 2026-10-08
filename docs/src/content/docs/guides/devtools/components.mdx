@@ -60,6 +60,14 @@ Each section heading shows how many rows it holds. Click a heading to fold
 the section. It stays folded as you select other elements and after a
 reload.
 
+To find one row in a large component, type in the **Filter rows** box under
+the tag name. Every section, slots and parts included, narrows to rows whose
+name or value contains the text, ignoring case. Headings then count matches
+out of the total, sections with no match drop out, and folded sections open
+until the filter is cleared. The filter stays set as you select other
+elements, so you can compare one property across several. Press **Escape** to
+clear it.
+
 **Instance** lists what the reactive properties do not cover: `@lit/task`
 status with its value or error, `@lit-labs/signals` signals, other reactive
 controllers (named by the field that holds them, else by class) and plain class
