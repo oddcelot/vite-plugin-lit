@@ -1,6 +1,10 @@
 import {afterEach, beforeAll, expect, test, vi} from 'vite-plus/test';
 import type {ComponentsView} from '../../panel/components-view.js';
-import type {InspectorExtra, InspectorTreeNode} from '../../types/inspector.js';
+import {
+  ANATOMY_COLORS,
+  type InspectorExtra,
+  type InspectorTreeNode,
+} from '../../types/inspector.js';
 import {
   answers,
   calls,
@@ -263,6 +267,171 @@ test('a folded section stays folded, and is remembered', async () => {
     'Attributes 2 folded',
     'Instance 1 open',
   ]);
+});
+
+const filterable = () => ({
+  ...detailsFor([
+    {kind: 'field', name: 'renders', value: '3', type: 'number'},
+    {
+      kind: 'task',
+      name: 'userTask',
+      value: '"Ada"',
+      type: 'Task',
+      status: 'complete',
+    },
+  ]),
+  properties: [
+    {
+      name: 'label',
+      value: '"Save"',
+      type: 'string',
+      attribute: 'label',
+      reflects: false,
+      state: false,
+    },
+    {
+      name: 'userId',
+      value: '1',
+      type: 'number',
+      attribute: false,
+      reflects: false,
+      state: true,
+    },
+  ],
+  attributes: [{name: 'data-renders', value: '3'}],
+});
+
+const typeFilter = async (el: ComponentsView, root: ShadowRoot, q: string) => {
+  const input = root.querySelector<HTMLInputElement>(
+    '.details wa-input.filter'
+  )!;
+  input.value = q;
+  input.dispatchEvent(new Event('input'));
+  await flush(el);
+};
+
+const names = (root: ShadowRoot) =>
+  [...root.querySelectorAll('.details .entry > .name')].map((n) =>
+    n.textContent!.replace(/\s+/g, ' ').trim()
+  );
+
+test('the filter keeps rows whose name or value matches', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: filterable()});
+  await flush(el);
+  await typeFilter(el, root, 'USER');
+  expect(sections(root)).toEqual(['State 1/1 open', 'Instance 1/2 open']);
+  expect(names(root)).toEqual(['userId', 'userTasktaskcomplete']);
+  expect(
+    [...root.querySelectorAll('.details mark')].map((m) => m.textContent)
+  ).toEqual(['user', 'user']);
+
+  // A value match counts too: "Ada" is only in userTask's value.
+  await typeFilter(el, root, 'ada');
+  expect(names(root)).toEqual(['userTasktaskcomplete']);
+});
+
+test('a filter with no match says so', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: filterable()});
+  await flush(el);
+  await typeFilter(el, root, 'nope');
+  expect(sections(root)).toEqual([]);
+  expect(
+    root
+      .querySelector('.details .no-match')!
+      .textContent!.replace(/\s+/g, ' ')
+      .trim()
+  ).toBe('No rows match “nope”.');
+});
+
+test('a folded section opens while filtering and folds again after', async () => {
+  localStorage.setItem(COLLAPSED_LS_KEY, JSON.stringify(['Instance']));
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: filterable()});
+  await flush(el);
+  expect(sections(root)).toContain('Instance 2 folded');
+  await typeFilter(el, root, 'renders');
+  expect(sections(root)).toEqual(['Attributes 1/1 open', 'Instance 1/2 open']);
+  // The forced open fires toggle; it must not count as unfolding.
+  root
+    .querySelector('details[data-section="Instance"]')!
+    .dispatchEvent(new Event('toggle'));
+  await typeFilter(el, root, '');
+  expect(sections(root)).toContain('Instance 2 folded');
+  expect(JSON.parse(localStorage.getItem(COLLAPSED_LS_KEY)!)).toEqual([
+    'Instance',
+  ]);
+});
+
+test('Escape clears the filter', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: filterable()});
+  await flush(el);
+  await typeFilter(el, root, 'user');
+  root
+    .querySelector('.details wa-input.filter')!
+    .dispatchEvent(
+      new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})
+    );
+  await flush(el);
+  expect(names(root)).toHaveLength(5);
+});
+
+test('the filter stays set when another element is selected', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: filterable()});
+  await flush(el);
+  await typeFilter(el, root, 'label');
+  push('inspector-message', {type: 'pick', id: 3});
+  push('inspector-message', {
+    type: 'details',
+    details: {...filterable(), id: 3},
+  });
+  await flush(el);
+  expect(
+    root.querySelector<HTMLInputElement>('.details wa-input.filter')!.value
+  ).toBe('label');
+  expect(names(root)).toEqual(['label']);
+});
+
+test('filtering slots keeps each row on its own colour', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  const slot = (name: string, tag: string) => ({
+    name,
+    status: 'assigned' as const,
+    elements: [{tagName: tag}],
+    moreElements: 0,
+    textNodes: 0,
+    forwarded: false,
+    duplicate: false,
+  });
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      anatomy: {
+        renderRoot: 'shadow',
+        mode: 'open',
+        slots: [slot('icon', 'svg'), slot('', 'p')],
+        orphans: [],
+        orphanText: 0,
+        parts: [],
+      },
+    },
+  });
+  await flush(el);
+  await typeFilter(el, root, 'default');
+  expect(sections(root)).toEqual(['Slots 1/2 open']);
+  const swatch = root.querySelector<HTMLElement>('.details .swatch')!;
+  // Slot 1's colour, not slot 0's, though it is the only row left.
+  expect(swatch.getAttribute('style')).toContain(ANATOMY_COLORS[1]);
 });
 
 test('attribute values read as quoted strings', async () => {

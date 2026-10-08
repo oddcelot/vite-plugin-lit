@@ -36,6 +36,7 @@ import eyeSlash from '@phosphor-icons/core/assets/regular/eye-slash.svg?raw';
 import eye from '@phosphor-icons/core/assets/regular/eye.svg?raw';
 import gear from '@phosphor-icons/core/assets/regular/gear.svg?raw';
 import lightning from '@phosphor-icons/core/assets/regular/lightning.svg?raw';
+import magnifyingGlass from '@phosphor-icons/core/assets/regular/magnifying-glass.svg?raw';
 import notification from '@phosphor-icons/core/assets/regular/notification.svg?raw';
 import record from '@phosphor-icons/core/assets/regular/record.svg?raw';
 import stop from '@phosphor-icons/core/assets/regular/stop.svg?raw';
@@ -60,6 +61,7 @@ const ICONS = {
   'eye-slash': eyeSlash,
   gear,
   lightning,
+  'magnifying-glass': magnifyingGlass,
   notification,
   record,
   stop,

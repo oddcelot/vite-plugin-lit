@@ -3,8 +3,10 @@ import {customElement, property, state} from 'lit/decorators.js';
 import '@awesome.me/webawesome/dist/components/badge/badge.js';
 import '@awesome.me/webawesome/dist/components/button/button.js';
 import '@awesome.me/webawesome/dist/components/details/details.js';
+import '@awesome.me/webawesome/dist/components/input/input.js';
 import './wa-icons.js';
 import '@awesome.me/webawesome/dist/components/split-panel/split-panel.js';
+import type WaInput from '@awesome.me/webawesome/dist/components/input/input.js';
 import type WaSplitPanel from '@awesome.me/webawesome/dist/components/split-panel/split-panel.js';
 import {tokens} from '../lib/tokens.js';
 import {
@@ -71,6 +73,28 @@ const readDetailsWidth = (): number => {
 
 /** Values longer than this take a full line under their name. */
 const WIDE_VALUE = 32;
+
+/**
+ * Which anatomy rows a filter keeps, index for index. A slot matches on its
+ * name (`default` for the unnamed one) or an assigned element's tag; a part
+ * on its names or tag.
+ */
+const anatomyMatches = (
+  a: InspectorAnatomy,
+  matches: (...texts: string[]) => boolean
+) => ({
+  slots: a.slots.map((s) =>
+    matches(
+      s.name === '' ? 'default' : s.name,
+      ...s.elements.map((e) => e.tagName)
+    )
+  ),
+  orphans: a.orphans.map((o) =>
+    matches(o.slot === '' ? 'no default slot' : `slot="${o.slot}"`, o.tagName)
+  ),
+  orphanText: a.orphanText > 0 && matches('no default slot'),
+  parts: a.parts.map((p) => matches(...p.names, p.tagName)),
+});
 
 /** A serialized preview as coloured spans, re-flowed when long. */
 const renderCode = (value: string): TemplateResult[] =>
@@ -346,6 +370,22 @@ export class ComponentsView extends LitElement {
       summary .count {
         font-family: var(--lit-devtools-font-mono);
       }
+      wa-input.filter {
+        margin: var(--lit-devtools-space-4) 0 0;
+        font-family: var(--lit-devtools-font-mono);
+      }
+      wa-input.filter wa-icon[slot='start'] {
+        color: var(--lit-devtools-text-muted);
+      }
+      mark {
+        background: var(--lit-devtools-warning-soft);
+        color: inherit;
+        border-radius: 2px;
+      }
+      .no-match {
+        margin-top: var(--lit-devtools-space-5);
+        color: var(--lit-devtools-text-muted);
+      }
       .kv {
         display: grid;
         grid-template-columns: fit-content(45%) minmax(0, 1fr);
@@ -559,6 +599,12 @@ export class ComponentsView extends LitElement {
   private _anatomyShown: number | null = null;
   /** Set when the devframe connection fails; rendered in place of the tree. */
   @state() private _error: string | null = null;
+  /**
+   * Narrows every details section to rows whose name or value contains it,
+   * case-insensitively. Kept across selections, so comparing one row on
+   * several elements needs no retyping.
+   */
+  @state() private _query = '';
   /** Details sections the user folded, by label. */
   @state() private _collapsed: ReadonlySet<string> = readCollapsed();
   /** Collapse state of the banner; the events themselves are never cleared. */
@@ -871,7 +917,7 @@ export class ComponentsView extends LitElement {
       <div class="kv">
         ${props.map((p) =>
           this._renderEntry(
-            html`${p.name}${typeLabel(p.type, p.value)}`,
+            html`${this._mark(p.name)}${typeLabel(p.type, p.value)}`,
             p.value,
             p.reflects
               ? html`<wa-badge
@@ -901,7 +947,7 @@ export class ComponentsView extends LitElement {
       <div class="kv">
         ${extras.map((e) =>
           this._renderEntry(
-            html`${e.name}${
+            html`${this._mark(e.name)}${
               e.kind === 'field'
                 ? typeLabel(e.type, e.value)
                 : html`<span class="type kind" data-tip=${e.type}
@@ -951,163 +997,197 @@ export class ComponentsView extends LitElement {
    */
   private _renderAnatomy(a: InspectorAnatomy): TemplateResult {
     const color = (i: number) => ANATOMY_COLORS[i % ANATOMY_COLORS.length];
-    const showSlots =
-      a.slots.length > 0 || a.orphans.length > 0 || a.orphanText > 0;
+    // Filtered rows render as `nothing` in place, so every row keeps the
+    // index its colour and overlay region are keyed by.
+    const m = anatomyMatches(a, (...t) => this._matches(...t));
+    const slotsShown =
+      m.slots.filter(Boolean).length +
+      m.orphans.filter(Boolean).length +
+      (m.orphanText ? 1 : 0);
     return html`
-      ${
-        showSlots
-          ? this._renderSection(
-              'Slots',
-              a.slots.length + a.orphans.length + (a.orphanText > 0 ? 1 : 0),
-              html`
-                <div class="kv">
-                  ${a.slots.map(
-                    (s, i) => html`<div
-                      class="entry region"
-                      @mouseenter=${() => this._focusRegion({kind: 'slot', index: i})}
-                      @mouseleave=${() => this._focusRegion(null)}
-                    >
-                      <span class="name">
-                        <span
-                          class="swatch"
-                          style="background:${color(i)}"
-                        ></span
-                        >${
-                          s.name === ''
-                            ? html`<span class="slot-default">default</span>`
-                            : s.name
-                        }${
-                          s.status === 'assigned'
-                            ? nothing
-                            : this._renderSlotBadge(
-                                s.status,
-                                s.status === 'fallback'
-                                  ? 'Nothing is assigned, so the slot shows its own content'
-                                  : 'Nothing is assigned and the slot has no fallback content'
-                              )
-                        }${
-                          s.forwarded
-                            ? this._renderSlotBadge(
-                                'forwarded',
-                                'The content comes through a slot of an enclosing component'
-                              )
-                            : nothing
-                        }${
-                          s.duplicate
-                            ? this._renderSlotBadge(
-                                'duplicate',
-                                'An earlier slot has the same name, so this one never receives content'
-                              )
-                            : nothing
-                        }
-                      </span>
-                      <span class="val">
-                        ${s.elements.map((e) => this._renderElementRef(e))}${
-                          s.moreElements > 0
-                            ? html`<span class="muted"
-                                >+${s.moreElements}</span
-                              >`
-                            : nothing
-                        }${
-                          s.textNodes > 0
-                            ? html`<span class="muted"
-                                >${s.textNodes} text</span
-                              >`
-                            : nothing
-                        }
-                      </span>
-                    </div>`
-                  )}
-                  ${a.orphans.map(
-                    (o) => html`<div
-                      class="entry orphan"
-                      data-tip="No slot takes this child, so it is not rendered"
-                    >
-                      <span class="name">
-                        ${o.slot === '' ? 'no default slot' : `slot="${o.slot}"`}
-                      </span>
-                      <span class="val">
-                        ${this._renderElementRef(o)}<span class="muted"
-                          >not rendered</span
-                        >
-                      </span>
-                    </div>`
-                  )}
-                  ${
-                    a.orphanText > 0
-                      ? html`<div class="entry orphan">
-                          <span class="name">no default slot</span>
-                          <span class="val"
-                            >${a.orphanText} text, not rendered</span
-                          >
-                        </div>`
-                      : nothing
-                  }
-                </div>
-              `
-            )
-          : nothing
-      }
-      ${
-        a.parts.length > 0
-          ? this._renderSection(
-              'Parts',
-              a.parts.length,
-              html`
-                <div class="kv">
-                  ${a.parts.map(
-                    (p, j) => html`<div
-                      class="entry region"
-                      @mouseenter=${() => this._focusRegion({kind: 'part', index: j})}
-                      @mouseleave=${() => this._focusRegion(null)}
-                    >
-                      <span class="name">
-                        <span
-                          class="swatch"
-                          style="background:${color(a.slots.length + j)}"
-                        ></span
-                        >${p.names.join(' ')}
-                      </span>
-                      <span class="val code"
-                        ><span class="t-punct">&lt;</span
-                        ><span class="t-tag">${p.tagName}</span
-                        ><span class="t-punct">&gt;</span></span
+      ${this._renderSection(
+        'Slots',
+        slotsShown,
+        a.slots.length + a.orphans.length + (a.orphanText > 0 ? 1 : 0),
+        html`
+          <div class="kv">
+            ${a.slots.map((s, i) =>
+              !m.slots[i]
+                ? nothing
+                : html`<div
+                    class="entry region"
+                    @mouseenter=${() => this._focusRegion({kind: 'slot', index: i})}
+                    @mouseleave=${() => this._focusRegion(null)}
+                  >
+                    <span class="name">
+                      <span class="swatch" style="background:${color(i)}"></span
+                      >${
+                        s.name === ''
+                          ? html`<span class="slot-default"
+                              >${this._mark('default')}</span
+                            >`
+                          : this._mark(s.name)
+                      }${
+                        s.status === 'assigned'
+                          ? nothing
+                          : this._renderSlotBadge(
+                              s.status,
+                              s.status === 'fallback'
+                                ? 'Nothing is assigned, so the slot shows its own content'
+                                : 'Nothing is assigned and the slot has no fallback content'
+                            )
+                      }${
+                        s.forwarded
+                          ? this._renderSlotBadge(
+                              'forwarded',
+                              'The content comes through a slot of an enclosing component'
+                            )
+                          : nothing
+                      }${
+                        s.duplicate
+                          ? this._renderSlotBadge(
+                              'duplicate',
+                              'An earlier slot has the same name, so this one never receives content'
+                            )
+                          : nothing
+                      }
+                    </span>
+                    <span class="val">
+                      ${s.elements.map((e) => this._renderElementRef(e))}${
+                        s.moreElements > 0
+                          ? html`<span class="muted">+${s.moreElements}</span>`
+                          : nothing
+                      }${
+                        s.textNodes > 0
+                          ? html`<span class="muted">${s.textNodes} text</span>`
+                          : nothing
+                      }
+                    </span>
+                  </div>`
+            )}
+            ${a.orphans.map((o, k) =>
+              !m.orphans[k]
+                ? nothing
+                : html`<div
+                    class="entry orphan"
+                    data-tip="No slot takes this child, so it is not rendered"
+                  >
+                    <span class="name">
+                      ${o.slot === '' ? 'no default slot' : `slot="${o.slot}"`}
+                    </span>
+                    <span class="val">
+                      ${this._renderElementRef(o)}<span class="muted"
+                        >not rendered</span
                       >
-                    </div>`
-                  )}
-                </div>
-              `
-            )
-          : nothing
-      }
+                    </span>
+                  </div>`
+            )}
+            ${
+              m.orphanText
+                ? html`<div class="entry orphan">
+                    <span class="name">no default slot</span>
+                    <span class="val">${a.orphanText} text, not rendered</span>
+                  </div>`
+                : nothing
+            }
+          </div>
+        `
+      )}
+      ${this._renderSection(
+        'Parts',
+        m.parts.filter(Boolean).length,
+        a.parts.length,
+        html`
+          <div class="kv">
+            ${a.parts.map((p, j) =>
+              !m.parts[j]
+                ? nothing
+                : html`<div
+                    class="entry region"
+                    @mouseenter=${() => this._focusRegion({kind: 'part', index: j})}
+                    @mouseleave=${() => this._focusRegion(null)}
+                  >
+                    <span class="name">
+                      <span
+                        class="swatch"
+                        style="background:${color(a.slots.length + j)}"
+                      ></span
+                      >${this._mark(p.names.join(' '))}
+                    </span>
+                    <span class="val code"
+                      ><span class="t-punct">&lt;</span
+                      ><span class="t-tag">${p.tagName}</span
+                      ><span class="t-punct">&gt;</span></span
+                    >
+                  </div>`
+            )}
+          </div>
+        `
+      )}
     `;
   }
 
   /**
    * A details section that folds on its heading, with its row count beside
    * the label. Which sections are folded is remembered across selections and
-   * reloads, keyed by label.
+   * reloads, keyed by label. While a filter is set, the count reads
+   * `shown/total`, a section with no match is left out, and the rest show
+   * open without touching the remembered folds.
    */
   private _renderSection(
     label: string,
-    count: number,
+    shown: number,
+    total: number,
     body: TemplateResult
-  ): TemplateResult {
-    const open = !this._collapsed.has(label);
+  ): TemplateResult | typeof nothing {
+    const filtering = this._filtering;
+    if (total === 0 || (filtering && shown === 0)) return nothing;
+    const open = filtering || !this._collapsed.has(label);
     return html`<details
       class="section"
       data-section=${label}
       ?open=${open}
-      @toggle=${(e: Event) =>
-        this._setCollapsed(label, !(e.target as HTMLDetailsElement).open)}
+      @toggle=${(e: Event) => {
+        // Opening for a filter is not the user's fold.
+        if (this._filtering) return;
+        this._setCollapsed(label, !(e.target as HTMLDetailsElement).open);
+      }}
     >
       <summary>
         <wa-icon name=${open ? 'caret-down' : 'caret-right'}></wa-icon>
         <span class="label">${label}</span>
-        <span class="count">${count}</span>
+        <span class="count">${filtering ? `${shown}/${total}` : total}</span>
       </summary>
       ${body}
     </details>`;
+  }
+
+  private get _filtering(): boolean {
+    return this._query.trim() !== '';
+  }
+
+  /** Whether any of `texts` contains the filter; true with no filter. */
+  private _matches(...texts: string[]): boolean {
+    const q = this._query.trim().toLowerCase();
+    return q === '' || texts.some((t) => t.toLowerCase().includes(q));
+  }
+
+  /** `text` with the first filter match wrapped in `<mark>`. */
+  private _mark(text: string): TemplateResult | string {
+    const q = this._query.trim().toLowerCase();
+    const at = q === '' ? -1 : text.toLowerCase().indexOf(q);
+    if (at < 0) return text;
+    return html`${text.slice(0, at)}<mark>${text.slice(at, at + q.length)}</mark>${text.slice(at + q.length)}`;
+  }
+
+  private _onFilterInput(e: Event): void {
+    this._query = (e.target as WaInput).value ?? '';
+  }
+
+  private _onFilterKeydown(e: KeyboardEvent): void {
+    if (e.key !== 'Escape' || this._query === '') return;
+    e.stopPropagation();
+    this._query = '';
   }
 
   private _setCollapsed(label: string, collapsed: boolean): void {
@@ -1151,9 +1231,22 @@ export class ComponentsView extends LitElement {
       }
       return html`<div class="placeholder">${message}</div>`;
     }
-    const props = d.properties.filter((p) => !p.state);
-    const stateProps = d.properties.filter((p) => p.state);
-    const extras = d.extras ?? [];
+    const byRow = (name: string, value: string) => this._matches(name, value);
+    const allProps = d.properties.filter((p) => !p.state);
+    const allState = d.properties.filter((p) => p.state);
+    const allExtras = d.extras ?? [];
+    const props = allProps.filter((p) => byRow(p.name, p.value));
+    const stateProps = allState.filter((p) => byRow(p.name, p.value));
+    const attributes = d.attributes.filter((a) => byRow(a.name, a.value));
+    const extras = allExtras.filter((e) => byRow(e.name, e.value));
+    const anatomyHit =
+      d.anatomy !== undefined &&
+      Object.values(
+        anatomyMatches(d.anatomy, (...t) => this._matches(...t))
+      ).some((v) => (Array.isArray(v) ? v.includes(true) : v));
+    const anyMatch =
+      props.length + stateProps.length + attributes.length + extras.length >
+        0 || anatomyHit;
     const rootLabel = describeRoot(d);
     return html`
       <div class="head">
@@ -1225,53 +1318,65 @@ export class ComponentsView extends LitElement {
                 <dd class="root">${rootLabel}</dd>`
         }
       </dl>
+      <wa-input
+        class="filter"
+        size="small"
+        type="text"
+        spellcheck="false"
+        autocomplete="off"
+        placeholder="Filter rows"
+        aria-label="Filter rows by name or value"
+        with-clear
+        .value=${this._query}
+        @input=${this._onFilterInput}
+        @wa-clear=${() => (this._query = '')}
+        @keydown=${this._onFilterKeydown}
+      >
+        <wa-icon slot="start" name="magnifying-glass"></wa-icon>
+        <wa-icon slot="clear-icon" name="x"></wa-icon>
+      </wa-input>
       ${d.anatomy === undefined ? nothing : this._renderAnatomy(d.anatomy)}
+      ${this._renderSection(
+        'Properties',
+        props.length,
+        allProps.length,
+        this._renderPropTable(props)
+      )}
+      ${this._renderSection(
+        'State',
+        stateProps.length,
+        allState.length,
+        this._renderPropTable(stateProps)
+      )}
+      ${this._renderSection(
+        'Attributes',
+        attributes.length,
+        d.attributes.length,
+        html`
+          <div class="kv">
+            ${attributes.map((a) =>
+              // Quoted, so it colours as the string it is.
+              this._renderEntry(
+                this._mark(a.name),
+                JSON.stringify(a.value),
+                nothing,
+                true
+              )
+            )}
+          </div>
+        `
+      )}
+      ${this._renderSection(
+        'Instance',
+        extras.length,
+        allExtras.length,
+        this._renderExtraTable(extras)
+      )}
       ${
-        props.length > 0
-          ? this._renderSection(
-              'Properties',
-              props.length,
-              html` ${this._renderPropTable(props)} `
-            )
-          : nothing
-      }
-      ${
-        stateProps.length > 0
-          ? this._renderSection(
-              'State',
-              stateProps.length,
-              html` ${this._renderPropTable(stateProps)} `
-            )
-          : nothing
-      }
-      ${
-        d.attributes.length > 0
-          ? this._renderSection(
-              'Attributes',
-              d.attributes.length,
-              html`
-                <div class="kv">
-                  ${d.attributes.map((a) =>
-                    // Quoted, so it colours as the string it is.
-                    this._renderEntry(
-                      a.name,
-                      JSON.stringify(a.value),
-                      nothing,
-                      true
-                    )
-                  )}
-                </div>
-              `
-            )
-          : nothing
-      }
-      ${
-        extras.length > 0
-          ? this._renderSection(
-              'Instance',
-              extras.length,
-              html` ${this._renderExtraTable(extras)} `
-            )
+        this._filtering && !anyMatch
+          ? html`<div class="no-match">
+              No rows match “${this._query.trim()}”.
+            </div>`
           : nothing
       }
     `;
