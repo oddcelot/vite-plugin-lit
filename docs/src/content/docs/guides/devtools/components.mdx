@@ -50,11 +50,12 @@ patched appear in the HMR issues banner instead.
 
 Selecting an element fills the pane on the right. The tag name heads it, with
 a status beside it only while one applies: `pending` while an update is queued,
-`not rendered` before the first update has run. Under the tag, three short
+`not rendered` before the first update has run, and `n warnings` when Lit's
+dev build has warned about the component. Under the tag, three short
 lines say where the class is **defined**, where this instance is **rendered**,
 and its **root**: `shadow` with its mode and `delegatesFocus`, or `light DOM`.
 
-Below those come up to six sections. **Properties** lists the public reactive
+Below those come up to seven sections. **Properties** lists the public reactive
 properties, with a badge naming the attribute a property reflects to.
 **State** lists internal `@state`. **Attributes** lists the attributes the
 element currently carries, as quoted strings.
@@ -103,6 +104,15 @@ on error. The section has limits. A computed signal shows as
 `(computed)` and is never evaluated, since that would run your code.
 Controllers are found through a private Lit field, so a Lit build that renames
 it lists none. Values use the same previews as properties.
+
+**Warnings** appears above the tables when Lit's development build has warned
+about the component, for example `change-in-update` for an update scheduled
+from inside `updated()`. Each row has Lit's message and its code, which links
+to the explanation on lit.dev. Lit warns once per message, so the list
+describes the component and every instance of that tag shows it. A production
+build of Lit issues no warnings, so the section never appears there. The same
+list is in the `warnings` field that `lit_component-details` returns to
+agents.
 
 **Slots** and **Parts** show how the element composes its content; see
 [See an element's slots and parts](#see-an-elements-slots-and-parts).
