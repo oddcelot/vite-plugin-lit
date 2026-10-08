@@ -138,10 +138,10 @@ test('draws labelled slot and part regions until cleared', async () => {
     });
   }
 
-  // Focus the title slot: it pulses, everything else fades.
+  // Focus the title slot: it gains a ring, everything else fades.
   const regions = `Array.from(
     document.querySelectorAll('[data-lit-devtools-anatomy] > div'),
-    (box) => [box.textContent, box.style.opacity, box.getAnimations().length]
+    (box) => [box.textContent, box.style.opacity, box.style.boxShadow !== 'none']
   )`;
   fixture.server.hot.send(INSPECT_CMD_CHANNEL, {
     type: 'anatomy-focus',
@@ -150,12 +150,12 @@ test('draws labelled slot and part regions until cleared', async () => {
   await expect
     .poll(() => fixture.page.evaluate(regions), {timeout: 10_000})
     .toEqual([
-      ['<hmr-slots>', '0.25', 0],
-      ['slot "title"', '1', 1],
-      ['default slot', '0.25', 0],
-      ['slot "footer" · fallback', '0.25', 0],
-      ['::part(header)', '0.25', 0],
-      ['::part(body)', '0.25', 0],
+      ['<hmr-slots>', '0.25', false],
+      ['slot "title"', '1', true],
+      ['default slot', '0.25', false],
+      ['slot "footer" · fallback', '0.25', false],
+      ['::part(header)', '0.25', false],
+      ['::part(body)', '0.25', false],
     ]);
   if (process.env['ANATOMY_SHOT']) {
     const box = (await fixture.page
@@ -180,7 +180,7 @@ test('draws labelled slot and part regions until cleared', async () => {
     .poll(
       async () =>
         ((await fixture.page.evaluate(regions)) as unknown[][]).every(
-          ([, opacity, animations]) => opacity === '1' && animations === 0
+          ([, opacity, ring]) => opacity === '1' && ring === false
         ),
       {timeout: 10_000}
     )
