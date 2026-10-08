@@ -31,7 +31,7 @@ import {PanelLocation} from './panel-location.js';
 import {openInEditor} from './open-in-editor.js';
 import {hostInfo, sendToPage, touchPageChannel} from './host.js';
 import {overrides} from './settings-override.js';
-import {formatValue} from './value-format.js';
+import {formatLines, type ValueToken} from './value-format.js';
 import {filterTree, type TreeFilterResult} from './tree-filter.js';
 import {attrKey, changedRows, extraKey, propKey} from './details-diff.js';
 
@@ -106,13 +106,28 @@ const markMatch = (text: string, query: string): TemplateResult | string => {
   return html`${text.slice(0, at)}<mark>${text.slice(at, at + q.length)}</mark>${text.slice(at + q.length)}`;
 };
 
-/** A serialized preview as coloured spans, re-flowed when long. */
-const renderCode = (value: string): TemplateResult[] =>
-  formatValue(value).map((t) =>
+const renderTokens = (tokens: ValueToken[]): TemplateResult[] =>
+  tokens.map((t) =>
     t.kind === 'text'
       ? html`${t.text}`
       : html`<span class="t-${t.kind}">${t.text}</span>`
   );
+
+/**
+ * A serialized preview as coloured spans. A re-flowed preview renders one
+ * block per line, indented by its depth with a hanging indent, so a long
+ * string that wraps continues under its own text instead of at the margin.
+ */
+const renderCode = (value: string): TemplateResult | TemplateResult[] => {
+  const lines = formatLines(value);
+  if (lines.length === 1) return renderTokens(lines[0]!.tokens);
+  return lines.map(
+    (l) =>
+      html`<span class="line" style="--indent:${l.indent}"
+        >${renderTokens(l.tokens)}</span
+      >`
+  );
+};
 
 /** Types the value's own spelling already shows, so no tag is needed. */
 const SELF_EVIDENT_TYPES = new Set([
@@ -440,6 +455,12 @@ export class ComponentsView extends LitElement {
       .entry > .val.code {
         color: var(--lit-devtools-text);
         white-space: pre-wrap;
+      }
+      /* Indent by depth; wrapped rows hang two columns further in. */
+      .val .line {
+        display: block;
+        padding-left: calc((var(--indent) + 2) * 1ch);
+        text-indent: -2ch;
       }
       .t-key {
         color: var(--lit-devtools-code-property);
