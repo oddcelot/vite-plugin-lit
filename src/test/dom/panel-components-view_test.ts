@@ -263,7 +263,9 @@ test('lists instance state below the other tables', async () => {
   );
   expect(labels).toEqual(['Instance']);
   const rows = [...details.querySelectorAll('.entry')].map((r) =>
-    [...r.children].map((c) => c.textContent!.replace(/\s+/g, ' ').trim())
+    [...r.querySelectorAll(':scope > .name, :scope > .val')].map((c) =>
+      c.textContent!.replace(/\s+/g, ' ').trim()
+    )
   );
   // The kind and a task's status follow the name.
   expect(rows).toEqual([
@@ -673,6 +675,58 @@ test('a snapshot cannot expand values', async () => {
   push('inspector-message', {type: 'details', details: expandable()});
   await flush(el);
   expect(root.querySelector('.details .expander')).toBeNull();
+});
+
+test('a row copies its value as shown, an attribute without quotes', async () => {
+  const writeText = vi.fn(async () => {});
+  Object.defineProperty(navigator, 'clipboard', {
+    value: {writeText},
+    configurable: true,
+  });
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: filterable()});
+  await flush(el);
+  const copyOf = (key: string) =>
+    root.querySelector<HTMLElement>(
+      `.details .entry[data-key="${key}"] .copy`
+    )!;
+
+  copyOf('p:label').click();
+  await flush(el);
+  copyOf('a:data-renders').click();
+  await flush(el);
+  expect(writeText.mock.calls).toEqual([['"Save"'], ['3']]);
+  // The last one copied says so until the moment passes.
+  expect(copyOf('a:data-renders').classList.contains('copied')).toBe(true);
+  expect(copyOf('p:label').classList.contains('copied')).toBe(false);
+});
+
+test('a refused clipboard falls back to a selected textarea', async () => {
+  Object.defineProperty(navigator, 'clipboard', {
+    value: {writeText: vi.fn(async () => Promise.reject(new Error('denied')))},
+    configurable: true,
+  });
+  const exec = vi.fn(() => true);
+  Object.defineProperty(document, 'execCommand', {
+    value: exec,
+    configurable: true,
+  });
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: filterable()});
+  await flush(el);
+  root
+    .querySelector<HTMLElement>('.details .entry[data-key="p:label"] .copy')!
+    .click();
+  await flush(el);
+  expect(exec).toHaveBeenCalledWith('copy');
+  expect(document.querySelector('textarea')).toBeNull();
+  expect(
+    root
+      .querySelector('.details .entry[data-key="p:label"] .copy')!
+      .classList.contains('copied')
+  ).toBe(true);
 });
 
 test('attribute values read as quoted strings', async () => {
