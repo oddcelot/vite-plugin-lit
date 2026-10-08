@@ -173,12 +173,14 @@ test('lists instance state below the other tables', async () => {
   const rows = [...details.querySelectorAll('.entry')].map((r) =>
     [...r.children].map((c) => c.textContent!.replace(/\s+/g, ' ').trim())
   );
-  // The kind and status trail the value; the type tag follows the name
-  // unless the kind already says it.
+  // The kind and a task's status follow the name.
   expect(rows).toEqual([
-    ['userTask', '[1, 2]taskcomplete'],
-    ['countSignal.State', '7signal'],
+    ['userTasktaskcomplete', '[1, 2]'],
+    ['countsignal', '7'],
   ]);
+  expect(
+    details.querySelector('.entry .status')!.classList.contains('task-complete')
+  ).toBe(true);
 });
 
 test('tags a value with its type only where the preview does not show it', async () => {
@@ -208,6 +210,22 @@ test('tags a value with its type only where the preview does not show it', async
     (r) => r.querySelector('.type')?.textContent ?? null
   );
   expect(types).toEqual([null, 'Array(3)', null]);
+});
+
+test('attribute values read as quoted strings', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      attributes: [{name: 'data-renders', value: '2'}],
+    },
+  });
+  await flush(el);
+  const val = root.querySelector('.details .entry .val')!;
+  expect(val.textContent).toBe('"2"');
+  expect(val.querySelector('.t-string')!.textContent).toBe('"2"');
 });
 
 test('a long value takes its own line under the name', async () => {

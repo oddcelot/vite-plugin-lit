@@ -239,6 +239,18 @@ export class ComponentsView extends LitElement {
         border-radius: 50%;
         background: currentColor;
       }
+      .name > .status {
+        margin-left: var(--lit-devtools-space-3);
+      }
+      .status.task-pending {
+        color: var(--lit-devtools-warning);
+      }
+      .status.task-complete {
+        color: var(--lit-devtools-success);
+      }
+      .status.task-error {
+        color: var(--lit-devtools-error);
+      }
       .status.pending {
         color: var(--lit-devtools-warning);
       }
@@ -340,6 +352,10 @@ export class ComponentsView extends LitElement {
       .t-punct,
       .t-muted {
         color: var(--lit-devtools-text-muted);
+      }
+      /* A wide row is two full lines, so neither half sizes the name column. */
+      .entry.wide > .name {
+        grid-column: 1 / -1;
       }
       .entry.wide > .val {
         grid-column: 1 / -1;
@@ -830,29 +846,29 @@ export class ComponentsView extends LitElement {
     `;
   }
 
+  /**
+   * Instance state. The kind follows the name like a type tag (a field shows
+   * its type instead, since "field" says nothing), then a task's status as
+   * a coloured dot.
+   */
   private _renderExtraTable(extras: InspectorExtra[]): TemplateResult {
     return html`
       <div class="kv">
         ${extras.map((e) =>
           this._renderEntry(
             html`${e.name}${
-              e.type.toLowerCase() === e.kind
+              e.kind === 'field'
+                ? typeLabel(e.type, e.value)
+                : html`<span class="type kind" data-tip=${e.type}
+                    >${e.kind}</span
+                  >`
+            }${
+              e.status === undefined
                 ? nothing
-                : typeLabel(e.type, e.value)
+                : html`<span class="status task-${e.status}">${e.status}</span>`
             }`,
             e.value,
-            html`<wa-badge class="badge" variant="neutral" appearance="outlined"
-                >${e.kind}</wa-badge
-              >${
-                e.status !== undefined
-                  ? html`<wa-badge
-                      class="badge"
-                      variant="neutral"
-                      appearance="outlined"
-                      >${e.status}</wa-badge
-                    >`
-                  : nothing
-              }`,
+            nothing,
             true
           )
         )}
@@ -995,7 +1011,11 @@ export class ComponentsView extends LitElement {
                       ></span
                       >${p.names.join(' ')}
                     </span>
-                    <span class="val">&lt;${p.tagName}&gt;</span>
+                    <span class="val code"
+                      ><span class="t-punct">&lt;</span
+                      ><span class="t-tag">${p.tagName}</span
+                      ><span class="t-punct">&gt;</span></span
+                    >
                   </div>`
                 )}
               </div>
@@ -1129,7 +1149,15 @@ export class ComponentsView extends LitElement {
           ? html`<section>
               <div class="label">Attributes</div>
               <div class="kv">
-                ${d.attributes.map((a) => this._renderEntry(a.name, a.value))}
+                ${d.attributes.map((a) =>
+                  // Quoted, so it colours as the string it is.
+                  this._renderEntry(
+                    a.name,
+                    JSON.stringify(a.value),
+                    nothing,
+                    true
+                  )
+                )}
               </div>
             </section>`
           : nothing
