@@ -26,7 +26,7 @@ row to outline that element in the page.
 <ThemedImage
   light={devtoolsComponentsTreeLight}
   dark={devtoolsComponentsTreeDark}
-  alt="The Components tab: the element tree on the left, hmr-properties selected, its source and Rendered at links and reactive properties on the right."
+  alt="The Components tab: the element tree on the left, hmr-properties selected, its source links and reactive properties on the right."
 />
 
 The tree follows the page as components appear and disappear; see
@@ -39,20 +39,34 @@ patched appear in the HMR issues banner instead.
 
 ## Read the details pane
 
-Selecting an element fills the pane on the right: its tag name, a source link
-reading `file:line`, and three flags — `updated`, `update pending` and
-`shadow root`.
+Selecting an element fills the pane on the right. The tag name heads it, with
+a status beside it only while one applies: `pending` while an update is queued,
+`not rendered` before the first update has run. Under the tag, three short
+lines say where the class is **defined**, where this instance is **rendered**,
+and its **root**: `shadow` with its mode and `delegatesFocus`, or `light DOM`.
 
-Below those come up to six tables. **Properties** lists the public reactive
+Below those come up to six sections. **Properties** lists the public reactive
 properties, with a badge naming the attribute a property reflects to.
 **State** lists internal `@state`. **Attributes** lists the attributes the
-element currently carries.
+element currently carries, as quoted strings.
+
+Values are coloured like code: keys, strings, numbers, keywords and class
+names each take their own colour. A value too long for its row moves to its
+own line under the name, and an object or array too wide for that line opens
+up one entry per line. Where the preview does not already say what a value
+is, a muted tag after the name does, such as `Array(3)` or `Date`.
+
+Each section heading shows how many rows it holds. Click a heading to fold
+the section. It stays folded as you select other elements and after a
+reload.
 
 **Instance** lists what the reactive properties do not cover: `@lit/task`
 status with its value or error, `@lit-labs/signals` signals, other reactive
 controllers (named by the field that holds them, else by class) and plain class
-fields, at most 24 in all. Each row carries a badge for its kind, and hovering
-the name shows the type. The table has limits. A computed signal shows as
+fields, at most 24 in all. A muted tag after each name gives its kind, and
+hovering it shows the type. A plain field shows its type tag instead, and a
+task adds its status as a dot: amber while pending, green when complete, red
+on error. The section has limits. A computed signal shows as
 `(computed)` and is never evaluated, since that would run your code.
 Controllers are found through a private Lit field, so a Lit build that renames
 it lists none. Values use the same previews as properties.
@@ -60,7 +74,7 @@ it lists none. Values use the same previews as properties.
 **Slots** and **Parts** show how the element composes its content; see
 [See an element's slots and parts](#see-an-elements-slots-and-parts).
 
-The playground fixture below fills all three. The two marked `@property`
+The playground fixture below fills Properties, State and Attributes. The two marked `@property`
 declarations land under Properties, `label` with an attribute badge; the two
 marked `@state` declarations land under State.
 
@@ -71,11 +85,11 @@ marked `@state` declarations land under State.
   mark={[19, 22, 25, 28]}
 />
 
-The pane refreshes in place as the selected element updates. Click the source
-link to open the file in your editor. When the element was written in an
-`html` template, a **Rendered at** link below it opens that template at the
-line and column of the tag, so you can tell which usage produced this
-instance. Elements created any other way have no such link. Click the target
+The pane refreshes in place as the selected element updates. Click the
+**defined** link to open the class in your editor. When the element was written
+in an `html` template, the **rendered** link opens that template at the line
+and column of the tag, so you can tell which usage produced this instance.
+Elements created any other way have no such line. Click the target
 button beside the tag name to scroll the element into the middle of the page and outline it for a
 moment, which helps when it sits below the fold. If the element leaves the
 page, the pane says so instead of showing stale values.
@@ -157,9 +171,9 @@ it. Badges mark a slot that is `empty`, one that shows its own `fallback`
 content, one whose content is `forwarded` from an enclosing component's slot,
 and a `duplicate` name that never receives content. Light children that no
 slot takes are listed in red as _not rendered_, which catches a misspelled
-`slot` attribute or a missing default slot. Flags above the tables say when an
-element renders into `light DOM`, has a `closed` shadow root, or sets
-`delegatesFocus`.
+`slot` attribute or a missing default slot. The **root** line under the tag
+says when an element renders into `light DOM`, has a `closed` shadow root, or
+sets `delegatesFocus`.
 
 With Anatomy on, hover a slot or part row to find its region on the page. The
 region gains a ring and the others fade until the pointer leaves the row.
