@@ -19,6 +19,8 @@ import {
   profilerStamp,
 } from './chrome-tracks.js';
 import {installLifecycleLayer, setUpdateHook} from './lifecycle.js';
+import {installLitWarningCapture} from './lit-warnings.js';
+import {installWarningsLayer} from './warnings-layer.js';
 import {installRenderLayer, setRenderDebugEnabled} from './render.js';
 import {installMouseLayer, installKeyboardLayer} from './input.js';
 import {flashUpdate, setFlashEnabled, setFlashRamp} from './flash.js';
@@ -49,6 +51,9 @@ const capture = createCaptureController({
 
 const {out, capturing, enabled} = capture;
 installLifecycleLayer(out, capturing, enabled.lifecycle, enabled.changedValues);
+// Normally hooked already by `warnings-boot`; this covers a page without it.
+installLitWarningCapture();
+const warnings = installWarningsLayer(out, capturing, enabled.lifecycle);
 installRenderLayer(out, capturing, enabled.render, enabled.renderVerbose);
 installMouseLayer(out, capturing, enabled.mouse);
 installKeyboardLayer(out, capturing, enabled.keyboard);
@@ -80,9 +85,14 @@ if (hot !== undefined) pageChannel.useViteHot(hot);
 {
   setHotClient(pageChannel);
 
+  let panelRecording = false;
+
   // Panel → app: toggle recording and per-layer flags.
   pageChannel.on(CHANNEL_RECORDING_CHANGED, (data) => {
-    capture.setRecording((data as {recording: boolean}).recording);
+    const {recording} = data as {recording: boolean};
+    capture.setRecording(recording);
+    if (recording && !panelRecording) warnings.replay();
+    panelRecording = recording;
   });
 
   pageChannel.on(CHANNEL_LAYERS_CHANGED, (data) => {

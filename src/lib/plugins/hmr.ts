@@ -104,7 +104,7 @@ export const litHmr = (ctx: OptionsContext): Plugin => ({
       tag: string;
       attrs?: Record<string, string | undefined | boolean>;
       children?: string;
-      injectTo: 'body';
+      injectTo: 'body' | 'head-prepend';
     }[] = [];
 
     const indicator = ctx.get().indicator;
@@ -126,6 +126,16 @@ export const litHmr = (ctx: OptionsContext): Plugin => ({
     }
 
     if (ctx.get().timeline) {
+      // Ahead of everything else: Lit makes the warnings Set when it loads,
+      // and a module script in the head runs before the app's in the body.
+      tags.unshift({
+        tag: 'script',
+        attrs: {
+          type: 'module',
+          src: `/@fs/` + resolveRuntimeModule('timeline/warnings-boot'),
+        },
+        injectTo: 'head-prepend',
+      });
       const installUrl = `/@fs/` + resolveRuntimeModule('timeline/install');
       tags.push({
         tag: 'script',

@@ -198,6 +198,17 @@ export const ANATOMY_COLORS = [
   '#5c940d',
 ] as const;
 
+/**
+ * A Lit dev-mode warning that names this element's tag or component class
+ * (`change-in-update`, class-field shadowing, …). Lit issues each message once
+ * per page, so it describes the component, not only this instance.
+ */
+export interface InspectorWarning {
+  /** Lit's message code, `''` when Lit gave none; see lit.dev/msg/<code>. */
+  code: string;
+  message: string;
+}
+
 /** Full detail snapshot for a single inspected element. */
 export interface InspectorDetails {
   id: number;
@@ -221,6 +232,11 @@ export interface InspectorDetails {
    * Absent when there is none.
    */
   extras?: InspectorExtra[];
+  /**
+   * Lit dev-mode warnings about this component. Absent when there are none,
+   * and always absent under a production build of Lit, which issues none.
+   */
+  warnings?: InspectorWarning[];
 }
 
 /**

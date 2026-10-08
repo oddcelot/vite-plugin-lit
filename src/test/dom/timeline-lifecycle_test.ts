@@ -647,3 +647,75 @@ describe('installLifecycleLayer', () => {
     });
   });
 });
+
+describe('Lit warnings', () => {
+  const STATE = Symbol.for('@oddsquad/vite-plugin-lit#lit-warnings');
+  const g = globalThis as Record<string | symbol, unknown>;
+
+  afterEach(() => {
+    delete g[STATE];
+    delete g.litIssuedWarnings;
+  });
+
+  const warn = (tag: string) =>
+    `Element ${tag} scheduled an update after an update completed. ` +
+    'See https://lit.dev/msg/change-in-update for more information.';
+
+  test('a warning issued mid-update lands as an event on that element', async () => {
+    const base = freshBase();
+    const {tag} = define(base);
+    const el = document.createElement(tag) as FakeReactiveElement;
+    document.body.append(el);
+    const lifecycle = await load();
+    install(lifecycle);
+    const warnings = await import('../../lib/runtime/timeline/lit-warnings.js');
+    const layer = await import('../../lib/runtime/timeline/warnings-layer.js');
+    warnings.installLitWarningCapture();
+    layer.installWarningsLayer(
+      emit,
+      () => recording,
+      () => true
+    );
+    el.updated = () => {
+      (g.litIssuedWarnings as Set<string>).add(warn(tag));
+    };
+    events.length = 0;
+
+    el.performUpdate();
+
+    const event = events.find((e) => e.title === 'warning:change-in-update');
+    expect(event).toMatchObject({
+      layerId: 'lit-lifecycle',
+      logType: 'warning',
+      subtitle: tag,
+      data: {code: 'change-in-update', phase: 'warning'},
+      meta: {tagName: tag},
+    });
+    expect(event?.meta?.elementId).toBeTypeOf('number');
+  });
+
+  test('replays warnings from before recording, flagged as replayed', async () => {
+    g.litIssuedWarnings = new Set([warn('x-early')]);
+    await load();
+    const warnings = await import('../../lib/runtime/timeline/lit-warnings.js');
+    const layer = await import('../../lib/runtime/timeline/warnings-layer.js');
+    warnings.installLitWarningCapture();
+    recording = false;
+    const {replay} = layer.installWarningsLayer(
+      emit,
+      () => recording,
+      () => true
+    );
+    replay();
+    expect(events).toEqual([]);
+
+    recording = true;
+    replay();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      subtitle: 'x-early',
+      meta: {tagName: 'x-early'},
+      data: {code: 'change-in-update', replayed: true},
+    });
+  });
+});

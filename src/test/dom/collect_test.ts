@@ -246,3 +246,33 @@ describe('collectDetails', () => {
     expect(details.flags.hasShadowRoot).toBe(false);
   });
 });
+
+describe('collectDetails warnings', () => {
+  const STATE = Symbol.for('@oddsquad/vite-plugin-lit#lit-warnings');
+
+  afterEach(() => {
+    delete (globalThis as Record<symbol, unknown>)[STATE];
+    delete (globalThis as {litIssuedWarnings?: unknown}).litIssuedWarnings;
+  });
+
+  test('lists Lit warnings naming the tag, and omits the field otherwise', async () => {
+    const tag = define();
+    const el = document.createElement(tag);
+    const {installLitWarningCapture} =
+      await import('../../lib/runtime/timeline/lit-warnings.js');
+    installLitWarningCapture();
+    expect(collectDetails(el).warnings).toBeUndefined();
+
+    (
+      globalThis as unknown as {litIssuedWarnings: Set<string>}
+    ).litIssuedWarnings.add(
+      `Element ${tag} scheduled an update. See https://lit.dev/msg/change-in-update for more information.`
+    );
+    expect(collectDetails(el).warnings).toEqual([
+      {
+        code: 'change-in-update',
+        message: `Element ${tag} scheduled an update.`,
+      },
+    ]);
+  });
+});

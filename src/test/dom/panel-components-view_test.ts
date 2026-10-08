@@ -1182,3 +1182,40 @@ test('no call site, no row', async () => {
   await flush(el);
   expect(root.querySelector('.call-site')).toBeNull();
 });
+
+test('badges a component Lit warned about and lists the warning', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      warnings: [
+        {
+          code: 'change-in-update',
+          message: 'Element x-button scheduled an update after an update.',
+        },
+      ],
+    },
+  });
+  await flush(el);
+  expect(root.querySelector('.details .head .status.warned')?.textContent).toBe(
+    '1 warning'
+  );
+  expect(sections(root)).toEqual(['Warnings 1 open']);
+  const code = root.querySelector<HTMLAnchorElement>('.details .warning .code');
+  expect(code?.textContent).toBe('change-in-update');
+  expect(code?.href).toBe('https://lit.dev/msg/change-in-update');
+  expect(root.querySelector('.details .warning .text')?.textContent).toContain(
+    'x-button scheduled'
+  );
+});
+
+test('shows no warning badge or section without warnings', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: detailsFor()});
+  await flush(el);
+  expect(root.querySelector('.details .status.warned')).toBeNull();
+  expect(sections(root)).toEqual([]);
+});
