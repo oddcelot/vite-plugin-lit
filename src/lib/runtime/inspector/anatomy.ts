@@ -31,7 +31,8 @@ export const renderRootOf = (el: Element): ShadowRoot | Element | null => {
   return el.shadowRoot;
 };
 
-const shadowOf = (el: Element): ShadowRoot | null => {
+/** The element's shadow root, closed or open; `null` for light DOM or none. */
+export const shadowOf = (el: Element): ShadowRoot | null => {
   const root = renderRootOf(el);
   return root instanceof ShadowRoot ? root : null;
 };
@@ -50,10 +51,95 @@ export const slotsOf = (el: Element): HTMLSlotElement[] => {
   return shadow === null ? [] : Array.from(shadow.querySelectorAll('slot'));
 };
 
-/** The element's own `part` elements. Nested shadow roots excluded. */
-export const partsOf = (el: Element): Element[] => {
+/** How far `exportparts` is followed through nested components. */
+const MAX_EXPORT_DEPTH = 4;
+
+/** One name a `::part()` selector can reach on the element. */
+export interface PartEntry {
+  /** The names this element answers to; one name for a forwarded part. */
+  names: string[];
+  element: Element;
+  /** Set when a nested component forwards the part with `exportparts`. */
+  forwarded?: {host: Element; inner?: string};
+}
+
+/** `a, b: c` as `[inner, outer]` pairs; a bare name maps to itself. */
+const parseExportParts = (value: string): [string, string][] =>
+  value
+    .split(',')
+    .map((pair): [string, string] => {
+      const [inner, outer] = pair.split(':').map((s) => s.trim());
+      return [inner, outer || inner];
+    })
+    .filter(([inner]) => inner !== '');
+
+interface ReachablePart {
+  name: string;
+  element: Element;
+  forwarded?: {host: Element; inner?: string};
+}
+
+/**
+ * Every part name visible from inside `shadow`: its own `[part]` elements,
+ * then those its nested components forward with `exportparts`.
+ */
+const reachableParts = (shadow: ShadowRoot, depth: number): ReachablePart[] => {
+  const out: ReachablePart[] = [];
+  for (const element of shadow.querySelectorAll('[part]')) {
+    for (const name of (element.getAttribute('part') ?? '').split(/\s+/)) {
+      if (name !== '') out.push({name, element});
+    }
+  }
+  if (depth >= MAX_EXPORT_DEPTH) return out;
+  for (const host of shadow.querySelectorAll('[exportparts]')) {
+    const inside = shadowOf(host);
+    if (inside === null) continue;
+    const nested = reachableParts(inside, depth + 1);
+    for (const [inner, outer] of parseExportParts(
+      host.getAttribute('exportparts') ?? ''
+    )) {
+      for (const part of nested) {
+        if (part.name !== inner) continue;
+        out.push({
+          name: outer,
+          element: part.element,
+          forwarded: {host, ...(inner !== outer ? {inner} : {})},
+        });
+      }
+    }
+  }
+  return out;
+};
+
+/**
+ * The element's own `part` elements, then the parts its nested components
+ * forward through `exportparts`. Nested shadow roots are otherwise excluded.
+ */
+export const partsOf = (el: Element): PartEntry[] => {
   const shadow = shadowOf(el);
-  return shadow === null ? [] : Array.from(shadow.querySelectorAll('[part]'));
+  if (shadow === null) return [];
+  const own: PartEntry[] = [];
+  const forwarded: PartEntry[] = [];
+  const byElement = new Map<Element, PartEntry>();
+  for (const p of reachableParts(shadow, 0)) {
+    if (p.forwarded !== undefined) {
+      forwarded.push({
+        names: [p.name],
+        element: p.element,
+        forwarded: p.forwarded,
+      });
+      continue;
+    }
+    // Every `[part]` of this root, grouped by element in document order.
+    let entry = byElement.get(p.element);
+    if (entry === undefined) {
+      entry = {names: [], element: p.element};
+      byElement.set(p.element, entry);
+      own.push(entry);
+    }
+    entry.names.push(p.name);
+  }
+  return [...own, ...forwarded];
 };
 
 /**
@@ -97,9 +183,17 @@ const describeSlot = (
   };
 };
 
-const describePart = (el: Element): AnatomyPart => ({
-  names: (el.getAttribute('part') ?? '').split(/\s+/).filter(Boolean),
-  tagName: el.localName,
+const describePart = ({names, element, forwarded}: PartEntry): AnatomyPart => ({
+  names,
+  tagName: element.localName,
+  ...(forwarded !== undefined
+    ? {
+        forwarded: {
+          from: forwarded.host.localName,
+          ...(forwarded.inner !== undefined ? {inner: forwarded.inner} : {}),
+        },
+      }
+    : {}),
 });
 
 /** Snapshot an element's anatomy, or `undefined` when it has no render root. */

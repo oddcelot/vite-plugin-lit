@@ -197,10 +197,9 @@ const render = (el: Element): void => {
     const color = ANATOMY_COLORS[i % ANATOMY_COLORS.length];
     if (box !== null) draw(box, color, slotLabel(slot), 'slot', `slot:${i}`);
   });
-  partsOf(el).forEach((part, j) => {
-    const box = boundsOf([part]);
+  partsOf(el).forEach(({names, element}, j) => {
+    const box = boundsOf([element]);
     const color = ANATOMY_COLORS[(slots.length + j) % ANATOMY_COLORS.length];
-    const names = (part.getAttribute('part') ?? '').trim().split(/\s+/);
     const label = `::part(${names.join(' ')})`;
     if (box !== null) draw(box, color, label, 'part', `part:${j}`);
   });

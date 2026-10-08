@@ -101,6 +101,19 @@ test('marks content forwarded through an enclosing slot', async () => {
   });
 });
 
+test('lists parts forwarded by a nested component with exportparts', async () => {
+  const frame = await nodeFor('hmr-slots-frame');
+  const {anatomy} = await detailsFor(frame.id);
+  expect(anatomy?.parts).toEqual([
+    {names: ['header'], tagName: 'header', forwarded: {from: 'hmr-slots'}},
+    {
+      names: ['card-body'],
+      tagName: 'div',
+      forwarded: {from: 'hmr-slots', inner: 'body'},
+    },
+  ]);
+});
+
 test('draws labelled slot and part regions until cleared', async () => {
   const {id} = await nodeFor('hmr-slots');
   await fixture.page.evaluate(
