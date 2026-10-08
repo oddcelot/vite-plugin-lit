@@ -24,7 +24,8 @@ import {captureChangedValues} from './changed-values.js';
 import {erroredTasks} from '../inspector/extras.js';
 import type {TimelineEvent} from '../../../types/timeline.js';
 
-type EmitFn = (event: TimelineEvent) => void;
+export type LifecycleEmit = (event: TimelineEvent) => void;
+type EmitFn = LifecycleEmit;
 type RecordingFn = () => boolean;
 type LayerEnabledFn = () => boolean;
 
@@ -82,6 +83,28 @@ const tickOf = (el: object): number => ticks.get(el) ?? 0;
  * through. Keeps `derive.ts`'s invariant that a phase occurs once per tick.
  */
 const inFlight = new WeakMap<object, Set<string>>();
+
+/** The element inside `performUpdate` right now, if any. */
+let updating: object | null = null;
+
+const whileUpdating = <T>(el: object, fn: () => T): T => {
+  const outer = updating;
+  updating = el;
+  try {
+    return fn();
+  } finally {
+    updating = outer;
+  }
+};
+
+/** Who is updating at this moment, for attributing a Lit warning to it. */
+export const currentlyUpdating = (): {
+  tagName: string;
+  elementId: number;
+} | null =>
+  updating === null
+    ? null
+    : {tagName: (updating as Element).localName, elementId: idOf(updating)};
 
 /** Name and message only: a stack would make every failed update a large event. */
 const describeError = (e: unknown): {name: string; message: string} => {
@@ -314,10 +337,7 @@ const wrap = (
   if (isWrapped(proto, name)) return;
   const orig = proto[name];
 
-  const wrapper: AnyFn & {[BRAND]?: true} = function (
-    this: object,
-    ...args: unknown[]
-  ) {
+  const run = function (this: object, ...args: unknown[]) {
     const isUpdate = name === 'performUpdate';
     if (!recording() || !enabled()) {
       if (!isUpdate || updateHook === null) return orig?.apply(this, args);
@@ -427,6 +447,15 @@ const wrap = (
     }
     if (isUpdate) reportTaskErrors(this, groupId, meta, emit);
     return result;
+  };
+  const wrapper: AnyFn & {[BRAND]?: true} = function (
+    this: object,
+    ...args: unknown[]
+  ) {
+    if (name !== 'performUpdate') return run.apply(this, args);
+    // Tracked whether or not anything is recording: a Lit warning is issued
+    // from inside an update and wants to know whose.
+    return whileUpdating(this, () => run.apply(this, args));
   };
   wrapper[BRAND] = true;
 

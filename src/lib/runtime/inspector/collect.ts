@@ -6,6 +6,7 @@
 
 import {childrenOf, isExpandable, stepInto} from './inspect-value.js';
 import {idOf} from '../timeline/identity.js';
+import {warningsFor} from '../timeline/lit-warnings.js';
 import {collectAnatomy} from './anatomy.js';
 import {collectExtras, extraValue} from './extras.js';
 import {serialize, typeTag} from './serialize.js';
@@ -168,6 +169,10 @@ export const collectDetails = (el: Element): InspectorDetails => {
 
   const extras = collectExtras(el);
   const anatomy = collectAnatomy(el);
+  const warnings = warningsFor(
+    el.localName,
+    (el.constructor as {name?: string}).name
+  ).map(({code, message}) => ({code, message}));
   const meta = metaOf(el);
   return {
     id: idOf(el),
@@ -184,6 +189,7 @@ export const collectDetails = (el: Element): InspectorDetails => {
     },
     ...(anatomy !== undefined ? {anatomy} : {}),
     ...(extras.length > 0 ? {extras} : {}),
+    ...(warnings.length > 0 ? {warnings} : {}),
   };
 };
 
