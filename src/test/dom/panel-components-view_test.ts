@@ -1219,3 +1219,45 @@ test('shows no warning badge or section without warnings', async () => {
   expect(root.querySelector('.details .status.warned')).toBeNull();
   expect(sections(root)).toEqual([]);
 });
+
+test('marks a tag nothing defines in its row', async () => {
+  const {rows} = await mount(false, [
+    {id: 1, tagName: 'x-app', children: []},
+    {id: 2, tagName: 'x-missing', notDefined: true, children: []},
+  ]);
+  const [app, missing] = rows();
+  expect(app!.querySelector('.status.undefined')).toBeNull();
+  expect(missing!.querySelector('.status.undefined')?.textContent).toBe(
+    'not defined'
+  );
+});
+
+test('explains an undefined element in the details pane', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      tagName: 'x-missing',
+      notDefined: true,
+      callSite: {file: 'src/app.ts', line: 12},
+      flags: {hasUpdated: false, isUpdatePending: false, hasShadowRoot: false},
+    },
+  });
+  await flush(el);
+  expect(
+    root.querySelector('.details .head .status.undefined')?.textContent
+  ).toBe('not defined');
+  // An element that never upgraded has not "failed to render".
+  expect(
+    root.querySelector('.details .head .status:not(.undefined)')
+  ).toBeNull();
+  expect(root.querySelector('.not-defined-note')?.textContent).toContain(
+    "customElements.define('x-missing')"
+  );
+  expect(root.querySelector('.call-site')?.textContent).toContain(
+    'src/app.ts:12'
+  );
+  expect(sections(root)).toEqual([]);
+});
