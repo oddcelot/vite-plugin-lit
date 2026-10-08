@@ -32,6 +32,7 @@ import {openInEditor} from './open-in-editor.js';
 import {hostInfo, sendToPage, touchPageChannel} from './host.js';
 import {overrides} from './settings-override.js';
 import {formatValue} from './value-format.js';
+import {filterTree, type TreeFilterResult} from './tree-filter.js';
 
 /**
  * localStorage key remembering a paused live tree. Live is the default, so
@@ -95,6 +96,14 @@ const anatomyMatches = (
   orphanText: a.orphanText > 0 && matches('no default slot'),
   parts: a.parts.map((p) => matches(...p.names, p.tagName)),
 });
+
+/** `text` with the first match of `query` wrapped in `<mark>`. */
+const markMatch = (text: string, query: string): TemplateResult | string => {
+  const q = query.trim().toLowerCase();
+  const at = q === '' ? -1 : text.toLowerCase().indexOf(q);
+  if (at < 0) return text;
+  return html`${text.slice(0, at)}<mark>${text.slice(at, at + q.length)}</mark>${text.slice(at + q.length)}`;
+};
 
 /** A serialized preview as coloured spans, re-flowed when long. */
 const renderCode = (value: string): TemplateResult[] =>
@@ -187,6 +196,22 @@ export class ComponentsView extends LitElement {
       }
       .spacer {
         flex: 1;
+      }
+      wa-input.tree-filter {
+        width: 200px;
+        min-width: 120px;
+        flex-shrink: 1;
+        font-family: var(--lit-devtools-font-mono);
+      }
+      wa-input.tree-filter wa-icon[slot='start'],
+      .match-count {
+        color: var(--lit-devtools-text-muted);
+      }
+      .match-count {
+        font-size: var(--lit-devtools-text-2xs);
+      }
+      .row.context .tag {
+        opacity: 0.55;
       }
       wa-split-panel {
         flex: 1;
@@ -607,6 +632,11 @@ export class ComponentsView extends LitElement {
    * several elements needs no retyping.
    */
   @state() private _query = '';
+  /**
+   * Narrows the tree to elements whose tag or class name contains it, with
+   * their ancestors for context. Never touches the remembered expansion.
+   */
+  @state() private _treeQuery = '';
   /** Details sections the user folded, by label. */
   @state() private _collapsed: ReadonlySet<string> = readCollapsed();
   /** Collapse state of the banner; the events themselves are never cleared. */
@@ -856,12 +886,30 @@ export class ComponentsView extends LitElement {
   // Render
   // ---------------------------------------------------------------------------
 
-  private _renderNode(node: InspectorTreeNode, depth: number): TemplateResult {
-    const hasChildren = node.children.length > 0;
-    const expanded = this._session.expanded.has(node.id);
+  /**
+   * One tree row and, when expanded, its children. With a filter, only kept
+   * nodes render, every kept node shows open, and the twisty does nothing,
+   * so the user's own expansion is back as it was once the filter clears.
+   */
+  private _renderNode(
+    node: InspectorTreeNode,
+    depth: number,
+    filter?: TreeFilterResult
+  ): TemplateResult | typeof nothing {
+    if (filter !== undefined && !filter.keep.has(node.id)) return nothing;
+    const children =
+      filter === undefined
+        ? node.children
+        : node.children.filter((c) => filter.keep.has(c.id));
+    const hasChildren = children.length > 0;
+    const expanded =
+      filter !== undefined || this._session.expanded.has(node.id);
+    const dimmed = filter !== undefined && !filter.matched.has(node.id);
     return html`
       <div
-        class="row ${node.id === this._session.selectedId ? 'selected' : ''}"
+        class="row ${node.id === this._session.selectedId ? 'selected' : ''} ${
+          dimmed ? 'context' : ''
+        }"
         style="padding-left:${8 + depth * 14}px"
         @click=${() => this._session.select(node.id)}
         @mouseenter=${() => this._highlight(node.id)}
@@ -870,7 +918,7 @@ export class ComponentsView extends LitElement {
           class="twisty"
           @click=${(e: Event) => {
             e.stopPropagation();
-            this._session.toggleExpand(node.id);
+            if (filter === undefined) this._session.toggleExpand(node.id);
           }}
           >${
             hasChildren
@@ -881,14 +929,16 @@ export class ComponentsView extends LitElement {
           }</span
         >
         <span class="tag"
-          ><span class="punct">&lt;</span>${node.tagName}<span class="punct"
-            >&gt;</span
-          ></span
+          ><span class="punct">&lt;</span>${
+            filter === undefined
+              ? node.tagName
+              : markMatch(node.tagName, this._treeQuery)
+          }<span class="punct">&gt;</span></span
         >
       </div>
       ${
         hasChildren && expanded
-          ? node.children.map((c) => this._renderNode(c, depth + 1))
+          ? children.map((c) => this._renderNode(c, depth + 1, filter))
           : nothing
       }
     `;
@@ -1174,12 +1224,19 @@ export class ComponentsView extends LitElement {
     return q === '' || texts.some((t) => t.toLowerCase().includes(q));
   }
 
-  /** `text` with the first filter match wrapped in `<mark>`. */
+  /** `text` with the first details filter match wrapped in `<mark>`. */
   private _mark(text: string): TemplateResult | string {
-    const q = this._query.trim().toLowerCase();
-    const at = q === '' ? -1 : text.toLowerCase().indexOf(q);
-    if (at < 0) return text;
-    return html`${text.slice(0, at)}<mark>${text.slice(at, at + q.length)}</mark>${text.slice(at + q.length)}`;
+    return markMatch(text, this._query);
+  }
+
+  private _onTreeFilterInput(e: Event): void {
+    this._treeQuery = (e.target as WaInput).value ?? '';
+  }
+
+  private _onTreeFilterKeydown(e: KeyboardEvent): void {
+    if (e.key !== 'Escape' || this._treeQuery === '') return;
+    e.stopPropagation();
+    this._treeQuery = '';
   }
 
   private _onFilterInput(e: Event): void {
@@ -1481,6 +1538,10 @@ export class ComponentsView extends LitElement {
   }
 
   override render() {
+    const treeFilter =
+      this._treeQuery.trim() === ''
+        ? undefined
+        : filterTree(this._session.roots, this._treeQuery);
     return html`
       <div class="toolbar">
         ${
@@ -1495,6 +1556,33 @@ export class ComponentsView extends LitElement {
               )
             : nothing
         }
+        <wa-input
+          class="tree-filter"
+          size="small"
+          type="text"
+          spellcheck="false"
+          autocomplete="off"
+          placeholder="Filter tags"
+          aria-label="Filter the tree by tag or class name"
+          with-clear
+          .value=${this._treeQuery}
+          @input=${this._onTreeFilterInput}
+          @wa-clear=${() => (this._treeQuery = '')}
+          @keydown=${this._onTreeFilterKeydown}
+        >
+          <wa-icon slot="start" name="magnifying-glass"></wa-icon>
+          ${
+            treeFilter === undefined
+              ? nothing
+              : html`<span
+                  slot="end"
+                  class="match-count"
+                  data-tip="Elements that match"
+                  >${treeFilter.matched.size}</span
+                >`
+          }
+          <wa-icon slot="clear-icon" name="x"></wa-icon>
+        </wa-input>
         <span class="spacer"></span>
         ${this._renderToggle(
           'live',
@@ -1546,7 +1634,13 @@ export class ComponentsView extends LitElement {
               ? html`<div class="empty">${this._error}</div>`
               : this._session.roots.length === 0
                 ? this._renderEmpty()
-                : this._session.roots.map((n) => this._renderNode(n, 0))
+                : treeFilter !== undefined && treeFilter.keep.size === 0
+                  ? html`<div class="empty no-match">
+                      No elements match “${this._treeQuery.trim()}”.
+                    </div>`
+                  : this._session.roots.map((n) =>
+                      this._renderNode(n, 0, treeFilter)
+                    )
           }
         </div>
         <div slot="end" class="details">${this._renderDetails()}</div>

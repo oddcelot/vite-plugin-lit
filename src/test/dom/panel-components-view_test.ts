@@ -124,6 +124,92 @@ test('selecting a nested element expands its ancestors', async () => {
   expect(rows()[1]!.classList.contains('selected')).toBe(true);
 });
 
+const bigTree: InspectorTreeNode[] = [
+  {
+    id: 1,
+    tagName: 'x-app',
+    children: [
+      {
+        id: 2,
+        tagName: 'x-header',
+        children: [{id: 3, tagName: 'x-button', children: []}],
+      },
+      {
+        id: 4,
+        tagName: 'x-list',
+        children: [
+          {id: 5, tagName: 'x-item', children: []},
+          {id: 6, tagName: 'x-item', children: []},
+        ],
+      },
+    ],
+  } as InspectorTreeNode,
+];
+
+const filterTree = async (el: ComponentsView, root: ShadowRoot, q: string) => {
+  const input = root.querySelector<HTMLInputElement>('wa-input.tree-filter')!;
+  input.value = q;
+  input.dispatchEvent(new Event('input'));
+  await flush(el);
+};
+
+const tags = (rows: HTMLElement[]) =>
+  rows.map(
+    (r) =>
+      `${r.querySelector('.tag')!.textContent}${r.classList.contains('context') ? ' (context)' : ''}`
+  );
+
+test('the tree filter shows matches with their ancestors, opened', async () => {
+  const {el, root, rows} = await mount(false, bigTree);
+  expect(tags(rows())).toEqual(['<x-app>']);
+  await filterTree(el, root, 'ITEM');
+  expect(tags(rows())).toEqual([
+    '<x-app> (context)',
+    '<x-list> (context)',
+    '<x-item>',
+    '<x-item>',
+  ]);
+  expect(root.querySelector('.match-count')!.textContent).toBe('2');
+  expect(
+    [...root.querySelectorAll('.tree mark')].map((m) => m.textContent)
+  ).toEqual(['item', 'item']);
+});
+
+test('clearing the tree filter brings back the expansion as it was', async () => {
+  const {el, root, rows} = await mount(false, bigTree);
+  await filterTree(el, root, 'button');
+  expect(tags(rows())).toEqual([
+    '<x-app> (context)',
+    '<x-header> (context)',
+    '<x-button>',
+  ]);
+  // The twisty is inert while filtering, so it cannot fold a path away.
+  rows()[0]!.querySelector<HTMLElement>('.twisty')!.click();
+  await flush(el);
+  expect(rows()).toHaveLength(3);
+  await filterTree(el, root, '');
+  expect(tags(rows())).toEqual(['<x-app>']);
+});
+
+test('a tree filter with no match says so, and Escape clears it', async () => {
+  const {el, root, rows} = await mount(false, bigTree);
+  await filterTree(el, root, 'nope');
+  expect(rows()).toHaveLength(0);
+  expect(
+    root
+      .querySelector('.tree .no-match')!
+      .textContent!.replace(/\s+/g, ' ')
+      .trim()
+  ).toBe('No elements match “nope”.');
+  root
+    .querySelector('wa-input.tree-filter')!
+    .dispatchEvent(
+      new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})
+    );
+  await flush(el);
+  expect(tags(rows())).toEqual(['<x-app>']);
+});
+
 // The session's rules are `components-session_test.ts`'s; these check the
 // element wires them to the page, the shell and storage.
 
