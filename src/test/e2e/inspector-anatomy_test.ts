@@ -138,6 +138,54 @@ test('draws labelled slot and part regions until cleared', async () => {
     });
   }
 
+  // Focus the title slot: it pulses, everything else fades.
+  const regions = `Array.from(
+    document.querySelectorAll('[data-lit-devtools-anatomy] > div'),
+    (box) => [box.textContent, box.style.opacity, box.getAnimations().length]
+  )`;
+  fixture.server.hot.send(INSPECT_CMD_CHANNEL, {
+    type: 'anatomy-focus',
+    focus: {kind: 'slot', index: 1},
+  });
+  await expect
+    .poll(() => fixture.page.evaluate(regions), {timeout: 10_000})
+    .toEqual([
+      ['<hmr-slots>', '0.25', 0],
+      ['slot "title"', '1', 1],
+      ['default slot', '0.25', 0],
+      ['slot "footer" · fallback', '0.25', 0],
+      ['::part(header)', '0.25', 0],
+      ['::part(body)', '0.25', 0],
+    ]);
+  if (process.env['ANATOMY_SHOT']) {
+    const box = (await fixture.page
+      .locator('hmr-slots')
+      .first()
+      .boundingBox())!;
+    await fixture.page.screenshot({
+      path: process.env['ANATOMY_SHOT'].replace('.png', '-focus.png'),
+      clip: {
+        x: box.x - 24,
+        y: box.y - 40,
+        width: box.width + 48,
+        height: box.height + 64,
+      },
+    });
+  }
+  fixture.server.hot.send(INSPECT_CMD_CHANNEL, {
+    type: 'anatomy-focus',
+    focus: null,
+  });
+  await expect
+    .poll(
+      async () =>
+        ((await fixture.page.evaluate(regions)) as unknown[][]).every(
+          ([, opacity, animations]) => opacity === '1' && animations === 0
+        ),
+      {timeout: 10_000}
+    )
+    .toBe(true);
+
   fixture.server.hot.send(INSPECT_CMD_CHANNEL, {type: 'anatomy', id: null});
   await expect
     .poll(

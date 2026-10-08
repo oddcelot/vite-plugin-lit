@@ -11,11 +11,14 @@
  *
  * The boxes are `position: fixed` and redrawn every frame while shown, so
  * they follow scrolling, resizing and slot changes without observers.
+ *
+ * Hovering a slot or part row in the pane focuses its region: it pulses and
+ * the others fade, so a row can be found on a busy page.
  */
 
 import {elementById} from '../timeline/identity.js';
 import {partsOf, renderedNodesOf, slotsOf} from './anatomy.js';
-import {ANATOMY_COLORS} from '../../../types/inspector.js';
+import {ANATOMY_COLORS, type AnatomyFocus} from '../../../types/inspector.js';
 
 interface Box {
   left: number;
@@ -27,6 +30,29 @@ interface Box {
 let layer: HTMLElement | null = null;
 let frame = 0;
 let target: WeakRef<Element> | null = null;
+/** The focused region's key (`slot:0`, `part:1`), or `null` for none. */
+let focusKey: string | null = null;
+/** The running pulse, kept across frames so it does not restart. */
+let pulse: {box: HTMLElement; key: string; animation: Animation} | null = null;
+
+/** How far the unfocused regions fade while one is focused. */
+const FADED_OPACITY = '0.25';
+
+const stopPulse = (): void => {
+  pulse?.animation.cancel();
+  pulse = null;
+};
+
+/** Pulse `box` as the region `key`, unless it already is. */
+const startPulse = (box: HTMLElement, key: string, color: string): void => {
+  if (pulse?.box === box && pulse.key === key) return;
+  stopPulse();
+  const animation = box.animate(
+    [{boxShadow: `0 0 0 0 ${color}b3`}, {boxShadow: `0 0 0 10px ${color}00`}],
+    {duration: 900, iterations: Infinity, easing: 'ease-out'}
+  );
+  pulse = {box, key, animation};
+};
 
 const ensureLayer = (): HTMLElement => {
   if (layer === null) {
@@ -93,11 +119,13 @@ const drawer = (root: HTMLElement) => {
   // Labels already placed this frame. A part often wraps a slot exactly, so
   // their labels would land on the same spot; later ones shift right.
   const placed: DOMRect[] = [];
+  let focused = false;
   const draw = (
     box: Box,
     color: string,
     label: string,
-    style: 'host' | 'slot' | 'part'
+    style: 'host' | 'slot' | 'part',
+    key: string
   ): void => {
     let el = root.children[i] as HTMLElement | undefined;
     if (el === undefined) {
@@ -118,7 +146,13 @@ const drawer = (root: HTMLElement) => {
       border: `${style === 'slot' ? 2 : 1}px ${style === 'slot' ? 'solid' : 'dashed'} ${color}`,
       background: style === 'slot' ? `${color}1f` : 'transparent',
       borderRadius: '2px',
+      opacity: focusKey === null || focusKey === key ? '1' : FADED_OPACITY,
+      transition: 'opacity 150ms ease-out',
     } satisfies Partial<CSSStyleDeclaration>);
+    if (key === focusKey) {
+      startPulse(el, key, color);
+      focused = true;
+    }
     const tag = el.firstElementChild as HTMLElement;
     tag.textContent = label;
     // Above the box, or inside it when the box touches the viewport's top.
@@ -158,6 +192,8 @@ const drawer = (root: HTMLElement) => {
     for (let j = i; j < root.children.length; j++) {
       (root.children[j] as HTMLElement).style.display = 'none';
     }
+    // The focused region rendered nothing this frame.
+    if (!focused) stopPulse();
   };
   return {draw, finish};
 };
@@ -170,18 +206,21 @@ const slotLabel = (slot: HTMLSlotElement): string => {
 const render = (el: Element): void => {
   const {draw, finish} = drawer(ensureLayer());
   const host = boundsOf([el]);
-  if (host !== null) draw(host, '#868e96', `<${el.localName}>`, 'host');
+  if (host !== null) {
+    draw(host, '#868e96', `<${el.localName}>`, 'host', 'host');
+  }
   const slots = slotsOf(el);
   slots.forEach((slot, i) => {
     const box = boundsOf(renderedNodesOf(slot));
     const color = ANATOMY_COLORS[i % ANATOMY_COLORS.length];
-    if (box !== null) draw(box, color, slotLabel(slot), 'slot');
+    if (box !== null) draw(box, color, slotLabel(slot), 'slot', `slot:${i}`);
   });
   partsOf(el).forEach((part, j) => {
     const box = boundsOf([part]);
     const color = ANATOMY_COLORS[(slots.length + j) % ANATOMY_COLORS.length];
     const names = (part.getAttribute('part') ?? '').trim().split(/\s+/);
-    if (box !== null) draw(box, color, `::part(${names.join(' ')})`, 'part');
+    const label = `::part(${names.join(' ')})`;
+    if (box !== null) draw(box, color, label, 'part', `part:${j}`);
   });
   finish();
 };
@@ -190,6 +229,8 @@ const render = (el: Element): void => {
 export const clearAnatomy = (): void => {
   cancelAnimationFrame(frame);
   target = null;
+  focusKey = null;
+  stopPulse();
   layer?.remove();
 };
 
@@ -214,4 +255,13 @@ export const anatomyById = (id: number | null): void => {
     frame = requestAnimationFrame(tick);
   };
   tick();
+};
+
+/**
+ * Pulse one slot or part region and fade the others, or show them all
+ * evenly again for `null`. Takes effect on the next frame; does nothing
+ * while no anatomy is drawn.
+ */
+export const focusAnatomy = (focus: AnatomyFocus | null): void => {
+  focusKey = focus === null ? null : `${focus.kind}:${focus.index}`;
 };

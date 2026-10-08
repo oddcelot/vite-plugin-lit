@@ -139,6 +139,15 @@ export interface InspectorAnatomy {
 }
 
 /**
+ * One region of the anatomy overlay: slot `index` or part `index`, in the
+ * order {@link InspectorAnatomy} lists them.
+ */
+export interface AnatomyFocus {
+  kind: 'slot' | 'part';
+  index: number;
+}
+
+/**
  * Colours the anatomy overlay gives slots and parts, in order. The details
  * pane uses the same list, so a slot row and its region on the page match.
  */
@@ -219,6 +228,11 @@ export type InspectorCommand =
   | {type: 'reveal'; id: number}
   /** Draw element `id`'s slots and parts on the page; `null` clears it. */
   | {type: 'anatomy'; id: number | null}
+  /**
+   * Pulse one region of the anatomy overlay and fade the rest; `null` shows
+   * them all evenly again.
+   */
+  | {type: 'anatomy-focus'; focus: AnatomyFocus | null}
   /**
    * Opt-in live tree: when enabled, the runtime watches the DOM and pushes a
    * fresh `tree` message whenever the component hierarchy changes. Off by

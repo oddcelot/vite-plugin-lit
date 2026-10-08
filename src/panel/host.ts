@@ -94,6 +94,10 @@ export const sendToPage = (command: InspectorCommand): void => {
     inPageChannel().emit('anatomy', command.id);
     return;
   }
+  if (command.type === 'anatomy-focus' && inPageConnected()) {
+    inPageChannel().emit('anatomyFocus', command.focus);
+    return;
+  }
   const send = (client: LitClient) =>
     client.rpc.call('inspect', command).catch((err: unknown) => {
       console.warn('[lit-devtools] inspector call failed', err);
