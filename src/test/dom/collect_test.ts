@@ -1,3 +1,4 @@
+import {LitElement, type PropertyDeclarations} from 'lit';
 import {afterEach, describe, expect, test} from 'vite-plus/test';
 import {
   buildTree,
@@ -262,6 +263,39 @@ describe('collectDetails', () => {
     });
     expect(props[1]).toMatchObject({attribute: 'my-label', reflects: true});
     expect(props[2]).toMatchObject({attribute: false, state: true});
+  });
+
+  test('lists declaration options beyond Lit defaults, by presence', () => {
+    const tag = uniqueTag('x-opts');
+    class Opts extends LitElement {
+      static override properties: PropertyDeclarations = {
+        plain: {},
+        changed: {hasChanged: () => true},
+        converted: {converter: {fromAttribute: (v: string) => v}},
+        manual: {noAccessor: true},
+        seeded: {useDefault: true},
+        quiet: {attribute: false},
+        all: {
+          hasChanged: () => false,
+          converter: {toAttribute: (v: unknown) => String(v)},
+          noAccessor: true,
+          useDefault: true,
+        },
+      };
+    }
+    customElements.define(tag, Opts);
+    const props = collectDetails(document.createElement(tag)).properties;
+    const options = Object.fromEntries(props.map((p) => [p.name, p.options]));
+    expect(options).toEqual({
+      plain: undefined,
+      changed: ['hasChanged'],
+      converted: ['converter'],
+      manual: ['noAccessor'],
+      seeded: ['useDefault'],
+      quiet: undefined,
+      all: ['hasChanged', 'converter', 'noAccessor', 'useDefault'],
+    });
+    expect(props.find((p) => p.name === 'quiet')?.attribute).toBe(false);
   });
 
   test('a throwing getter is reported without failing the snapshot', () => {

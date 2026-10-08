@@ -15,6 +15,8 @@ import {
   type AnatomyFocus,
   type InspectorAnatomy,
   type InspectorDetails,
+  type InspectorProp,
+  type InspectorPropOption,
   type InspectorExtra,
   type InspectorMessage,
   type InspectorTreeNode,
@@ -195,6 +197,31 @@ const SELF_EVIDENT_TYPES = new Set([
  * say what they are: `Array(3)` for `[1, 2, 3]`, but nothing for `"a"` or
  * `MyClass {…}`.
  */
+const PROP_OPTION_TIPS: Record<InspectorPropOption, string> = {
+  hasChanged: 'A custom hasChanged decides whether a set triggers an update',
+  converter: 'A custom converter maps between the attribute and the property',
+  noAccessor: 'noAccessor: Lit generates no accessor for this property',
+  useDefault: 'useDefault: the initial value is not reflected to the attribute',
+};
+
+/** Badges for the options a property sets beyond Lit's defaults. */
+const propOptionBadges = (p: InspectorProp): TemplateResult[] => {
+  const badge = (label: string, tip: string) =>
+    html`<wa-badge
+      class="badge"
+      variant="neutral"
+      appearance="outlined"
+      data-tip=${tip}
+      >${label}</wa-badge
+    >`;
+  return [
+    ...(p.attribute === false && !p.state
+      ? [badge('no attr', 'attribute: false, so no attribute is observed')]
+      : []),
+    ...(p.options ?? []).map((o) => badge(o, PROP_OPTION_TIPS[o])),
+  ];
+};
+
 const typeLabel = (
   type: string,
   value: string
@@ -1361,17 +1388,19 @@ export class ComponentsView extends LitElement {
             html`${this._mark(p.name)}${typeLabel(p.type, p.value)}`,
             p.value,
             {
-              trailing: p.reflects
-                ? html`<wa-badge
-                    class="badge"
-                    variant="neutral"
-                    appearance="outlined"
-                    data-tip="Reflects to an attribute"
-                    >${
-                      typeof p.attribute === 'string' ? p.attribute : 'attr'
-                    }</wa-badge
-                  >`
-                : nothing,
+              trailing: html`${
+                p.reflects
+                  ? html`<wa-badge
+                      class="badge"
+                      variant="neutral"
+                      appearance="outlined"
+                      data-tip="Reflects to an attribute"
+                      >${
+                        typeof p.attribute === 'string' ? p.attribute : 'attr'
+                      }</wa-badge
+                    >`
+                  : nothing
+              }${propOptionBadges(p)}`,
               code: true,
               key: propKey(p.name),
               copy: p.value,

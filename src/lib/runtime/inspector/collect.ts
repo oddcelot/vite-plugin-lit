@@ -14,6 +14,7 @@ import type {
   ElementSource,
   InspectorDetails,
   InspectorProp,
+  InspectorPropOption,
   InspectorTreeNode,
   ValueChild,
   ValuePath,
@@ -31,6 +32,10 @@ interface PropertyDeclaration {
   attribute?: boolean | string;
   reflect?: boolean;
   state?: boolean;
+  hasChanged?: unknown;
+  converter?: unknown;
+  noAccessor?: boolean;
+  useDefault?: boolean;
 }
 
 /** Subset of a ReactiveElement instance/constructor we duck-type against. */
@@ -40,6 +45,7 @@ interface ReactiveElementLike extends Element {
   isUpdatePending?: boolean;
   constructor: {
     elementProperties?: Map<PropertyKey, PropertyDeclaration>;
+    getPropertyOptions?: (name: PropertyKey) => PropertyDeclaration;
     [SOURCE_META_KEY]?: LitSourceMeta;
   };
 }
@@ -174,6 +180,29 @@ const attributeName = (
   return String(key).toLowerCase();
 };
 
+/**
+ * The declaration options that differ from Lit's defaults, by name. Only the
+ * presence of a function is detected, never what it does: `hasChanged` and
+ * `converter` count when they are not the ones Lit fills in for a bare
+ * `@property()`, which `getPropertyOptions` returns for an undeclared name.
+ */
+const optionsOf = (
+  ctor: ReactiveElementLike['constructor'],
+  decl: PropertyDeclaration
+): InspectorPropOption[] => {
+  const base = ctor.getPropertyOptions?.(Symbol('lit-devtools-default'));
+  const out: InspectorPropOption[] = [];
+  if (decl.hasChanged != null && decl.hasChanged !== base?.hasChanged) {
+    out.push('hasChanged');
+  }
+  if (decl.converter != null && decl.converter !== base?.converter) {
+    out.push('converter');
+  }
+  if (decl.noAccessor === true) out.push('noAccessor');
+  if (decl.useDefault === true) out.push('useDefault');
+  return out;
+};
+
 /** Snapshot one element's reactive properties, attributes, and flags. */
 export const collectDetails = (el: Element): InspectorDetails => {
   const re = el as ReactiveElementLike;
@@ -190,6 +219,7 @@ export const collectDetails = (el: Element): InspectorDetails => {
       } catch {
         threw = true;
       }
+      const options = optionsOf(re.constructor, decl);
       properties.push({
         name: typeof key === 'symbol' ? key.toString() : String(key),
         value: threw ? '[getter threw]' : serialize(value),
@@ -197,6 +227,7 @@ export const collectDetails = (el: Element): InspectorDetails => {
         attribute: attributeName(key, decl),
         reflects: decl.reflect === true,
         state: decl.state === true,
+        ...(options.length > 0 ? {options} : {}),
         ...(!threw && isExpandable(value) ? {expandable: true} : {}),
       });
     }

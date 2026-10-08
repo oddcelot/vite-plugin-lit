@@ -48,6 +48,13 @@ export interface InspectorTreeNode {
   hiddenChildren?: number;
 }
 
+/** A reactive-property option that departs from Lit's default. */
+export type InspectorPropOption =
+  | 'hasChanged'
+  | 'converter'
+  | 'noAccessor'
+  | 'useDefault';
+
 /** One reactive property (or internal `@state`) of an inspected element. */
 export interface InspectorProp {
   name: string;
@@ -61,6 +68,12 @@ export interface InspectorProp {
   reflects: boolean;
   /** Whether it's an internal `@state()` (no public attribute). */
   state: boolean;
+  /**
+   * Declaration options set beyond Lit's defaults: a custom `hasChanged` or
+   * `converter`, `noAccessor`, `useDefault`. Absent when none is set, and
+   * from an older runtime. Presence only; the functions are never called.
+   */
+  options?: InspectorPropOption[];
   /**
    * Whether the value has children to list with an `expand` command. Absent
    * from an older runtime, which cannot answer one.
