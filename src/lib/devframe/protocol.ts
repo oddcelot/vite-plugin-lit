@@ -372,9 +372,17 @@ export interface UpdateSummaryArgs {
 export interface UpdateSummaryResult {
   /** Whether the timeline is currently recording. */
   recording: boolean;
-  /** Per-component totals over the window, slowest first. */
+  /**
+   * Per-component totals over the window, slowest first. Ticks `shouldUpdate`
+   * vetoed count under `skipped`, never under `updates` or the times.
+   */
   components: ComponentRollup[];
-  /** The most recent update cycles in the window, oldest first. */
+  /**
+   * The most recent update cycles in the window, oldest first. A vetoed tick
+   * is a cycle with `skipped: true`. A veto whose `performUpdate` already left
+   * the ring buffer has no cycle to mark, so it shows on the Timeline but is
+   * not counted here.
+   */
   cycles: UpdateCycle[];
   /** Total events currently held in the ring buffer, before derivation. */
   bufferSize: number;
