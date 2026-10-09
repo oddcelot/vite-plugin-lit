@@ -14,7 +14,12 @@ import {elementById} from '../timeline/identity.js';
 import {pageChannel} from '../page-channel.js';
 import {PAGE_ID} from '../page-id.js';
 import type {ViteHotLike} from '../page-channel.js';
-import {buildTree, collectDetails, expandPath} from './collect.js';
+import {
+  buildTree,
+  collectDetails,
+  expandPath,
+  inspectableIdOf,
+} from './collect.js';
 import {anatomyById, clearAnatomy, focusAnatomy} from './anatomy-overlay.js';
 import {shadowOf} from './anatomy.js';
 import {onLitWarning} from '../timeline/lit-warnings.js';
@@ -31,6 +36,7 @@ import {
 import {
   INSPECT_CMD_CHANNEL,
   ELEMENT_BY_ID_KEY,
+  LIT_ID_OF_KEY,
   INSPECT_DATA_CHANNEL,
   type GeneratedFrame,
   type InspectorCommand,
@@ -70,6 +76,10 @@ if (typeof window !== 'undefined') {
   // id, so it turns it back into the node through this to call `inspect()`.
   (globalThis as unknown as Record<symbol, unknown>)[ELEMENT_BY_ID_KEY] =
     elementById;
+  // And back: the node DevTools has selected (`$0`) to the component the
+  // panel should select, for the extension's Elements-to-Lit sync.
+  (globalThis as unknown as Record<symbol, unknown>)[LIT_ID_OF_KEY] =
+    inspectableIdOf;
   const channel = createPageScriptChannel<LitInPageProtocol>({
     name: LIT_IN_PAGE_CHANNEL,
     functions: {},

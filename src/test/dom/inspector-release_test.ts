@@ -1,6 +1,7 @@
 import {afterEach, expect, test, vi} from 'vite-plus/test';
 import {
   ELEMENT_BY_ID_KEY,
+  LIT_ID_OF_KEY,
   INSPECT_CMD_CHANNEL,
   INSPECT_DATA_CHANNEL,
 } from '../../types/inspector.js';
@@ -128,6 +129,25 @@ test('exposes the id lookup the extension evaluates in the page', async () => {
   ] as (id: number) => Element | undefined;
   expect(lookup(idOf(el))).toBe(el);
   expect(lookup(-1)).toBeUndefined();
+});
+
+test('exposes the nearest Lit element id for a DevTools selection', async () => {
+  const {idOf} = await load();
+  const el = make();
+  const inner = document.createElement('span');
+  el.attachShadow({mode: 'open'}).append(inner);
+  const plain = document.createElement('p');
+  document.body.append(el, plain);
+  const litIdOf = (globalThis as unknown as Record<symbol, unknown>)[
+    LIT_ID_OF_KEY
+  ] as (node: unknown) => number | undefined;
+  expect(litIdOf(el)).toBe(idOf(el));
+  // Inside its shadow root, and a text node in there, still name the host.
+  expect(litIdOf(inner)).toBe(idOf(el));
+  inner.textContent = 'x';
+  expect(litIdOf(inner.firstChild)).toBe(idOf(el));
+  expect(litIdOf(plain)).toBeUndefined();
+  expect(litIdOf(null)).toBeUndefined();
 });
 
 test('removes the watch wrapper', async () => {
