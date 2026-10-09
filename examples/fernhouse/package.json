@@ -1,0 +1,27 @@
+{
+  "name": "vite-plugin-lit-fernhouse-example",
+  "description": "Fernhouse, a small plant shop built from Lit components, for @oddsquad/vite-plugin-lit: a cart shared through @lit/context, slots and parts, an @lit/task for reviews. Made to be looked into with the DevTools panel and the Lit Inspector extension. Opens on StackBlitz straight from the repo URL.",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "stackblitz": "node stackblitz.mjs"
+  },
+  "dependencies": {
+    "@lit/context": "^1.1.6",
+    "@lit/task": "^1.0.3",
+    "lit": "^3.3.3"
+  },
+  "devDependencies": {
+    "@oddsquad/vite-plugin-lit": "*",
+    "@vitejs/devtools": "^0.7.6",
+    "vite": "^8.3.2"
+  },
+  "stackblitz": {
+    "installDependencies": true,
+    "startCommand": "npm run stackblitz"
+  }
+}
