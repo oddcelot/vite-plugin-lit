@@ -140,7 +140,7 @@ export class TimelineTracks extends LitElement {
         top: 0;
         bottom: 0;
         left: var(--gutter);
-        right: 0;
+        right: var(--scrollbar, 0px);
         overflow: hidden;
         pointer-events: none;
         z-index: 2;
@@ -272,8 +272,12 @@ export class TimelineTracks extends LitElement {
    *  restored by a double-click refit. */
   @state() private _follow = true;
   @state() private _width = 0;
+  /** Width of the lanes' vertical scrollbar, which narrows the plot the
+   *  marks are clipped to but not the ruler the scale is measured on. */
+  @state() private _scrollbar = 0;
 
   private readonly _ticksRef = createRef<HTMLDivElement>();
+  private readonly _lanesRef = createRef<HTMLDivElement>();
   private _resize: ResizeObserver | null = null;
   private _observed: Element | null = null;
   private _tracks: Track[] = [];
@@ -336,6 +340,9 @@ export class TimelineTracks extends LitElement {
   }
 
   override updated() {
+    const lanes = this._lanesRef.value;
+    const scrollbar = lanes ? lanes.offsetWidth - lanes.clientWidth : 0;
+    if (scrollbar !== this._scrollbar) this._scrollbar = scrollbar;
     // The plot's width drives the scale. Its ticks row is re-created when the
     // view goes empty and back, so re-point the observer when it changes.
     const el = this._ticksRef.value ?? null;
@@ -578,6 +585,7 @@ export class TimelineTracks extends LitElement {
           </div>
         </div>
         <div
+          ${ref(this._lanesRef)}
           class="lanes ${this._drag?.moved ? 'dragging' : ''}"
           data-tip="Wheel to zoom, drag to pan, Shift+drag to select a range, double-click to fit"
           @wheel=${this._onWheel}
@@ -604,7 +612,12 @@ export class TimelineTracks extends LitElement {
     const left = Math.max(x0, 0);
     const width = Math.min(x1, this._width) - left;
     if (width < 0) return nothing;
-    return html`<div class="overlay" role="group" aria-label="Selected range">
+    return html`<div
+      class="overlay"
+      role="group"
+      aria-label="Selected range"
+      style="--scrollbar:${this._scrollbar}px"
+    >
       <div class="range" style="left:${left}px;width:${width}px"></div>
       ${x0 >= 0 ? html`<div class="range-edge" style="left:${x0}px"></div>` : nothing}
       ${

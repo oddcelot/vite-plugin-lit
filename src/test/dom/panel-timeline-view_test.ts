@@ -359,3 +359,20 @@ test('Esc that something else handled keeps the range', async () => {
   await flush(el);
   expect(tracks().range).not.toBeNull();
 });
+
+test("the range overlay stops short of the lanes' scrollbar", async () => {
+  const {el, tracks} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 0, end: 20});
+  const root = tracks().shadowRoot!;
+  const lanes = root.querySelector<HTMLElement>('.lanes')!;
+  // No layout here: give the lanes a 15px vertical scrollbar and the ruler a width.
+  Object.defineProperty(lanes, 'offsetWidth', {value: 400});
+  Object.defineProperty(lanes, 'clientWidth', {value: 385});
+  (tracks() as unknown as {_width: number})._width = 385;
+  tracks().requestUpdate();
+  await flush(el);
+  const overlay = root.querySelector<HTMLElement>('.overlay')!;
+  expect(overlay.style.getPropertyValue('--scrollbar')).toBe('15px');
+});
