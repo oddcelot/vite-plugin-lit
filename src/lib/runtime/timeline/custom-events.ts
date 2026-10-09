@@ -8,6 +8,9 @@
  * wrapper records type, flags and a bounded detail preview, attributed to the
  * dispatching element, and is a flag check while the layer is off.
  *
+ * A recorded dispatch is marked as an event cause for as long as it runs, so
+ * an update a listener requests points back at this row (`cause-context.ts`).
+ *
  * Runs inside the inspected page: nothing here may throw into the app, and
  * the original `dispatchEvent` always runs with the arguments it was given.
  */
@@ -15,6 +18,7 @@
 import {serialize} from '../inspector/serialize.js';
 import {metaOf} from './identity.js';
 import {now} from './clock.js';
+import {markEventCause} from './cause-context.js';
 import type {TimelineEvent} from '../../../types/timeline.js';
 
 type AnyFn = (this: object, ...args: unknown[]) => unknown;
@@ -45,13 +49,13 @@ export const installCustomEventsLayer = (s: Sink): void => {
   sink = s;
 };
 
-const record = (el: object, event: Event, s: Sink): void => {
+const record = (el: object, event: Event, s: Sink, time: number): void => {
   const meta = metaOf(el);
   const isCustom = event instanceof CustomEvent;
   const groupId = s.groupOf(el);
   s.emit({
     layerId: 'custom-events',
-    time: now(),
+    time,
     ...(groupId === undefined ? {} : {groupId}),
     title: event.type,
     subtitle: meta.tagName,
@@ -85,11 +89,15 @@ export const wrapDispatchEvent = (proto: Proto): void => {
     ) {
       return orig.apply(this, args);
     }
+    const time = now();
     try {
-      record(this, event, s);
+      record(this, event, s, time);
     } catch {
       // dev tool — recording must not change what the app dispatches
     }
+    // Marked before the dispatch, so an update a listener requests points
+    // back at this row.
+    markEventCause(event, {layerId: 'custom-events', time, title: event.type});
     dispatching.add(event);
     try {
       return orig.apply(this, args);

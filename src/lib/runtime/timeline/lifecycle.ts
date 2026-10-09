@@ -15,6 +15,14 @@
  * own override returning `false` emits one `update skipped` point event, inside
  * the `performUpdate` bracket it vetoed.
  *
+ * `requestUpdate` is wrapped too, to remember why the next tick was scheduled
+ * (see `cause-context.ts`); that cause rides on the tick's `performUpdate:start`.
+ *
+ * A host's `@lit/task` runs are recorded as `task` spans (`task:start` when
+ * `run` is called, `task:end` when it settles), and the update a run asks for
+ * once it settles carries that run as its cause: it is requested from a
+ * promise continuation, where nothing else is running to blame.
+ *
  * Gated by the recording flag so overhead is near-zero when idle.
  */
 
@@ -22,8 +30,13 @@ import {idOf, metaOf, changedKeys} from './identity.js';
 import {now} from './clock.js';
 import {captureChangedValues} from './changed-values.js';
 import {wrapDispatchEvent} from './custom-events.js';
-import {erroredTasks} from '../inspector/extras.js';
-import type {TimelineEvent} from '../../../types/timeline.js';
+import {
+  currentCause,
+  nextCauseSeq,
+  setUpdateCauseSource,
+} from './cause-context.js';
+import {erroredTasks, tasksOf} from '../inspector/extras.js';
+import type {TimelineCause, TimelineEvent} from '../../../types/timeline.js';
 
 export type LifecycleEmit = (event: TimelineEvent) => void;
 type EmitFn = LifecycleEmit;
@@ -87,16 +100,40 @@ const inFlight = new WeakMap<object, Set<string>>();
 
 /** The element inside `performUpdate` right now, if any. */
 let updating: object | null = null;
+/** When that update began, as a cause sequence (see `cause-context.ts`). */
+let updatingSeq = 0;
 
 const whileUpdating = <T>(el: object, fn: () => T): T => {
   const outer = updating;
+  const outerSeq = updatingSeq;
   updating = el;
+  updatingSeq = nextCauseSeq();
   try {
     return fn();
   } finally {
     updating = outer;
+    updatingSeq = outerSeq;
   }
 };
+
+// The tick running right now is the cause of any update it schedules.
+setUpdateCauseSource(() =>
+  updating === null
+    ? undefined
+    : {
+        cause: {
+          kind: 'update',
+          groupId: `${idOf(updating)}:${tickOf(updating)}`,
+        },
+        seq: updatingSeq,
+      }
+);
+
+/**
+ * Why each element's pending update was scheduled, set by the `requestUpdate`
+ * that enqueued it and taken by the `performUpdate` that runs it.
+ */
+const pendingCause = new WeakMap<object, TimelineCause>();
 
 /** Who is updating at this moment, for attributing a Lit warning to it. */
 export const currentlyUpdating = (): {
@@ -330,6 +367,195 @@ const isWrapped = (proto: Proto, name: string): boolean => {
   );
 };
 
+/** `@lit/task`'s `TaskStatus.PENDING`. */
+const TASK_PENDING = 1;
+const TASK_STATUS_NAMES = ['initial', 'pending', 'complete', 'error'];
+
+/** Hosts whose tasks have been instrumented. */
+const tasksInstrumented = new WeakSet<object>();
+/** The host and name of each instrumented task. */
+const taskInfo = new WeakMap<object, {host: object; name: string}>();
+/** Each task's most recent recorded run (a `task` span's groupId). */
+const latestRun = new WeakMap<object, string>();
+/**
+ * Recorded runs whose completion (or pending re-render) has not yet asked
+ * for an update, per task: that request is the one they cause.
+ */
+const awaiting = new WeakMap<object, string>();
+/** Tasks with an `awaiting` run, per host, so a request checks only those. */
+const awaitingByHost = new WeakMap<object, Set<object>>();
+/**
+ * Runs whose one pending re-render has been attributed. A pending run causes
+ * at most that one request; anything else the host asks for meanwhile (a
+ * timer, a signal) is not the task's doing.
+ */
+const pendingRequested = new Set<string>();
+let taskSeq = 0;
+
+const taskStatusOf = (task: object): number | undefined => {
+  try {
+    const status = (task as {status?: unknown}).status;
+    return typeof status === 'number' ? status : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/**
+ * The run of one of `host`'s tasks that is waiting to cause its next update,
+ * as a cause. A run that has settled is consumed (its completion asks for one
+ * update); one still pending is kept, since `autoRun: 'afterUpdate'` asks for
+ * its pending re-render from a microtask and the completion comes later, but
+ * it claims only that first pending request.
+ * `attribute` false only forgets settled runs: their request was absorbed by an
+ * update already pending, and must not blame a later one.
+ */
+const takeTaskCause = (
+  host: object,
+  attribute: boolean
+): TimelineCause | undefined => {
+  const tasks = awaitingByHost.get(host);
+  if (tasks === undefined || tasks.size === 0) return undefined;
+  let cause: TimelineCause | undefined;
+  for (const task of tasks) {
+    const groupId = awaiting.get(task);
+    if (groupId === undefined) {
+      tasks.delete(task);
+      continue;
+    }
+    const settled =
+      taskStatusOf(task) !== TASK_PENDING && latestRun.get(task) === groupId;
+    if (settled) {
+      awaiting.delete(task);
+      tasks.delete(task);
+      pendingRequested.delete(groupId);
+    } else if (pendingRequested.has(groupId)) {
+      continue;
+    }
+    if (attribute && cause === undefined) {
+      cause = {kind: 'task', groupId};
+      if (!settled) pendingRequested.add(groupId);
+    }
+  }
+  return cause;
+};
+
+/**
+ * Wrap `run` on the prototype owning it, once, so each run of an instrumented
+ * task records a `task` span. Passes straight through while not recording or
+ * for a task no recorded host has shown us.
+ */
+const wrapTaskRun = (
+  task: object,
+  emit: EmitFn,
+  recording: RecordingFn,
+  enabled: LayerEnabledFn
+): void => {
+  const owner = ownerOf(task as Proto, 'run');
+  if (owner === null || isWrapped(owner, 'run')) return;
+  const orig = owner.run;
+  if (typeof orig !== 'function') return;
+  const wrapper: AnyFn & {[BRAND]?: true} = function (
+    this: object,
+    ...args: unknown[]
+  ) {
+    const info = recording() && enabled() ? taskInfo.get(this) : undefined;
+    if (info === undefined) return orig.apply(this, args);
+    let groupId: string | undefined;
+    let meta: PendingAttribution['meta'] | undefined;
+    try {
+      let cause: TimelineCause | undefined;
+      try {
+        cause = currentCause();
+      } catch {
+        // dev tool — attribution is best-effort
+      }
+      meta = metaOf(info.host);
+      groupId = `task:${idOf(info.host)}:${++taskSeq}`;
+      emit({
+        layerId: 'lit-lifecycle',
+        time: now(),
+        groupId,
+        title: 'task:start',
+        subtitle: meta.tagName,
+        data: {phase: 'task', task: info.name},
+        ...(cause === undefined ? {} : {cause}),
+        meta,
+      });
+      latestRun.set(this, groupId);
+      awaiting.set(this, groupId);
+      let tasks = awaitingByHost.get(info.host);
+      if (tasks === undefined) {
+        tasks = new Set();
+        awaitingByHost.set(info.host, tasks);
+      }
+      tasks.add(this);
+    } catch {
+      // dev tool — never keep the app's task from running
+    }
+    const result = orig.apply(this, args);
+    if (groupId === undefined || meta === undefined) return result;
+    const runId = groupId;
+    const runMeta = meta;
+    const end = (): void => {
+      try {
+        const status = taskStatusOf(this);
+        emit({
+          layerId: 'lit-lifecycle',
+          time: now(),
+          groupId: runId,
+          title: 'task:end',
+          subtitle: runMeta.tagName,
+          data: {
+            phase: 'task',
+            task: info.name,
+            ...(status === undefined
+              ? {}
+              : {status: TASK_STATUS_NAMES[status] ?? String(status)}),
+            ...(latestRun.get(this) === runId ? {} : {superseded: true}),
+          },
+          meta: runMeta,
+        });
+      } catch {
+        // dev tool — reporting must not reach the app
+      }
+    };
+    // `run` catches the task function's own failure and never rejects, so
+    // this marks nothing handled that the app would have seen.
+    if (result instanceof Promise) result.then(end, end);
+    return result;
+  };
+  wrapper[BRAND] = true;
+  try {
+    Object.defineProperty(owner, 'run', {
+      value: wrapper,
+      writable: true,
+      configurable: true,
+    });
+  } catch {
+    // Non-configurable slot; that task's runs go unrecorded.
+  }
+};
+
+/**
+ * Instrument `host`'s tasks, once per host, on its first recorded update. The
+ * first automatic run happens in `hostUpdate` during that same update, after
+ * this, so it is recorded.
+ */
+const instrumentTasks = (
+  host: object,
+  emit: EmitFn,
+  recording: RecordingFn,
+  enabled: LayerEnabledFn
+): void => {
+  if (tasksInstrumented.has(host)) return;
+  tasksInstrumented.add(host);
+  for (const {task, name} of tasksOf(host as Element)) {
+    taskInfo.set(task, {host, name});
+    wrapTaskRun(task, emit, recording, enabled);
+  }
+};
+
 /**
  * Wrap `proto[name]` with a start/end pair emitting to `emit`.
  * `isPoint` methods only emit a single event (no end bracket).
@@ -377,6 +603,8 @@ const wrap = (
     const groupId = `${elementId}:${tick}`;
     const time = now();
     const changed = changedKeys(args[0]);
+    const cause = isUpdate ? pendingCause.get(this) : undefined;
+    if (cause !== undefined) pendingCause.delete(this);
     // Only `update`, and only with the layer on: `willUpdate` may be an
     // override that never reaches our wrapper, and the previews cost a
     // serialize per key.
@@ -396,6 +624,7 @@ const wrap = (
           changedDetail === undefined
             ? {phase: name, changed}
             : {phase: name, changed, changedDetail},
+        ...(cause === undefined ? {} : {cause}),
         meta,
       });
     }
@@ -404,6 +633,7 @@ const wrap = (
       try {
         captureOwnPhases(this, proto, recording);
         observeVetoes(this, proto, emit, recording, enabled);
+        instrumentTasks(this, emit, recording, enabled);
       } catch {
         // dev tool — attribution is best-effort
       }
@@ -476,6 +706,69 @@ const wrap = (
     });
   } catch {
     // Non-configurable slot; instrumentation degrades gracefully.
+  }
+};
+
+/**
+ * Wrap `proto.requestUpdate` to record what scheduled each update tick. Only
+ * the request that enqueues the update counts (the first of a tick): Lit sets
+ * `isUpdatePending` when it does, and a request that changes nothing leaves it
+ * unset. A flag check while idle; the original always runs with its arguments.
+ */
+const wrapRequestUpdate = (
+  proto: Proto,
+  recording: RecordingFn,
+  enabled: LayerEnabledFn
+): void => {
+  if (isWrapped(proto, 'requestUpdate')) return;
+  const orig = proto.requestUpdate;
+  if (typeof orig !== 'function') return;
+  const wrapper: AnyFn & {[BRAND]?: true} = function (
+    this: object,
+    ...args: unknown[]
+  ) {
+    if (!recording() || !enabled()) return orig.apply(this, args);
+    const pending = (this as {isUpdatePending?: boolean}).isUpdatePending;
+    if (pending === true) {
+      try {
+        // A settled run asking now is absorbed by the pending update.
+        takeTaskCause(this, false);
+      } catch {
+        // dev tool — never throw into the app's request
+      }
+      return orig.apply(this, args);
+    }
+    let cause: TimelineCause | undefined;
+    try {
+      cause = currentCause() ?? takeTaskCause(this, true);
+    } catch {
+      // dev tool — attribution is best-effort
+    }
+    const result = orig.apply(this, args);
+    try {
+      if (
+        cause !== undefined &&
+        (this as {isUpdatePending?: boolean}).isUpdatePending === true
+      ) {
+        pendingCause.set(this, cause);
+      } else {
+        // Nothing enqueued (or no cause): whatever was stored is stale.
+        pendingCause.delete(this);
+      }
+    } catch {
+      // dev tool — never throw into the app's request
+    }
+    return result;
+  };
+  wrapper[BRAND] = true;
+  try {
+    Object.defineProperty(proto, 'requestUpdate', {
+      value: wrapper,
+      writable: true,
+      configurable: true,
+    });
+  } catch {
+    // Non-configurable slot; update ticks go without a cause.
   }
 };
 
@@ -631,5 +924,7 @@ const patchBases = (
   for (const name of POINT_PHASES) {
     wrap(reProto, name, true, emit, recording, enabled, changedValues);
   }
+  const ruOwner = ownerOf(sample, 'requestUpdate');
+  if (ruOwner !== null) wrapRequestUpdate(ruOwner, recording, enabled);
   wrapDispatchEvent(reProto);
 };

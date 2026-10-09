@@ -5,7 +5,11 @@ import {
   toSpans,
   toUpdateCycles,
 } from '../../lib/timeline/derive.js';
-import type {ChangedValue, TimelineEvent} from '../../types/timeline.js';
+import type {
+  ChangedValue,
+  TimelineCause,
+  TimelineEvent,
+} from '../../types/timeline.js';
 
 /**
  * Builds one lifecycle phase-boundary event exactly as
@@ -84,7 +88,57 @@ const tick = (
   ];
 };
 
+/** `tick`, with the recorded cause stamped on `performUpdate:start`. */
+const causedTick = (
+  start: number,
+  cause: TimelineCause,
+  options: Parameters<typeof tick>[1] = {}
+): TimelineEvent[] => {
+  const events = tick(start, options);
+  events[0] = {...events[0]!, cause};
+  return events;
+};
+
+/** A `@lit/task` run as the runtime records it: its own `task:…` groupId. */
+const taskRun = (
+  groupId: string,
+  start: number,
+  end: number,
+  options: {cause?: TimelineCause; task?: string} = {}
+): TimelineEvent[] => {
+  const meta = {elementId: 1, tagName: 'hmr-task'};
+  const task = options.task ?? 'userTask';
+  return [
+    {
+      layerId: 'lit-lifecycle',
+      time: start,
+      groupId,
+      title: 'task:start',
+      subtitle: 'hmr-task',
+      data: {phase: 'task', task},
+      ...(options.cause === undefined ? {} : {cause: options.cause}),
+      meta,
+    },
+    {
+      layerId: 'lit-lifecycle',
+      time: end,
+      groupId,
+      title: 'task:end',
+      subtitle: 'hmr-task',
+      data: {phase: 'task', task, status: 'complete'},
+      meta,
+    },
+  ];
+};
+
 describe('toSpans', () => {
+  test('copies a recorded cause onto the span', () => {
+    const cause: TimelineCause = {kind: 'event', layerId: 'mouse', time: 3};
+    const spans = toSpans(causedTick(5, cause));
+    expect(spans.find((s) => s.name === 'performUpdate')!.cause).toEqual(cause);
+    expect(spans.find((s) => s.name === 'update')!.cause).toBeUndefined();
+  });
+
   test('collapses a complete tick into spans with durations', () => {
     const spans = toSpans(tick(100, {changed: ['count']}));
     expect(spans.map((s) => s.name)).toEqual([
@@ -311,6 +365,22 @@ describe('toUpdateCycles', () => {
   });
 });
 
+describe('task runs', () => {
+  test('a task span is not an update cycle', () => {
+    const spans = toSpans([
+      ...tick(0, {tick: 1}),
+      ...taskRun('task:1:1', 2, 50, {cause: {kind: 'update', groupId: '1:1'}}),
+      ...tick(60, {tick: 2}),
+    ]);
+    const run = spans.find((s) => s.name === 'task')!;
+    expect(run).toMatchObject({start: 2, end: 50, duration: 48});
+    expect(run.cause).toEqual({kind: 'update', groupId: '1:1'});
+    const cycles = toUpdateCycles(spans);
+    expect(cycles.map((c) => c.key)).toEqual(['1:1', '1:2']);
+    expect(rollup(cycles)[0]!.updates).toBe(2);
+  });
+});
+
 describe('rollup', () => {
   test('counts updates per component and ranks the reasons', () => {
     const events = [
@@ -396,6 +466,102 @@ describe('attributeInput', () => {
     const events = tick(10);
     const cycles = attributeInput(toUpdateCycles(toSpans(events)), events);
     expect(cycles[0]!.cause).toBeUndefined();
+  });
+});
+
+describe('attributeInput with recorded causes', () => {
+  const click = (time: number): TimelineEvent => ({
+    layerId: 'mouse',
+    time,
+    title: 'click',
+    subtitle: '(1, 2)',
+    data: {},
+  });
+
+  test('prefers a recorded event cause over the nearest input', () => {
+    // The nearest input is the keydown at 98; the tick was scheduled by the
+    // click at 10, well outside the heuristic window.
+    const keydown: TimelineEvent = {
+      layerId: 'keyboard',
+      time: 98,
+      title: 'keydown',
+      data: {},
+    };
+    const events = [
+      click(10),
+      keydown,
+      ...causedTick(100, {kind: 'event', layerId: 'mouse', time: 10}),
+    ];
+    const [cycle] = attributeInput(toUpdateCycles(toSpans(events)), events);
+    expect(cycle!.cause).toEqual({
+      layerId: 'mouse',
+      type: 'click',
+      detail: '(1, 2)',
+      time: 10,
+    });
+  });
+
+  test('falls back to the heuristic when the event left the buffer', () => {
+    const events = [
+      click(95),
+      ...causedTick(100, {kind: 'event', layerId: 'mouse', time: 1}),
+    ];
+    const [cycle] = attributeInput(toUpdateCycles(toSpans(events)), events);
+    expect(cycle!.cause?.time).toBe(95);
+  });
+
+  test('an update cause reads as the causing component updating', () => {
+    const events = [
+      ...tick(100, {elementId: 1, tag: 'my-parent', tick: 1}),
+      ...causedTick(
+        101,
+        {kind: 'update', groupId: '1:1'},
+        {elementId: 2, tag: 'my-child', tick: 1}
+      ),
+    ];
+    const cycles = attributeInput(toUpdateCycles(toSpans(events)), events);
+    expect(cycles[0]!.cause).toBeUndefined();
+    expect(cycles[0]!).not.toHaveProperty('causedBy');
+    expect(cycles[1]!.cause).toEqual({
+      layerId: 'lit-lifecycle',
+      type: 'my-parent update',
+      time: 100,
+    });
+    expect(cycles[1]!.causedBy).toEqual({groupId: '1:1'});
+  });
+
+  test('a task cause reads as that task settling', () => {
+    const events = [
+      ...tick(0, {tick: 1}),
+      ...taskRun('task:1:1', 2, 50),
+      ...causedTick(51, {kind: 'task', groupId: 'task:1:1'}, {tick: 2}),
+    ];
+    const cycles = attributeInput(toUpdateCycles(toSpans(events)), events);
+    expect(cycles[1]!.cause).toEqual({
+      layerId: 'lit-lifecycle',
+      type: 'userTask task',
+      time: 2,
+    });
+    expect(cycles[1]!).not.toHaveProperty('causedBy');
+  });
+
+  test('a task cause whose run is gone falls back to the heuristic', () => {
+    const events = [
+      click(95),
+      ...causedTick(100, {kind: 'task', groupId: 'task:1:9'}),
+    ];
+    const [cycle] = attributeInput(toUpdateCycles(toSpans(events)), events);
+    expect(cycle!.cause?.layerId).toBe('mouse');
+  });
+
+  test('an update cause whose tick is gone falls back to the heuristic', () => {
+    const events = [
+      click(95),
+      ...causedTick(100, {kind: 'update', groupId: '7:7'}),
+    ];
+    const [cycle] = attributeInput(toUpdateCycles(toSpans(events)), events);
+    expect(cycle!.cause?.layerId).toBe('mouse');
+    expect(cycle).not.toHaveProperty('causedBy');
   });
 });
 

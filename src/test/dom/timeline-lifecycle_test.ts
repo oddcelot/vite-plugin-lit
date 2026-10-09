@@ -719,3 +719,355 @@ describe('Lit warnings', () => {
     });
   });
 });
+
+/**
+ * A stand-in closer to Lit's scheduling: the constructor requests the first
+ * update, `requestUpdate` enqueues once (flipping `isUpdatePending`), and
+ * `performUpdate` clears the flag before `updated` the way Lit does. Updates
+ * run when a test calls `performUpdate`, not on a microtask.
+ */
+const makeSchedulingBase = () =>
+  class SchedulingElement extends HTMLElement {
+    hasUpdated = false;
+    isUpdatePending = false;
+    requests = 0;
+    onRender: () => void = () => {};
+    onUpdated: () => void = () => {};
+    constructor() {
+      super();
+      this.requestUpdate();
+    }
+    requestUpdate(..._args: unknown[]): string {
+      this.requests++;
+      if (!this.isUpdatePending) this.isUpdatePending = true;
+      return 'requested';
+    }
+    connectedCallback() {}
+    disconnectedCallback() {}
+    performUpdate() {
+      this.willUpdate();
+      this.update();
+      this.isUpdatePending = false;
+      this.hasUpdated = true;
+      this.updated();
+    }
+    willUpdate() {}
+    update() {
+      this.onRender();
+    }
+    updated() {
+      this.onUpdated();
+    }
+    firstUpdated() {}
+  };
+
+type SchedulingElement = InstanceType<ReturnType<typeof makeSchedulingBase>>;
+
+describe('update causes', () => {
+  const setup = async () => {
+    install(await load());
+    const base = makeSchedulingBase();
+    const make = () => {
+      const tag = `x-cause-${counter++}`;
+      customElements.define(tag, class extends base {});
+      return tag;
+    };
+    return {parentTag: make(), childTag: make()};
+  };
+
+  const starts = (el: Element) =>
+    events.filter(
+      (e) =>
+        e.title === 'performUpdate:start' && e.meta?.tagName === el.localName
+    );
+
+  test("a parent's render setting a child property names the parent's tick", async () => {
+    const {parentTag, childTag} = await setup();
+    const parent = document.createElement(parentTag) as SchedulingElement;
+    const child = document.createElement(childTag) as SchedulingElement;
+    document.body.append(parent, child);
+    parent.performUpdate();
+    child.performUpdate();
+    events.length = 0;
+
+    parent.onRender = () => {
+      // What a property binding does: set, and the setter requests.
+      child.requestUpdate('value', 0);
+    };
+    parent.requestUpdate();
+    parent.performUpdate();
+    child.performUpdate();
+
+    const [parentStart] = starts(parent);
+    const [childStart] = starts(child);
+    expect(parentStart!.cause).toBeUndefined();
+    expect(childStart!.cause).toEqual({
+      kind: 'update',
+      groupId: parentStart!.groupId,
+    });
+    expect(parentStart!.groupId).toMatch(/^\d+:2$/);
+  });
+
+  test("a child created in a parent's first render gets the parent's tick", async () => {
+    const {parentTag, childTag} = await setup();
+    const parent = document.createElement(parentTag) as SchedulingElement;
+    let child: SchedulingElement | undefined;
+    parent.onRender = () => {
+      child = document.createElement(childTag) as SchedulingElement;
+      parent.append(child);
+    };
+    document.body.append(parent);
+    parent.performUpdate();
+    child!.performUpdate();
+
+    const [parentStart] = starts(parent);
+    expect(starts(child!)[0]!.cause).toEqual({
+      kind: 'update',
+      groupId: parentStart!.groupId,
+    });
+  });
+
+  test('a request made in its own updated() names its own previous tick', async () => {
+    const {parentTag} = await setup();
+    const el = document.createElement(parentTag) as SchedulingElement;
+    document.body.append(el);
+    let once = true;
+    el.onUpdated = () => {
+      if (once) el.requestUpdate();
+      once = false;
+    };
+    el.performUpdate();
+    el.performUpdate();
+
+    const [first, second] = starts(el);
+    expect(second!.cause).toEqual({kind: 'update', groupId: first!.groupId});
+  });
+
+  test('a request from a timer with nothing running has no cause', async () => {
+    const {parentTag} = await setup();
+    const el = document.createElement(parentTag) as SchedulingElement;
+    document.body.append(el);
+    el.performUpdate();
+    events.length = 0;
+
+    await new Promise<void>((resolve) =>
+      setTimeout(() => {
+        el.requestUpdate();
+        resolve();
+      })
+    );
+    el.performUpdate();
+
+    expect(starts(el)).toHaveLength(1);
+    expect(starts(el)[0]).not.toHaveProperty('cause');
+  });
+
+  test('only the request that enqueues the update counts', async () => {
+    const {parentTag, childTag} = await setup();
+    const parent = document.createElement(parentTag) as SchedulingElement;
+    const child = document.createElement(childTag) as SchedulingElement;
+    document.body.append(parent, child);
+    parent.performUpdate();
+    child.performUpdate();
+    events.length = 0;
+
+    child.requestUpdate(); // first, from nowhere: no cause
+    parent.onRender = () => child.requestUpdate('value', 0);
+    parent.requestUpdate();
+    parent.performUpdate();
+    child.performUpdate();
+
+    expect(starts(child)[0]).not.toHaveProperty('cause');
+  });
+
+  test('not recording, requestUpdate passes straight through', async () => {
+    const {parentTag, childTag} = await setup();
+    const parent = document.createElement(parentTag) as SchedulingElement;
+    const child = document.createElement(childTag) as SchedulingElement;
+    document.body.append(parent, child);
+    parent.performUpdate();
+    child.performUpdate();
+    recording = false;
+
+    parent.onRender = () => {
+      expect(child.requestUpdate('value', 0)).toBe('requested');
+    };
+    parent.requestUpdate();
+    parent.performUpdate();
+    expect(child.isUpdatePending).toBe(true);
+    const before = child.requests;
+    expect(child.requestUpdate()).toBe('requested');
+    expect(child.requests).toBe(before + 1);
+    expect(child.isUpdatePending).toBe(true);
+
+    recording = true;
+    events.length = 0;
+    child.performUpdate();
+    expect(child.isUpdatePending).toBe(false);
+    expect(starts(child)[0]).not.toHaveProperty('cause');
+  });
+});
+
+describe('@lit/task runs', () => {
+  type Deferred = {promise: Promise<string>; resolve: (v: string) => void};
+  const deferred = (): Deferred => {
+    let resolve!: (v: string) => void;
+    const promise = new Promise<string>((r) => (resolve = r));
+    return {promise, resolve};
+  };
+
+  /** Settles promise continuations: run()'s, then our `.then` on it. */
+  const flush = () => new Promise<void>((resolve) => setTimeout(resolve));
+
+  const setup = async () => {
+    install(await load());
+    const {Task} = await import('@lit/task');
+    const base = makeSchedulingBase();
+    /** Where Lit keeps controllers, and where it calls `hostUpdate`. */
+    class TaskHostBase extends base {
+      __controllers = new Set<{hostUpdate?(): void}>();
+      addController(c: {hostUpdate?(): void}) {
+        this.__controllers.add(c);
+      }
+      removeController(c: {hostUpdate?(): void}) {
+        this.__controllers.delete(c);
+      }
+      override willUpdate() {
+        for (const c of this.__controllers) c.hostUpdate?.();
+      }
+    }
+    const runs: Deferred[] = [];
+    const returned: Promise<unknown>[] = [];
+    /** Records what the original `run` returned, to compare with the wrapper's. */
+    class SpyTask<A extends readonly unknown[], R> extends Task<A, R> {
+      override run(args?: A): Promise<void> {
+        const p = super.run(args);
+        returned.push(p);
+        return p;
+      }
+    }
+    const tag = `x-task-${counter++}`;
+    class Host extends TaskHostBase {
+      userId = 1;
+      userTask = new SpyTask(this as never, {
+        task: () => {
+          const d = deferred();
+          runs.push(d);
+          return d.promise;
+        },
+        args: () => [this.userId] as const,
+      });
+    }
+    customElements.define(tag, Host);
+    const host = document.createElement(tag) as InstanceType<typeof Host>;
+    document.body.append(host);
+    return {host, runs, returned};
+  };
+
+  const byTitle = (title: string) => events.filter((e) => e.title === title);
+
+  test('a run started in an update names that tick, and its completion causes the next', async () => {
+    const {host, runs} = await setup();
+    host.performUpdate();
+
+    const [tick] = byTitle('performUpdate:start');
+    const [start] = byTitle('task:start');
+    expect(start).toMatchObject({
+      layerId: 'lit-lifecycle',
+      subtitle: host.localName,
+      data: {phase: 'task', task: 'userTask'},
+      cause: {kind: 'update', groupId: tick!.groupId},
+    });
+    expect(String(start!.groupId)).toMatch(/^task:\d+:\d+$/);
+    // The pending request was absorbed by the update it ran in.
+    expect(host.isUpdatePending).toBe(false);
+
+    runs[0]!.resolve('ada');
+    await flush();
+    expect(host.isUpdatePending).toBe(true);
+    host.performUpdate();
+
+    const [, next] = byTitle('performUpdate:start');
+    expect(next!.cause).toEqual({kind: 'task', groupId: start!.groupId});
+    const [end] = byTitle('task:end');
+    expect(end).toMatchObject({
+      groupId: start!.groupId,
+      data: {phase: 'task', task: 'userTask', status: 'complete'},
+    });
+    expect(end).not.toHaveProperty('logType');
+    expect(end!.data).not.toHaveProperty('superseded');
+  });
+
+  test('the completion request is consumed once', async () => {
+    const {host, runs} = await setup();
+    host.performUpdate();
+    runs[0]!.resolve('ada');
+    await flush();
+    host.performUpdate();
+    events.length = 0;
+
+    await new Promise<void>((resolve) =>
+      setTimeout(() => {
+        host.requestUpdate();
+        resolve();
+      })
+    );
+    host.performUpdate();
+    expect(byTitle('performUpdate:start')[0]).not.toHaveProperty('cause');
+  });
+
+  test('a superseded run ends marked, and only the latest completion is a cause', async () => {
+    const {host, runs} = await setup();
+    host.performUpdate();
+    host.userId = 2;
+    host.requestUpdate();
+    host.performUpdate();
+    const [first, second] = byTitle('task:start');
+    expect(runs).toHaveLength(2);
+
+    runs[0]!.resolve('ada');
+    await flush();
+    // The stale run asks for nothing.
+    expect(host.isUpdatePending).toBe(false);
+    const [firstEnd] = byTitle('task:end');
+    expect(firstEnd).toMatchObject({
+      groupId: first!.groupId,
+      data: {superseded: true},
+    });
+
+    runs[1]!.resolve('grace');
+    await flush();
+    host.performUpdate();
+    const ends = byTitle('task:end');
+    expect(ends[1]).toMatchObject({
+      groupId: second!.groupId,
+      data: {status: 'complete'},
+    });
+    expect(ends[1]!.data).not.toHaveProperty('superseded');
+    const ticks = byTitle('performUpdate:start');
+    expect(ticks[ticks.length - 1]!.cause).toEqual({
+      kind: 'task',
+      groupId: second!.groupId,
+    });
+  });
+
+  test('the wrapper returns the promise run() returned', async () => {
+    const {host, returned} = await setup();
+    host.performUpdate();
+    const result = host.userTask.run([3]);
+    expect(result).toBe(returned[returned.length - 1]);
+  });
+
+  test('not recording, run passes straight through', async () => {
+    const {host, runs, returned} = await setup();
+    host.performUpdate();
+    recording = false;
+    events.length = 0;
+
+    const result = host.userTask.run([5]);
+    expect(result).toBe(returned[returned.length - 1]);
+    runs[runs.length - 1]!.resolve('linus');
+    await flush();
+    expect(events).toEqual([]);
+  });
+});

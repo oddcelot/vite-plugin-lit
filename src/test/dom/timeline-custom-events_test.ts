@@ -164,3 +164,128 @@ describe('custom events layer', () => {
     expect(result).toBe(false);
   });
 });
+
+describe('custom events as update causes', () => {
+  /** Lit-like scheduling: `requestUpdate` enqueues once, `performUpdate` runs it. */
+  const makeSchedulingBase = () =>
+    class SchedulingElement extends HTMLElement {
+      hasUpdated = false;
+      isUpdatePending = false;
+      requestUpdate() {
+        this.isUpdatePending = true;
+      }
+      connectedCallback() {}
+      disconnectedCallback() {}
+      performUpdate() {
+        this.update();
+        this.isUpdatePending = false;
+        this.hasUpdated = true;
+      }
+      willUpdate() {}
+      update() {}
+      updated() {}
+      firstUpdated() {}
+    };
+  type SchedulingElement = InstanceType<ReturnType<typeof makeSchedulingBase>>;
+
+  const setupPair = async () => {
+    vi.resetModules();
+    const lifecycle: Lifecycle =
+      await import('../../lib/runtime/timeline/lifecycle.js');
+    const custom: CustomEvents =
+      await import('../../lib/runtime/timeline/custom-events.js');
+    const sink = {
+      emit: (e: TimelineEvent) => events.push(e),
+      recording: () => recording,
+      enabled: () => enabled,
+    };
+    custom.installCustomEventsLayer({
+      ...sink,
+      groupOf: lifecycle.updateGroupOf,
+    });
+    lifecycle.installLifecycleLayer(sink.emit, sink.recording, () => true);
+    const base = makeSchedulingBase();
+    const parentTag = `x-custom-${counter++}`;
+    const childTag = `x-custom-${counter++}`;
+    customElements.define(parentTag, class extends base {});
+    customElements.define(childTag, class extends base {});
+    const parent = document.createElement(parentTag) as SchedulingElement;
+    const child = document.createElement(childTag) as SchedulingElement;
+    parent.append(child);
+    document.body.append(parent);
+    return {parent, child};
+  };
+
+  test('a dispatch with no listener still records one row', async () => {
+    const {child} = await setupPair();
+    child.dispatchEvent(new CustomEvent('lonely', {bubbles: true}));
+    const rows = events.filter((e) => e.layerId === 'custom-events');
+    expect(rows.map((e) => e.title)).toEqual(['lonely']);
+    expect(rows[0]).not.toHaveProperty('cause');
+  });
+
+  test("a listener's requestUpdate names the dispatch row", async () => {
+    const {parent, child} = await setupPair();
+    parent.addEventListener('picked', () => parent.requestUpdate());
+    child.dispatchEvent(new CustomEvent('picked', {bubbles: true}));
+    parent.performUpdate();
+
+    const row = events.find((e) => e.layerId === 'custom-events');
+    const start = events.find((e) => e.title === 'performUpdate:start');
+    expect(row).toBeDefined();
+    expect(start!.cause).toEqual({
+      kind: 'event',
+      layerId: 'custom-events',
+      time: row!.time,
+      title: 'picked',
+    });
+  });
+
+  test('a dispatch inside an update is the inner cause; a plain request is not', async () => {
+    const {parent, child} = await setupPair();
+    parent.addEventListener('picked', () => parent.requestUpdate());
+    // Dispatched from inside the child's update, as a component's `updated()`
+    // would: the parent's handler runs while both the child's tick and the
+    // event are in flight, and the event, begun later, is the nearer cause.
+    child.update = () => {
+      child.dispatchEvent(new CustomEvent('picked', {bubbles: true}));
+    };
+    child.requestUpdate();
+    child.performUpdate();
+    parent.performUpdate();
+    const row = events.find((e) => e.layerId === 'custom-events');
+    const starts = events.filter((e) => e.title === 'performUpdate:start');
+    expect(starts.map((e) => e.subtitle)).toEqual([
+      child.localName,
+      parent.localName,
+    ]);
+    expect(starts[1]!.cause).toEqual({
+      kind: 'event',
+      layerId: 'custom-events',
+      time: row!.time,
+      title: 'picked',
+    });
+
+    // Once the dispatch is over, the tick is the cause again.
+    events.length = 0;
+    child.update = () => parent.requestUpdate();
+    child.requestUpdate();
+    child.performUpdate();
+    parent.performUpdate();
+    const again = events.filter((e) => e.title === 'performUpdate:start');
+    expect(again[1]!.cause).toEqual({
+      kind: 'update',
+      groupId: again[0]!.groupId,
+    });
+  });
+
+  test('an unrecorded dispatch leaves no cause', async () => {
+    const {parent, child} = await setupPair();
+    parent.addEventListener('picked', () => parent.requestUpdate());
+    enabled = false;
+    child.dispatchEvent(new CustomEvent('picked', {bubbles: true}));
+    parent.performUpdate();
+    const start = events.find((e) => e.title === 'performUpdate:start');
+    expect(start).not.toHaveProperty('cause');
+  });
+});

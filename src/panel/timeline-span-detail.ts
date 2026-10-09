@@ -64,6 +64,11 @@ export class TimelineSpanDetail extends LitElement {
   ];
 
   @property({attribute: false}) span: TimelineSpan | undefined;
+  /**
+   * The row `span.cause` names, when the presentation can resolve it; names a
+   * `task` cause's task. Without it a task cause reads "task run".
+   */
+  @property({attribute: false}) causeSpan: TimelineSpan | undefined;
   /** Offer the **filter** link (both presentations honour the element filter). */
   @property({type: Boolean}) filterable = false;
 
@@ -85,6 +90,27 @@ export class TimelineSpanDetail extends LitElement {
         composed: true,
       })
     );
+  }
+
+  private _jump(cause: NonNullable<TimelineSpan['cause']>) {
+    this.dispatchEvent(
+      new CustomEvent('span-jump', {
+        detail: {cause},
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  private _causeText(cause: NonNullable<TimelineSpan['cause']>): string {
+    if (cause.kind === 'update') return `update ${cause.groupId}`;
+    if (cause.kind === 'task') {
+      const task = (
+        this.causeSpan?.events[0]?.data as {task?: unknown} | null | undefined
+      )?.task;
+      return typeof task === 'string' ? `${task} task run` : 'task run';
+    }
+    return `${cause.title ?? `${cause.layerId} event`} at ${cause.time.toFixed(3)} ms`;
   }
 
   override render() {
@@ -112,6 +138,24 @@ export class TimelineSpanDetail extends LitElement {
             ? html`<tr>
                 <td class="key">duration</td>
                 <td class="val">${row.duration.toFixed(3)} ms</td>
+              </tr>`
+            : nothing
+        }
+        ${
+          row.cause
+            ? html`<tr>
+                <td class="key">caused by</td>
+                <td class="val">
+                  ${this._causeText(row.cause)}
+                  <wa-button
+                    class="filter-link"
+                    size="small"
+                    appearance="plain"
+                    data-tip="Select the row that caused this update"
+                    @click=${() => this._jump(row.cause!)}
+                    >show</wa-button
+                  >
+                </td>
               </tr>`
             : nothing
         }

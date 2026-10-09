@@ -171,3 +171,55 @@ describe('installKeyboardLayer', () => {
     expect(events).toHaveLength(1);
   });
 });
+
+describe('input events as update causes', () => {
+  test("a click handler's requestUpdate names the mouse row", async () => {
+    vi.resetModules();
+    const lifecycle = await import('../../lib/runtime/timeline/lifecycle.js');
+    const m = await import('../../lib/runtime/timeline/input.js');
+    m.installMouseLayer(
+      emit,
+      () => recording,
+      () => enabled
+    );
+    lifecycle.installLifecycleLayer(
+      emit,
+      () => recording,
+      () => true
+    );
+    class Clickable extends HTMLElement {
+      isUpdatePending = false;
+      requestUpdate() {
+        this.isUpdatePending = true;
+      }
+      performUpdate() {
+        this.isUpdatePending = false;
+      }
+    }
+    const tag = `x-input-cause-${Math.random().toString(36).slice(2)}`;
+    customElements.define(tag, Clickable);
+    const el = document.createElement(tag) as Clickable;
+    document.body.append(el);
+    // The handler lives in a shadow tree, as a Lit component's do: the DOM
+    // leaves `window.event` unset there, so the cause must be found another
+    // way (the event is still dispatching while its handler runs).
+    const button = document.createElement('button');
+    el.attachShadow({mode: 'open'}).append(button);
+    button.addEventListener('click', () => el.requestUpdate());
+
+    button.dispatchEvent(
+      new MouseEvent('click', {bubbles: true, composed: true})
+    );
+    el.performUpdate();
+    el.remove();
+
+    const row = events.find((e) => e.layerId === 'mouse');
+    const start = events.find((e) => e.title === 'performUpdate:start');
+    expect(start!.cause).toEqual({
+      kind: 'event',
+      layerId: 'mouse',
+      time: row!.time,
+      title: 'click',
+    });
+  });
+});

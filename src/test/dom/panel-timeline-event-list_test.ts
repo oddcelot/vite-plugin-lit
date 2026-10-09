@@ -293,3 +293,148 @@ test('Raw stays flat', async () => {
   expect(titles(el)).toHaveLength(tickEvents().length);
   expect(twisty(el)).toBeNull();
 });
+
+/** A tick of one element: performUpdate around update, as raw events. */
+const tick = (
+  elementId: number,
+  time: number,
+  cause?: TimelineEvent['cause']
+): TimelineEvent[] =>
+  (['performUpdate', 'update'] as const).flatMap((name, n) =>
+    (['start', 'end'] as const).map((edge, i): TimelineEvent => ({
+      id: `c${elementId}-${name}-${edge}`,
+      layerId: 'lit-lifecycle',
+      time: time + n * 0.2 + i * (name === 'update' ? 0.1 : 1),
+      data: {},
+      groupId: `${elementId}:1`,
+      title: `${name}:${edge}`,
+      meta: {elementId, tagName: `x-${elementId}`},
+      ...(cause && name === 'performUpdate' && edge === 'start' ? {cause} : {}),
+    }))
+  );
+
+const chainEvents = (): TimelineEvent[] => [
+  ...tick(1, 0),
+  ...tick(2, 0.5, {kind: 'update', groupId: '1:1'}),
+];
+const PARENT = 'lit-lifecycle:1:1:performUpdate';
+const CHILD = 'lit-lifecycle:2:1:performUpdate';
+
+const mountChain = (props: Partial<TimelineEventList> = {}) =>
+  mount({
+    events: chainEvents(),
+    spans: toSpans(chainEvents()),
+    layers: [layer('lit-lifecycle'), layer('mouse')],
+    ...props,
+  });
+
+/**
+ * A click, a lone timer tick, the tick the click caused, and a tick that one
+ * caused in turn: three rows in one chain with an unrelated row inside it.
+ */
+const graphEvents = (): TimelineEvent[] => [
+  {...click, time: 5},
+  ...tick(3, 5.5),
+  ...tick(1, 6, {kind: 'event', layerId: 'mouse', time: 5}),
+  ...tick(2, 7, {kind: 'update', groupId: '1:1'}),
+];
+
+const mountGraph = (props: Partial<TimelineEventList> = {}) =>
+  mount({
+    events: graphEvents(),
+    spans: toSpans(graphEvents()),
+    layers: [layer('lit-lifecycle'), layer('mouse')],
+    ...props,
+  });
+
+const rows = (el: TimelineEventList) => [
+  ...el.shadowRoot!.querySelectorAll<HTMLElement>('.row'),
+];
+
+test('cause chains stay in time order with a rail on every row', async () => {
+  const {el} = await mountGraph();
+  expect(titles(el)).toEqual([
+    'click',
+    'performUpdate',
+    'performUpdate',
+    'performUpdate',
+  ]);
+  expect(rows(el).every((r) => r.querySelector('.rail') !== null)).toBe(true);
+  // No row nests under another: the twisty folds only a tick's phases.
+  expect(el.shadowRoot!.querySelectorAll('.row.nested')).toHaveLength(0);
+  const [clickRow, lone, caused, child] = rows(el);
+  // The click is the chain's root: a dot in lane 0, its line going down.
+  const clickDot = clickRow!.querySelector<HTMLElement>('.rail .dot')!;
+  expect(clickDot.style.left).toBe('calc(0px + 8px)');
+  const down = [...clickRow!.querySelectorAll('.rail svg line')];
+  expect(down).toHaveLength(1);
+  expect(down[0]!.getAttribute('y1')).toBe('8');
+  expect(down[0]!.getAttribute('y2')).toBe('16');
+  // The timer tick is not in the chain; the line passes it by.
+  expect(lone!.querySelector('.rail .dot')).toBeNull();
+  const through = [...lone!.querySelectorAll('.rail svg line')];
+  expect(through).toHaveLength(1);
+  expect(through[0]!.getAttribute('y1')).toBe('0');
+  expect(through[0]!.getAttribute('y2')).toBe('16');
+  // The caused tick continues the lane and carries on to its own child.
+  expect(caused!.querySelector('.rail .dot')).not.toBeNull();
+  expect(caused!.querySelectorAll('.rail svg line')).toHaveLength(2);
+  expect(child!.querySelector('.rail .dot')).not.toBeNull();
+  expect(child!.querySelectorAll('.rail svg line')).toHaveLength(1);
+  expect(child!.querySelector('.rail svg path')).toBeNull();
+  expect(clickRow!.querySelector('.rail')!.getAttribute('aria-hidden')).toBe(
+    'true'
+  );
+});
+
+test('hovering a row of a chain dims the rails of rows outside it', async () => {
+  const {el} = await mountGraph();
+  rows(el)[0]!.dispatchEvent(new MouseEvent('mouseenter'));
+  await el.updateComplete;
+  const dim = rows(el).map((r) =>
+    r.querySelector('.rail')!.classList.contains('dim')
+  );
+  expect(dim).toEqual([false, true, false, false]);
+  el.shadowRoot!.querySelector('.scroll')!.dispatchEvent(
+    new MouseEvent('mouseleave')
+  );
+  await el.updateComplete;
+  expect(el.shadowRoot!.querySelector('.rail.dim')).toBeNull();
+});
+
+test('Raw draws no rails', async () => {
+  const {el, raw} = await mountGraph();
+  raw().shadowRoot!.querySelector('input')!.click();
+  await new Promise((r) => setTimeout(r));
+  await el.updateComplete;
+  expect(rows(el).length).toBeGreaterThan(0);
+  expect(el.shadowRoot!.querySelector('.rail')).toBeNull();
+});
+
+test("the detail pane's show link selects the click that caused a tick", async () => {
+  const graphSpans = toSpans(graphEvents());
+  const clickKey = graphSpans.find((s) => s.name === 'click')!.key;
+  const {el, detail} = await mountGraph({
+    selectedKey: 'lit-lifecycle:1:1:performUpdate',
+  });
+  const selected: Array<string | null> = [];
+  el.addEventListener('span-select', (e) =>
+    selected.push((e as CustomEvent<{key: string | null}>).detail.key)
+  );
+  detail()!.dispatchEvent(
+    new CustomEvent('span-jump', {detail: {}, bubbles: true, composed: true})
+  );
+  expect(selected).toEqual([clickKey]);
+});
+
+test("the detail pane's show link selects the parent row", async () => {
+  const {el, detail} = await mountChain({selectedKey: CHILD});
+  const selected: Array<string | null> = [];
+  el.addEventListener('span-select', (e) =>
+    selected.push((e as CustomEvent<{key: string | null}>).detail.key)
+  );
+  detail()!.dispatchEvent(
+    new CustomEvent('span-jump', {detail: {}, bubbles: true, composed: true})
+  );
+  expect(selected).toEqual([PARENT]);
+});

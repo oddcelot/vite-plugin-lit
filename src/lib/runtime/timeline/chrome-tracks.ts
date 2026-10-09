@@ -53,6 +53,13 @@ const TRACKS: Record<string, {track: string; color: TrackColor; lit: boolean}> =
     keyboard: {track: 'Input', color: 'tertiary', lit: false},
   };
 
+/**
+ * `@lit/task` runs outlive the update that started them and overlap the
+ * updates after it, so they get a track of their own rather than breaking the
+ * Lifecycle track's nesting.
+ */
+const TASK_TRACK = 'Tasks';
+
 interface NavigatorLike {
   userAgent?: string;
   userAgentData?: {brands?: readonly {brand: string; version: string}[]};
@@ -127,7 +134,16 @@ export const createChromeTracksSink = (
       const phase =
         isStart || isEnd ? title.slice(0, title.lastIndexOf(':')) : title;
       const tag = cfg.lit ? (event.meta?.tagName ?? event.subtitle) : undefined;
-      const label = tag ? `<${tag}> ${phase}` : phase;
+      const task =
+        event.layerId === 'lit-lifecycle' && phase === 'task' && isEnd
+          ? (event.data as {task?: unknown} | null)?.task
+          : undefined;
+      const name = typeof task === 'string' ? `${phase} ${task}` : phase;
+      const label = tag ? `<${tag}> ${name}` : name;
+      const track =
+        event.layerId === 'lit-lifecycle' && phase === 'task'
+          ? TASK_TRACK
+          : cfg.track;
 
       if (isStart) {
         const key = `${event.layerId}|${event.groupId}|${phase}`;
@@ -146,13 +162,13 @@ export const createChromeTracksSink = (
           label,
           p.start,
           toPerf(event.time),
-          cfg.track,
+          track,
           GROUP,
           p.error || isError ? 'error' : cfg.color
         );
       } else {
         const t = toPerf(event.time);
-        stamp(label, t, t, cfg.track, GROUP, isError ? 'error' : cfg.color);
+        stamp(label, t, t, track, GROUP, isError ? 'error' : cfg.color);
       }
     },
     reset() {
