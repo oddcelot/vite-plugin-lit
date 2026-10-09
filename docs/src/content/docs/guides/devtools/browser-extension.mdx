@@ -118,8 +118,9 @@ The Lit panel and DevTools' own panels hand off to each other:
   button, selects the element in the **Elements** panel. It works in Chrome and
   in Firefox, wherever DevTools offers `inspect()`.
 - The other way round, selecting a node in the **Elements** panel selects its
-  component in the Lit panel's **Components** tab: the node itself if it's a
-  Lit element, else the nearest Lit element around it, through shadow roots.
+  row in the Lit panel's **Components** tab: the node itself if the tree lists
+  it (a Lit element, an undefined tag or a non-Lit custom element), else the
+  nearest one around it, through shadow roots.
 - The **defined** link and, on a page built with the Vite plugin, the
   **rendered** link open in the **Sources** panel at that line. A source the
   plugin stamped is a file path, so the extension looks up the URL the page
