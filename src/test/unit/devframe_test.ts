@@ -302,6 +302,7 @@ describe('lit devframe definition', () => {
       'lit:recent-events',
       'lit:timeline-history',
       'lit:update-summary',
+      'lit:range-summary',
       'lit:inspect',
       'lit:set-recording',
       'lit:toggle-layer',
@@ -325,6 +326,7 @@ describe('lit devframe definition', () => {
     expect(exposed).toContain('lit:set-recording');
     // A query, so read-safe by inference — it must not join the mutating set.
     expect(exposed).toContain('lit:update-summary');
+    expect(exposed).toContain('lit:range-summary');
     expect(exposed).toContain('lit:hmr-history');
     expect(exposed).toContain('lit:hmr-incompatibilities');
     expect(exposed).not.toContain('lit:inspect');
@@ -864,6 +866,35 @@ describe('lit devframe definition', () => {
       tagName: 'hmr-clock',
     });
     expect(other.cycles).toEqual([]);
+  });
+
+  test('range-summary summarizes the spans that start in the window', async () => {
+    // The arithmetic is covered by `timeline-range_test.ts`; this checks the
+    // RPC reaches it on the buffer's own clock.
+    const {ctx, source} = await boot();
+    const pair = (elementId: number, time: number) =>
+      (['start', 'end'] as const).map((edge, i) => ({
+        layerId: 'lit-lifecycle',
+        time: time + i * 3,
+        groupId: `${elementId}:1`,
+        title: `performUpdate:${edge}`,
+        data: {phase: 'performUpdate'},
+        meta: {elementId, tagName: `x-${elementId}`},
+      }));
+    source.sink!.pushEvents([...pair(1, 1), ...pair(2, 20)]);
+
+    const summary = await ctx.rpc.invokeLocal('lit:range-summary', {
+      start: 25,
+      end: 15,
+    });
+    expect(summary.range).toEqual({start: 15, end: 25});
+    expect(summary.spanCount).toBe(1);
+    expect(summary.layers).toEqual([{layerId: 'lit-lifecycle', count: 1}]);
+    expect(summary.components.map((c) => c.tagName)).toEqual(['x-2']);
+    expect(summary.bufferSize).toBe(4);
+    await expect(
+      ctx.rpc.invokeLocal('lit:range-summary', {start: 5, end: 5})
+    ).rejects.toThrow(/start and end/);
   });
 
   test('recent-events works with no arguments at all', async () => {

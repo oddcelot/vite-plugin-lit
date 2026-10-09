@@ -29,6 +29,8 @@ import type {SessionSnapshot} from '../../types/snapshot.js';
 import type {InspectorRequester} from './inspector-request.js';
 import type {
   PageChangedEvent,
+  RangeSummaryArgs,
+  RangeSummaryResult,
   RecentEventsArgs,
   RecentEventsResult,
   UpdateSummaryArgs,
@@ -108,6 +110,8 @@ export interface FollowedPage extends Pick<
   query(args: RecentEventsArgs): RecentEventsResult;
   /** The `update-summary` query, stamped with whether recording is on. */
   summarize(args: UpdateSummaryArgs): UpdateSummaryResult;
+  /** The `range-summary` query, stamped with whether recording is on. */
+  summarizeRange(args: RangeSummaryArgs): RangeSummaryResult;
 }
 
 const diagnosticFor = (event: HmrIncompatibilityEvent): HmrDiagnostic => {
@@ -240,6 +244,8 @@ export function createFollowedPage(options: FollowedPageOptions): FollowedPage {
     },
     query: (args) => recording.query(args, layers().recordingState),
     summarize: (args) => recording.summarize(args, layers().recordingState),
+    summarizeRange: (args) =>
+      recording.summarizeRange(args, layers().recordingState),
     history: () => recording.history(),
     roots: () => recording.roots(),
     details: (id) => recording.details(id),

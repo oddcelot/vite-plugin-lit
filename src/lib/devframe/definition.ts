@@ -54,6 +54,7 @@ import {
   RPC_OPEN_SOURCE,
   RPC_SET_SETTINGS_OVERRIDE,
   RPC_TOGGLE_LAYER,
+  RPC_RANGE_SUMMARY,
   RPC_UPDATE_SUMMARY,
   SESSION_STATE_KEY,
   TIMELINE_STREAM_ID,
@@ -72,6 +73,8 @@ import {
   type OpenSourceResult,
   type SetRecordingArgs,
   type ToggleLayerArgs,
+  type RangeSummaryArgs,
+  type RangeSummaryResult,
   type UpdateSummaryArgs,
   type UpdateSummaryResult,
 } from './protocol.js';
@@ -494,6 +497,23 @@ export function createLitDevframe(
           ): Promise<UpdateSummaryResult> => {
             return followed.summarize(args);
           },
+        })
+      );
+
+      my.rpc.register(
+        defineRpcFunction({
+          name: RPC_RANGE_SUMMARY,
+          type: 'query',
+          jsonSerializable: true,
+          // Not baked into a snapshot: it has required arguments, and a
+          // frozen panel derives the same summary from the baked events.
+          agent: {
+            description:
+              'Summarise a window of the timeline: how many spans started in it, how many per layer, and which components updated and for how long. Pass start and end in milliseconds on the same clock as the `time` of events from lit:recent-events (ms since recording started), so pass times you saw there. A span counts when it starts inside the window. Use it for "what happened between this click and that update" instead of paging through events. Check the `recording` field — if false, no events are being captured.',
+          },
+          handler: async (
+            args: RangeSummaryArgs
+          ): Promise<RangeSummaryResult> => followed.summarizeRange(args),
         })
       );
 

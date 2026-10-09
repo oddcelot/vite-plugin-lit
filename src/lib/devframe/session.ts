@@ -20,12 +20,15 @@ import {MAX_HMR_PATCHES} from '../../types/hmr-patch.js';
 import type {HmrPatchEvent} from '../../types/hmr-patch.js';
 import type {TimelineEvent, TimelineLayer} from '../../types/timeline.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
-import {rollup} from '../timeline/derive.js';
+import {rollup, toSpans} from '../timeline/derive.js';
+import {normalizeRange, summarizeRange} from '../timeline/range.js';
 import {updateCycles} from '../timeline/model.js';
 import {RECENT_EVENTS_BUFFER_SIZE} from './protocol.js';
 import type {
   HmrHistoryEntry,
   LitRuntimeInfo,
+  RangeSummaryArgs,
+  RangeSummaryResult,
   RecentEventsArgs,
   RecentEventsResult,
   UpdateSummaryArgs,
@@ -61,6 +64,11 @@ export interface RecordingSession {
   query(args: RecentEventsArgs, recording: boolean): RecentEventsResult;
   /** The `update-summary` query. */
   summarize(args: UpdateSummaryArgs, recording: boolean): UpdateSummaryResult;
+  /** The `range-summary` query. Throws on a window with no width. */
+  summarizeRange(
+    args: RangeSummaryArgs,
+    recording: boolean
+  ): RangeSummaryResult;
   /** Remember an HMR-incompatibility notice, capped. */
   pushHmrIncompatibility(event: HmrIncompatibilityEvent): void;
   hmrIncompatibilities(): HmrIncompatibilityEvent[];
@@ -247,6 +255,19 @@ export function createRecordingSession(
         cycles: limited,
         bufferSize: events.length,
         truncated: limited.length < cycles.length,
+      };
+    },
+    summarizeRange(args, recording) {
+      const range = normalizeRange(args.start, args.end);
+      if (range === null) {
+        throw new Error(
+          'range-summary needs two different finite times, start and end, in the milliseconds recent-events reports.'
+        );
+      }
+      return {
+        recording,
+        bufferSize: events.length,
+        ...summarizeRange(toSpans(events), range),
       };
     },
     pushHmrIncompatibility(event) {

@@ -26,6 +26,7 @@ import type {
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 import type {HmrPatchEvent} from '../../types/hmr-patch.js';
 import type {ComponentRollup, UpdateCycle} from '../timeline/derive.js';
+import type {RangeSummary} from '../timeline/range.js';
 
 /** The devframe's scope id. RPC names become `lit:*`, MCP wire names `lit_*`. */
 export const LIT_DEVFRAME_ID = 'lit';
@@ -72,6 +73,9 @@ export const RPC_TIMELINE_HISTORY = 'timeline-history';
 
 /** Bare name of the `update-summary` query. */
 export const RPC_UPDATE_SUMMARY = 'update-summary';
+
+/** Bare name of the `range-summary` query. */
+export const RPC_RANGE_SUMMARY = 'range-summary';
 
 /** Bare name of the `inspect` action. */
 export const RPC_INSPECT = 'inspect';
@@ -378,6 +382,29 @@ export interface UpdateSummaryResult {
   truncated: boolean;
 }
 
+/** Argument of the `range-summary` query. */
+export interface RangeSummaryArgs {
+  /**
+   * Start of the window, in `TimelineEvent.time` milliseconds: the same
+   * clock `recent-events` returns, so an agent can pass times it saw. The
+   * panel's own range selection lives in the browser and is not read here.
+   */
+  start: number;
+  /** End of the window; the two may come in either order. */
+  end: number;
+}
+
+/**
+ * Result of the `range-summary` query: what happened between two instants,
+ * counting each span that *starts* inside the window once.
+ */
+export interface RangeSummaryResult extends RangeSummary {
+  /** Whether the timeline is currently recording. */
+  recording: boolean;
+  /** Total events currently held in the ring buffer, before derivation. */
+  bufferSize: number;
+}
+
 /** Argument of the `set-recording` action. */
 export interface SetRecordingArgs {
   recording: boolean;
@@ -424,6 +451,9 @@ declare module 'devframe' {
     'lit:update-summary': (
       args?: UpdateSummaryArgs
     ) => Promise<UpdateSummaryResult>;
+    'lit:range-summary': (
+      args: RangeSummaryArgs
+    ) => Promise<RangeSummaryResult>;
     'lit:inspect': (command: InspectorCommand) => Promise<void>;
     'lit:set-recording': (args: SetRecordingArgs) => Promise<void>;
     'lit:toggle-layer': (args: ToggleLayerArgs) => Promise<void>;
