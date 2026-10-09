@@ -1,6 +1,7 @@
 /**
  * Phosphor Icons (https://phosphoricons.com), Copyright (c) 2023 Phosphor
- * Icons, MIT License, for `<wa-icon>`, bundled into the panel.
+ * Icons, MIT License (full text in THIRD_PARTY_NOTICES.md), for `<wa-icon>`,
+ * bundled into the panel.
  *
  * Web Awesome's `default` icon library fetches Font Awesome SVGs from a CDN
  * at runtime, which breaks the panel offline and inside exported snapshots.

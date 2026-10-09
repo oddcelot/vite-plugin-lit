@@ -1,7 +1,7 @@
 // Phosphor Icons (https://phosphoricons.com), Copyright (c) 2023 Phosphor
-// Icons, MIT License. Inlined so the in-page runtime UI stays self-contained:
-// it runs inside the user's app, so it can't load <wa-icon> or fetch
-// anything. Each is full SVG markup injected as raw HTML and colored with
+// Icons, MIT License (full text in THIRD_PARTY_NOTICES.md). Inlined so the
+// in-page runtime UI stays self-contained: it runs inside the user's app, so
+// it can't load <wa-icon> or fetch anything. Each is full SVG markup injected as raw HTML and colored with
 // `fill: currentColor`. These match the panel's icons (src/panel/wa-icons.ts).
 
 /** `cube` — the component icon, as on the panel's Components tab. Leads the
