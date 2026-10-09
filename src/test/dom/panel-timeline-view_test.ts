@@ -246,3 +246,91 @@ test('opens in Tracks, and in List once the user left it there', async () => {
   expect(again.tracks().hidden).toBe(true);
   localStorage.removeItem('lit-devtools-timeline-mode');
 });
+
+/** What the tracks report after a Shift+drag or a drag on the ruler. */
+const drawRange = async (
+  el: TimelineView,
+  tracks: Element,
+  range: {start: number; end: number} | null
+) => {
+  tracks.dispatchEvent(
+    new CustomEvent('range-change', {
+      detail: {range},
+      bubbles: true,
+      composed: true,
+    })
+  );
+  await flush(el);
+};
+
+test('a drawn range is summarised in the tracks detail pane', async () => {
+  const {el, tracks} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 9, end: 20});
+  expect(tracks().range).toEqual({start: 9, end: 20});
+  const summary = tracks().shadowRoot!.querySelector('timeline-range-summary')!;
+  expect(summary.summary?.spanCount).toBe(1);
+  expect(summary.summary?.components.map((c) => c.tagName)).toEqual(['x-2']);
+  expect(summary.shadowRoot!.textContent).toContain('<x-2>');
+});
+
+test('selecting a span replaces the range summary, and a range drops the span', async () => {
+  const {el, tracks} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 0, end: 20});
+  tracks().dispatchEvent(
+    new CustomEvent('span-select', {
+      detail: {key: 'lit-lifecycle:1:1:update'},
+      bubbles: true,
+      composed: true,
+    })
+  );
+  await flush(el);
+  const root = tracks().shadowRoot!;
+  expect(root.querySelector('timeline-span-detail')).not.toBeNull();
+  expect(root.querySelector('timeline-range-summary')).toBeNull();
+  await drawRange(el, tracks(), {start: 0, end: 20});
+  expect(tracks().selectedKey).toBeNull();
+  expect(root.querySelector('timeline-range-summary')).not.toBeNull();
+});
+
+test('Filter to range narrows both views and the chip clears it', async () => {
+  const {el, root, tracks, list} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 9, end: 20});
+  tracks()
+    .shadowRoot!.querySelector('timeline-range-summary')!
+    .shadowRoot!.querySelector<HTMLElement>('wa-button.filter')!
+    .click();
+  await flush(el);
+  expect(tracks().spans.map((s) => s.meta?.elementId)).toEqual([2]);
+  expect(list().filter.range).toEqual({start: 9, end: 20});
+  root.querySelector<HTMLElement>('.range-chip')!.click();
+  await flush(el);
+  expect(tracks().spans).toHaveLength(2);
+  expect(root.querySelector('.range-chip')).toBeNull();
+});
+
+test('Esc clears the range, Clear events too', async () => {
+  const {el, tracks} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 9, end: 20});
+  window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
+  await flush(el);
+  expect(tracks().range).toBeNull();
+});
+
+test('the summary inspects and filters a component by its element', async () => {
+  const {el, tracks, root} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 9, end: 20});
+  const summary = tracks().shadowRoot!.querySelector('timeline-range-summary')!;
+  summary.shadowRoot!.querySelector<HTMLElement>('.filter-link')!.click();
+  await flush(el);
+  expect(root.querySelector('wa-select')!.value).toBe('2');
+});

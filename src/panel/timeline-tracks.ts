@@ -4,6 +4,13 @@ import {ref, createRef} from 'lit/directives/ref.js';
 import {tokens} from '../lib/tokens.js';
 import type {TimelineSpan} from '../lib/timeline/derive.js';
 import {
+  describeRange,
+  fitRange,
+  normalizeRange,
+  summarizeRange,
+} from '../lib/timeline/range.js';
+import type {TimeRange} from '../lib/timeline/range.js';
+import {
   buildTracks,
   clampPan,
   clampZoom,
@@ -18,6 +25,7 @@ import type {TimeScale, Track} from '../lib/timeline/tracks.js';
 import {layerColor} from './timeline-layers.js';
 import type {LayerState} from './timeline-layers.js';
 import './timeline-span-detail.js';
+import './timeline-range-summary.js';
 
 /** Height of one packed row inside a lane. */
 const ROW_PX = 14;
@@ -57,7 +65,10 @@ const describe = (span: TimelineSpan): string => {
  * capture toggle.
  *
  * Wheel zooms around the cursor, drag pans, double-click fits the whole
- * recording again. While recording and not panned away, the view follows the
+ * recording again. Shift+drag on the lanes, or a plain drag on the time
+ * ruler, draws a shaded range (a click on the ruler, or Esc, clears it) and
+ * the detail pane summarises it unless a span is selected; both are reported
+ * as `range-change` and kept by `timeline-view`, so the list can honour it. While recording and not panned away, the view follows the
  * live edge the way the list auto-scrolls.
  *
  * DOM rather than canvas: marks are absolutely positioned elements, and only
@@ -110,6 +121,51 @@ export class TimelineTracks extends LitElement {
         top: 3px;
         padding-left: var(--lit-devtools-space-2);
         border-left: 1px solid var(--lit-devtools-border-strong);
+        white-space: nowrap;
+      }
+      .stage {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+      }
+      .axis {
+        cursor: crosshair;
+        user-select: none;
+        touch-action: none;
+      }
+      .overlay {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: var(--gutter);
+        right: 0;
+        overflow: hidden;
+        pointer-events: none;
+        z-index: 2;
+      }
+      .range {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        background: var(--lit-devtools-accent-ring);
+        opacity: 0.18;
+      }
+      .range-edge {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 0;
+        border-left: 1px solid var(--lit-devtools-accent-ring);
+      }
+      .range-label {
+        position: absolute;
+        top: 22px;
+        padding: 0 var(--lit-devtools-space-2);
+        background: var(--lit-devtools-surface-low);
+        border: 1px solid var(--lit-devtools-accent-ring);
+        color: var(--lit-devtools-text);
         white-space: nowrap;
       }
       .lanes {
@@ -205,6 +261,8 @@ export class TimelineTracks extends LitElement {
   @property({type: Array}) visibleTracks: string[] = [];
   /** Follow the live edge while this is set and the user has not panned away. */
   @property({type: Boolean}) recording = false;
+  /** The drawn time range, kept by the view; null for none. */
+  @property({attribute: false}) range: TimeRange | null = null;
 
   /** Multiple of "fit"; 1 shows the whole recording. */
   @state() private _zoom = 1;
@@ -222,12 +280,32 @@ export class TimelineTracks extends LitElement {
   private _visibleSpans: TimelineSpan[] = [];
   private _bounds = {origin: 0, extent: 0};
   private _drag: {x: number; pan: number; moved: boolean} | null = null;
+  /** A range being drawn: the fixed end, and the range so far. */
+  @state() private _draft: {anchor: number; range: TimeRange | null} | null =
+    null;
+  private _summary: ReturnType<typeof summarizeRange> | undefined;
   /** Set when a drag ends, so the click the browser fires after it does
    *  not also select whatever mark the pointer happened to finish on. */
   private _suppressClick = false;
 
+  override connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener('keydown', this._onKeyDown);
+  }
+
+  /** Esc clears the range from anywhere in the panel, except while typing. */
+  private readonly _onKeyDown = (e: KeyboardEvent) => {
+    if (e.key !== 'Escape' || this.hidden) return;
+    if (this._draft !== null) {
+      this._draft = null;
+    } else if (this.range !== null) {
+      this._emitRange(null);
+    }
+  };
+
   override disconnectedCallback() {
     super.disconnectedCallback();
+    window.removeEventListener('keydown', this._onKeyDown);
     this._resize?.disconnect();
     this._resize = null;
     this._observed = null;
@@ -259,6 +337,16 @@ export class TimelineTracks extends LitElement {
         shown.has(t.layerId)
       );
       this._bounds = timeBounds(this._visibleSpans);
+    }
+    if (
+      changed.has('range') ||
+      changed.has('spans') ||
+      changed.has('visibleTracks')
+    ) {
+      this._summary =
+        this.range === null
+          ? undefined
+          : summarizeRange(this._visibleSpans, this.range);
     }
   }
 
@@ -311,6 +399,75 @@ export class TimelineTracks extends LitElement {
     this._setView(next.zoom, next.pan);
   }
 
+  /** Recording time under a pointer event, or null over the gutter. */
+  private _msAt(e: PointerEvent): number | null {
+    const plot = this._ticksRef.value;
+    if (!plot || this._width === 0) return null;
+    const x = e.clientX - plot.getBoundingClientRect().left;
+    return x < 0 ? null : this._scale().toMs(x);
+  }
+
+  /** Starts a range at the pointer. The view stops following the live edge,
+   *  or the range would slide away under the pointer. */
+  private _beginRange(e: PointerEvent): boolean {
+    const ms = this._msAt(e);
+    if (ms === null || this._visibleSpans.length === 0) return false;
+    this._pan = this._currentPan();
+    this._follow = false;
+    this._draft = {anchor: ms, range: null};
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    return true;
+  }
+
+  private _emitRange(range: TimeRange | null) {
+    this.dispatchEvent(
+      new CustomEvent<{range: TimeRange | null}>('range-change', {
+        detail: {range},
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  /** Shift+drag on the lanes; a plain drag there pans. */
+  private _onLanesDown(e: PointerEvent) {
+    if (e.button === 0 && e.shiftKey && this._beginRange(e)) return;
+    this._onPointerDown(e);
+  }
+
+  private _onRangeMove(e: PointerEvent) {
+    const draft = this._draft;
+    const ms = this._msAt(e);
+    if (draft && ms !== null) {
+      this._draft = {...draft, range: normalizeRange(draft.anchor, ms)};
+    } else if (!draft) {
+      this._onPointerMove(e);
+    }
+  }
+
+  private _onRangeUp() {
+    const draft = this._draft;
+    if (draft) {
+      this._draft = null;
+      this._suppressClick = true;
+      setTimeout(() => (this._suppressClick = false));
+      // A click on the ruler, with no drag, clears the range.
+      this._emitRange(draft.range);
+    } else {
+      this._onPointerUp();
+    }
+  }
+
+  /** Fits the view to the range, leaving the live edge. */
+  private _zoomToRange = () => {
+    const {range} = this;
+    if (range === null) return;
+    const {origin, extent} = this._bounds;
+    const fit = fitRange(origin, extent, range);
+    this._setView(fit.zoom, fit.pan);
+    this._follow = false;
+  };
+
   private _onPointerDown(e: PointerEvent) {
     if (e.button !== 0) return;
     this._drag = {x: e.clientX, pan: this._currentPan(), moved: false};
@@ -362,7 +519,12 @@ export class TimelineTracks extends LitElement {
           filterable
           .span=${selected}
         ></timeline-span-detail>`
-      : nothing;
+      : html`<timeline-range-summary
+          .summary=${this._summary}
+          .layers=${this.layers}
+          @range-zoom=${this._zoomToRange}
+          @range-clear=${() => this._emitRange(null)}
+        ></timeline-range-summary>`;
     if (this._tracks.length === 0) {
       return html`<div class="empty">
           ${
@@ -375,26 +537,65 @@ export class TimelineTracks extends LitElement {
     }
     const scale = this._scale();
     return html`
-      <div class="axis">
-        <div class="gutter"></div>
-        <div class="ticks" ${ref(this._ticksRef)}>
-          ${this._width > 0 ? this._renderTicks(scale) : nothing}
+      <div class="stage">
+        <div
+          class="axis"
+          data-tip="Drag to select a time range"
+          @pointerdown=${(e: PointerEvent) => {
+            if (e.button === 0) this._beginRange(e);
+          }}
+          @pointermove=${this._onRangeMove}
+          @pointerup=${this._onRangeUp}
+          @pointercancel=${this._onRangeUp}
+        >
+          <div class="gutter"></div>
+          <div class="ticks" ${ref(this._ticksRef)}>
+            ${this._width > 0 ? this._renderTicks(scale) : nothing}
+          </div>
         </div>
-      </div>
-      <div
-        class="lanes ${this._drag?.moved ? 'dragging' : ''}"
-        data-tip="Wheel to zoom, drag to pan, double-click to fit"
-        @wheel=${this._onWheel}
-        @pointerdown=${this._onPointerDown}
-        @pointermove=${this._onPointerMove}
-        @pointerup=${this._onPointerUp}
-        @pointercancel=${this._onPointerUp}
-        @dblclick=${this._refit}
-      >
-        ${this._tracks.map((track) => this._renderLane(track, scale))}
+        <div
+          class="lanes ${this._drag?.moved ? 'dragging' : ''}"
+          data-tip="Wheel to zoom, drag to pan, Shift+drag to select a range, double-click to fit"
+          @wheel=${this._onWheel}
+          @pointerdown=${this._onLanesDown}
+          @pointermove=${this._onRangeMove}
+          @pointerup=${this._onRangeUp}
+          @pointercancel=${this._onRangeUp}
+          @dblclick=${this._refit}
+        >
+          ${this._tracks.map((track) => this._renderLane(track, scale))}
+        </div>
+        ${this._renderRange(scale)}
       </div>
       ${detail}
     `;
+  }
+
+  /** The shaded range, and while it is being drawn its bounds. */
+  private _renderRange(scale: TimeScale) {
+    const range = this._draft ? this._draft.range : this.range;
+    if (range === null || this._width === 0) return nothing;
+    const x0 = scale.toX(range.start);
+    const x1 = scale.toX(range.end);
+    const left = Math.max(x0, 0);
+    const width = Math.min(x1, this._width) - left;
+    if (width < 0) return nothing;
+    return html`<div class="overlay" role="group" aria-label="Selected range">
+      <div class="range" style="left:${left}px;width:${width}px"></div>
+      ${x0 >= 0 ? html`<div class="range-edge" style="left:${x0}px"></div>` : nothing}
+      ${
+        x1 <= this._width
+          ? html`<div class="range-edge" style="left:${x1}px"></div>`
+          : nothing
+      }
+      ${
+        this._draft
+          ? html`<div class="range-label" style="left:${left + 4}px">
+              ${describeRange(range)}
+            </div>`
+          : nothing
+      }
+    </div>`;
   }
 
   private _renderTicks(scale: TimeScale) {
@@ -474,7 +675,11 @@ export class TimelineTracks extends LitElement {
         style="left:${left}px;width:${width}px;top:${rowIndex * ROW_PX}px;background:${color}"
         @click=${() => this._select(span.key)}
         @keydown=${(e: KeyboardEvent) => {
-          if (e.key === 'Enter' || e.key === ' ') {
+          if (e.key === 'Enter' && e.shiftKey && span.end !== undefined) {
+            // The keyboard way to a range: this span's own extent.
+            e.preventDefault();
+            this._emitRange(normalizeRange(span.start, span.end));
+          } else if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             this._select(span.key);
           }

@@ -161,6 +161,32 @@ unaffected. Only layers you capture get a track, custom layers included.
 The **Element** picker and the regex box above the list filter the tracks too,
 so a search you typed in one view still applies when you switch to the other.
 
+### Select a time range
+
+**Shift+drag** on the tracks, or drag on the time ruler above them, shades a
+range of the recording and shows its bounds and length while you drag. A click
+on the ruler, or **Esc**, clears it. To pick the range of one span from the
+keyboard, focus its mark and press **Shift+Enter**.
+
+With a range drawn and no span selected, the detail pane summarises it:
+
+- how long it is, and how many events each layer recorded in it;
+- each component that updated, with its update count and total
+  `performUpdate` time. **filter** narrows the list and the tracks to that
+  element, and **inspect** opens it in the Components tab.
+
+A span belongs to the range when it **starts** inside it, so a long span that
+begins before the range is not counted, and two neighbouring ranges never count
+the same span twice. The summary covers the lanes you are showing.
+
+Selecting a mark replaces the summary with that span's detail, and drawing a
+range clears the span selection. The detail pane holds one or the other.
+
+- **Zoom to range** fits the view to the range, and stops following the newest
+  events while you record.
+- **Filter to range** adds a **Time** chip to the filter bar, and the list and
+  the tracks then show only that window. Click the chip to show everything again.
+
 ## See it in Chrome's Performance panel
 
 The panel's tracks share a time axis with each other, not with the browser.
