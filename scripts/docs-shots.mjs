@@ -127,12 +127,6 @@ const exercise = async (app) => {
 /**
  * Route clicks woven between counter and list clicks, for the shots that show
  * the Router layer beside Lit's rows.
- *
- * The playground stamps `navigate` with raw `performance.now()`, while Lit's
- * own events use the recording clock, so a navigate lands later than the
- * update it caused by however long the page had been open when recording
- * started (see `recordSession`'s `reload`). Interleaving the clicks puts Lit
- * updates on both sides of every navigate whatever that offset comes to.
  */
 const exerciseRoutes = async (app) => {
   const counter = app.locator('hmr-counter').locator('css=#increment');
@@ -148,70 +142,13 @@ const exerciseRoutes = async (app) => {
 };
 
 /**
- * One route click and one counter update at the same recording time, so a
- * zoom that makes the update readable still has a Router tick in it.
- *
- * The playground stamps `navigate` with raw `performance.now()`, while Lit's
- * events use the recording clock, which starts at whatever the page's clock
- * read when recording began. Measure that offset from one click, read back
- * from the live list, then click the counter that long after a route.
- */
-const routeBesideUpdate = async (app, panel) => {
-  const latestCounterUpdate = () =>
-    eventList(panel).evaluate(
-      (list) =>
-        list.events
-          .filter(
-            (e) =>
-              e.title === 'performUpdate:start' &&
-              e.meta?.tagName === 'hmr-counter'
-          )
-          .at(-1)?.time ?? null
-    );
-  const before = await latestCounterUpdate();
-  const clicked = await app.evaluate(() => {
-    const t = performance.now();
-    document
-      .querySelector('hmr-counter')
-      .shadowRoot.querySelector('#increment')
-      .click();
-    return t;
-  });
-  let at = null;
-  for (let i = 0; i < 40 && (at === null || at === before); i++) {
-    await sleep(100);
-    at = await latestCounterUpdate();
-  }
-  if (at === null || at === before) {
-    throw new Error('counter update never reached the panel');
-  }
-  const offset = clicked - at;
-  await app.evaluate(async (offset) => {
-    const button = (sel) =>
-      document.querySelector(sel.host).shadowRoot.querySelector(sel.button);
-    button({
-      host: 'hmr-custom-layer',
-      button: 'nav button:nth-child(2)',
-    }).click();
-    await new Promise((r) => setTimeout(r, offset));
-    button({host: 'hmr-counter', button: '#increment'}).click();
-  }, offset);
-};
-
-/**
  * Open the app, open the panel on the Timeline tab, record a short session,
  * and stop. Returns both pages with the panel in front.
  *
- * `reload` reloads the app once recording is on, so the page boots straight
- * into a recording and its clock zero sits close to its own time origin;
- * that keeps raw-`performance.now()` custom events near the Lit rows they
- * belong with. `throttle` slows the app's CPU so sub-ms spans get wide enough
- * to read in Tracks.
+ * `throttle` slows the app's CPU so sub-ms spans get wide enough to read in
+ * Tracks.
  */
-const recordSession = async (
-  ctx,
-  {run = exercise, reload = false, throttle = 1} = {}
-) => {
+const recordSession = async (ctx, {run = exercise, throttle = 1} = {}) => {
   const app = await ctx.openApp();
   const panel = await ctx.openPanel('#tab=timeline');
   const record = timelineView(panel).locator('css=wa-button.record');
@@ -219,11 +156,6 @@ const recordSession = async (
   await record.click();
   await record.and(panel.locator('css=.active')).waitFor();
   await app.bringToFront();
-  if (reload) {
-    await app.reload();
-    await app.waitForFunction(() => window.__hmr !== undefined);
-    await sleep(600);
-  }
   const cdp = throttle > 1 ? await ctx.context.newCDPSession(app) : null;
   await cdp?.send('Emulation.setCPUThrottlingRate', {rate: throttle});
   await run(app, panel);
@@ -669,9 +601,15 @@ const SHOTS = [
     name: 'devtools-timeline-tracks',
     capture: async (ctx) => {
       const {panel} = await recordSession(ctx, {
-        run: async (app, panel) => {
+        run: async (app) => {
           await exercise(app);
-          await routeBesideUpdate(app, panel);
+          // A route change: the navigate and the router's own update land at
+          // one recording time.
+          await app
+            .locator('hmr-custom-layer')
+            .locator('css=nav button')
+            .nth(1)
+            .click();
           // Something after it, or the pan clamps that pair to the end of
           // the recording and the window cannot centre on it.
           await sleep(200);
@@ -685,8 +623,8 @@ const SHOTS = [
         .click();
       const tracks = timelineView(panel).locator('css=timeline-tracks');
       await tracks.locator('css=.mark').first().waitFor();
-      // Zoom to the tightest window holding a navigate and a whole counter
-      // update, through the element's own view setter: wheel zoom anchors
+      // Zoom to the tightest window holding a navigate and the router
+      // update it caused, through the element's own view setter: wheel zoom anchors
       // on the pointer and cannot aim at a span it has not drawn yet.
       const key = await tracks.evaluate((el) => {
         const navs = el.spans.filter((s) => s.layerId === 'app-router');
@@ -694,7 +632,7 @@ const SHOTS = [
           (s) =>
             s.name === 'performUpdate' &&
             s.end !== undefined &&
-            s.meta?.tagName === 'hmr-counter'
+            s.meta?.tagName === 'hmr-custom-layer'
         );
         let best = null;
         for (const u of updates) {
@@ -714,7 +652,7 @@ const SHOTS = [
         el._setView(extent / width, start - origin);
         return best.u.key;
       });
-      if (key === null) throw new Error('no counter update beside a navigate');
+      if (key === null) throw new Error('no router update beside a navigate');
       await sleep(300);
       await tracks.evaluate((el, key) => el._select(key), key);
       // Park the pointer off the plot, or its "wheel to zoom" hint tooltip
@@ -731,12 +669,8 @@ const SHOTS = [
   {
     name: 'devtools-custom-layer',
     capture: async (ctx) => {
-      // Unfiltered, so the Router's navigate rows sit among Lit's own rows;
-      // see `exerciseRoutes` for why that takes a reload and woven clicks.
-      const {panel} = await recordSession(ctx, {
-        run: exerciseRoutes,
-        reload: true,
-      });
+      // Unfiltered, so the Router's navigate rows sit among Lit's own rows.
+      const {panel} = await recordSession(ctx, {run: exerciseRoutes});
       await blur(panel);
       await scrollList(panel, 'bottom');
       await ctx.shot(panel);
