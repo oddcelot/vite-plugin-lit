@@ -39,6 +39,12 @@ const INPUT_LAYER_IDS: readonly string[] = ['mouse', 'keyboard'];
 /** The phase that brackets an entire update tick. */
 const ROOT_PHASE = 'performUpdate';
 
+/**
+ * A `@lit/task` run's span (`task:start` to `task:end`): on the lifecycle
+ * layer with an element, but not a phase of any update tick.
+ */
+export const TASK_SPAN = 'task';
+
 /** Point event a component's `shouldUpdate` returning false produces. */
 const SKIP_EVENT = 'update skipped';
 
@@ -350,10 +356,12 @@ export const toUpdateCycles = (
     if (
       span.layerId !== LIFECYCLE_LAYER_ID ||
       span.groupId === undefined ||
-      elementId === undefined
+      elementId === undefined ||
+      span.name === TASK_SPAN
     ) {
       // Point lifecycle events (connect/disconnect) have no groupId and are
-      // not update ticks; other layers are not this function's business.
+      // not update ticks, nor is a task run, which has its own groupId; other
+      // layers are not this function's business.
       continue;
     }
 
@@ -517,8 +525,8 @@ export const rollup = (cycles: readonly UpdateCycle[]): ComponentRollup[] => {
  * A cause the runtime recorded on the tick's `performUpdate` span wins over
  * guessing: an `event` cause is resolved to that event in `events`, and an
  * `update` cause to the causing cycle in `cycles` (`cause` reads "<tag>
- * update" on the `lit-lifecycle` layer and `causedBy` names its key). A
- * recorded cause whose target is not in the buffer falls back to the
+ * update" on the `lit-lifecycle` layer and `causedBy` names its key), and a
+ * `task` cause to that run's `task:start` ("<name> task"). A recorded cause whose target is not in the buffer falls back to the
  * heuristic: the nearest mouse or keyboard event before the cycle, within
  * `windowMs`.
  *
@@ -543,6 +551,18 @@ export const attributeInput = (
     if (!byLayerTime.has(id)) byLayerTime.set(id, event);
     const exact = `${id}\0${event.title ?? event.layerId}`;
     if (!byLayerTime.has(exact)) byLayerTime.set(exact, event);
+  }
+
+  // Task runs are named by their start event's groupId.
+  const taskStarts = new Map<string, TimelineEvent>();
+  for (const event of events) {
+    if (
+      event.layerId === LIFECYCLE_LAYER_ID &&
+      event.title === `${TASK_SPAN}${START_SUFFIX}` &&
+      event.groupId !== undefined
+    ) {
+      taskStarts.set(String(event.groupId), event);
+    }
   }
 
   // Both sides are sorted by time, so one forward pass suffices.
@@ -578,6 +598,19 @@ export const attributeInput = (
             time: causing.start,
           },
           causedBy: {groupId: causing.key},
+        };
+      }
+    } else if (recorded?.kind === 'task') {
+      const run = taskStarts.get(recorded.groupId);
+      if (run !== undefined) {
+        const task = (run.data as {task?: unknown} | null)?.task;
+        return {
+          ...cycle,
+          cause: {
+            layerId: LIFECYCLE_LAYER_ID,
+            type: typeof task === 'string' ? `${task} task` : 'task',
+            time: run.time,
+          },
         };
       }
     }

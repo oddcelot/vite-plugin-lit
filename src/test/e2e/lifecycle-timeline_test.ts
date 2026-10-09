@@ -397,10 +397,113 @@ test('an update a click handler requests carries that click as its cause', async
     .toBe(true);
 
   const tick = caused()!;
-  const cause = tick.cause as {layerId: string; time: number};
+  // mouseup and click can share one coarsened time; the cause names which.
+  const cause = tick.cause as {layerId: string; time: number; title?: string};
+  expect(cause.title).toBe('click');
   const click = events.find(
-    (e) => e.layerId === 'mouse' && e.time === cause.time
+    (e) =>
+      e.layerId === 'mouse' && e.time === cause.time && e.title === cause.title
   );
   expect(click?.title).toBe('click');
   expect(tick.meta?.tagName).toBe('hmr-lifecycle-child');
+});
+
+// A `@lit/task` asks for its re-render from a promise continuation, where
+// nothing is running to blame. The run is recorded as a span instead, caused
+// by the update that started it, and the re-render names the run.
+test('a task run started by a click causes the re-render it asks for', async () => {
+  const {page} = fixture;
+
+  const source = new TimelineChannelCodec();
+  source.connect(fromViteHot(fixture.server.hot));
+  const events: TimelineEvent[] = [];
+  source.attach({
+    pushEvents: (batch) => events.push(...batch),
+    addLayer: () => {},
+    inspectorMessage: () => {},
+    hmrIncompatible: () => {},
+    hmrPatched: () => {},
+    runtimeReady: () => {},
+  });
+
+  await page.reload();
+  await page.waitForFunction(
+    () => (window as {__hmr?: unknown}).__hmr !== undefined
+  );
+
+  source.setRecording(true);
+  source.setLayers({
+    recordingState: true,
+    litLifecycleEnabled: true,
+    litRenderEnabled: false,
+    litRenderVerboseEnabled: false,
+    litChangedValuesEnabled: false,
+    mouseEventEnabled: true,
+    keyboardEventEnabled: false,
+    customEventsEnabled: false,
+  });
+
+  /** The latest hmr-task run started by an update a click caused. */
+  const runFromClick = () => {
+    const clicked = new Set(
+      events
+        .filter(
+          (e) =>
+            e.title === 'performUpdate:start' &&
+            e.meta?.tagName === 'hmr-task' &&
+            e.cause?.kind === 'event' &&
+            e.cause.layerId === 'mouse'
+        )
+        .map((e) => String(e.groupId))
+    );
+    return events
+      .filter(
+        (e) =>
+          e.title === 'task:start' &&
+          e.meta?.tagName === 'hmr-task' &&
+          e.cause?.kind === 'update' &&
+          clicked.has(e.cause.groupId)
+      )
+      .at(-1);
+  };
+
+  // Clicked until one lands while recording (see the click-cause test above
+  // for the reload this retries through). Stops at the first hit: another
+  // click would supersede the run before its fake fetch settles.
+  await expect
+    .poll(
+      async () => {
+        try {
+          await page.locator('hmr-task #next-user').click({timeout: 2_000});
+        } catch {
+          return false;
+        }
+        return runFromClick() !== undefined;
+      },
+      {timeout: 15_000}
+    )
+    .toBe(true);
+
+  const run = runFromClick()!;
+  expect(run.data).toMatchObject({phase: 'task', task: 'userTask'});
+  const rerender = () =>
+    events.find(
+      (e) =>
+        e.title === 'performUpdate:start' &&
+        e.meta?.tagName === 'hmr-task' &&
+        e.cause?.kind === 'task' &&
+        e.cause.groupId === run.groupId
+    );
+  await expect
+    .poll(() => rerender() !== undefined, {timeout: 10_000})
+    .toBe(true);
+  expect(rerender()!.time).toBeGreaterThan(run.time);
+  await expect
+    .poll(
+      () =>
+        events.find((e) => e.title === 'task:end' && e.groupId === run.groupId)
+          ?.data,
+      {timeout: 5_000}
+    )
+    .toMatchObject({status: 'complete'});
 });

@@ -14,9 +14,11 @@ export interface TimelineLayer {
 /**
  * Why an update tick ran, recorded by the page runtime at the `requestUpdate`
  * that scheduled it: another element's update tick (a parent's render set a
- * property on it, or created it), or an event whose handler ran it (an input
- * event the browser dispatched, or a custom event a component dispatched).
- * Recorded, not inferred from timing. Only `performUpdate:start` carries one.
+ * property on it, or created it), an event whose handler ran it (an input
+ * event the browser dispatched, or a custom event a component dispatched), or
+ * a `@lit/task` run that settled. Recorded, not inferred from timing. Only
+ * `performUpdate:start` carries one, and `task:start`, for what started the
+ * run.
  */
 export type TimelineCause =
   | {kind: 'update'; groupId: string}
@@ -25,7 +27,12 @@ export type TimelineCause =
    * rows): two input events can share one coarsened `time`, and the title
    * tells them apart.
    */
-  | {kind: 'event'; layerId: string; time: number; title?: string};
+  | {kind: 'event'; layerId: string; time: number; title?: string}
+  /**
+   * A `@lit/task` run's completion (or its pending state) asked for the
+   * update; `groupId` names the run's `task` span.
+   */
+  | {kind: 'task'; groupId: string};
 
 export interface TimelineEvent<TData = unknown> {
   /**

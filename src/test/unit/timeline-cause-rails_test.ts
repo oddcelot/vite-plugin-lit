@@ -42,6 +42,21 @@ const phase = (groupId: string, start: number): TimelineSpan => ({
   events: [],
 });
 
+/** A `@lit/task` run's span; `cause` is what started it. */
+const taskRun = (
+  groupId: string,
+  start: number,
+  cause?: TimelineCause
+): TimelineSpan => ({
+  layerId: 'lit-lifecycle',
+  name: 'task',
+  key: `task:${groupId}`,
+  groupId,
+  start,
+  events: [],
+  ...(cause === undefined ? {} : {cause}),
+});
+
 const top = (span: TimelineSpan): ListRow => ({span, depth: 0});
 const folded = (span: TimelineSpan): ListRow => ({span, depth: 1});
 const byTick = (groupId: string): TimelineCause => ({kind: 'update', groupId});
@@ -150,6 +165,24 @@ describe('buildRails', () => {
       below: false,
       chain: 0,
     });
+  });
+
+  test('click -> tick -> task run -> tick is one lane and one chain', () => {
+    const click = point('mouse', 'click', 0);
+    const first = tick('1:2', 1, byEvent('mouse', 0));
+    const run = taskRun('task:1:1', 1.5, byTick('1:2'));
+    const other = tick('9:1', 3);
+    const settled = tick('1:3', 40, {kind: 'task', groupId: 'task:1:1'});
+    const rows = [top(click), top(first), top(run), top(other), top(settled)];
+    const parents = causeParents(rows);
+    expect(parents.get(first)).toBe(click);
+    expect(parents.get(run)).toBe(first);
+    expect(parents.get(settled)).toBe(run);
+    const rails = buildRails(rows);
+    expect(rails.map((r) => r.lane)).toEqual([0, 0, 0, undefined, 0]);
+    expect(rails.map((r) => r.chain)).toEqual([0, 0, 0, undefined, 0]);
+    expect(rails[3]).toEqual({through: [0], above: false, below: false});
+    expect(rails[4]).toMatchObject({above: true, below: false});
   });
 
   test('rows between a parent and its child carry the open lane through', () => {

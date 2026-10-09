@@ -277,6 +277,70 @@ describe('causeParentKey', () => {
   });
 });
 
+describe('task runs', () => {
+  const taskRun = (
+    groupId: string,
+    start: number,
+    end: number,
+    cause?: TimelineCause
+  ): TimelineEvent[] => [
+    {
+      layerId: 'lit-lifecycle',
+      time: start,
+      groupId,
+      title: 'task:start',
+      data: {phase: 'task', task: 'userTask'},
+      ...(cause === undefined ? {} : {cause}),
+      meta: {elementId: 1, tagName: 'x-1'},
+    },
+    {
+      layerId: 'lit-lifecycle',
+      time: end,
+      groupId,
+      title: 'task:end',
+      data: {phase: 'task', task: 'userTask', status: 'complete'},
+      meta: {elementId: 1, tagName: 'x-1'},
+    },
+  ];
+  const RUN = 'lit-lifecycle:task:1:1:task';
+
+  test('a task span stays top level, even while its tick is expanded', () => {
+    const events = [
+      ...tick(1, 0),
+      ...taskRun('task:1:1', 0.15, 5, {kind: 'update', groupId: '1:1'}),
+    ];
+    expect(names(rowsOf(events, [ROOT]))).toEqual([
+      '0:performUpdate',
+      '1:willUpdate',
+      '1:update',
+      '1:updated',
+      '0:task',
+    ]);
+    expect(foldParentKeys(toSpans(events)).has(RUN)).toBe(false);
+  });
+
+  test('a run names the tick that started it, and a tick names the run', () => {
+    const spans = toSpans([
+      ...tick(1, 0),
+      ...taskRun('task:1:1', 0.15, 5, {kind: 'update', groupId: '1:1'}),
+      ...causedTick(1, 6, 2, {kind: 'task', groupId: 'task:1:1'}),
+    ]);
+    const run = spans.find((s) => s.key === RUN)!;
+    expect(causeParentKey(run, spans)).toBe(ROOT);
+    const next = spans.find(
+      (s) => s.name === 'performUpdate' && s.groupId === '1:2'
+    )!;
+    expect(causeParentKey(next, spans)).toBe(RUN);
+  });
+
+  test('a task cause whose run is gone is undefined', () => {
+    const spans = toSpans(
+      causedTick(1, 6, 2, {kind: 'task', groupId: 'task:1:1'})
+    );
+    expect(causeParentKey(spans[0]!, spans)).toBeUndefined();
+  });
+});
+
 describe('caused ticks in the list', () => {
   test('a caused tick stays top-level, in time order, with its phases folded', () => {
     const events = [

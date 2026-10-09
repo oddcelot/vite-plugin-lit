@@ -64,6 +64,11 @@ export class TimelineSpanDetail extends LitElement {
   ];
 
   @property({attribute: false}) span: TimelineSpan | undefined;
+  /**
+   * The row `span.cause` names, when the presentation can resolve it; names a
+   * `task` cause's task. Without it a task cause reads "task run".
+   */
+  @property({attribute: false}) causeSpan: TimelineSpan | undefined;
   /** Offer the **filter** link (both presentations honour the element filter). */
   @property({type: Boolean}) filterable = false;
 
@@ -95,6 +100,17 @@ export class TimelineSpanDetail extends LitElement {
         composed: true,
       })
     );
+  }
+
+  private _causeText(cause: NonNullable<TimelineSpan['cause']>): string {
+    if (cause.kind === 'update') return `update ${cause.groupId}`;
+    if (cause.kind === 'task') {
+      const task = (
+        this.causeSpan?.events[0]?.data as {task?: unknown} | null | undefined
+      )?.task;
+      return typeof task === 'string' ? `${task} task run` : 'task run';
+    }
+    return `${cause.title ?? `${cause.layerId} event`} at ${cause.time.toFixed(3)} ms`;
   }
 
   override render() {
@@ -130,11 +146,7 @@ export class TimelineSpanDetail extends LitElement {
             ? html`<tr>
                 <td class="key">caused by</td>
                 <td class="val">
-                  ${
-                    row.cause.kind === 'update'
-                      ? `update ${row.cause.groupId}`
-                      : `${row.cause.title ?? `${row.cause.layerId} event`} at ${row.cause.time.toFixed(3)} ms`
-                  }
+                  ${this._causeText(row.cause)}
                   <wa-button
                     class="filter-link"
                     size="small"

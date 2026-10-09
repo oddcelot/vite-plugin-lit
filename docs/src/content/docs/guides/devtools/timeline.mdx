@@ -108,7 +108,9 @@ each update, the way `git log --graph` draws branches. A line connects an update
 to the row that caused it: the update of a parent that set a property on it or
 created it, or the click, key or custom event whose handler requested it. The
 line runs past whatever happened in between, so a chain of updates reads top to
-bottom even when other rows sit inside it. Each chain has its own colour, and
+bottom even when other rows sit inside it. A `@lit/task` run is a row of its
+own, from the update that started it to when it settled, and the re-render it
+asks for hangs from it. Each chain has its own colour, and
 hovering one of its rows fades the others. The cause is recorded at the
 `requestUpdate` call that scheduled the update, not guessed from timing. An
 update with no line is a timer, a signal or a stray `requestUpdate()`. A chain

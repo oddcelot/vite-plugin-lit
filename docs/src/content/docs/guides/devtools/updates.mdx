@@ -133,13 +133,14 @@ marked `counter`. Both the provider and its consumer show a tick, and both name
 />
 
 <Aside type="note" title="An update with no cause">
-  The cause is recorded when a handler of a mouse, keyboard or custom event, or
-  another component's update, calls `requestUpdate`. It reads "after click (412,
-  88)" or "after my-parent update". Only when the causing event is no longer in
-  the buffer does attribution fall back to a Mouse or Keyboard event within the
-  200ms before the update. An update with no cause is a timer, a signal, or a
-  stray `requestUpdate()`. That is itself the useful finding, and better than
-  blaming the last click that happened to be nearby.
+  The cause is recorded when a handler of a mouse, keyboard or custom event,
+  another component's update, or a `@lit/task` settling calls `requestUpdate`.
+  It reads "after click (412, 88)", "after my-parent update" or "after userTask
+  task". Only when the causing event is no longer in the buffer does attribution
+  fall back to a Mouse or Keyboard event within the 200ms before the update. An
+  update with no cause is a timer, a signal, or a stray `requestUpdate()`. That
+  is itself the useful finding, and better than blaming the last click that
+  happened to be nearby.
 </Aside>
 
 A component that overrides `willUpdate` or `updated` without calling `super`

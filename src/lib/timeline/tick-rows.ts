@@ -13,6 +13,9 @@
  * layer's rows (when dispatched during the element's own update) carry the same
  * id. Folding is one level deep and never crosses ticks.
  *
+ * A `@lit/task` run's `task` span has a groupId of its own (`task:…`), so it
+ * stays a top-level row, from the update that started it to when it settled.
+ *
  * Why a tick ran (`TimelineSpan.cause`) is not nested here: rows stay in time
  * order and `cause-rails.ts` draws the chain as rails. {@link causeParentKey}
  * only looks the cause's target up.
@@ -21,7 +24,7 @@
  * its spans, filter or expanded set change, and the cost is linear.
  */
 
-import type {TimelineSpan} from './derive.js';
+import {TASK_SPAN, type TimelineSpan} from './derive.js';
 
 /** The phase that brackets a tick and stands for it in the list. */
 const ROOT_PHASE = 'performUpdate';
@@ -61,6 +64,12 @@ const tickIdOf = (span: TimelineSpan): string | undefined => {
 const isTickRoot = (span: TimelineSpan): boolean =>
   span.layerId === 'lit-lifecycle' &&
   span.name === ROOT_PHASE &&
+  span.groupId !== undefined;
+
+/** A `@lit/task` run's span, which can cause, and be caused, like a tick. */
+export const isTaskRun = (span: TimelineSpan): boolean =>
+  span.layerId === 'lit-lifecycle' &&
+  span.name === TASK_SPAN &&
   span.groupId !== undefined;
 
 const attentionOf = (span: TimelineSpan): TickAttention | undefined => {
@@ -122,20 +131,27 @@ export const foldParentKey = (
 };
 
 /**
- * The key of the span that caused the tick `span`, if `span` is a tick with a
+ * The key of the span that caused the tick or task run `span`, if it has a
  * recorded cause whose target is among `spans`: the tick root the `update`
- * cause names, or the point span (no `groupId`) at the `event` cause's layer
- * and time.
+ * cause names, the `task` span the `task` cause names, or the point span (no
+ * `groupId`) at the `event` cause's layer and time.
  */
 export const causeParentKey = (
   span: TimelineSpan,
   spans: readonly TimelineSpan[]
 ): string | undefined => {
   const {cause} = span;
-  if (cause === undefined || !isTickRoot(span)) return undefined;
+  if (cause === undefined || !(isTickRoot(span) || isTaskRun(span))) {
+    return undefined;
+  }
   if (cause.kind === 'update') {
     return spans.find(
       (s) => isTickRoot(s) && String(s.groupId) === cause.groupId
+    )?.key;
+  }
+  if (cause.kind === 'task') {
+    return spans.find(
+      (s) => isTaskRun(s) && String(s.groupId) === cause.groupId
     )?.key;
   }
   // Input rows can share one coarsened `time` (mouseup and click), so a

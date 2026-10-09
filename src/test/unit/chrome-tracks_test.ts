@@ -42,6 +42,18 @@ describe('chrome tracks sink', () => {
     ]);
   });
 
+  test('a task run gets a Tasks track, named for its task', () => {
+    const {calls, sink} = setup();
+    const base = {subtitle: 'x-a', groupId: 'task:1:1'};
+    sink.push(ev({...base, title: 'task:start', time: 2}));
+    sink.push(
+      ev({...base, title: 'task:end', time: 40, data: {task: 'userTask'}})
+    );
+    expect(calls).toEqual([
+      ['<x-a> task userTask', 1002, 1040, 'Tasks', 'Lit', 'primary'],
+    ]);
+  });
+
   test('ignores an unmatched end', () => {
     const {calls, sink} = setup();
     sink.push(ev({title: 'update:end', groupId: 'a:1'}));

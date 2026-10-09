@@ -5,11 +5,13 @@
  * whatever happened in between.
  *
  * The graph's nodes are the list's top-level rows that take part in a chain:
- * an update tick (`performUpdate`) with a recorded cause whose parent row is
- * on screen, or any row that is such a parent (a tick, or a mouse, keyboard
- * or custom-event row). A row in no chain draws nothing, so timers and other
- * lone updates stay quiet. Phases folded under a tick draw only the lines
- * passing through them.
+ * an update tick (`performUpdate`) or a `@lit/task` run (`task`) with a
+ * recorded cause whose parent row is on screen, or any row that is such a
+ * parent (a tick, a task run, or a mouse, keyboard or custom-event row). So a
+ * click reads click → tick → task run → tick: the run hangs from the update
+ * that started it, and the update its settling asked for hangs from the run.
+ * A row in no chain draws nothing, so timers and other lone updates stay
+ * quiet. Phases folded under a tick draw only the lines passing through them.
  *
  * Lanes are allocated in one pass over the rows. A node holds its lane while
  * it still has children to come. Its last child continues in the same lane;
@@ -24,7 +26,7 @@
  */
 
 import type {TimelineSpan} from './derive.js';
-import type {ListRow} from './tick-rows.js';
+import {isTaskRun, type ListRow} from './tick-rows.js';
 
 /** Lanes the column stops growing at. */
 export const MAX_LANES = 8;
@@ -55,9 +57,14 @@ const isTickRoot = (span: TimelineSpan): boolean =>
   span.name === ROOT_PHASE &&
   span.groupId !== undefined;
 
+/** A row that is caused, and can cause, through its groupId. */
+const isGrouped = (span: TimelineSpan): boolean =>
+  isTickRoot(span) || isTaskRun(span);
+
 /**
- * Each top-level row's cause parent among the top-level rows: the tick whose
- * groupId the cause names, or the point span with the cause's layer and time.
+ * Each top-level row's cause parent among the top-level rows: the tick or task
+ * run whose groupId the cause names, or the point span with the cause's layer
+ * and time.
  * A parent that is not on screen, or not earlier, leaves the row a root.
  */
 export const causeParents = (
@@ -72,7 +79,7 @@ export const causeParents = (
     if (row.depth !== 0) return;
     const {span} = row;
     order.set(span, index);
-    if (isTickRoot(span)) roots.set(String(span.groupId), span);
+    if (isGrouped(span)) roots.set(String(span.groupId), span);
     else if (span.groupId === undefined) {
       const loose = `${span.layerId}\0${span.start}`;
       if (!points.has(loose)) points.set(loose, span);
@@ -83,15 +90,14 @@ export const causeParents = (
   const parents = new Map<TimelineSpan, TimelineSpan>();
   for (const [span, index] of order) {
     const {cause} = span;
-    if (cause === undefined || !isTickRoot(span)) continue;
-    const loose =
-      cause.kind === 'event' ? `${cause.layerId}\0${cause.time}` : '';
+    if (cause === undefined || !isGrouped(span)) continue;
     const parent =
-      cause.kind === 'update'
-        ? roots.get(cause.groupId)
-        : ((cause.title === undefined
+      cause.kind === 'event'
+        ? ((cause.title === undefined
             ? undefined
-            : points.get(`${loose}\0${cause.title}`)) ?? points.get(loose));
+            : points.get(`${cause.layerId}\0${cause.time}\0${cause.title}`)) ??
+          points.get(`${cause.layerId}\0${cause.time}`))
+        : roots.get(cause.groupId);
     if (parent === undefined || parent === span) continue;
     // Effects follow causes; a parent placed later is a stale cause.
     if ((order.get(parent) ?? Infinity) >= index) continue;

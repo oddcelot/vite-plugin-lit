@@ -99,6 +99,38 @@ const causedTick = (
   return events;
 };
 
+/** A `@lit/task` run as the runtime records it: its own `task:…` groupId. */
+const taskRun = (
+  groupId: string,
+  start: number,
+  end: number,
+  options: {cause?: TimelineCause; task?: string} = {}
+): TimelineEvent[] => {
+  const meta = {elementId: 1, tagName: 'hmr-task'};
+  const task = options.task ?? 'userTask';
+  return [
+    {
+      layerId: 'lit-lifecycle',
+      time: start,
+      groupId,
+      title: 'task:start',
+      subtitle: 'hmr-task',
+      data: {phase: 'task', task},
+      ...(options.cause === undefined ? {} : {cause: options.cause}),
+      meta,
+    },
+    {
+      layerId: 'lit-lifecycle',
+      time: end,
+      groupId,
+      title: 'task:end',
+      subtitle: 'hmr-task',
+      data: {phase: 'task', task, status: 'complete'},
+      meta,
+    },
+  ];
+};
+
 describe('toSpans', () => {
   test('copies a recorded cause onto the span', () => {
     const cause: TimelineCause = {kind: 'event', layerId: 'mouse', time: 3};
@@ -333,6 +365,22 @@ describe('toUpdateCycles', () => {
   });
 });
 
+describe('task runs', () => {
+  test('a task span is not an update cycle', () => {
+    const spans = toSpans([
+      ...tick(0, {tick: 1}),
+      ...taskRun('task:1:1', 2, 50, {cause: {kind: 'update', groupId: '1:1'}}),
+      ...tick(60, {tick: 2}),
+    ]);
+    const run = spans.find((s) => s.name === 'task')!;
+    expect(run).toMatchObject({start: 2, end: 50, duration: 48});
+    expect(run.cause).toEqual({kind: 'update', groupId: '1:1'});
+    const cycles = toUpdateCycles(spans);
+    expect(cycles.map((c) => c.key)).toEqual(['1:1', '1:2']);
+    expect(rollup(cycles)[0]!.updates).toBe(2);
+  });
+});
+
 describe('rollup', () => {
   test('counts updates per component and ranks the reasons', () => {
     const events = [
@@ -480,6 +528,30 @@ describe('attributeInput with recorded causes', () => {
       time: 100,
     });
     expect(cycles[1]!.causedBy).toEqual({groupId: '1:1'});
+  });
+
+  test('a task cause reads as that task settling', () => {
+    const events = [
+      ...tick(0, {tick: 1}),
+      ...taskRun('task:1:1', 2, 50),
+      ...causedTick(51, {kind: 'task', groupId: 'task:1:1'}, {tick: 2}),
+    ];
+    const cycles = attributeInput(toUpdateCycles(toSpans(events)), events);
+    expect(cycles[1]!.cause).toEqual({
+      layerId: 'lit-lifecycle',
+      type: 'userTask task',
+      time: 2,
+    });
+    expect(cycles[1]!).not.toHaveProperty('causedBy');
+  });
+
+  test('a task cause whose run is gone falls back to the heuristic', () => {
+    const events = [
+      click(95),
+      ...causedTick(100, {kind: 'task', groupId: 'task:1:9'}),
+    ];
+    const [cycle] = attributeInput(toUpdateCycles(toSpans(events)), events);
+    expect(cycle!.cause?.layerId).toBe('mouse');
   });
 
   test('an update cause whose tick is gone falls back to the heuristic', () => {

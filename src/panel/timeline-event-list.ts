@@ -522,6 +522,15 @@ export class TimelineEventList extends LitElement {
     if (parent !== undefined) this._select(parent);
   }
 
+  /** The row that caused `span`, for the detail pane to name it. */
+  private _causeOf(span: TimelineSpan): TimelineSpan | undefined {
+    if (span.cause?.kind !== 'task') return undefined;
+    const key = causeParentKey(span, this._layered);
+    return key === undefined
+      ? undefined
+      : this._layered.find((s) => s.key === key);
+  }
+
   private _layerOn(row: TimelineSpan): boolean {
     const l = this.layers.find((l) => l.id === row.layerId);
     return !l || l.enabled;
@@ -613,6 +622,7 @@ export class TimelineEventList extends LitElement {
           ? html`<timeline-span-detail
               filterable
               .span=${selected}
+              .causeSpan=${this._causeOf(selected)}
               @span-jump=${() => this._jumpToCause(selected)}
             ></timeline-span-detail>`
           : nothing
