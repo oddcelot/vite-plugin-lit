@@ -112,11 +112,14 @@ script runs.
 
 ## Open in the browser's own panels
 
-A button and two links hand off to DevTools' own panels:
+The Lit panel and DevTools' own panels hand off to each other:
 
 - The details pane's **Reveal in Elements** button, beside the scroll-into-view
   button, selects the element in the **Elements** panel. It works in Chrome and
   in Firefox, wherever DevTools offers `inspect()`.
+- The other way round, selecting a node in the **Elements** panel selects its
+  component in the Lit panel's **Components** tab: the node itself if it's a
+  Lit element, else the nearest Lit element around it, through shadow roots.
 - The **defined** link and, on a page built with the Vite plugin, the
   **rendered** link open in the **Sources** panel at that line. A source the
   plugin stamped is a file path, so the extension looks up the URL the page
