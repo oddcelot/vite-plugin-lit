@@ -12,6 +12,12 @@ which writes `dist/lit-inspector-<version>-firefox.zip` and
 working tree. The screenshots are the ones next to this file, shared with
 the Chrome listing (`listing.md`).
 
+New versions after the first go out from CI: the release workflow's
+`firefox-add-ons` job builds both files from the tag and submits them with
+`web-ext sign`, once approved in the `stores` environment. It sends the
+version notes and the "Notes for reviewers" below
+(`scripts/amo-metadata.mjs` reads them from this file), so edit them here.
+
 ## Submit a New Add-on
 
 **How to distribute**
@@ -130,8 +136,10 @@ Testing: load the package, open any site that uses Lit (for example https://lit.
 
 **Version notes** (per version, shown to users)
 
-The release's section of `CHANGELOG.md`, shortened to the Firefox-relevant
-lines.
+CI sends one line naming the version and linking its GitHub Release, whose
+notes are the `CHANGELOG.md` section. The section also covers the Vite
+plugin, so it isn't pasted in whole; for a hand upload, shorten it to the
+Firefox-relevant lines instead.
 
 ## For the publisher, outside this repo
 
