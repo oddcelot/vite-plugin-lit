@@ -88,11 +88,11 @@ const isCustomTag = (tag: string): boolean =>
   !tag.startsWith('devframes-');
 
 /**
- * The id of the nearest inspectable element at or above `node`: itself, its
- * ancestors, and past each shadow root to its host. `undefined` when no Lit
- * element encloses it.
+ * The id of the nearest element the tree lists (see {@link isListed}) at or
+ * above `node`: itself, its ancestors, and past each shadow root to its host.
+ * `undefined` when none encloses it.
  */
-export const inspectableIdOf = (node: unknown): number | undefined => {
+export const listedIdOf = (node: unknown): number | undefined => {
   let el: Element | null =
     node instanceof Element
       ? node
@@ -100,7 +100,7 @@ export const inspectableIdOf = (node: unknown): number | undefined => {
         ? node.parentElement
         : null;
   while (el !== null) {
-    if (isInspectable(el)) return idOf(el);
+    if (isListed(el)) return idOf(el);
     const root = el.getRootNode();
     el = el.parentElement ?? (root instanceof ShadowRoot ? root.host : null);
   }
@@ -133,6 +133,15 @@ export const isForeignElement = (el: Element): boolean =>
   // As in isUndefinedElement: the global registry first, the selector for
   // elements defined in another registry.
   (customElements.get(el.localName) !== undefined || el.matches(':defined'));
+
+/**
+ * An element the component tree has a row for: a Lit component, a tag nothing
+ * has defined, or a custom element another library defined. Anything that
+ * points at a row (the Elements sync, anatomy and extras links) uses this, so
+ * it never names an element the tree has flattened away.
+ */
+export const isListed = (el: Element): boolean =>
+  isInspectable(el) || isUndefinedElement(el) || isForeignElement(el);
 
 const nodeFor = (
   el: Element,

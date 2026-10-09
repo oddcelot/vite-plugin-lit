@@ -136,6 +136,19 @@ describe('collectAnatomy', () => {
     expect(typeof ref.id).toBe('number');
   });
 
+  test('links any element the tree lists, not just Lit ones', () => {
+    const plain = `x-anatomy-plain-${counter++}`;
+    customElements.define(plain, class extends HTMLElement {});
+    const el = mount(
+      define('<slot></slot>'),
+      `<${plain}></${plain}><x-anatomy-missing></x-anatomy-missing><p></p>`
+    );
+    const [foreign, missing, para] = collectAnatomy(el)!.slots[0].elements;
+    expect(typeof foreign.id).toBe('number');
+    expect(typeof missing.id).toBe('number');
+    expect(para).toEqual({tagName: 'p'});
+  });
+
   test('lists parts a nested component forwards with exportparts', () => {
     const inner = define(
       '<div part="a"></div><b part="b c"></b><i part="hidden"></i>'

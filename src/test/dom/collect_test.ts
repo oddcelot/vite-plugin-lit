@@ -6,6 +6,7 @@ import {
   isForeignElement,
   isInspectable,
   isUndefinedElement,
+  listedIdOf,
 } from '../../lib/runtime/inspector/collect.js';
 import {
   defineIdOf,
@@ -249,6 +250,21 @@ describe('custom elements other libraries define', () => {
     });
     expect(node!.notDefined).toBeUndefined();
     expect(node!.children.map((c) => c.tagName)).toEqual([inShadow, inLight]);
+  });
+
+  test('the Elements sync resolves to it, not to the Lit host above', () => {
+    const outer = document.createElement(define({shadow: true}));
+    const plain = document.createElement(defineForeign());
+    const inside = document.createElement('span');
+    plain.append(inside);
+    outer.shadowRoot!.append(plain);
+    document.body.append(outer);
+
+    const [node] = buildTree();
+    const [row] = node!.children;
+    expect(listedIdOf(inside)).toBe(row!.id);
+    expect(listedIdOf(plain)).toBe(row!.id);
+    expect(listedIdOf(document.body)).toBeUndefined();
   });
 
   test('a Lit node is not flagged', () => {

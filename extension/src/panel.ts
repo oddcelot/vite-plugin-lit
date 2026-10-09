@@ -285,10 +285,10 @@ const revealInElements = (
   );
 
 /**
- * Follows the Elements panel: when its selection (`$0`) is a Lit element, or
- * sits inside one, the Lit panel selects that component, as a deep link
- * would. `location.replace` with a fragment fires `hashchange` without a
- * history entry. Nothing happens for a node no Lit element encloses.
+ * Follows the Elements panel: when its selection (`$0`) is an element the
+ * Components tree lists, or sits inside one, the Lit panel selects that row,
+ * as a deep link would. `location.replace` with a fragment fires `hashchange` without a
+ * history entry. Nothing happens for a node no tree row encloses.
  */
 const followElementsSelection = (devtools: typeof chrome.devtools): void => {
   const elements = devtools.panels.elements as

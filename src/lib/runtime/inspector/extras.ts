@@ -10,7 +10,7 @@
 import {isExpandable} from './inspect-value.js';
 import {serialize, typeTag} from './serialize.js';
 import {idOf} from '../timeline/identity.js';
-import {isInspectable} from './collect.js';
+import {isListed} from './collect.js';
 import type {
   AnatomyElementRef,
   InspectorContext,
@@ -185,7 +185,7 @@ export const erroredTasks = (
 
 const refOf = (el: Element): AnatomyElementRef => ({
   tagName: el.localName,
-  ...(isInspectable(el) ? {id: idOf(el)} : {}),
+  ...(isListed(el) ? {id: idOf(el)} : {}),
 });
 
 /**

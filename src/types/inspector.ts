@@ -190,7 +190,7 @@ export interface ValueChild {
   expandable: boolean;
 }
 
-/** An element named in an anatomy entry; `id` is set when it is inspectable. */
+/** An element named in an anatomy entry; `id` is set when the tree lists it. */
 export interface AnatomyElementRef {
   tagName: string;
   id?: number;
@@ -448,9 +448,9 @@ export const ELEMENT_BY_ID_KEY = Symbol.for(
 
 /**
  * The `globalThis` key under which the page runtime exposes the id of the
- * nearest Lit element at or above a node, crossing shadow roots. The
- * extension evaluates it on DevTools' `$0` so an Elements selection selects
- * the component it belongs to in the Lit panel.
+ * nearest element the Components tree lists at or above a node, crossing
+ * shadow roots. The extension evaluates it on DevTools' `$0` so an Elements
+ * selection selects the row it belongs to in the Lit panel.
  */
 export const LIT_ID_OF_KEY = Symbol.for('@oddsquad/vite-plugin-lit#lit-id-of');
 
