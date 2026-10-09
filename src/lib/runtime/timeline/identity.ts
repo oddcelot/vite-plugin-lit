@@ -11,6 +11,7 @@
  */
 
 import {SOURCE_META_KEY, readCallSite} from '../source-meta.js';
+import {defineIdOf} from '../define-sites.js';
 import type {TimelineEvent} from '../../../types/timeline.js';
 
 export interface ElementSource {
@@ -113,10 +114,15 @@ export const callSiteOf = (el: object): ElementCallSite | undefined => {
  */
 export const metaOf = (el: object): NonNullable<TimelineEvent['meta']> => {
   const callSite = callSiteOf(el);
+  const source = sourceOf(el);
+  const ctor = (el as {constructor?: object}).constructor;
+  const defineId =
+    source === undefined && ctor !== undefined ? defineIdOf(ctor) : undefined;
   return {
     elementId: idOf(el),
     tagName: (el as Element).localName ?? 'unknown',
-    source: sourceOf(el),
+    source,
+    ...(defineId === undefined ? {} : {defineId}),
     ...(callSite === undefined ? {} : {callSite}),
   };
 };

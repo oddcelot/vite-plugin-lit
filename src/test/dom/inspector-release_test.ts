@@ -258,3 +258,26 @@ test('stops listening for slot changes when the watch ends', async () => {
   await settle();
   expect(details(carrier)).toBe(afterUnwatch);
 });
+
+test('answers a define-frames command, leaving out ids it never issued', async () => {
+  const {carrier} = await load();
+  const {rememberDefineFrames, defineIdOf} =
+    await import('../../lib/runtime/define-sites.js');
+  class Defined {}
+  const frames = [{url: 'https://app.test/a.js', line: 4, column: 9}];
+  rememberDefineFrames(Defined, frames);
+  const id = defineIdOf(Defined)!;
+  carrier.deliver(INSPECT_CMD_CHANNEL, {type: 'define-frames', ids: [id, -1]});
+  const reply = carrier.sent.find(
+    ([ch, m]) =>
+      ch === INSPECT_DATA_CHANNEL &&
+      (m as {type: string}).type === 'define-frames'
+  );
+  expect(reply?.[1]).toMatchObject({
+    type: 'define-frames',
+    frames: {[id]: frames},
+  });
+  expect(Object.keys((reply![1] as {frames: object}).frames)).toEqual([
+    String(id),
+  ]);
+});

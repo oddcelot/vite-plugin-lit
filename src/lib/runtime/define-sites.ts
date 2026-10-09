@@ -22,6 +22,13 @@ const STACK_DEPTH = 20;
 
 const framesByCtor = new WeakMap<object, GeneratedFrame[]>();
 
+// Events and tree nodes name a class by a small number rather than by its
+// frames, which would ride along on every one of them; the host asks for the
+// frames of each number once. Ids belong to this page runtime.
+const idByCtor = new WeakMap<object, number>();
+const framesById = new Map<number, GeneratedFrame[]>();
+let nextDefineId = 0;
+
 // V8: `    at fn (https://host/a.js:10:5)` or `    at https://host/a.js:10:5`;
 // Firefox and Safari: `fn@https://host/a.js:10:5`. Only http(s) frames count:
 // anything else is our own wrapper (chrome-extension://), an eval or native.
@@ -55,12 +62,30 @@ export const rememberDefineFrames = (
   ctor: object,
   frames: GeneratedFrame[]
 ): void => {
-  if (frames.length > 0) framesByCtor.set(ctor, frames);
+  if (frames.length === 0) return;
+  framesByCtor.set(ctor, frames);
+  let id = idByCtor.get(ctor);
+  if (id === undefined) {
+    id = nextDefineId++;
+    idByCtor.set(ctor, id);
+  }
+  // A repeated record replaces the frames under the same id. The map holds
+  // them by id, not by class, so a class that is collected leaves its frames
+  // behind: at most eight small frames per defined element.
+  framesById.set(id, frames);
 };
 
 /** Where `ctor` was defined, when a define call was seen for it. */
 export const defineFramesOf = (ctor: object): GeneratedFrame[] | undefined =>
   framesByCtor.get(ctor);
+
+/** The id events and tree nodes use for `ctor`'s define call, when one was seen. */
+export const defineIdOf = (ctor: object): number | undefined =>
+  idByCtor.get(ctor);
+
+/** The frames behind a {@link defineIdOf} id; `undefined` for one never issued. */
+export const defineFramesById = (id: number): GeneratedFrame[] | undefined =>
+  framesById.get(id);
 
 const captureStack = (): string => {
   const limited = Error as {stackTraceLimit?: number};

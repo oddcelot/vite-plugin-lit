@@ -6,7 +6,10 @@ import {
   isInspectable,
   isUndefinedElement,
 } from '../../lib/runtime/inspector/collect.js';
-import {rememberDefineFrames} from '../../lib/runtime/define-sites.js';
+import {
+  defineIdOf,
+  rememberDefineFrames,
+} from '../../lib/runtime/define-sites.js';
 
 const SOURCE_META_KEY = Symbol.for('@oddsquad/vite-plugin-lit#source');
 
@@ -248,6 +251,24 @@ describe('collectDetails', () => {
     rememberDefineFrames(stamped.constructor, frames);
     expect(collectDetails(stamped).defineFrames).toBeUndefined();
     expect(collectDetails(stamped).source).toEqual({file: '/c.ts', line: 2});
+  });
+
+  test('tree nodes carry the define id only for an unstamped class that has frames', () => {
+    const frames = [{url: 'https://app.test/a.js', line: 3, column: 14}];
+    const bareTag = define();
+    const bare = document.createElement(bareTag);
+    const stamped = document.createElement(
+      define({meta: {filePath: '/c.ts', lineNumber: 2, componentName: 'Cee'}})
+    );
+    document.body.append(bare, stamped);
+    const before = buildTree();
+    expect(before.map((n) => n.defineId)).toEqual([undefined, undefined]);
+    rememberDefineFrames(bare.constructor, frames);
+    rememberDefineFrames(stamped.constructor, frames);
+    const [bareNode, stampedNode] = buildTree();
+    expect(bareNode!.defineId).toBe(defineIdOf(bare.constructor));
+    expect(bareNode).toHaveProperty('defineId');
+    expect(stampedNode).not.toHaveProperty('defineId');
   });
 
   test('a missing or malformed call site is absent', () => {
