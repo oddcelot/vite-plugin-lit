@@ -20,15 +20,14 @@ hero:
 
 import {CardGrid} from '@astrojs/starlight/components';
 import {PackageManagers} from 'starlight-package-managers';
-import DemoVideo from '../../components/DemoVideo.astro';
 import IconLinkCard from '../../components/IconLinkCard.astro';
 import StoreButtons from '../../components/StoreButtons.astro';
+import YouTubeVideo from '../../components/YouTubeVideo.astro';
 
-<DemoVideo
-  name="promo"
-  width={1920}
-  height={1080}
-  label="A tour of the plugin inside the Lit DevTools timeline. A template is edited and saved while a counter keeps its count of 42; one shared stylesheet recolors a thousand shadow roots at once; the inspector shows the component tree, its state and lifecycle events; clicking an element opens its source line; a coding agent lists the live components over MCP. It ends on the plugin name and the litPlugin() setup line."
+<YouTubeVideo
+  id="eUg84347jyE"
+  poster="promo"
+  label="Play the vite-plugin-lit promo: a tour inside the Lit DevTools panel, from HMR that keeps a counter at 42, through one stylesheet recolouring a thousand shadow roots and the Timeline explaining each update, to the litPlugin() setup line"
 />
 
 <CardGrid>

@@ -1,0 +1,40 @@
+---
+/**
+ * A video hosted on YouTube, framed like DemoVideo. The poster is a still
+ * from `public/demo/`, so nothing loads from YouTube until someone presses
+ * play. Files in `public/` are not processed, so the path carries the base.
+ */
+import {YouTube} from '@astro-community/astro-embed-youtube';
+
+interface Props {
+  /** The YouTube video ID. */
+  id: string;
+  /** File stem in `public/demo/`: `<poster>-poster.jpg`. */
+  poster: string;
+  /** What the play button does, for screen readers. */
+  label: string;
+}
+
+const {id, poster, label} = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+
+<figure class="youtube-video">
+  <YouTube
+    id={id}
+    poster={`${base}/demo/${poster}-poster.jpg`}
+    playlabel={label}
+  />
+</figure>
+
+<style>
+  .youtube-video {
+    margin: 1.5rem 0;
+  }
+  .youtube-video :global(lite-youtube) {
+    max-width: none;
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+</style>
