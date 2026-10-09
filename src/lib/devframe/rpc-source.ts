@@ -19,6 +19,8 @@ import {channelListeners} from '../runtime/channel-listeners.js';
 import type {PageTransport} from '../runtime/page-transport.js';
 import {createLitDevframe} from './definition.js';
 import type {CreateLitDevframeOptions} from './definition.js';
+import {withDefineSources} from './define-sources.js';
+import type {DefineSourceResolver} from './define-sources.js';
 import {TimelineChannelCodec} from './page-codec.js';
 import {LIT_DEVFRAME_ID, RPC_PAGE_RECEIVE, RPC_PAGE_SEND} from './protocol.js';
 
@@ -71,13 +73,27 @@ export const rpcPageTransport = (ctx: DevframeNodeContext): PageTransport => {
 export function createStandaloneLitDevframe(
   options: Omit<CreateLitDevframeOptions, 'source' | 'host'> & {
     host: 'standalone' | 'extension';
+    /**
+     * Where a component without a stamped source is defined, from the stack
+     * of its define call. The extension passes one that reads the page's
+     * sourcemaps (see `define-sources.ts`); without it details pass as they
+     * came.
+     */
+    resolveDefineSource?: DefineSourceResolver;
   },
   transport: (ctx: DevframeNodeContext) => PageTransport = rpcPageTransport
 ): DevframeDefinition {
+  const {resolveDefineSource, ...rest} = options;
   const source = new TimelineChannelCodec();
   // What either host can do (its own picker, no HMR or source locations)
   // is `host-profile.ts`'s to say.
-  const definition = createLitDevframe({...options, source});
+  const definition = createLitDevframe({
+    ...rest,
+    source:
+      resolveDefineSource === undefined
+        ? source
+        : withDefineSources(source, resolveDefineSource),
+  });
   const {setup} = definition;
 
   return {

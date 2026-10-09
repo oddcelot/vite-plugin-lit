@@ -43,6 +43,58 @@ describe('createStandaloneLitDevframe', () => {
     expect((await ctx.rpc.invokeLocal('lit:get-meta')).picker).toBe(true);
   });
 
+  test('resolves define frames into source before details reach the panel', async () => {
+    const resolveDefineSource = vi.fn(async () => ({
+      file: 'src/a.ts',
+      line: 3,
+      url: 'https://app.test/src/a.ts',
+    }));
+    instance = initDevframe(
+      createStandaloneLitDevframe({
+        host: 'extension',
+        version: '9.9.9',
+        resolveDefineSource,
+      }),
+      {
+        base: '/__lit/',
+        distDir: false,
+        ws: false,
+        sse: false,
+        getStorageDir: () => './node_modules/.tmp-lit-devframe-test',
+      }
+    );
+    const ctx = await instance.context;
+    await instance.ready;
+    const broadcast = vi.spyOn(ctx.rpc, 'broadcast');
+    const frames = [{url: 'https://app.test/a.js', line: 5, column: 1}];
+    await ctx.rpc.invokeLocal('lit:page-send', INSPECT_DATA_CHANNEL, {
+      type: 'details',
+      details: {
+        id: 1,
+        tagName: 'x-a',
+        attributes: [],
+        properties: [],
+        flags: {hasUpdated: true, isUpdatePending: false, hasShadowRoot: false},
+        defineFrames: frames,
+      },
+    });
+    await vi.waitFor(() =>
+      expect(broadcast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'lit:inspector-message',
+          args: [
+            expect.objectContaining({
+              details: expect.objectContaining({
+                source: expect.objectContaining({file: 'src/a.ts'}),
+              }),
+            }),
+          ],
+        })
+      )
+    );
+    expect(resolveDefineSource).toHaveBeenCalledWith(frames);
+  });
+
   test("sends the host's commands to every page as page-receive", async () => {
     instance = initDevframe(
       createStandaloneLitDevframe({host: 'standalone', version: '9.9.9'}),
