@@ -289,6 +289,35 @@ test('Shift+drag selects a range in Tracks and summarises it', async () => {
   expect(panel.errors).toEqual([]);
 });
 
+test('the Tracks ruler spans the same width as every lane plot', async () => {
+  const {page} = panel;
+  await page.waitForSelector('timeline-view');
+  // Recording may already be on from an earlier test.
+  const record = page.getByRole('button', {name: /Record/});
+  if ((await record.count()) > 0) await record.click();
+  await fixture.page.locator('hmr-counter #increment').click();
+  await page.getByText('Tracks', {exact: true}).first().click();
+  // An earlier test may have left a regex that hides every mark.
+  const regex = page.locator('timeline-view wa-input.regex input');
+  if ((await regex.count()) > 0) await regex.fill('');
+  await page.locator('timeline-tracks .mark').first().waitFor();
+  const ticks = (await page.locator('timeline-tracks .ticks').boundingBox())!;
+  const edges = await page
+    .locator('timeline-tracks .plot')
+    .evaluateAll((plots) =>
+      // A plot's own scrollbar is inside its box: compare the content width.
+      plots.map((p) => [
+        p.getBoundingClientRect().left,
+        p.getBoundingClientRect().left + p.clientWidth,
+      ])
+    );
+  for (const [left, right] of edges as number[][]) {
+    expect(Math.abs(left - ticks.x)).toBeLessThan(1);
+    expect(Math.abs(right - (ticks.x + ticks.width))).toBeLessThan(1);
+  }
+  expect(panel.errors).toEqual([]);
+});
+
 test('Pick is not offered when the source overlay is off', async () => {
   const {page} = panel;
   await page.goto(`${fixture.origin}/__lit/#tab=components`);

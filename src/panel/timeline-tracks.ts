@@ -119,6 +119,7 @@ export class TimelineTracks extends LitElement {
         position: relative;
         flex: 1;
         overflow: hidden;
+        margin-right: var(--inset, 0px);
       }
       .tick-label {
         position: absolute;
@@ -144,7 +145,7 @@ export class TimelineTracks extends LitElement {
         top: 0;
         bottom: 0;
         left: var(--gutter);
-        right: var(--scrollbar, 0px);
+        right: var(--inset, 0px);
         overflow: hidden;
         pointer-events: none;
         z-index: 2;
@@ -160,8 +161,8 @@ export class TimelineTracks extends LitElement {
         position: absolute;
         top: 0;
         bottom: 0;
-        width: 9px;
-        margin-left: -4px;
+        width: 5px;
+        margin-left: -2px;
         cursor: ew-resize;
         pointer-events: auto;
         touch-action: none;
@@ -171,13 +172,13 @@ export class TimelineTracks extends LitElement {
         position: absolute;
         top: 0;
         bottom: 0;
-        left: 4px;
+        left: 2px;
         border-left: 1px solid var(--lit-devtools-accent-ring);
       }
       .range-handle:hover::before,
       .range-handle:focus-visible::before {
         border-left-width: 3px;
-        left: 3px;
+        left: 1px;
       }
       .range-handle:focus-visible {
         outline: none;
@@ -218,6 +219,9 @@ export class TimelineTracks extends LitElement {
         flex: 1;
         min-width: 0;
         max-height: calc(8 * ${ROW_PX}px);
+        /* Reserved even without overflow, so every lane is as wide as the
+           others and the ruler can leave the same room. */
+        scrollbar-gutter: stable;
         overflow-x: hidden;
         overflow-y: auto;
       }
@@ -295,9 +299,10 @@ export class TimelineTracks extends LitElement {
    *  restored by a double-click refit. */
   @state() private _follow = true;
   @state() private _width = 0;
-  /** Width of the lanes' vertical scrollbar, which narrows the plot the
-   *  marks are clipped to but not the ruler the scale is measured on. */
-  @state() private _scrollbar = 0;
+  /** Room the vertical scrollbars (the lanes' and each plot's) take to the
+   *  right of the marks. The ruler and the range overlay leave it too, so
+   *  they share one plot width with the marks. */
+  @state() private _inset = 0;
 
   private readonly _ticksRef = createRef<HTMLDivElement>();
   private readonly _lanesRef = createRef<HTMLDivElement>();
@@ -313,6 +318,7 @@ export class TimelineTracks extends LitElement {
   private _summary: ReturnType<typeof summarizeRange> | undefined;
   /** The range edge being dragged by its handle. */
   private _edgeDrag: RangeEdge | null = null;
+  private _edgeMoved = false;
   /** Set when a drag ends, so the click the browser fires after it does
    *  not also select whatever mark the pointer happened to finish on. */
   private _suppressClick = false;
@@ -366,8 +372,14 @@ export class TimelineTracks extends LitElement {
 
   override updated() {
     const lanes = this._lanesRef.value;
-    const scrollbar = lanes ? lanes.offsetWidth - lanes.clientWidth : 0;
-    if (scrollbar !== this._scrollbar) this._scrollbar = scrollbar;
+    const plot = lanes?.querySelector<HTMLElement>('.plot');
+    const inset =
+      lanes && plot
+        ? lanes.offsetWidth -
+          lanes.clientWidth +
+          (plot.offsetWidth - plot.clientWidth)
+        : 0;
+    if (inset !== this._inset) this._inset = inset;
     // The plot's width drives the scale. Its ticks row is re-created when the
     // view goes empty and back, so re-point the observer when it changes.
     const el = this._ticksRef.value ?? null;
@@ -562,14 +574,29 @@ export class TimelineTracks extends LitElement {
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     (e.currentTarget as HTMLElement).focus();
     this._edgeDrag = edge;
+    this._edgeMoved = false;
   }
 
   private _onHandleMove(e: PointerEvent) {
     const plot = this._ticksRef.value;
     if (this._edgeDrag === null || !plot) return;
     const x = e.clientX - plot.getBoundingClientRect().left;
+    this._edgeMoved = true;
     this._moveEdge(this._edgeDrag, this._scale().toMs(x));
   }
+
+  /** A click on a handle that never moved it falls through to the mark under
+   *  it, so an edge sitting on a mark does not make the mark unclickable. */
+  private _onHandleUp = (e: PointerEvent) => {
+    const moved = this._edgeMoved;
+    this._edgeDrag = null;
+    this._edgeMoved = false;
+    if (moved) return;
+    const under = this.shadowRoot
+      ?.elementsFromPoint(e.clientX, e.clientY)
+      .find((el) => el.classList.contains('mark'));
+    (under as HTMLElement | undefined)?.click();
+  };
 
   /** Fits the view to the range, leaving the live edge. Also the summary's
    *  **Zoom to range**, and what the view does when a link names a range. */
@@ -651,7 +678,7 @@ export class TimelineTracks extends LitElement {
     }
     const scale = this._scale();
     return html`
-      <div class="stage">
+      <div class="stage" style="--inset:${this._inset}px">
         <div
           class="axis"
           data-tip="Drag to select a time range"
@@ -721,16 +748,11 @@ export class TimelineTracks extends LitElement {
         @keydown=${(e: KeyboardEvent) => this._onHandleKey(e, edge)}
         @pointerdown=${(e: PointerEvent) => this._onHandleDown(e, edge)}
         @pointermove=${this._onHandleMove}
-        @pointerup=${() => (this._edgeDrag = null)}
+        @pointerup=${this._onHandleUp}
         @pointercancel=${() => (this._edgeDrag = null)}
       ></div>`;
     };
-    return html`<div
-      class="overlay"
-      role="group"
-      aria-label="Selected range"
-      style="--scrollbar:${this._scrollbar}px"
-    >
+    return html`<div class="overlay" role="group" aria-label="Selected range">
       <div class="range" style="left:${left}px;width:${width}px"></div>
       ${handle('start', x0)} ${handle('end', x1)}
       ${
