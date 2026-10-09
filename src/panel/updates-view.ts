@@ -17,6 +17,7 @@ import './wa-icons.js';
 import {LocationController} from './location-controller.js';
 import {PanelLocation} from './panel-location.js';
 import {canOpenInEditor, openInEditor} from './open-in-editor.js';
+import {sourceOpenerFor} from './source-opener.js';
 
 /**
  * The Updates view: which components re-rendered, how often, how long for, and
@@ -414,6 +415,10 @@ export class UpdatesView extends LitElement {
     const cycles = this._cycles.filter((c) => c.tagName === this._selectedTag);
     const entry = this._components.find((c) => c.tagName === this._selectedTag);
     const source = entry?.source;
+    // A location resolved through the page's sourcemaps opens in the host's
+    // own source viewer, which an editor cannot.
+    const sourceOpener = (loc: NonNullable<typeof source>) =>
+      sourceOpenerFor(loc, this._canOpen);
     // A call site belongs to one instance, so it stands for the component
     // only while a single instance updated.
     const site = entry?.elementIds.length === 1 ? entry.callSite : undefined;
@@ -422,20 +427,24 @@ export class UpdatesView extends LitElement {
         <div class="head">
           <span>&lt;${this._selectedTag}&gt; updates</span>
           ${
-            source && !this._canOpen
+            source && !(this._canOpen || sourceOpener(source))
               ? html`<span class="link src-text"
                   >${source.file}:${source.line}</span
                 >`
               : nothing
           }
           ${
-            source && this._canOpen
+            source && (this._canOpen || sourceOpener(source))
               ? html`<wa-button
                   class="link"
                   appearance="plain"
                   size="small"
-                  data-tip="Open this file in your editor"
-                  @click=${() => openInEditor(source.file, source.line)}
+                  data-tip=${sourceOpener(source) ? 'Open in Sources' : 'Open this file in your editor'}
+                  @click=${() => {
+                    const opener = sourceOpener(source);
+                    if (opener !== undefined) void opener(source);
+                    else void openInEditor(source.file, source.line);
+                  }}
                 >
                   ${source.file}:${source.line}
                   <wa-icon slot="end" name="arrow-square-out"></wa-icon>

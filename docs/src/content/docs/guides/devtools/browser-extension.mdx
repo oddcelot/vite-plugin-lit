@@ -100,9 +100,10 @@ the bottom right of the **Lit** tab.
 ## Where a component is defined
 
 Without the Vite plugin, no build step tells the extension where a component
-lives. If the page ships sourcemaps, the extension works it out from them: the
-details pane's **defined** row shows the original file and line, and in Chrome
-a click opens it in the **Sources** panel.
+lives. If the page ships sourcemaps, the extension works it out from them. The
+original file and line show in the details pane's **defined** row, in the
+**Updates** view's header for a component, and in the **Timeline**'s span
+details, and in Chrome a click opens it in the **Sources** panel.
 
 The extension fetches the page's scripts and their sourcemaps from the site to
 do this, so the maps must be reachable from the page. It only sees components

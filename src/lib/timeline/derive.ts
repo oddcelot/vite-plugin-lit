@@ -106,7 +106,7 @@ export interface UpdateCycle {
   key: string;
   elementId: number;
   tagName: string;
-  source?: {file: string; line: number};
+  source?: {file: string; line: number; column?: number; url?: string};
   /** Where this instance was written in a template, when the transform knew. */
   callSite?: {file: string; line: number; column: number};
   start: number;
@@ -153,7 +153,7 @@ export interface ComponentRollup {
   redundantChanges?: Array<{key: string; count: number}>;
   /** Cycles in which a phase threw. */
   errors: number;
-  source?: {file: string; line: number};
+  source?: {file: string; line: number; column?: number; url?: string};
   /**
    * Where the first instance seen was written. Per instance, unlike `source`,
    * so it only stands for the component when `elementIds` holds one.

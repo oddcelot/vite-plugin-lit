@@ -1,4 +1,8 @@
 import {expect, test} from 'vite-plus/test';
+import {
+  rememberDefineFrames,
+  defineIdOf,
+} from '../../lib/runtime/define-sites.js';
 import {callSiteOf, metaOf} from '../../lib/runtime/timeline/identity.js';
 
 test('callSiteOf reads the stamped attribute with its column', () => {
@@ -27,4 +31,26 @@ test('metaOf adds the call site only when there is one', () => {
     tagName: 'x-b',
     callSite: {file: 'src/app.ts', line: 3, column: 9},
   });
+});
+
+test('metaOf names the define call of an unstamped class that has one', () => {
+  class Bare extends HTMLElement {}
+  customElements.define('x-define-meta', Bare);
+  const el = new Bare();
+  expect(metaOf(el)).not.toHaveProperty('defineId');
+  rememberDefineFrames(Bare, [
+    {url: 'https://app.test/a.js', line: 1, column: 1},
+  ]);
+  expect(metaOf(el)).toMatchObject({defineId: defineIdOf(Bare)});
+
+  // A stamped class already says where it is.
+  class Stamped extends HTMLElement {}
+  (Stamped as unknown as Record<symbol, unknown>)[
+    Symbol.for('@oddsquad/vite-plugin-lit#source')
+  ] = {filePath: '/c.ts', lineNumber: 2};
+  customElements.define('x-define-meta-stamped', Stamped);
+  rememberDefineFrames(Stamped, [
+    {url: 'https://app.test/a.js', line: 1, column: 1},
+  ]);
+  expect(metaOf(new Stamped())).not.toHaveProperty('defineId');
 });

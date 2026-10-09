@@ -1,5 +1,6 @@
 import {afterEach, beforeAll, expect, test, vi} from 'vite-plus/test';
 import type {TimelineSpan} from '../../lib/timeline/derive.js';
+import {useSourceOpener} from '../../panel/source-opener.js';
 
 const opened = vi.hoisted(() => vi.fn());
 const editor = vi.hoisted(() => ({available: true}));
@@ -164,6 +165,27 @@ test('shows the source as plain text where the host has no editor', async () => 
   const {value, link} = await mount({span});
   expect(value('source')).toBe('src/counter.ts:12');
   expect(link('src/counter.ts:12')).toBeUndefined();
+});
+
+test('a sourcemapped source opens in the host viewer, even with no editor', async () => {
+  editor.available = false;
+  const seen: unknown[] = [];
+  useSourceOpener((loc) => void seen.push(loc));
+  try {
+    const source = {
+      file: 'src/counter.ts',
+      line: 12,
+      url: 'https://app.test/src/counter.ts',
+    };
+    const {root} = await mount({span: {...span, meta: {...span.meta, source}}});
+    const link = root.querySelector<HTMLElement>('.src-link')!;
+    expect(link.dataset['tip']).toBe('Open in Sources');
+    link.click();
+    expect(seen).toEqual([source]);
+    expect(opened).not.toHaveBeenCalled();
+  } finally {
+    useSourceOpener(undefined);
+  }
 });
 
 const withSite: TimelineSpan = {

@@ -1,6 +1,8 @@
 import {describe, expect, test} from 'vite-plus/test';
 import {
+  defineFramesById,
   defineFramesOf,
+  defineIdOf,
   installDefineSites,
   rememberDefineFrames,
 } from '../../lib/runtime/define-sites.js';
@@ -48,5 +50,26 @@ describe('rememberDefineFrames', () => {
       {url: 'https://a.test/x.js', line: 1, column: 2},
     ]);
     expect(defineFramesOf(B)).toBeUndefined();
+  });
+});
+
+describe('defineIdOf', () => {
+  test('numbers each recorded constructor once and maps the id back', () => {
+    class A {}
+    class B {}
+    class None {}
+    const framesA = [{url: 'https://a.test/x.js', line: 1, column: 2}];
+    rememberDefineFrames(A, framesA);
+    rememberDefineFrames(B, [{url: 'https://a.test/y.js', line: 3, column: 4}]);
+    rememberDefineFrames(None, []);
+    const a = defineIdOf(A)!;
+    expect(typeof a).toBe('number');
+    expect(defineIdOf(B)).not.toBe(a);
+    expect(defineIdOf(None)).toBeUndefined();
+    expect(defineFramesById(a)).toEqual(framesA);
+    // Recording again keeps the id.
+    rememberDefineFrames(A, framesA);
+    expect(defineIdOf(A)).toBe(a);
+    expect(defineFramesById(-1)).toBeUndefined();
   });
 });

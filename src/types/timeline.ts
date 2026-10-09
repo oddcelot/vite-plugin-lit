@@ -59,7 +59,15 @@ export interface TimelineEvent<TData = unknown> {
   meta?: {
     elementId?: number;
     tagName?: string;
-    source?: {file: string; line: number};
+    source?: {file: string; line: number; column?: number; url?: string};
+    /**
+     * Names the `customElements.define` call that registered the class, for a
+     * page the plugin never stamped (the extension's). Set only when `source`
+     * is absent; the host trades it for a `source` through the page's
+     * sourcemaps, so events carry a number instead of a stack. Ids belong to
+     * one page runtime.
+     */
+    defineId?: number;
     /**
      * Where this instance was written in a template (or HTML entry file),
      * from the dev transform's `data-lit-source` attribute. Optional and

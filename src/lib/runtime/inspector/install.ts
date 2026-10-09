@@ -9,6 +9,7 @@
 
 import {createPageScriptChannel} from 'devframe/in-page-channel';
 import {chromeTracksSupported} from '../timeline/chrome-tracks.js';
+import {defineFramesById} from '../define-sites.js';
 import {elementById} from '../timeline/identity.js';
 import {pageChannel} from '../page-channel.js';
 import {PAGE_ID} from '../page-id.js';
@@ -31,6 +32,7 @@ import {
   INSPECT_CMD_CHANNEL,
   ELEMENT_BY_ID_KEY,
   INSPECT_DATA_CHANNEL,
+  type GeneratedFrame,
   type InspectorCommand,
   type InspectorMessage,
   type InspectorTreeNode,
@@ -437,6 +439,15 @@ if (typeof window !== 'undefined') {
         } else {
           send({type: 'gone', id: cmd.id});
         }
+        break;
+      }
+      case 'define-frames': {
+        const frames: Record<number, GeneratedFrame[]> = {};
+        for (const id of cmd.ids) {
+          const known = defineFramesById(id);
+          if (known !== undefined) frames[id] = known;
+        }
+        send({type: 'define-frames', frames});
         break;
       }
       case 'expand': {

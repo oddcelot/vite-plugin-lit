@@ -20,7 +20,7 @@ import type {
   ValuePath,
 } from '../../../types/inspector.js';
 import {CALL_SITE_ATTR, SOURCE_META_KEY, readCallSite} from '../source-meta.js';
-import {defineFramesOf} from '../define-sites.js';
+import {defineFramesOf, defineIdOf} from '../define-sites.js';
 
 interface LitSourceMeta {
   filePath: string;
@@ -106,6 +106,8 @@ const nodeFor = (
   notDefined = false
 ): InspectorTreeNode => {
   const meta = metaOf(el);
+  // No stamp: a host that can map the define call's stack fills `source`.
+  const defineId = meta === undefined ? defineIdOf(el.constructor) : undefined;
   const warned = warningsFor(
     el.localName,
     (el.constructor as {name?: string}).name
@@ -120,6 +122,7 @@ const nodeFor = (
       meta === undefined
         ? undefined
         : {file: meta.filePath, line: meta.lineNumber},
+    ...(defineId !== undefined ? {defineId} : {}),
     callSite: callSiteOf(el),
     children,
   };

@@ -47,6 +47,12 @@ export interface InspectorTreeNode {
   /** Where the component class is declared. */
   source?: ElementSource;
   /**
+   * Names the class's `customElements.define` call when `source` is absent and
+   * the runtime saw it (the extension's); see {@link TimelineEvent.meta}. The
+   * host fills `source` from it.
+   */
+  defineId?: number;
+  /**
    * Where this instance was written, in an `html` template or an HTML entry
    * file, from the `data-lit-source` attribute the dev transform stamps.
    * Absent for elements created any other way (`createElement`, a dynamic
@@ -344,6 +350,11 @@ export type InspectorMessage =
     }
   | {type: 'tree'; roots: InspectorTreeNode[]}
   | {type: 'details'; details: InspectorDetails}
+  /**
+   * The define-call frames for the ids a `define-frames` command asked about;
+   * an id the runtime does not know is left out.
+   */
+  | {type: 'define-frames'; frames: Record<number, GeneratedFrame[]>}
   /** The requested element id couldn't be resolved (removed / GC'd). */
   | {type: 'gone'; id: number}
   /** An inspect-mode overlay pick — select this element in the panel. */
@@ -365,6 +376,8 @@ export type InspectorMessage =
 export type InspectorCommand =
   | {type: 'tree'}
   | {type: 'details'; id: number}
+  /** The define-call frames behind these `defineId`s, answered in one message. */
+  | {type: 'define-frames'; ids: number[]}
   /** Keep pushing fresh details for `id` as it updates; `null` stops. */
   | {type: 'watch'; id: number | null}
   /** Outline element `id` in the page on tree hover; `null` clears it. */
