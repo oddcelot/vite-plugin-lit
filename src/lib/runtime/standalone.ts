@@ -23,6 +23,7 @@
  * pick opens the panel by a fixed window name instead (see {@link pickInto}).
  */
 
+import {installDefineSites} from './define-sites.js';
 import {forgetOwnLit} from './own-lit.js';
 import './timeline/install.js';
 import './inspector/install.js';
@@ -31,6 +32,11 @@ import {pickInto} from './panel-window.js';
 import {connectToDevServer} from './rpc-transport.js';
 import type {ConnectOptions} from './rpc-transport.js';
 
+// Where each class is defined comes from the stack of its define call, so
+// this has to run before the page's scripts do: only defines after it are
+// seen, hence the script belongs in <head>, ahead of the app. (Our own
+// imports' defines are not the page's and need no record.)
+installDefineSites();
 // The picker's LitElement brought a Lit of our own: not the page's to count.
 forgetOwnLit();
 

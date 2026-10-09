@@ -355,6 +355,18 @@ export type InspectorMessage =
    * an id the runtime does not know is left out.
    */
   | {type: 'define-frames'; frames: Record<number, GeneratedFrame[]>}
+  /**
+   * The page's answer to a `fetch-text` command. `ok` is false when the URL
+   * was refused or the fetch failed; `sourceMap` is the response's `SourceMap`
+   * or `X-SourceMap` header, if it had one.
+   */
+  | {
+      type: 'fetched-text';
+      url: string;
+      ok: boolean;
+      sourceMap?: string;
+      text?: string;
+    }
   /** The requested element id couldn't be resolved (removed / GC'd). */
   | {type: 'gone'; id: number}
   /** An inspect-mode overlay pick — select this element in the panel. */
@@ -378,6 +390,12 @@ export type InspectorCommand =
   | {type: 'details'; id: number}
   /** The define-call frames behind these `defineId`s, answered in one message. */
   | {type: 'define-frames'; ids: number[]}
+  /**
+   * Have the page fetch `url` and send back its text, for hosts with no
+   * access to the page's scripts of their own. Only the page's own origin is
+   * fetched.
+   */
+  | {type: 'fetch-text'; url: string}
   /** Keep pushing fresh details for `id` as it updates; `null` stops. */
   | {type: 'watch'; id: number | null}
   /** Outline element `id` in the page on tree hover; `null` clears it. */

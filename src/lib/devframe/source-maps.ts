@@ -3,8 +3,10 @@
  * of its `customElements.define` call (`runtime/define-sites.ts`) mapped
  * through the page's own sourcemaps.
  *
- * Runs in the DevTools panel page, which may fetch from the sites the user
- * enabled. Per generated script it fetches the script once, finds its map
+ * Runs wherever the host is: the extension's panel page, which may fetch from
+ * the sites the user enabled, or the `lit-devtools dev` server, which has the
+ * page fetch for it (`page-fetch.ts`). The host supplies `fetch`. Per
+ * generated script it fetches the script once, finds its map
  * (the `SourceMap` header, else the last `sourceMappingURL` comment; inline
  * `data:` maps too) and keeps the parsed map until {@link reset}.
  *
@@ -24,7 +26,7 @@ import {
   originalPositionFor,
   type TraceMap,
 } from '@jridgewell/trace-mapping';
-import type {ElementSource, GeneratedFrame} from '../../src/types/inspector.js';
+import type {ElementSource, GeneratedFrame} from '../../types/inspector.js';
 
 export interface SourceMapResolver {
   /** The original location of the first fitting frame, if any maps. */
@@ -35,8 +37,15 @@ export interface SourceMapResolver {
   reset(): void;
 }
 
+/** What a fetched response must offer; the page's `fetch` and ours both do. */
+export interface FetchedResponse {
+  ok: boolean;
+  headers: {get(name: string): string | null};
+  text(): Promise<string>;
+}
+
 export interface SourceMapResolverOptions {
-  fetch: typeof fetch;
+  fetch: (url: string) => Promise<FetchedResponse>;
   /**
    * Whether a script or map URL may be fetched; the panel allows only the
    * inspected site, so a CDN's script or a map hosted elsewhere stays

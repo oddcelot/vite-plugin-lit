@@ -82,6 +82,7 @@
     "package:extension": "node scripts/package-extension.mjs"
   },
   "dependencies": {
+    "@jridgewell/trace-mapping": "^0.3.31",
     "devframe": "^1.1.0",
     "es-module-lexer": "^3.0.2",
     "launch-editor": "^2.14.1",
@@ -113,7 +114,6 @@
     "@awesome.me/webawesome": "^3.14.0",
     "@devframes/agentic": "1.1.0",
     "@devframes/service-open": "1.1.0",
-    "@jridgewell/trace-mapping": "^0.3.31",
     "@lit-labs/signals": "^0.3.0",
     "@lit-labs/virtualizer": "^2.1.1",
     "@lit/context": "^1.1.6",
