@@ -163,6 +163,32 @@ const tags = (rows: HTMLElement[]) =>
       `${r.querySelector('.tag')!.textContent}${r.classList.contains('context') ? ' (context)' : ''}`
   );
 
+const press = async (el: ComponentsView, row: HTMLElement, key: string) => {
+  row.dispatchEvent(new KeyboardEvent('keydown', {key, bubbles: true}));
+  await flush(el);
+};
+
+const selectedTag = (rows: HTMLElement[]) =>
+  rows
+    .find((r) => r.getAttribute('aria-selected') === 'true')
+    ?.querySelector('.tag')?.textContent;
+
+test('arrow keys walk the tree like the Elements panel', async () => {
+  const {el, rows} = await mount();
+  expect(rows()[0]!.getAttribute('role')).toBe('treeitem');
+  expect(rows()[0]!.getAttribute('aria-expanded')).toBe('false');
+  await press(el, rows()[0]!, 'ArrowRight');
+  expect(tags(rows())).toEqual(['<x-app>', '<x-button>']);
+  expect(rows()[0]!.getAttribute('aria-expanded')).toBe('true');
+  await press(el, rows()[0]!, 'ArrowDown');
+  expect(selectedTag(rows())).toBe('<x-button>');
+  expect(rows()[1]!.tabIndex).toBe(0);
+  await press(el, rows()[1]!, 'ArrowLeft');
+  expect(selectedTag(rows())).toBe('<x-app>');
+  await press(el, rows()[0]!, 'ArrowLeft');
+  expect(tags(rows())).toEqual(['<x-app>']);
+});
+
 test('the tree filter shows matches with their ancestors, opened', async () => {
   const {el, root, rows} = await mount(false, bigTree);
   expect(tags(rows())).toEqual(['<x-app>']);
@@ -961,7 +987,9 @@ test('shows no Instance section without extras', async () => {
   push('inspector-message', {type: 'pick', id: 2});
   push('inspector-message', {type: 'details', details: detailsFor()});
   await flush(el);
-  expect(root.querySelector('.details h2')!.textContent).toBe('<x-button>');
+  expect(root.querySelector('.details h2')!.textContent?.trim()).toBe(
+    '<x-button>'
+  );
   expect(root.querySelector('.details .label')).toBeNull();
 });
 
