@@ -3,6 +3,145 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.15.0 — 2026-10-09
+
+Lit Inspector is on the Chrome Web Store, and the Timeline now explains itself:
+every update records what caused it, a column of rails draws the chain from a
+click or a parent render through `@lit/task` runs to the re-render, and a time
+range can be selected, summarised and shared as a link. The Components tab
+shows a component's slots, parts, context, Lit's warnings and tags that were
+never defined, and its details pane can be filtered, folded, expanded and
+copied from. Nothing needs action to upgrade.
+
+### Added
+
+- **Lit Inspector is on the Chrome Web Store.** Install it with Add to Chrome
+  instead of loading an unpacked zip, and Chrome keeps it up to date. Firefox
+  still loads the zip from the GitHub release.
+- **Updates know what caused them.** The cause is recorded at the
+  `requestUpdate` call that scheduled an update, so the Updates tab reads
+  "after click (412, 88)" or "after my-parent update" instead of guessing from
+  timing, and the Timeline details pane names the cause with a show link to it.
+- **The Timeline draws why each update ran.** A column beside the list connects
+  an update to the row that caused it: the parent whose render set a property
+  on it, or the click, key or custom event whose handler requested it. Rows
+  stay in time order, each chain has its own colour, and hovering a row
+  highlights its chain.
+- **`@lit/task` runs show in the Timeline's cause chain.** A task run is a row
+  of its own, from the update or handler that started it to when it settled,
+  and the re-render it asks for hangs from it, so a click, the fetch it started
+  and the render that showed the result read as one chain.
+- **Select a time range in the Timeline.** Shift+drag on the tracks, or drag
+  the time ruler, to see which layers fired and which components updated in
+  that stretch, then zoom to it or filter the list to it. Drag either edge, or
+  Tab to it and use the arrow keys, to adjust it a tick step at a time; Shift
+  moves five.
+- **Share a Timeline range as a link.** Copy link in the range summary gives an
+  address with `#tab=timeline&range=<start>-<end>` that opens the Tracks on
+  that stretch, including in an exported snapshot.
+- **Coding agents can summarise a window of the Timeline.** The new
+  `lit_range-summary` MCP tool takes a start and an end from
+  `lit_recent-events` times and returns which layers fired and which components
+  updated between them.
+- **See a component's slots and parts.** The Components tab lists each slot
+  with what is assigned to it, flags empty, fallback, forwarded and duplicate
+  slots, and shows in red the children no slot takes. Turn on Anatomy to draw
+  the slots and `::part` exports on the page; hovering a row in the Slots or
+  Parts table pulses that region and fades the others.
+- **See parts forwarded with `exportparts`.** The Parts list and the Anatomy
+  overlay now include parts a nested component re-exports, marked forwarded,
+  and show the outer name when `exportparts` renames one.
+- **See which provider a Lit context consumer reads from.** The Components
+  details pane now shows each `@lit/context` provider and consumer with its key
+  and value, links a consumer to its provider and a provider to its consumers,
+  and selects the element when you click a link.
+- **Record the custom events your components dispatch.** The new Custom events
+  layer on the Timeline, off by default, shows each event's type, flags and
+  detail next to the component that dispatched it.
+- **Lit dev-mode warnings show up.** Mistakes Lit warns about, like scheduling
+  an update from inside `updated()`, record a `warning` event in the Timeline
+  naming the component, including ones issued before recording started. A
+  component Lit has warned about gets a warning chip and a Warnings section in
+  the Components tab, with Lit's message and a link to its explanation; agents
+  get the same list from the component details tool.
+- **Updates that `shouldUpdate` vetoes leave a trace.** A refused update
+  records an `update skipped` event in the Timeline with the property keys that
+  changed, and the Updates tab counts each component's refused updates and
+  marks them in its list.
+- **Components that were never defined show up in the tree.** A custom tag on
+  the page with no definition, from a missing import or a typo, is listed with
+  a "not defined" chip instead of being left out; selecting it explains what is
+  missing and links to the template that renders it. Agents see it in the
+  list-components tool too.
+- **Property options show on the Properties rows.** A custom `hasChanged` or
+  `converter`, `noAccessor`, `useDefault` and `attribute: false` each get a
+  badge, so you can see how a property is declared without opening the source.
+  `lit_component-details` lists the same options for agents.
+- **Filter the Components tree.** A box in the toolbar narrows the tree to
+  elements whose tag or class name matches, keeps their parents for context,
+  and restores your expanded branches when cleared.
+- **Filter the details pane.** A box under the tag name narrows properties,
+  state, attributes, instance fields, slots and parts to rows whose name or
+  value matches, and stays set as you select other components.
+- **Details sections fold, and remember it.** Properties, State, Attributes,
+  Instance, Slots and Parts each fold on their heading, show how many rows they
+  hold, and stay folded as you select other components.
+- **Expand values in the details pane.** Objects, arrays, Maps and Sets open
+  level by level from a caret, so values nested past the preview limits are no
+  longer cut off, and open levels follow the value as it changes. Maps and Sets
+  also preview their first entries, such as `Map(2) {"a" => 1, "b" => 2}`.
+- **Values in the details pane are syntax-coloured and pretty-printed.**
+  Strings, numbers, keywords and keys are coloured like code, and objects or
+  arrays too wide for a line show one entry per line.
+- **Changed values light up in the details pane.** When the selected component
+  updates, each row whose value changed briefly highlights, so you can see what
+  an interaction touched.
+- **Copy a value from the details pane.** Hover a row for a copy button that
+  puts the value, as shown, on the clipboard.
+- **Shift-hover a tree row to outline every instance of that component.** The
+  page shows each element with the same tag in a dashed box, and the tree marks
+  their rows.
+
+### Changed
+
+- **Timeline list rows group by update.** Each component update is one
+  collapsed row showing its duration and changed properties; expand it to see
+  its phases, skips, warnings and events from the same update.
+- **The Timeline's detail pane is resizable and easier to scan.** Drag its top
+  edge to give a selected event more room; the height sticks. A header shows
+  the event's name, layer, time and duration, and the facts below line up in a
+  compact grid with pretty-printed data and any recorded error.
+- **The Components details header is compact.** The class and template
+  locations, and the render root, now sit in a three-line block under the tag
+  name, and a status shows next to the tag only while an update is pending or
+  the first render has not happened.
+- **Long values in the details pane get the full width.** Objects and long
+  strings move to their own line instead of wrapping in a narrow column, badges
+  follow the value, and arrays, dates and DOM nodes are tagged with their type.
+- **Task status shows as a coloured dot in the details pane.** Instance rows
+  name their kind in a quiet tag after the name instead of outlined chips, a
+  task's status is green, amber or red, and attribute values show as quoted
+  strings.
+- **Details sections are easier to tell apart.** A thin rule and more space now
+  separate Properties, State, Attributes, Instance, Slots and Parts.
+- **The Anatomy toggle is remembered.** Leaving it on keeps it on after the
+  panel reloads.
+
+### Fixed
+
+- **The Slots table follows light-child changes.** Changing a child's `slot`
+  attribute, or adding or removing children, now updates the selected element's
+  slots without a re-render or a re-select.
+- **Timeline ticks line up with the marks.** With many lanes and a scrollbar,
+  the time ruler was offset from the marks by the scrollbar's width, and the
+  range edges could block clicks on marks beneath them.
+- **The Timeline range no longer overshoots the tracks.** With many lanes and a
+  vertical scrollbar, the shaded range's right edge stopped a few pixels past
+  the last mark; it now ends where the marks do.
+- **Long strings in the details pane wrap under their own text.** A string that
+  wraps inside a pretty-printed object now continues indented under its line
+  instead of at the left edge of the value.
+
 ## 0.14.0 — 2026-10-07
 
 Lit Inspector now runs in Firefox. Every release carries a Firefox build next
