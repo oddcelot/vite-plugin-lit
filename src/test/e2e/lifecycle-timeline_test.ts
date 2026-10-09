@@ -202,7 +202,7 @@ test('async updated() rejections and failed tasks are attributed to their elemen
     };
     class AsyncFail extends Base {
       async updated() {
-        null;
+        await Promise.resolve();
         throw new RangeError('late failure');
       }
     }

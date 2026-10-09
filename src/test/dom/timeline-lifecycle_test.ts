@@ -607,7 +607,7 @@ describe('installLifecycleLayer', () => {
       (Comp.prototype as unknown as {updated: () => unknown}).updated =
         function () {
           pending = (async () => {
-            null;
+            await Promise.resolve();
             throw new RangeError('after await');
           })();
           // Handled here only so the test runner sees no stray rejection;
