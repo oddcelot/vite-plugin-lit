@@ -81,9 +81,45 @@ class ProbeHello extends LitElement {
 customElements.define('probe-hello', ProbeHello);
 `;
 
+// The same kind of page with an external sourcemap: the extension maps the
+// define call back to this file, line 5.
+const MAPPED_SOURCE = `import {LitElement, html} from 'lit';
+class MappedHello extends LitElement {
+  render() { return html\`mapped\`; }
+}
+customElements.define('mapped-hello', MappedHello);
+`;
+
 beforeAll(async () => {
   workDir = tmpRoot('extension');
-  await fsp.mkdir(workDir, {recursive: true});
+  await fsp.mkdir(joinPath(workDir, 'src'), {recursive: true});
+
+  const mappedEntry = joinPath(workDir, 'src', 'mapped.js');
+  await fsp.writeFile(mappedEntry, MAPPED_SOURCE);
+  const mapped = (await build({
+    root: workDir,
+    configFile: false,
+    logLevel: 'silent',
+    build: {
+      write: false,
+      minify: false,
+      sourcemap: true,
+      lib: {
+        entry: mappedEntry,
+        formats: ['iife'],
+        name: 'mapped',
+        fileName: () => 'mapped.js',
+      },
+    },
+  })) as unknown as Array<{
+    output: Array<{fileName: string; code?: string; source?: string}>;
+  }>;
+  const mappedFiles = new Map(
+    mapped[0].output.map((o) => [
+      `/assets/${o.fileName}`,
+      String(o.code ?? o.source),
+    ])
+  );
 
   const entry = joinPath(workDir, 'app.js');
   await fsp.writeFile(entry, APP_SOURCE);
@@ -106,7 +142,19 @@ beforeAll(async () => {
       res.end(req.url === '/probe.js' ? PROBE_JS : appJs);
       return;
     }
+    const asset = mappedFiles.get(req.url ?? '');
+    if (asset !== undefined) {
+      res.setHeader('content-type', 'text/javascript');
+      res.end(asset);
+      return;
+    }
     res.setHeader('content-type', 'text/html');
+    if (req.url === '/mapped') {
+      res.end(`<!doctype html><html><head>
+<script src="/assets/mapped.js"></script>
+</head><body><mapped-hello></mapped-hello></body></html>`);
+      return;
+    }
     res.end(`<!doctype html><html><head>
 <script src="/probe.js"></script>
 <script>window.__inline = true;</script>
@@ -399,6 +447,34 @@ test('the Lit tab leaves out what needs a dev server', async () => {
     .toBe(
       'Plugin settings need the Vite plugin; this page is inspected without a Vite dev server.'
     );
+
+  await panel.close();
+  await page.close();
+}, 60_000);
+
+test("the Lit tab finds where a component is defined through the page's sourcemap", async () => {
+  const page = await context.newPage();
+  await page.goto(`${appOrigin}/mapped`);
+  const tabId = await extensionPage.evaluate(
+    async (origin) =>
+      (await chrome.tabs.query({url: `${origin}/mapped`}))[0]?.id,
+    appOrigin
+  );
+  const panel = await context.newPage();
+  await panel.goto(
+    `chrome-extension://${extensionId}/panel.html?tabId=${tabId}#tab=components`
+  );
+  await panel
+    .locator('components-view .row')
+    .filter({hasText: 'mapped-hello'})
+    .first()
+    .click({timeout: 15_000});
+  // Plain text: a tab is not DevTools, so there is no Sources panel to open.
+  await expect
+    .poll(() => panel.locator('components-view .src-text').textContent(), {
+      timeout: 15_000,
+    })
+    .toBe('src/mapped.js:5');
 
   await panel.close();
   await page.close();

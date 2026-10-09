@@ -48,7 +48,7 @@ Limits
 Top-level frames only (components inside iframes are not shown), http and https pages only, Chrome 114 or later.
 
 Privacy
-Lit Inspector collects no data and makes no network requests. It stores the sites you enabled and your panel settings in your browser. Privacy policy: https://oddcelot.github.io/vite-plugin-lit/reference/extension-privacy/
+Lit Inspector collects no data. Its only network requests fetch an enabled site's own scripts and sourcemaps, from that site, to show where components are defined. It stores the sites you enabled and your panel settings in your browser. Privacy policy: https://oddcelot.github.io/vite-plugin-lit/reference/extension-privacy/
 
 Lit Inspector is an independent, unofficial tool. It is not affiliated with, endorsed by, or produced by Google or the Lit project.
 

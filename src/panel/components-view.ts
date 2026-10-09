@@ -13,6 +13,7 @@ import {
   ANATOMY_COLORS,
   type AnatomyElementRef,
   type AnatomyFocus,
+  type ElementSource,
   type InspectorAnatomy,
   type InspectorDetails,
   type InspectorProp,
@@ -34,6 +35,7 @@ import {ComponentsSession} from './components-session.js';
 import {LocationController} from './location-controller.js';
 import {PanelLocation} from './panel-location.js';
 import {openInEditor} from './open-in-editor.js';
+import {sourceOpenerFor} from './source-opener.js';
 import {hostInfo, sendToPage, touchPageChannel} from './host.js';
 import {overrides} from './settings-override.js';
 import {formatLines, type ValueToken} from './value-format.js';
@@ -1218,7 +1220,10 @@ export class ComponentsView extends LitElement {
   private _openSource(): void {
     const src = this._session.details?.source;
     if (src === undefined) return;
-    void openInEditor(src.file, src.line);
+    // Resolved through the page's sourcemaps: DevTools has it, no editor does.
+    const opener = sourceOpenerFor(src);
+    if (opener !== undefined) void opener(src);
+    else void openInEditor(src.file, src.line);
   }
 
   private _openCallSite(): void {
@@ -1804,16 +1809,25 @@ export class ComponentsView extends LitElement {
     }
   }
 
-  /** A `file:line` that opens in the editor, or plain text without one. */
+  /**
+   * A `file:line` that opens in the editor, or in the host's own viewer when
+   * it has one for the location's URL (`source-opener.ts`); plain text
+   * where neither can open it.
+   */
   private _renderLocation(
-    loc: {file: string; line: number},
+    loc: ElementSource,
     cls: string,
     tip: string,
     open: () => void
   ): TemplateResult {
     const text = `${loc.file}:${loc.line}`;
-    return this._canOpen
-      ? html`<button class="link ${cls}" data-tip=${tip} @click=${open}>
+    const inHost = sourceOpenerFor(loc) !== undefined;
+    return this._canOpen || inHost
+      ? html`<button
+          class="link ${cls}"
+          data-tip=${inHost ? 'Open in Sources' : tip}
+          @click=${open}
+        >
           ${text}<wa-icon name="arrow-square-out"></wa-icon>
         </button>`
       : html`<span class="${cls} src-text">${text}</span>`;

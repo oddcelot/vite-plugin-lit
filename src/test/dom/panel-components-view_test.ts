@@ -16,6 +16,7 @@ import {
 
 vi.mock('../../panel/client.js', () => import('./fakes/client.js'));
 import {resetHostInfo} from '../../panel/host.js';
+import {useSourceOpener} from '../../panel/source-opener.js';
 vi.mock('../../panel/in-page.js', () => import('./fakes/in-page.js'));
 
 beforeAll(async () => {
@@ -1233,6 +1234,51 @@ test('a source location is plain text where the host has no editor', async () =>
   push('inspector-message', {
     type: 'details',
     details: {...detailsFor(), source: {file: 'src/b.ts', line: 4}},
+  });
+  await flush(el);
+  expect(root.querySelector('button.src')).toBeNull();
+  expect(root.querySelector('.src-text')!.textContent).toBe('src/b.ts:4');
+});
+
+test('a sourcemapped location opens in the host viewer, even with no editor', async () => {
+  meta.capabilities.openInEditor = false;
+  const opened: unknown[] = [];
+  useSourceOpener((loc) => void opened.push(loc));
+  try {
+    const {el, root} = await mount(true);
+    const source = {
+      file: 'src/b.ts',
+      line: 4,
+      column: 2,
+      url: 'https://app.test/src/b.ts',
+    };
+    push('inspector-message', {type: 'pick', id: 2});
+    push('inspector-message', {
+      type: 'details',
+      details: {...detailsFor(), source},
+    });
+    await flush(el);
+    const link = root.querySelector<HTMLElement>('button.src')!;
+    expect(link.textContent).toContain('src/b.ts:4');
+    expect(link.dataset['tip']).toBe('Open in Sources');
+    link.click();
+    expect(opened).toEqual([source]);
+    expect(calls.some((c) => c.name === 'open-source')).toBe(false);
+  } finally {
+    useSourceOpener(undefined);
+  }
+});
+
+test('a location with a url but no host viewer stays plain text', async () => {
+  meta.capabilities.openInEditor = false;
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      source: {file: 'src/b.ts', line: 4, url: 'https://app.test/src/b.ts'},
+    },
   });
   await flush(el);
   expect(root.querySelector('button.src')).toBeNull();

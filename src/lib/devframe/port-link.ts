@@ -25,6 +25,7 @@ import {
 import {createLocalHost} from './local-host.js';
 import type {KeyValueStorage, LocalDevframeClient} from './local-host.js';
 import {createStandaloneLitDevframe} from './rpc-source.js';
+import type {DefineSourceResolver} from './define-sources.js';
 
 export type {PortLike, PortMessage} from './port-message.js';
 
@@ -71,6 +72,11 @@ export interface LocalLitHostOptions {
   version: string;
   /** Where the panel's settings persist; in memory when omitted. */
   storage?: KeyValueStorage;
+  /**
+   * Where a component the plugin never stamped is defined, from its define
+   * call's stack; see `createStandaloneLitDevframe`.
+   */
+  resolveDefineSource?: DefineSourceResolver;
 }
 
 /**
@@ -89,7 +95,11 @@ export const createLocalLitHost = (
     createStandaloneLitDevframe(
       // No server behind this host, so no Node actions: no editor to
       // launch and no disk to write a snapshot to.
-      {host: 'extension', version: options.version},
+      {
+        host: 'extension',
+        version: options.version,
+        resolveDefineSource: options.resolveDefineSource,
+      },
       () => portPageTransport(options.port)
     ),
     {storage: options.storage}

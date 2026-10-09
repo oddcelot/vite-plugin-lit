@@ -97,15 +97,29 @@ Firefox enables a whole host on every port, so `http://localhost:5173` turns
 on `http://localhost`. To turn a site off, click **Disable on this site** at
 the bottom right of the **Lit** tab.
 
+## Where a component is defined
+
+Without the Vite plugin, no build step tells the extension where a component
+lives. If the page ships sourcemaps, the extension works it out from them: the
+details pane's **defined** row shows the original file and line, and in Chrome
+a click opens it in the **Sources** panel.
+
+The extension fetches the page's scripts and their sourcemaps from the site to
+do this, so the maps must be reachable from the page. It only sees components
+defined after it injects, which on an enabled site is before the page's first
+script runs.
+
 ## What the extension can't do
 
-The extension has no dev server behind it. Source links, open in editor, hot
-patching, snapshot export and the MCP tools need the Vite plugin. Render
-events on the timeline need Lit's development build. It sees the top frame of
-`http:` and `https:` pages only.
+The extension has no dev server behind it. **Rendered at** links, open in
+editor, hot patching, snapshot export and the MCP tools need the Vite plugin.
+Render events on the timeline need Lit's development build. It sees the top
+frame of `http:` and `https:` pages only.
 
-The extension collects no data and makes no network requests. It stores the
-sites you enabled and your panel settings in your browser.
+The extension collects no data. Its only network requests fetch an enabled
+site's own scripts and sourcemaps, from that site, to find where components
+are defined. It stores the sites you enabled and your panel settings in your
+browser.
 
 ## Related
 

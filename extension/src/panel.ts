@@ -46,6 +46,8 @@ import {createLocalLitHost} from '../../src/lib/devframe/port-link.js';
 import type {PortLike} from '../../src/lib/devframe/port-link.js';
 import {useBrand} from '../../src/panel/brand.js';
 import {useLocalClient} from '../../src/panel/client.js';
+import {useSourceOpener} from '../../src/panel/source-opener.js';
+import type {ElementSource} from '../../src/types/inspector.js';
 import {CHANNEL_PAGE_STATUS, PANEL_PORT} from './protocol.js';
 import type {
   OriginStatus,
@@ -58,6 +60,7 @@ import {
   normalizeOrigin,
   patternsKeepPort,
 } from './registry.js';
+import {createSourceMapResolver} from './source-maps.js';
 import {createChromeStorage} from './storage.js';
 
 const $ = <T extends HTMLElement>(id: string) =>
@@ -166,6 +169,62 @@ const showPageStatus = (connected: boolean): void => {
   reloadButton.hidden = connected;
 };
 
+// Where a component the plugin never stamped is defined: its define call's
+// stack, mapped through the page's sourcemaps. Fetched from here, which holds
+// the enabled site's host permission, and only from that site; forgotten
+// when the page navigates.
+const sourceMaps = createSourceMapResolver({
+  fetch: (input, init) => fetch(input, init),
+  allows: (url) => origin !== undefined && site(url) === origin,
+});
+
+/**
+ * Opens `url` in DevTools' Sources panel at a 0-based line and column,
+ * resolving whether DevTools found a resource by that URL.
+ */
+const openResource = (
+  panels: typeof chrome.devtools.panels,
+  url: string,
+  line0: number,
+  column0: number
+): Promise<boolean> =>
+  new Promise((resolve) =>
+    panels.openResource(url, line0, column0, (...args: unknown[]) => {
+      const result = args[0] as {isError?: boolean} | undefined;
+      resolve(chrome.runtime.lastError === undefined && !result?.isError);
+    })
+  );
+
+/**
+ * A resolved location in the Sources panel: the original source when
+ * DevTools has loaded the page's sourcemap, else the generated script at the
+ * define call, which DevTools always has and maps itself if it can.
+ */
+const openInSources = async (
+  panels: typeof chrome.devtools.panels,
+  location: ElementSource
+): Promise<void> => {
+  if (
+    location.url !== undefined &&
+    (await openResource(
+      panels,
+      location.url,
+      location.line - 1,
+      (location.column ?? 1) - 1
+    ))
+  ) {
+    return;
+  }
+  const generated = location.generated;
+  if (generated === undefined) return;
+  await openResource(
+    panels,
+    generated.url,
+    generated.line - 1,
+    generated.column - 1
+  );
+};
+
 const boot = async (): Promise<void> => {
   setupEl.hidden = true;
   const {port, dial} = pagePort(showPageStatus);
@@ -173,8 +232,15 @@ const boot = async (): Promise<void> => {
     port,
     version,
     storage: createChromeStorage(chrome.storage.local),
+    resolveDefineSource: (frames) => sourceMaps.resolve(frames),
   });
   useLocalClient(client);
+  // Outside DevTools (the e2e's plain tab) there is no Sources panel, and a
+  // browser may lack `openResource`; the location stays plain text then.
+  const panels = devtools?.panels;
+  if (typeof panels?.openResource === 'function') {
+    useSourceOpener((location) => openInSources(panels, location));
+  }
   // The extension's own name and mark, not the Lit project's.
   useBrand({name: 'Lit Inspector', iconUrl: chrome.runtime.getURL('icon.svg')});
   await import('../../src/panel/main.js');
@@ -247,6 +313,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // A navigation to another site may land somewhere not enabled, or enabled
 // where this one was not; a reload of the same site changes nothing here.
 devtools?.network.onNavigated.addListener((url) => {
+  // The new document's scripts may differ under the same URLs.
+  sourceMaps.reset();
   if (site(url) !== origin) void refresh();
 });
 void refresh();
