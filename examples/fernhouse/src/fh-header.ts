@@ -45,7 +45,11 @@ export class FhHeader extends LitElement {
     }
     fh-search {
       flex: 1;
+      min-width: 0;
       max-width: 400px;
+    }
+    fh-cart-button {
+      flex: none;
     }
     .more {
       margin-left: auto;
