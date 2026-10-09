@@ -4,7 +4,7 @@ name: Release
 # the same gate as CI, publishes to npm, then mirrors the package to JSR,
 # creates the GitHub Release from that version's CHANGELOG.md section, and
 # (once approved in the `stores` environment) submits Lit Inspector to the
-# Chrome Web Store.
+# Chrome Web Store and to Firefox Add-ons.
 #
 # Publishing authenticates over OIDC on both registries, so there is no token
 # to expire. npm needs a one-time trusted publisher entry on npmjs.com for this
@@ -13,10 +13,11 @@ name: Release
 #
 # Running the workflow by hand with a tag retries one target for that tag:
 # JSR by default, for a JSR publish that failed on a real release (tags
-# before v0.7.1 lack jsr.json), or the Chrome Web Store submission:
+# before v0.7.1 lack jsr.json), or one of the store submissions:
 #
 #   gh workflow run release.yaml -f tag=v0.7.0
 #   gh workflow run release.yaml -f tag=v0.15.0 -f target=chrome-web-store
+#   gh workflow run release.yaml -f tag=v0.16.0 -f target=firefox-add-ons
 
 on:
   push:
@@ -29,7 +30,7 @@ on:
       target:
         description: What to publish the tag to
         type: choice
-        options: [jsr, chrome-web-store]
+        options: [jsr, chrome-web-store, firefox-add-ons]
         default: jsr
 
 permissions:
@@ -212,3 +213,71 @@ jobs:
           CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
           CWS_ITEM_ID: ${{ secrets.CWS_ITEM_ID }}
         run: node .release-tools/scripts/cws-publish.mjs "dist/lit-inspector-${TAG#v}.crx"
+
+  # Submits the new Lit Inspector version to Firefox Add-ons (AMO), listed,
+  # with the source package AMO asks for because the add-on is bundled. Same
+  # `stores` approval as the Chrome job; AMO_JWT_ISSUER and AMO_JWT_SECRET
+  # are an API key from the AMO Developer Hub. The job ends once AMO has
+  # validated the upload and created the version; the review runs on its own
+  # (`--approval-timeout 0`), and every version needs a higher number than
+  # the last one uploaded.
+  #
+  # web-ext zips dist/extension-firefox/ itself, leaving out the source maps
+  # as `package:extension --firefox` does, and reads the add-on id from the
+  # manifest, so it adds a version to the existing add-on. The metadata
+  # carries the version notes and the reviewer notes (scripts/amo-metadata.mjs).
+  # Retry with a manual run, as for the Chrome job.
+  firefox-add-ons:
+    needs: publish
+    # A manual run skips `publish`, and builds the tag it names.
+    if: ${{ !cancelled() && !contains(inputs.tag || github.ref_name, '-') && (needs.publish.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.target == 'firefox-add-ons')) }}
+    runs-on: ubuntu-latest
+    environment: stores
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - run: corepack enable
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+      # No dependency cache, as in `publish`.
+      - run: pnpm install --frozen-lockfile
+      # Writes dist/extension-firefox/ and dist/amo-source-<version>.zip, the
+      # committed tree at the tag.
+      - run: pnpm run package:extension --firefox
+      # Only now: the source package refuses a working tree with anything
+      # uncommitted in it, and this checkout would be an untracked folder.
+      # The metadata script and the reviewer notes come from the ref the
+      # workflow runs from, as the Chrome job's upload script does.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: .release-tools
+          sparse-checkout: |
+            scripts/amo-metadata.mjs
+            extension/store/listing-firefox.md
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - run: node .release-tools/scripts/amo-metadata.mjs "$TAG" > "$RUNNER_TEMP/amo-metadata.json"
+      # web-ext at an exact version, run outside the checkout, where
+      # package.json's pnpm-only `devEngines` would stop npm.
+      - name: Upload and submit for review
+        working-directory: ${{ runner.temp }}
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          ROOT: ${{ github.workspace }}
+        run: |
+          npm exec --yes --package=web-ext@10.7.0 -- web-ext sign \
+            --channel listed \
+            --source-dir "$ROOT/dist/extension-firefox" \
+            --ignore-files '**/*.map' \
+            --upload-source-code "$ROOT/dist/amo-source-${TAG#v}.zip" \
+            --amo-metadata "$RUNNER_TEMP/amo-metadata.json" \
+            --approval-timeout 0 \
+            --artifacts-dir "$RUNNER_TEMP/web-ext-artifacts"
