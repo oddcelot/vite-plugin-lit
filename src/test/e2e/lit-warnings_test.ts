@@ -15,7 +15,10 @@ import {
   type InspectorMessage,
   type InspectorTreeNode,
 } from '../../types/inspector.js';
-import type {TimelineEvent} from '../../types/timeline.js';
+import {
+  DEFAULT_LAYERS_STATE,
+  type TimelineEvent,
+} from '../../types/timeline.js';
 import {type Fixture, startFixture} from './utils.js';
 
 let fixture: Fixture;
@@ -104,7 +107,7 @@ test('a change-in-update warning is badged on its element and replayed into a re
       timeout: 10_000,
     })
     .toMatchObject({
-      layerId: 'lit-lifecycle',
+      layerId: 'lit-warnings',
       logType: 'warning',
       subtitle: 'e2e-churn-early',
       data: {code: 'change-in-update', replayed: true},
@@ -127,10 +130,51 @@ test('a warning issued while recording is attributed to the updating element', a
       {timeout: 10_000}
     )
     .toMatchObject({
+      layerId: 'lit-warnings',
+      // Issued inside the update, so it folds under that tick.
+      groupId: expect.any(String),
       logType: 'warning',
       data: {code: 'change-in-update', message: expect.any(String)},
       meta: {tagName: 'e2e-churn-live', elementId: expect.any(Number)},
     });
   const live = events.find((e) => e.subtitle === 'e2e-churn-live');
   expect((live?.data as {replayed?: boolean}).replayed).toBeUndefined();
+});
+
+test('turning the layer on mid-recording replays what it missed', async () => {
+  source.setRecording(true);
+  const layers = (litWarningsEnabled: boolean) =>
+    source.setLayers({
+      ...DEFAULT_LAYERS_STATE,
+      recordingState: true,
+      litWarningsEnabled,
+    });
+  layers(false);
+  await defineChurner('e2e-churn-off');
+  const fromOff = () =>
+    events.filter(
+      (e) => e.layerId === 'lit-warnings' && e.subtitle === 'e2e-churn-off'
+    );
+  // Issued with the layer off: badged on the element, but no event.
+  await expect
+    .poll(
+      () => {
+        fixture.server.hot.send(INSPECT_CMD_CHANNEL, {type: 'tree'});
+        const id = find(roots, 'e2e-churn-off');
+        if (id === undefined) return undefined;
+        fixture.server.hot.send(INSPECT_CMD_CHANNEL, {type: 'details', id});
+        return details.filter((d) => d.id === id).at(-1)?.warnings?.length;
+      },
+      {timeout: 10_000}
+    )
+    .toBe(1);
+  expect(fromOff()).toEqual([]);
+
+  layers(true);
+  await expect
+    .poll(() => fromOff()[0], {timeout: 10_000})
+    .toMatchObject({
+      layerId: 'lit-warnings',
+      data: {code: 'change-in-update', replayed: true},
+    });
 });

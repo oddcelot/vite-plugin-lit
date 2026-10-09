@@ -49,6 +49,8 @@ const TRACKS: Record<string, {track: string; color: TrackColor; lit: boolean}> =
       color: 'secondary-light',
       lit: true,
     },
+    // On the Lifecycle track, next to the update that issued them.
+    'lit-warnings': {track: 'Lifecycle', color: 'primary', lit: true},
     mouse: {track: 'Input', color: 'tertiary', lit: false},
     keyboard: {track: 'Input', color: 'tertiary', lit: false},
   };

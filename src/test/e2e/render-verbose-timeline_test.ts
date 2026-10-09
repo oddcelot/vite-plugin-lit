@@ -69,6 +69,7 @@ test('lit-render-verbose stays silent when only lit-render is enabled', async ()
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
     customEventsEnabled: false,
+    litWarningsEnabled: false,
   });
 
   // Poll: nudge a render each round until the coarse render layer reports —
@@ -112,6 +113,7 @@ test('lit-render-verbose reports serializable per-part events when enabled', asy
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
     customEventsEnabled: false,
+    litWarningsEnabled: false,
   });
 
   const verboseSeen = async (): Promise<TimelineEvent[]> => {

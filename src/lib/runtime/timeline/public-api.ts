@@ -21,7 +21,8 @@ export type {TimelineEvent, TimelineLayer};
  * The event is forwarded to the Timeline panel when recording is active.
  * Use a custom `layerId` registered with `addTimelineLayer`, or one of the
  * built-in layer ids (`'lit-lifecycle'`, `'lit-render'`,
- * `'lit-render-verbose'`, `'mouse'`, `'keyboard'`, `'custom-events'`).
+ * `'lit-render-verbose'`, `'mouse'`, `'keyboard'`, `'custom-events'`,
+ * `'lit-warnings'`).
  *
  * No-ops in production (the HMR channel is absent; events are dropped in the
  * transport queue).

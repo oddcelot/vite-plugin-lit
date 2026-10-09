@@ -109,6 +109,11 @@ export interface TimelineLayersState {
    * flags and a bounded detail preview. Off by default.
    */
   customEventsEnabled: boolean;
+  /**
+   * Lit dev-mode warnings, one point event per warning. Warnings issued before
+   * the layer was on are replayed when it turns on.
+   */
+  litWarningsEnabled: boolean;
 }
 
 export const TIMELINE_LAYERS: readonly TimelineLayer[] = [
@@ -119,6 +124,7 @@ export const TIMELINE_LAYERS: readonly TimelineLayer[] = [
   {id: 'mouse', label: 'Mouse', color: 0xa451af},
   {id: 'keyboard', label: 'Keyboard', color: 0x8151af},
   {id: 'custom-events', label: 'Custom events', color: 0xaf7a51},
+  {id: 'lit-warnings', label: 'Lit warnings', color: 0xf4bf4f},
 ];
 
 export const DEFAULT_LAYERS_STATE: TimelineLayersState = {
@@ -130,6 +136,7 @@ export const DEFAULT_LAYERS_STATE: TimelineLayersState = {
   mouseEventEnabled: false,
   keyboardEventEnabled: false,
   customEventsEnabled: false,
+  litWarningsEnabled: true,
 };
 
 /**

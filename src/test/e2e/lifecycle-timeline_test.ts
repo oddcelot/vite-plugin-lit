@@ -53,6 +53,7 @@ test('lifecycle layer reports update phases over the timeline source', async () 
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
     customEventsEnabled: false,
+    litWarningsEnabled: false,
   });
 
   // Poll: nudge an update on the demo child each round (recording may not be
@@ -118,6 +119,7 @@ test('changed values layer records the old and new value of a property', async (
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
     customEventsEnabled: false,
+    litWarningsEnabled: false,
   });
 
   const detail = () =>
@@ -175,6 +177,7 @@ test('async updated() rejections and failed tasks are attributed to their elemen
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
     customEventsEnabled: false,
+    litWarningsEnabled: false,
   });
   // Recording reaches the page over HMR; wait until updates are recorded.
   await expect
@@ -273,6 +276,7 @@ test('a component whose shouldUpdate returns false records an update skipped eve
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
     customEventsEnabled: false,
+    litWarningsEnabled: false,
   });
   await expect
     .poll(
@@ -364,6 +368,7 @@ test('an update a click handler requests carries that click as its cause', async
     mouseEventEnabled: true,
     keyboardEventEnabled: false,
     customEventsEnabled: false,
+    litWarningsEnabled: false,
   });
 
   const caused = () =>
@@ -441,6 +446,7 @@ test('a task run started by a click causes the re-render it asks for', async () 
     mouseEventEnabled: true,
     keyboardEventEnabled: false,
     customEventsEnabled: false,
+    litWarningsEnabled: false,
   });
 
   /** The latest hmr-task run started by an update a click caused. */

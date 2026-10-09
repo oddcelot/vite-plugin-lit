@@ -53,6 +53,7 @@ test('mouse and keyboard layers capture when enabled at record start', async () 
     mouseEventEnabled: true,
     keyboardEventEnabled: true,
     customEventsEnabled: false,
+    litWarningsEnabled: false,
   });
 
   const layersSeen = async (): Promise<Set<string>> => {
@@ -103,6 +104,7 @@ test('custom events layer records what a component dispatches, only when enabled
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
     customEventsEnabled,
+    litWarningsEnabled: false,
   });
   const dispatch = (type: string) =>
     page.evaluate(

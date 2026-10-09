@@ -429,6 +429,7 @@ export const LAYER_FLAGS: Readonly<Record<string, keyof TimelineLayersState>> =
     mouse: 'mouseEventEnabled',
     keyboard: 'keyboardEventEnabled',
     'custom-events': 'customEventsEnabled',
+    'lit-warnings': 'litWarningsEnabled',
   };
 
 // Hand-typed rather than derived through `RpcDefinitionsToFunctionsWithNamespace`

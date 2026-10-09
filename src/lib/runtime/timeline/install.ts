@@ -64,7 +64,13 @@ installCustomEventsLayer({
 installLifecycleLayer(out, capturing, enabled.lifecycle, enabled.changedValues);
 // Normally hooked already by `warnings-boot`; this covers a page without it.
 installLitWarningCapture();
-const warnings = installWarningsLayer(out, capturing, enabled.lifecycle);
+const warnings = installWarningsLayer({
+  emit: out,
+  replayTo: capture.panel,
+  recording: capturing,
+  enabled: enabled.warnings,
+  groupOf: updateGroupOf,
+});
 installRenderLayer(out, capturing, enabled.render, enabled.renderVerbose);
 installMouseLayer(out, capturing, enabled.mouse);
 installKeyboardLayer(out, capturing, enabled.keyboard);
@@ -107,7 +113,11 @@ if (hot !== undefined) pageChannel.useViteHot(hot);
   });
 
   pageChannel.on(CHANNEL_LAYERS_CHANGED, (data) => {
+    const wasOn = enabled.warnings();
     capture.setLayers(data as Partial<TimelineLayersState>);
+    // Mid-recording, the warnings issued while the layer was off are still
+    // in the page.
+    if (panelRecording && !wasOn && enabled.warnings()) warnings.replay();
   });
 
   // Announce readiness so the panel can detect the runtime.

@@ -700,11 +700,13 @@ describe('Lit warnings', () => {
     const warnings = await import('../../lib/runtime/timeline/lit-warnings.js');
     const layer = await import('../../lib/runtime/timeline/warnings-layer.js');
     warnings.installLitWarningCapture();
-    layer.installWarningsLayer(
+    layer.installWarningsLayer({
       emit,
-      () => recording,
-      () => true
-    );
+      replayTo: () => {},
+      recording: () => recording,
+      enabled: () => true,
+      groupOf: lifecycle.updateGroupOf,
+    });
     el.updated = () => {
       (g.litIssuedWarnings as Set<string>).add(warn(tag));
     };
@@ -713,8 +715,10 @@ describe('Lit warnings', () => {
     el.performUpdate();
 
     const event = events.find((e) => e.title === 'warning:change-in-update');
+    const tick = events.find((e) => e.title === 'performUpdate:start');
     expect(event).toMatchObject({
-      layerId: 'lit-lifecycle',
+      layerId: 'lit-warnings',
+      groupId: tick?.groupId,
       logType: 'warning',
       subtitle: tag,
       data: {code: 'change-in-update', phase: 'warning'},
@@ -723,29 +727,53 @@ describe('Lit warnings', () => {
     expect(event?.meta?.elementId).toBeTypeOf('number');
   });
 
-  test('replays warnings from before recording, flagged as replayed', async () => {
+  test('replays warnings to the panel only, flagged as replayed', async () => {
     g.litIssuedWarnings = new Set([warn('x-early')]);
     await load();
     const warnings = await import('../../lib/runtime/timeline/lit-warnings.js');
     const layer = await import('../../lib/runtime/timeline/warnings-layer.js');
     warnings.installLitWarningCapture();
-    recording = false;
-    const {replay} = layer.installWarningsLayer(
+    const replayed: TimelineEvent[] = [];
+    let enabled = false;
+    const {replay} = layer.installWarningsLayer({
       emit,
-      () => recording,
-      () => true
-    );
+      replayTo: (e) => replayed.push(e),
+      recording: () => recording,
+      enabled: () => enabled,
+      groupOf: () => 'never',
+    });
+    replay();
+    expect(replayed).toEqual([]);
+
+    enabled = true;
     replay();
     expect(events).toEqual([]);
-
-    recording = true;
-    replay();
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({
+    expect(replayed).toHaveLength(1);
+    expect(replayed[0]).toMatchObject({
+      layerId: 'lit-warnings',
       subtitle: 'x-early',
       meta: {tagName: 'x-early'},
       data: {code: 'change-in-update', replayed: true},
     });
+    expect(replayed[0]).not.toHaveProperty('groupId');
+  });
+
+  test('a warning with the layer off is not emitted', async () => {
+    await load();
+    const warnings = await import('../../lib/runtime/timeline/lit-warnings.js');
+    const layer = await import('../../lib/runtime/timeline/warnings-layer.js');
+    warnings.installLitWarningCapture();
+    layer.installWarningsLayer({
+      emit,
+      replayTo: emit,
+      recording: () => recording,
+      enabled: () => false,
+      groupOf: () => undefined,
+    });
+
+    (g.litIssuedWarnings as Set<string>).add(warn('x-quiet'));
+
+    expect(events).toEqual([]);
   });
 });
 

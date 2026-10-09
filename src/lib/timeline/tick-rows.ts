@@ -30,7 +30,11 @@ import {TASK_SPAN, type TimelineSpan} from './derive.js';
 const ROOT_PHASE = 'performUpdate';
 
 /** Layers whose rows fold under the tick their `groupId` names. */
-const NESTING_LAYERS: readonly string[] = ['lit-lifecycle', 'custom-events'];
+const NESTING_LAYERS: readonly string[] = [
+  'lit-lifecycle',
+  'custom-events',
+  'lit-warnings',
+];
 
 const SKIP_EVENT = 'update skipped';
 
