@@ -12,7 +12,7 @@
  * `package:extension --key` writes, not the zip.
  *
  * Follows https://developer.chrome.com/docs/webstore/using-api (API v2):
- * `:upload` takes the raw file and may answer `IN_PROGRESS`, in which case
+ * `:upload` takes the raw file, named in `X-Goog-Upload-File-Name`, and may answer `IN_PROGRESS`, in which case
  * `:fetchStatus` is polled until `lastAsyncUploadState` settles; then
  * `:publish` submits the uploaded version for review. The script finishes
  * once the store accepts the submission. The review itself takes days and
@@ -25,6 +25,7 @@
  */
 
 import {readFile} from 'node:fs/promises';
+import * as path from 'node:path';
 
 const API = 'https://chromewebstore.googleapis.com';
 const POLL_MS = 5_000;
@@ -46,13 +47,10 @@ if (!file || !token || !publisher || !item) {
 const itemPath = `publishers/${publisher}/items/${item}`;
 
 /** One API call; throws with the store's own error message on failure. */
-const call = async (method, url, body, contentType) => {
+const call = async (method, url, body, headers = {}) => {
   const res = await fetch(url, {
     method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(contentType ? {'Content-Type': contentType} : {}),
-    },
+    headers: {Authorization: `Bearer ${token}`, ...headers},
     ...(body === undefined ? {} : {body}),
   });
   const text = await res.text();
@@ -76,11 +74,17 @@ if (file === '--check') {
   process.exit(0);
 }
 
+// The store tells a CRX from a zip by the file name in this header, not by
+// the bytes or the Content-Type; without it a CRX is taken for a zip and
+// refused with PKG_MUST_UPDATE_AS_CRX (the item takes only verified CRXs).
 const upload = await call(
   'POST',
   `${API}/upload/v2/${itemPath}:upload`,
   await readFile(file),
-  'application/octet-stream'
+  {
+    'X-Goog-Upload-Protocol': 'raw',
+    'X-Goog-Upload-File-Name': path.basename(file),
+  }
 );
 console.log(
   `Uploaded ${file}: ${upload.uploadState} (version ${upload.crxVersion})`
@@ -103,7 +107,7 @@ const published = await call(
   'POST',
   `${API}/v2/${itemPath}:publish`,
   JSON.stringify({}),
-  'application/json'
+  {'Content-Type': 'application/json'}
 );
 console.log(`Submitted for review: ${published.state}`);
 for (const warning of published.warningInfo?.warnings ?? []) {

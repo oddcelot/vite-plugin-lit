@@ -11,11 +11,12 @@ name: Release
 # repository and `release.yaml`; JSR needs this repository linked in the
 # package settings on jsr.io/@oddsquad/vite-plugin-lit.
 #
-# Running the workflow by hand with a tag publishes only that tag to JSR, for
-# a JSR publish that failed on a real release (tags before v0.7.1 lack
-# jsr.json):
+# Running the workflow by hand with a tag retries one target for that tag:
+# JSR by default, for a JSR publish that failed on a real release (tags
+# before v0.7.1 lack jsr.json), or the Chrome Web Store submission:
 #
 #   gh workflow run release.yaml -f tag=v0.7.0
+#   gh workflow run release.yaml -f tag=v0.15.0 -f target=chrome-web-store
 
 on:
   push:
@@ -23,8 +24,13 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag to publish to JSR only, e.g. v0.7.0
+        description: Release tag to publish again, e.g. v0.7.0
         required: true
+      target:
+        description: What to publish the tag to
+        type: choice
+        options: [jsr, chrome-web-store]
+        default: jsr
 
 permissions:
   contents: read
@@ -80,7 +86,7 @@ jobs:
   publish-jsr:
     needs: publish
     # A manual run skips `publish`; run anyway then.
-    if: ${{ !cancelled() && (needs.publish.result == 'success' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ !cancelled() && (needs.publish.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.target == 'jsr')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -151,18 +157,33 @@ jobs:
   # keys, and there is no key to leak this way. The item takes only CRX
   # uploads signed with CWS_CRX_KEY (verified CRX uploads).
   #
-  # Prereleases skip it: Chrome versions can't carry a `-beta.1`.
+  # Prereleases skip it: Chrome versions can't carry a `-beta.1`. Retry a
+  # failed submission with a manual run (see the top of this file) rather
+  # than "Re-run failed jobs", which would reuse the tag's upload script.
   chrome-web-store:
     needs: publish
-    if: github.event_name == 'push' && !contains(github.ref_name, '-')
+    # A manual run skips `publish`, and builds the tag it names.
+    if: ${{ !cancelled() && !contains(inputs.tag || github.ref_name, '-') && (needs.publish.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.target == 'chrome-web-store')) }}
     runs-on: ubuntu-latest
     environment: stores
     permissions:
       contents: read
       id-token: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      # The upload script comes from the ref the workflow runs from, not the
+      # tag, so a manual retry picks up a fix to it; on a tag push both are
+      # the same commit.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: .release-tools
+          sparse-checkout: scripts/cws-publish.mjs
+          sparse-checkout-cone-mode: false
           persist-credentials: false
       - run: corepack enable
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -190,4 +211,4 @@ jobs:
           CWS_ACCESS_TOKEN: ${{ steps.google.outputs.access_token }}
           CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
           CWS_ITEM_ID: ${{ secrets.CWS_ITEM_ID }}
-        run: node scripts/cws-publish.mjs "dist/lit-inspector-${GITHUB_REF_NAME#v}.crx"
+        run: node .release-tools/scripts/cws-publish.mjs "dist/lit-inspector-${TAG#v}.crx"
