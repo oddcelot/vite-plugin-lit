@@ -105,9 +105,14 @@ const nodeFor = (
   notDefined = false
 ): InspectorTreeNode => {
   const meta = metaOf(el);
+  const warned = warningsFor(
+    el.localName,
+    (el.constructor as {name?: string}).name
+  ).length;
   return {
     id: idOf(el),
     ...(notDefined ? {notDefined: true} : {}),
+    ...(warned > 0 ? {warnings: warned} : {}),
     tagName: el.tagName.toLowerCase(),
     componentName: meta?.componentName,
     source:

@@ -118,6 +118,31 @@ const anatomyMatches = (
   ),
 });
 
+/** Distinct warned tags in the tree: Lit warns once per tag, not per instance. */
+const warnedTagCount = (roots: readonly InspectorTreeNode[]): number => {
+  const tags = new Set<string>();
+  const walk = (nodes: readonly InspectorTreeNode[]): void => {
+    for (const n of nodes) {
+      if (n.warnings !== undefined && n.warnings > 0) tags.add(n.tagName);
+      walk(n.children);
+    }
+  };
+  walk(roots);
+  return tags.size;
+};
+
+/** The row marker for a component Lit warned about; nothing when it hasn't. */
+const warnedChip = (
+  count: number | undefined
+): TemplateResult | typeof nothing => {
+  if (count === undefined || count === 0) return nothing;
+  const noun = count === 1 ? 'warning' : 'warnings';
+  const tip = `${count} Lit ${noun} \u2014 select to read ${count === 1 ? 'it' : 'them'}`;
+  return html`<span class="status warned" data-tip=${tip}
+    >${`${count} ${noun}`}</span
+  >`;
+};
+
 /** Ids of every node in the tree with this tag, in tree order. */
 const idsWithTag = (
   roots: readonly InspectorTreeNode[],
@@ -420,7 +445,8 @@ export class ComponentsView extends LitElement {
       .status.undefined {
         color: var(--lit-devtools-warning);
       }
-      .row .status.undefined {
+      .row .status.undefined,
+      .row .status.warned {
         margin-left: var(--lit-devtools-space-3);
       }
       .not-defined-note {
@@ -861,6 +887,7 @@ export class ComponentsView extends LitElement {
   /** Rows to highlight once the render that changed them lands. */
   private _pendingFlash = new Set<string>();
   private _reportedIncompatibilities: unknown = null;
+  private _reportedWarningRoots: unknown = null;
 
   override connectedCallback() {
     super.connectedCallback();
@@ -869,6 +896,7 @@ export class ComponentsView extends LitElement {
     this._unsubscribeSession = this._session.subscribe(() => {
       this.requestUpdate();
       this._reportIncompatibilities();
+      this._reportWarnings();
     });
     this._flash = overrides.get().flashUpdates ?? false;
     this._unsubscribeOverride = overrides.subscribe((o) => {
@@ -961,6 +989,20 @@ export class ComponentsView extends LitElement {
     this.dispatchEvent(
       new CustomEvent('hmr-count-change', {
         detail: {count: list.length},
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  /** Tell the panel shell how many distinct components Lit warned about. */
+  private _reportWarnings(): void {
+    const roots = this._session.roots;
+    if (roots === this._reportedWarningRoots) return;
+    this._reportedWarningRoots = roots;
+    this.dispatchEvent(
+      new CustomEvent('warning-count-change', {
+        detail: {count: warnedTagCount(roots)},
         bubbles: true,
         composed: true,
       })
@@ -1247,6 +1289,7 @@ export class ComponentsView extends LitElement {
               >`
             : nothing
         }
+        ${warnedChip(node.warnings)}
       </div>
       ${
         hasChildren && expanded

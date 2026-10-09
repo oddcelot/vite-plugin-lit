@@ -1337,6 +1337,32 @@ test('marks a tag nothing defines in its row', async () => {
   );
 });
 
+test('marks warned rows and reports the distinct warned tag count', async () => {
+  const counts: number[] = [];
+  const onCount = (e: Event) =>
+    counts.push((e as CustomEvent<{count: number}>).detail.count);
+  document.addEventListener('warning-count-change', onCount);
+  try {
+    const {rows} = await mount(false, [
+      {id: 1, tagName: 'x-app', warnings: 2, children: []},
+      {id: 2, tagName: 'x-item', warnings: 1, children: []},
+      {id: 3, tagName: 'x-item', warnings: 1, children: []},
+      {id: 4, tagName: 'x-quiet', children: []},
+    ]);
+    const chips = rows().map((r) => r.querySelector('.status.warned'));
+    expect(chips[0]?.textContent?.trim()).toBe('2 warnings');
+    expect(chips[0]?.getAttribute('data-tip')).toBe(
+      '2 Lit warnings — select to read them'
+    );
+    expect(chips[1]?.textContent?.trim()).toBe('1 warning');
+    expect(chips[3]).toBeNull();
+    // x-app and x-item: two instances of x-item count once.
+    expect(counts.at(-1)).toBe(2);
+  } finally {
+    document.removeEventListener('warning-count-change', onCount);
+  }
+});
+
 test('explains an undefined element in the details pane', async () => {
   const {el, root} = await mount(true);
   push('inspector-message', {type: 'pick', id: 2});

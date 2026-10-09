@@ -370,4 +370,27 @@ describe('collectDetails warnings', () => {
       },
     ]);
   });
+
+  test('tree nodes carry a warning count, omitted when zero', async () => {
+    const tag = define();
+    const quiet = define();
+    document.body.append(
+      document.createElement(tag),
+      document.createElement(quiet)
+    );
+    const {installLitWarningCapture} =
+      await import('../../lib/runtime/timeline/lit-warnings.js');
+    installLitWarningCapture();
+    (
+      globalThis as unknown as {litIssuedWarnings: Set<string>}
+    ).litIssuedWarnings.add(
+      `Element ${tag} scheduled an update. See https://lit.dev/msg/change-in-update for more information.`
+    );
+    const nodes = buildTree();
+    expect(nodes.find((n) => n.tagName === tag)!.warnings).toBe(1);
+    expect(nodes.find((n) => n.tagName === quiet)).not.toHaveProperty(
+      'warnings'
+    );
+    document.body.replaceChildren();
+  });
 });

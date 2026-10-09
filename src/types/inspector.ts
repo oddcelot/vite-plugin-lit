@@ -40,6 +40,12 @@ export interface InspectorTreeNode {
    * import, a typo, or a chunk that has not loaded. It has no Lit state.
    */
   notDefined?: true;
+  /**
+   * How many distinct Lit dev-mode warnings name this component. Lit issues
+   * each once per page, so this is per tag/class, not per instance. Absent
+   * when there are none.
+   */
+  warnings?: number;
   children: InspectorTreeNode[];
   /**
    * Set only when a depth limit pruned this node's children: how many

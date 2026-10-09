@@ -3,6 +3,7 @@ import {panelBrand, useBrand} from '../../panel/brand.js';
 import type {ComponentsView} from '../../panel/components-view.js';
 import type {TimelineView} from '../../panel/timeline-view.js';
 import type {UpdatesView} from '../../panel/updates-view.js';
+import type {InspectorTreeNode} from '../../types/inspector.js';
 import type {TimelineEvent} from '../../types/timeline.js';
 import {
   answers,
@@ -77,9 +78,12 @@ const flush = async (el: HTMLElement & {updateComplete: Promise<unknown>}) => {
   }
 };
 
-const mount = async (hash = '') => {
+const mount = async (
+  hash = '',
+  roots: InspectorTreeNode[] = [{id: 1, tagName: 'x-app', children: []}]
+) => {
   history.replaceState(null, '', hash === '' ? location.pathname : hash);
-  answers.set('list-components', [{id: 1, tagName: 'x-app', children: []}]);
+  answers.set('list-components', roots);
   answers.set('hmr-incompatibilities', []);
   answers.set('hmr-history', {entries: []});
   // The hub always holds an activation slot, empty until a dock is raised.
@@ -246,6 +250,27 @@ test('a reload clears the timeline without a banner', async () => {
   await flush(el);
   expect(getTimelineEvents()).toEqual([]);
   expect(root.querySelector('.page-changed')).toBeNull();
+});
+
+test('the Components tab counts warned components in a warning badge', async () => {
+  const {root} = await mount('', [
+    {
+      id: 1,
+      tagName: 'x-app',
+      warnings: 1,
+      children: [{id: 2, tagName: 'x-app', warnings: 1, children: []}],
+    },
+  ]);
+  const badge = root.querySelector('segmented-tabs')!.shadowRoot!;
+  const warning = badge.querySelector('wa-badge[variant="warning"]');
+  expect(warning?.textContent?.trim()).toBe('1');
+  expect(badge.querySelector('wa-badge[variant="danger"]')).toBeNull();
+});
+
+test('no warning badge without warned components', async () => {
+  const {root} = await mount();
+  const tabs = root.querySelector('segmented-tabs')!.shadowRoot!;
+  expect(tabs.querySelector('wa-badge[variant="warning"]')).toBeNull();
 });
 
 test('a page change drops the Components tree and HMR history, and asks the new page', async () => {
