@@ -8,7 +8,7 @@
  */
 
 import {idOf} from '../timeline/identity.js';
-import {isInspectable} from './collect.js';
+import {isListed} from './collect.js';
 import type {
   AnatomyElementRef,
   AnatomyOrphan,
@@ -39,7 +39,7 @@ export const shadowOf = (el: Element): ShadowRoot | null => {
 
 const refOf = (el: Element): AnatomyElementRef => ({
   tagName: el.localName,
-  ...(isInspectable(el) ? {id: idOf(el)} : {}),
+  ...(isListed(el) ? {id: idOf(el)} : {}),
 });
 
 const isText = (n: Node): boolean =>
