@@ -571,8 +571,9 @@ export class TimelineTracks extends LitElement {
     this._moveEdge(this._edgeDrag, this._scale().toMs(x));
   }
 
-  /** Fits the view to the range, leaving the live edge. */
-  private _zoomToRange = () => {
+  /** Fits the view to the range, leaving the live edge. Also the summary's
+   *  **Zoom to range**, and what the view does when a link names a range. */
+  zoomToRange = () => {
     const {range} = this;
     if (range === null) return;
     const {origin, extent} = this._bounds;
@@ -635,7 +636,7 @@ export class TimelineTracks extends LitElement {
       : html`<timeline-range-summary
           .summary=${this._summary}
           .layers=${this.layers}
-          @range-zoom=${this._zoomToRange}
+          @range-zoom=${this.zoomToRange}
           @range-clear=${() => this._emitRange(null)}
         ></timeline-range-summary>`;
     if (this._tracks.length === 0) {

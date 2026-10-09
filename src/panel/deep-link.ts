@@ -17,6 +17,12 @@
  * Both collapse to the same {@link DeepLink}, so callers handle one shape.
  */
 
+import {
+  formatRangeParam,
+  normalizeRange,
+  parseRangeParam,
+} from '../lib/timeline/range.js';
+import type {TimeRange} from '../lib/timeline/range.js';
 import {litRpc} from './client.js';
 
 /** The hub's mirrored activation slot. */
@@ -53,13 +59,19 @@ export interface DeepLink {
   /** Timeline event to select, by the id the node side stamped on it (see
    *  `TimelineEvent.id`). Survives a snapshot export, unlike a buffer index. */
   eventId?: string;
+  /** Time range to select in the Timeline, in milliseconds on the recording
+   *  buffer's clock. That clock restarts with each recording, so a range means
+   *  something only against the recording it was copied from: a snapshot, or
+   *  a live session before it is cleared. */
+  range?: TimeRange;
 }
 
 /** True when a link asks for anything at all. */
 const hasLink = (link: DeepLink): boolean =>
   link.tab !== undefined ||
   link.componentId !== undefined ||
-  link.eventId !== undefined;
+  link.eventId !== undefined ||
+  link.range !== undefined;
 
 /** Parse a `DeepLink` out of hash params, ignoring anything unrecognised. */
 export const fromParams = (params: URLSearchParams): DeepLink => {
@@ -76,6 +88,8 @@ export const fromParams = (params: URLSearchParams): DeepLink => {
   }
   const eventId = params.get('event');
   if (eventId !== null && eventId !== '') link.eventId = eventId;
+  const range = parseRangeParam(params.get('range') ?? '');
+  if (range !== null) link.range = range;
   return link;
 };
 
@@ -100,6 +114,8 @@ export const writeHashLink = (link: DeepLink): void => {
   else params.set('component', String(link.componentId));
   if (link.eventId === undefined) params.delete('event');
   else params.set('event', link.eventId);
+  if (link.range === undefined) params.delete('range');
+  else params.set('range', formatRangeParam(link.range));
   const next = params.toString();
   if (next === location.hash.replace(/^#/, '')) return;
   history.replaceState(
@@ -108,6 +124,22 @@ export const writeHashLink = (link: DeepLink): void => {
     // Keep the query: the extension's panel page can be addressed by one.
     next === '' ? location.pathname + location.search : `#${next}`
   );
+};
+
+/**
+ * The address of the panel as it is now, opened at `link`: this page's URL
+ * with its hash replaced, so it carries nothing but the link.
+ */
+export const linkHref = (link: DeepLink): string => {
+  const params = new URLSearchParams();
+  if (link.tab !== undefined) params.set('tab', link.tab);
+  if (link.componentId !== undefined) {
+    params.set('component', String(link.componentId));
+  }
+  if (link.eventId !== undefined) params.set('event', link.eventId);
+  if (link.range !== undefined)
+    params.set('range', formatRangeParam(link.range));
+  return `${location.origin}${location.pathname}${location.search}#${params}`;
 };
 
 /**
@@ -148,6 +180,15 @@ export const onDeepLink = (apply: (link: DeepLink) => void): void => {
         const eventId = params['eventId'];
         if (typeof eventId === 'string' && eventId !== '') {
           link.eventId = eventId;
+        }
+        const range = params['range'];
+        if (typeof range === 'object' && range !== null) {
+          const {start, end} = range as Record<string, unknown>;
+          const parsed =
+            typeof start === 'number' && typeof end === 'number'
+              ? normalizeRange(start, end)
+              : null;
+          if (parsed !== null) link.range = parsed;
         }
         if (hasLink(link)) apply(link);
       };

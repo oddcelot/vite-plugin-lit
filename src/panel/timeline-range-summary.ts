@@ -1,10 +1,12 @@
 import {LitElement, html, css, nothing} from 'lit';
-import {customElement, property} from 'lit/decorators.js';
+import {customElement, property, state} from 'lit/decorators.js';
 import '@awesome.me/webawesome/dist/components/button/button.js';
 import './wa-icons.js';
 import {tokens} from '../lib/tokens.js';
 import {describeRange, formatMs} from '../lib/timeline/range.js';
 import type {RangeSummary} from '../lib/timeline/range.js';
+import {copyText} from './copy-text.js';
+import {linkHref} from './deep-link.js';
 import {layerColor} from './timeline-layers.js';
 import type {LayerState} from './timeline-layers.js';
 
@@ -15,7 +17,8 @@ import type {LayerState} from './timeline-layers.js';
  *
  * Shown by the Tracks presentation when no single span is selected. It only
  * reports: **zoom** and **filter** are `range-zoom` / `range-filter` events,
- * **clear** is `range-clear`, and a component row's **filter** and **inspect**
+ * **clear** is `range-clear`, **copy link** puts the range's deep link on the
+ * clipboard itself, and a component row's **filter** and **inspect**
  * reuse the span detail's `element-filter` / `inspect-element` events (a
  * component with several instances offers only **inspect**, on its first,
  * because the element filter names one).
@@ -93,6 +96,24 @@ export class TimelineRangeSummary extends LitElement {
   @property({attribute: false}) summary: RangeSummary | undefined;
   @property({attribute: false}) layers: LayerState[] = [];
 
+  /** Shows "Copied" on the button for a moment after a copy. */
+  @state() private _copied = false;
+  private _copiedTimer: ReturnType<typeof setTimeout> | undefined;
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    clearTimeout(this._copiedTimer);
+  }
+
+  private async _copyLink() {
+    const range = this.summary?.range;
+    if (!range) return;
+    if (!(await copyText(linkHref({tab: 'timeline', range})))) return;
+    this._copied = true;
+    clearTimeout(this._copiedTimer);
+    this._copiedTimer = setTimeout(() => (this._copied = false), 1500);
+  }
+
   private _emit(type: string, detail?: unknown) {
     this.dispatchEvent(
       new CustomEvent(type, {detail, bubbles: true, composed: true})
@@ -127,6 +148,14 @@ export class TimelineRangeSummary extends LitElement {
           data-tip="Show only this range in the list and the tracks"
           @click=${() => this._emit('range-filter')}
           >Filter to range</wa-button
+        >
+        <wa-button
+          class="copy-link"
+          size="small"
+          appearance="outlined"
+          data-tip="Copy a link that opens the Timeline on this range. It names times in this recording, so it suits a snapshot or this session"
+          @click=${this._copyLink}
+          >${this._copied ? 'Copied' : 'Copy link'}</wa-button
         >
         <wa-button
           class="clear"

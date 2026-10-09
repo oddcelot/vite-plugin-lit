@@ -191,6 +191,9 @@ sliders) and press <kbd>←</kbd> or <kbd>→</kbd> to move it one axis tick ste
 or hold <kbd>Shift</kbd> for five. An edge stops at the other edge and at the
 ends of the recording, and the view scrolls to keep it on screen.
 
+**Copy link** in the summary copies a link that opens the Timeline on the same
+range; see [Link to a view](#link-to-a-view) below.
+
 With a range drawn and no span selected, the detail pane summarises it:
 
 - how long it is, and how many events each layer recorded in it;
@@ -330,6 +333,25 @@ event reaches the dev server and is kept in an exported snapshot, so the link
 works against a snapshot someone sent you. If the event has scrolled out of the
 buffer, or the link came from another session, the Timeline opens with nothing
 selected.
+
+```text frame="terminal"
+#tab=timeline&range=500-700
+```
+
+`range` is a window of the recording, as `start-end` in milliseconds on the
+same clock as the times in the list and the axis. Drawing a range writes it
+into the hash, and **Copy link** in the range summary copies the whole address.
+Opening the link switches to Tracks, draws the range and zooms to it.
+
+A range is only meaningful against the recording it was drawn on, because the
+clock restarts with each recording. So the link is applied once a span starts
+inside the window, and until then it is held: a snapshot that is still loading,
+or a live session still filling up, gets it as soon as its events arrive. It is
+dropped, never applied, if you press **Clear** (or start a new recording) first,
+and drawing your own range replaces it. A snapshot never re-zeroes, so a range
+link is the reliable way to point someone at a stretch of an exported session.
+When both `event` and `range` are present the range is drawn first and the
+event is then selected.
 
 <Aside type="note" title="The hash, not the query">
   The query string is where the DevTools handshake token lives, and that must

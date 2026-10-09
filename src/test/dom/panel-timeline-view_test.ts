@@ -422,3 +422,82 @@ test('the range edges are sliders the arrow keys move', async () => {
   await flush(el);
   expect(tracks().range).toBeNull();
 });
+
+test('a range link waits for a span inside it, then draws and shows it', async () => {
+  const {el, tracks} = await mount();
+  el.location.apply({range: {start: 9, end: 20}});
+  await flush(el);
+  // Nothing loaded yet: held, and the link keeps reporting it.
+  expect(el.location.requested('range')).toEqual({start: 9, end: 20});
+  expect(tracks().range).toBeNull();
+  // A buffer with nothing in the window does not satisfy it either.
+  setEvents(pair(1, 0));
+  await flush(el);
+  expect(el.location.requested('range')).toEqual({start: 9, end: 20});
+  setEvents(events);
+  await flush(el);
+  expect(tracks().range).toEqual({start: 9, end: 20});
+  expect(el.location.requested('range')).toBeUndefined();
+  expect(el.location.link().range).toEqual({start: 9, end: 20});
+  expect(tracks().hidden).toBe(false);
+});
+
+test('a range link is dropped when the buffer is cleared after it', async () => {
+  const {el, tracks} = await mount();
+  setEvents(pair(1, 0));
+  await flush(el);
+  el.location.apply({range: {start: 9, end: 20}});
+  await flush(el);
+  expect(el.location.requested('range')).toBeDefined();
+  setEvents([]); // Clear, or a new recording
+  await flush(el);
+  expect(el.location.requested('range')).toBeUndefined();
+  setEvents(events);
+  await flush(el);
+  expect(tracks().range).toBeNull();
+  expect(el.location.link().range).toBeUndefined();
+});
+
+test('a range the user draws supersedes one a link still holds', async () => {
+  const {el, tracks} = await mount();
+  el.location.apply({range: {start: 90, end: 99}});
+  await flush(el);
+  setEvents(events);
+  await drawRange(el, tracks(), {start: 0, end: 5});
+  expect(el.location.requested('range')).toBeUndefined();
+  expect(tracks().range).toEqual({start: 0, end: 5});
+  expect(el.location.link().range).toEqual({start: 0, end: 5});
+  await drawRange(el, tracks(), null);
+  expect(el.location.link().range).toBeUndefined();
+});
+
+test('Copy link puts the range link on the clipboard', async () => {
+  const writeText = vi.fn(async () => {});
+  Object.defineProperty(navigator, 'clipboard', {
+    value: {writeText},
+    configurable: true,
+  });
+  const {el, tracks} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 9, end: 20});
+  const summary = tracks().shadowRoot!.querySelector('timeline-range-summary')!;
+  summary
+    .shadowRoot!.querySelector<HTMLElement>('wa-button.copy-link')!
+    .click();
+  await flush(el);
+  const [text] = writeText.mock.calls[0] as unknown as [string];
+  expect(text).toContain('#tab=timeline&range=9-20');
+  expect(
+    summary.shadowRoot!.querySelector('wa-button.copy-link')!.textContent
+  ).toContain('Copied');
+});
+
+test('a link with a range and an event shows both', async () => {
+  const {el, tracks} = await mount();
+  el.location.apply({range: {start: 9, end: 20}, eventId: '2-start'});
+  setEvents(events);
+  await flush(el);
+  expect(tracks().range).toEqual({start: 9, end: 20});
+  expect(tracks().selectedKey).toBe('lit-lifecycle:2:1:update');
+});

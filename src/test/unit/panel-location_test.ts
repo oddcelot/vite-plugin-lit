@@ -32,6 +32,22 @@ describe('a deep link', () => {
     expect(location.requested('timeline')).toBe('e-7');
   });
 
+  test('with a range opens the timeline and holds it', () => {
+    const location = new PanelLocation();
+    location.apply({range: {start: 5, end: 9}});
+    expect(location.tab).toBe('timeline');
+    expect(location.requested('range')).toEqual({start: 5, end: 9});
+    expect(location.link()).toEqual({
+      tab: 'timeline',
+      range: {start: 5, end: 9},
+    });
+    location.resolve('range', {start: 5, end: 9});
+    expect(location.requested('range')).toBeUndefined();
+    expect(location.selected('range')).toEqual({start: 5, end: 9});
+    location.select('range', null);
+    expect(location.link()).toEqual({tab: 'timeline'});
+  });
+
   test('with both ids follows the element', () => {
     const location = new PanelLocation();
     location.apply({componentId: 3, eventId: 'e-7'});

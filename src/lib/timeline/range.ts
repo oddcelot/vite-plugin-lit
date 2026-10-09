@@ -55,6 +55,27 @@ export const moveEdge = (
   return {start: range.start, end: Math.max(Math.min(ms, bounds.max), lo)};
 };
 
+/** Link precision: microseconds, which is finer than the panel shows. */
+const PARAM_SCALE = 1000;
+
+/**
+ * A range as a link carries it, `1.25-3.5` in milliseconds on the buffer's
+ * clock. Rounded outward to microseconds so the linked range still covers
+ * every span the drawn one did.
+ */
+export const formatRangeParam = (range: TimeRange): string =>
+  `${Math.floor(range.start * PARAM_SCALE) / PARAM_SCALE}-${
+    Math.ceil(range.end * PARAM_SCALE) / PARAM_SCALE
+  }`;
+
+const RANGE_PARAM = /^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/;
+
+/** The range a link names, or null for anything but `start-end` numbers. */
+export const parseRangeParam = (value: string): TimeRange | null => {
+  const match = RANGE_PARAM.exec(value);
+  return match ? normalizeRange(Number(match[1]), Number(match[2])) : null;
+};
+
 export const sameRange = (a: TimeRange | null, b: TimeRange | null): boolean =>
   a === b ||
   (a !== null && b !== null && a.start === b.start && a.end === b.end);
