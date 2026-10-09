@@ -18,8 +18,6 @@ import type {LayerState} from './timeline-layers.js';
 import {TimelineModel} from '../lib/timeline/model.js';
 import {describeRange, sameRange, spansInRange} from '../lib/timeline/range.js';
 import type {TimeRange} from '../lib/timeline/range.js';
-import './segmented-tabs.js';
-import type {TabItem} from './segmented-tabs.js';
 import './timeline-layers.js';
 import './timeline-event-list.js';
 import type {TimelineEventList} from './timeline-event-list.js';
@@ -55,7 +53,7 @@ const MODE_LS_KEY = 'lit-devtools-timeline-mode';
  *  custom layer, a new built-in) gets a track by default. */
 const HIDDEN_TRACKS_LS_KEY = 'lit-devtools-timeline-hidden-tracks';
 
-const MODE_TABS: TabItem[] = [
+const MODES: {id: ViewMode; label: string}[] = [
   {id: 'list', label: 'List'},
   {id: 'tracks', label: 'Tracks'},
 ];
@@ -148,19 +146,76 @@ export class TimelineView extends LitElement {
       .record:not(.active) wa-icon {
         color: var(--wa-color-danger-fill-loud);
       }
-      .toolbar segmented-tabs {
-        align-self: stretch;
-        margin: calc(-1 * var(--lit-devtools-space-3)) 0;
+      /* A compact segmented control: a second tier under the panel's tabs,
+         which are underlined. */
+      .modes {
+        display: inline-flex;
+        padding: 2px;
+        gap: 2px;
+        border: 1px solid var(--lit-devtools-border);
+        border-radius: var(--lit-devtools-radius-sm);
+        background: var(--lit-devtools-surface);
+      }
+      .modes button {
+        box-sizing: border-box;
+        height: calc(var(--lit-devtools-control-height, 28px) - 6px);
+        padding: 0 var(--lit-devtools-space-5);
+        border: 0;
+        border-radius: var(--lit-devtools-radius-sm);
+        background: transparent;
+        color: var(--lit-devtools-text-muted);
+        font: inherit;
+        font-size: var(--lit-devtools-text-xs);
+        cursor: pointer;
+      }
+      .modes button:hover {
+        color: var(--lit-devtools-text);
+      }
+      .modes button[aria-checked='true'] {
+        background: var(--lit-devtools-surface-active);
+        color: var(--lit-devtools-text);
+        font-weight: 600;
+      }
+      .modes button:focus-visible {
+        outline: 2px solid var(--lit-devtools-accent-ring);
+        outline-offset: 1px;
+      }
+      .toolbar wa-button::part(base),
+      .filterbar wa-button::part(base),
+      .filterbar wa-input::part(base),
+      .filterbar wa-select::part(combobox) {
+        height: var(--lit-devtools-control-height, 28px);
+        min-height: 0;
       }
       .filterbar {
         display: flex;
         align-items: center;
         gap: var(--lit-devtools-space-3);
+        flex-wrap: wrap;
         padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
         border-bottom: 1px solid var(--lit-devtools-border);
         font-size: var(--lit-devtools-text-2xs);
         color: var(--lit-devtools-text-muted);
         flex-shrink: 0;
+      }
+      /* The inputs carry a \`label\` for their accessible name; WA renders it
+         visibly, and the placeholder or the text beside them already says it. */
+      wa-input[label]::part(form-control-label),
+      wa-select[label]::part(form-control-label) {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      .filterbar .field {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--lit-devtools-space-3);
+      }
+      .filterbar timeline-layers {
+        margin-left: auto;
       }
       .filterbar wa-select {
         min-width: 160px;
@@ -498,9 +553,30 @@ export class TimelineView extends LitElement {
       });
   }
 
-  private _onModeChange(e: CustomEvent<{value: string}>) {
-    e.stopPropagation();
-    this._mode = e.detail.value === 'tracks' ? 'tracks' : 'list';
+  /** Arrow keys move between the modes, as in any radio group: only the
+   *  checked one is in the tab order. */
+  private _onModesKeydown(e: KeyboardEvent) {
+    const step =
+      e.key === 'ArrowRight' || e.key === 'ArrowDown'
+        ? 1
+        : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+          ? -1
+          : 0;
+    if (step === 0) return;
+    e.preventDefault();
+    const i = MODES.findIndex((m) => m.id === this._mode);
+    const next = MODES[(i + step + MODES.length) % MODES.length]!;
+    this._setMode(next.id);
+    void this.updateComplete.then(() =>
+      this.renderRoot
+        .querySelector<HTMLButtonElement>(`.modes [data-mode="${next.id}"]`)
+        ?.focus()
+    );
+  }
+
+  private _setMode(mode: ViewMode) {
+    if (mode === this._mode) return;
+    this._mode = mode;
     store(MODE_LS_KEY, this._mode);
     if (this._mode === 'list') {
       // The list was hidden while the selection may have moved; bring the
@@ -593,16 +669,31 @@ export class TimelineView extends LitElement {
     const captured = this._layers.filter(
       (l) => l.enabled && !EVENTLESS_LAYERS.has(l.id)
     );
+    // A frozen session has nothing to record, and a running one is recording.
+    const canRecord = !this._snapshot && !this._recording;
     const model = this._model;
     const {filter} = model;
     return html`
       <div class="toolbar">
-        <segmented-tabs
-          size="sm"
-          .items=${MODE_TABS}
-          .value=${this._mode}
-          @change=${this._onModeChange}
-        ></segmented-tabs>
+        <div
+          class="modes"
+          role="radiogroup"
+          aria-label="Timeline view"
+          @keydown=${this._onModesKeydown}
+        >
+          ${MODES.map(
+            (m) => html`<button
+              type="button"
+              role="radio"
+              data-mode=${m.id}
+              aria-checked=${this._mode === m.id ? 'true' : 'false'}
+              tabindex=${this._mode === m.id ? 0 : -1}
+              @click=${() => this._setMode(m.id)}
+            >
+              ${m.label}
+            </button>`
+          )}
+        </div>
         ${
           this._exportNote === null
             ? nothing
@@ -659,42 +750,33 @@ export class TimelineView extends LitElement {
       ></timeline-layers>
       ${this._renderDebugHint()}
       ${
-        tracks
-          ? html`<timeline-layers
-              caption="Tracks"
-              .layers=${captured.map((l) => ({
-                ...l,
-                enabled: !this._hiddenTracks.has(l.id),
-              }))}
-              @layer-toggle=${this._onTrackToggle}
-            ></timeline-layers>`
-          : nothing
-      }
-      ${
         this._events.length > 0
           ? html`<div class="filterbar">
               ${
                 model.elements.length > 0
                   ? html`
-                      <span>Element:</span>
-                      <wa-select
-                        size="small"
-                        .value=${
-                          filter.elementId === null
-                            ? ''
-                            : String(filter.elementId)
-                        }
-                        @change=${this._onElementSelect}
-                      >
-                        <wa-option value="">All elements</wa-option>
-                        ${model.elements.map(
-                          (el) => html`
-                            <wa-option value=${String(el.id)}>
-                              &lt;${el.tag}&gt; #${el.id}
-                            </wa-option>
-                          `
-                        )}
-                      </wa-select>
+                      <span class="field">
+                        Element
+                        <wa-select
+                          size="small"
+                          label="Filter by element"
+                          .value=${
+                            filter.elementId === null
+                              ? ''
+                              : String(filter.elementId)
+                          }
+                          @change=${this._onElementSelect}
+                        >
+                          <wa-option value="">All elements</wa-option>
+                          ${model.elements.map(
+                            (el) => html`
+                              <wa-option value=${String(el.id)}>
+                                &lt;${el.tag}&gt; #${el.id}
+                              </wa-option>
+                            `
+                          )}
+                        </wa-select>
+                      </span>
                     `
                   : nothing
               }
@@ -702,6 +784,7 @@ export class TimelineView extends LitElement {
                 class="regex ${model.regexInvalid ? 'invalid' : ''}"
                 size="small"
                 type="text"
+                label="Filter events by regex"
                 spellcheck="false"
                 placeholder="filter regex…"
                 data-tip="Case-insensitive regex matched against element tag, title and subtitle"
@@ -722,6 +805,19 @@ export class TimelineView extends LitElement {
                       <wa-icon slot="end" name="x"></wa-icon>
                     </wa-button>`
               }
+              ${
+                tracks
+                  ? html`<timeline-layers
+                      compact
+                      caption="Show as tracks"
+                      .layers=${captured.map((l) => ({
+                        ...l,
+                        enabled: !this._hiddenTracks.has(l.id),
+                      }))}
+                      @layer-toggle=${this._onTrackToggle}
+                    ></timeline-layers>`
+                  : nothing
+              }
             </div>`
           : nothing
       }
@@ -731,10 +827,12 @@ export class TimelineView extends LitElement {
         .events=${this._events}
         .spans=${model.spans}
         .layers=${this._layers}
+        ?canRecord=${canRecord}
         .selectedKey=${model.selectedKey}
         .filter=${filter}
         @span-select=${this._onSpanSelect}
         @element-filter=${this._onElementFilter}
+        @record-request=${this._toggleRecord}
       ></timeline-event-list>
       <timeline-tracks
         ${ref(this._tracksRef)}
@@ -746,8 +844,11 @@ export class TimelineView extends LitElement {
         .selectedSpan=${model.selectedSpan}
         .range=${model.range}
         ?recording=${this._recording}
+        ?filtered=${this._events.length > 0}
+        ?canRecord=${canRecord}
         @range-change=${this._onRangeChange}
         @range-filter=${this._onRangeFilter}
+        @record-request=${this._toggleRecord}
         @span-select=${this._onSpanSelect}
         @element-filter=${this._onElementFilter}
       ></timeline-tracks>

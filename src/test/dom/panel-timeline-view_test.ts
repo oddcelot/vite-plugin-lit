@@ -126,7 +126,7 @@ test('a layer toggle goes to the server, except for custom layers', async () => 
   const {root} = await mount();
   const pills = root
     .querySelector('timeline-layers')!
-    .shadowRoot!.querySelectorAll('wa-button');
+    .shadowRoot!.querySelectorAll('button');
   pills[1]!.click(); // mouse, off by default
   pills[2]!.click(); // custom: always on, nothing to toggle
   expect(calls.filter((c) => c.name === 'toggle-layer')).toEqual([

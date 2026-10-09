@@ -155,7 +155,7 @@ test('an empty buffer shows the empty state and no filter bar', async () => {
   const {el, count} = await mount({events: [], spans: []});
   expect(count()).toBeUndefined();
   expect(el.shadowRoot!.querySelector('.empty')?.textContent).toContain(
-    'No events recorded.'
+    'No events yet'
   );
 });
 

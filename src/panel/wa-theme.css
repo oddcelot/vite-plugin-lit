@@ -44,6 +44,8 @@
     /* 13px body (WA's `m`), 12px `s` for small controls — DevTools density. */
     --wa-font-size-scale: 0.8125;
 
+    --wa-form-control-height: var(--lit-devtools-control-height);
+
     /* No rounded corners anywhere: buttons, inputs, cards, pills, switches. */
     --wa-border-radius-scale: 0;
     --wa-border-radius-pill: 0;

@@ -33,6 +33,10 @@ const baseTokenCSS = `
   --lit-devtools-lit-cyan:        #00ffff;
   --lit-devtools-lit-dark-cyan:   #00e8ff;
 
+  /* ---- Shared sizing: toolbar controls and tree/list rows ---- */
+  --lit-devtools-control-height:  28px;
+  --lit-devtools-row-height:      22px;
+
   /* ---- Neutral ink scale (0 = near-black, 13 = white) ---- */
   --lit-devtools-ink-0:  hsl(0 0% 1%);
   --lit-devtools-ink-1:  hsl(0 0% 5%);
@@ -140,9 +144,10 @@ const darkThemeCSS = `
 
   --lit-devtools-text:                 var(--lit-devtools-ink-12);
   --lit-devtools-text-strong:          var(--lit-devtools-ink-13);
-  --lit-devtools-text-secondary:       var(--lit-devtools-ink-10);
-  --lit-devtools-text-muted:           var(--lit-devtools-ink-8);
-  --lit-devtools-text-link:            var(--lit-devtools-lit-blue-bright);
+  --lit-devtools-text-secondary:       var(--lit-devtools-ink-11);
+  --lit-devtools-text-muted:           var(--lit-devtools-ink-9);
+  /* Lighter than the brand blue (4.2:1 on ink-1): 6.5:1, so links read as text. */
+  --lit-devtools-text-link:            oklch(0.72 0.15 268);
 
   --lit-devtools-border:               var(--lit-devtools-ink-6);
   --lit-devtools-border-strong:        var(--lit-devtools-ink-7);
@@ -191,8 +196,8 @@ const lightThemeCSS = `
 
   --lit-devtools-text:                 #242424;
   --lit-devtools-text-strong:          #000000;
-  --lit-devtools-text-secondary:       #6e6e6e;
-  --lit-devtools-text-muted:           #949494;
+  --lit-devtools-text-secondary:       #595959;
+  --lit-devtools-text-muted:           #6f6f6f;
   --lit-devtools-text-link:            #005dc7;
 
   --lit-devtools-border:               #e2e2e2;

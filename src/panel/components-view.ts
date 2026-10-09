@@ -319,6 +319,24 @@ export class ComponentsView extends LitElement {
       .spacer {
         flex: 1;
       }
+      /* The inputs carry a \`label\` for their accessible name; WA renders it
+         visibly, and the placeholder or the text beside them already says it. */
+      wa-input[label]::part(form-control-label),
+      wa-select[label]::part(form-control-label) {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      .toolbar wa-button,
+      .toolbar wa-input {
+        --wa-form-control-height: var(--lit-devtools-control-height);
+      }
+      .toolbar wa-button::part(base) {
+        min-height: var(--lit-devtools-control-height);
+      }
       wa-input.tree-filter {
         width: 200px;
         min-width: 120px;
@@ -362,6 +380,8 @@ export class ComponentsView extends LitElement {
         display: flex;
         align-items: center;
         gap: var(--lit-devtools-space-2);
+        box-sizing: border-box;
+        min-height: var(--lit-devtools-row-height);
         padding: 1px var(--lit-devtools-space-5);
         white-space: nowrap;
         cursor: pointer;
@@ -372,8 +392,21 @@ export class ComponentsView extends LitElement {
       .row:hover {
         background: var(--lit-devtools-surface-hover);
       }
+      /* A brand tint plus a 2px bar, so the selection survives low contrast. */
       .row.selected {
-        background: var(--lit-devtools-surface-active);
+        background: color-mix(
+          in srgb,
+          var(--lit-devtools-lit-blue) 18%,
+          var(--lit-devtools-surface)
+        );
+        box-shadow: inset 2px 0 0 var(--lit-devtools-lit-blue);
+      }
+      .row.selected .tag {
+        color: var(--lit-devtools-text-strong);
+      }
+      .row:focus-visible {
+        outline: 2px solid var(--lit-devtools-accent-ring);
+        outline-offset: -2px;
       }
       .twisty {
         width: 12px;
@@ -386,7 +419,7 @@ export class ComponentsView extends LitElement {
         font-size: 0.8em;
       }
       .tag {
-        color: var(--lit-devtools-accent);
+        color: var(--lit-devtools-text);
       }
       .tag .punct {
         color: var(--lit-devtools-text-muted);
@@ -397,6 +430,15 @@ export class ComponentsView extends LitElement {
         overflow: auto;
         padding: var(--lit-devtools-space-5) var(--lit-devtools-space-5);
         font-size: var(--lit-devtools-text-xs);
+        /* One key column for the whole pane: the meta list and every section's
+           rows are subgrids of it, so all values start at the same x. */
+        display: grid;
+        grid-template-columns: fit-content(45%) minmax(0, 1fr);
+        column-gap: var(--lit-devtools-space-4);
+        align-content: start;
+      }
+      .details > * {
+        grid-column: 1 / -1;
       }
       .details .head {
         display: flex;
@@ -405,15 +447,24 @@ export class ComponentsView extends LitElement {
         margin: 0 0 var(--lit-devtools-space-3);
       }
       .details h2 {
-        font-size: var(--lit-devtools-text-sm);
+        font-size: 15px;
+        font-weight: var(--lit-devtools-weight-semibold);
         font-family: var(--lit-devtools-font-mono);
-        color: var(--lit-devtools-accent);
+        color: var(--lit-devtools-text-strong);
         margin: 0;
         min-width: 0;
         overflow-wrap: anywhere;
       }
+      .details h2 .punct {
+        color: var(--lit-devtools-text-muted);
+      }
       .details .head .reveal {
         margin-left: auto;
+      }
+      /* Icon-only buttons keep a 24px hit area whatever the button size. */
+      .details .head .reveal::part(base) {
+        min-width: 24px;
+        min-height: 24px;
       }
       .details .head .reveal + .reveal {
         margin-left: 0;
@@ -476,8 +527,7 @@ export class ComponentsView extends LitElement {
       }
       .meta {
         display: grid;
-        grid-template-columns: max-content minmax(0, 1fr);
-        column-gap: var(--lit-devtools-space-4);
+        grid-template-columns: subgrid;
         row-gap: var(--lit-devtools-space-1);
         margin: 0;
         font-family: var(--lit-devtools-font-mono);
@@ -514,11 +564,18 @@ export class ComponentsView extends LitElement {
         vertical-align: -0.125em;
       }
       .section {
+        display: grid;
+        grid-template-columns: subgrid;
         margin-top: var(--lit-devtools-space-5);
         padding-top: var(--lit-devtools-space-4);
         border-top: 1px solid var(--lit-devtools-border);
       }
+      /* The section's rows are its grid items; the fold's content box is not. */
+      .section::details-content {
+        display: contents;
+      }
       .section > summary {
+        grid-column: 1 / -1;
         display: flex;
         align-items: center;
         gap: var(--lit-devtools-space-2);
@@ -568,8 +625,8 @@ export class ComponentsView extends LitElement {
       }
       .kv {
         display: grid;
-        grid-template-columns: fit-content(45%) minmax(0, 1fr);
-        column-gap: var(--lit-devtools-space-4);
+        grid-column: 1 / -1;
+        grid-template-columns: subgrid;
         font-family: var(--lit-devtools-font-mono);
       }
       .entry {
@@ -699,14 +756,22 @@ export class ComponentsView extends LitElement {
         grid-column: 1 / -1;
         padding-left: var(--lit-devtools-space-5);
       }
+      /* Small tags beside a value: quiet text on a faint fill, no border. */
       .type {
         margin-left: var(--lit-devtools-space-2);
-        font-size: var(--lit-devtools-text-2xs);
+        padding: 0 var(--lit-devtools-space-2);
+        font-size: 11px;
         color: var(--lit-devtools-text-muted);
+        background: var(--lit-devtools-surface-container);
       }
       .badge {
         margin-left: var(--lit-devtools-space-2);
         vertical-align: middle;
+        font-size: 11px;
+        border: 0;
+        padding: 0 var(--lit-devtools-space-2);
+        background: var(--lit-devtools-surface-container);
+        color: var(--lit-devtools-text-muted);
       }
       .swatch {
         display: inline-block;
@@ -1261,13 +1326,26 @@ export class ComponentsView extends LitElement {
     const expanded =
       filter !== undefined || this._session.expanded.has(node.id);
     const dimmed = filter !== undefined && !filter.matched.has(node.id);
+    const selected = node.id === this._session.selectedId;
     return html`
       <div
-        class="row ${node.id === this._session.selectedId ? 'selected' : ''} ${
+        class="row ${selected ? 'selected' : ''} ${
           dimmed ? 'context' : ''
         } ${this._tagHover === node.tagName ? 'same-tag' : ''}"
+        role="treeitem"
+        aria-level=${depth + 1}
+        aria-selected=${selected ? 'true' : 'false'}
+        aria-expanded=${hasChildren ? (expanded ? 'true' : 'false') : nothing}
+        tabindex=${node.id === (this._session.selectedId ?? this._session.roots[0]?.id) ? 0 : -1}
         style="padding-left:${8 + depth * 14}px"
         @click=${() => this._session.select(node.id)}
+        data-id=${node.id}
+        @keydown=${(e: KeyboardEvent) =>
+          this._onRowKeydown(
+            e,
+            node.id,
+            hasChildren && filter === undefined ? expanded : undefined
+          )}
         @mouseenter=${(e: MouseEvent) => this._hoverRow(node, e.shiftKey)}
       >
         <span
@@ -1782,6 +1860,63 @@ export class ComponentsView extends LitElement {
     return markMatch(text, this._query);
   }
 
+  /**
+   * Tree keyboard, as in the browser's Elements panel: Up/Down select the
+   * neighbouring row, Right opens a closed node, Left closes an open one or
+   * moves to its parent. Rows render as flat siblings, so neighbours and
+   * parents are found by walking them. `expanded` is undefined for leaves and
+   * while a filter holds every node open.
+   */
+  private _onRowKeydown(
+    e: KeyboardEvent,
+    id: number,
+    expanded: boolean | undefined
+  ): void {
+    if (e.target !== e.currentTarget) return;
+    const row = e.currentTarget as HTMLElement;
+    const rows = [
+      ...row.parentElement!.querySelectorAll<HTMLElement>(
+        ':scope > [role="treeitem"]'
+      ),
+    ];
+    const at = rows.indexOf(row);
+    let target: HTMLElement | undefined;
+    switch (e.key) {
+      case 'Enter':
+      case ' ':
+        this._session.select(id);
+        break;
+      case 'ArrowDown':
+        target = rows[at + 1];
+        break;
+      case 'ArrowUp':
+        target = rows[at - 1];
+        break;
+      case 'ArrowRight':
+        if (expanded === false) this._session.toggleExpand(id);
+        else target = rows[at + 1];
+        break;
+      case 'ArrowLeft': {
+        if (expanded === true) {
+          this._session.toggleExpand(id);
+          break;
+        }
+        const level = Number(row.getAttribute('aria-level'));
+        target = rows
+          .slice(0, at)
+          .reverse()
+          .find((r) => Number(r.getAttribute('aria-level')) < level);
+        break;
+      }
+      default:
+        return;
+    }
+    e.preventDefault();
+    if (target === undefined) return;
+    this._session.select(Number(target.dataset['id']));
+    target.focus();
+  }
+
   private _onTreeFilterInput(e: Event): void {
     this._treeQuery = (e.target as WaInput).value ?? '';
   }
@@ -1878,7 +2013,11 @@ export class ComponentsView extends LitElement {
     const revealer = elementRevealer();
     return html`
       <div class="head">
-        <h2>&lt;${d.tagName}&gt;</h2>
+        <h2>
+          <span class="punct">&lt;</span>${d.tagName}<span class="punct"
+            >&gt;</span
+          >
+        </h2>
         ${
           d.flags.isUpdatePending
             ? html`<span
@@ -1996,7 +2135,7 @@ export class ComponentsView extends LitElement {
         spellcheck="false"
         autocomplete="off"
         placeholder="Filter rows"
-        aria-label="Filter rows by name or value"
+        label="Filter rows"
         with-clear
         .value=${this._query}
         @input=${this._onFilterInput}
@@ -2199,7 +2338,7 @@ export class ComponentsView extends LitElement {
           spellcheck="false"
           autocomplete="off"
           placeholder="Filter tags"
-          aria-label="Filter the tree by tag or class name"
+          label="Filter tags"
           with-clear
           .value=${this._treeQuery}
           @input=${this._onTreeFilterInput}
@@ -2260,7 +2399,13 @@ export class ComponentsView extends LitElement {
         position-in-pixels=${this._detailsWidth}
         @wa-reposition=${this._saveDetailsWidth}
       >
-        <div slot="start" class="tree" @mouseleave=${this._leaveTree}>
+        <div
+          slot="start"
+          class="tree"
+          role="tree"
+          aria-label="Components"
+          @mouseleave=${this._leaveTree}
+        >
           ${
             this._error !== null
               ? html`<div class="empty">${this._error}</div>`

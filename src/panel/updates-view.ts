@@ -71,15 +71,51 @@ export class UpdatesView extends LitElement {
       .head .count {
         margin-left: auto;
       }
+      /* Column labels share the row's numeric cells so they line up. */
+      .head.columns {
+        gap: var(--lit-devtools-space-4);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-size: 10px;
+        min-height: var(--lit-devtools-row-height);
+        padding-top: 0;
+        padding-bottom: 0;
+      }
+      .head.columns .title {
+        flex: 1;
+      }
+      .head.columns .num {
+        color: var(--lit-devtools-text-muted);
+      }
+      .head.detail {
+        font-size: var(--lit-devtools-text-xs);
+        color: var(--lit-devtools-text-secondary);
+        gap: var(--lit-devtools-space-4);
+        min-height: var(--lit-devtools-control-height);
+        padding-top: 0;
+        padding-bottom: 0;
+      }
+      .head.detail .name {
+        color: var(--lit-devtools-text-strong);
+        font-weight: var(--lit-devtools-weight-semibold);
+        font-family: var(--lit-devtools-font-mono);
+      }
+      .head.detail wa-button.link::part(base) {
+        color: var(--lit-devtools-text-link);
+      }
+      .head.detail .src-text {
+        color: var(--lit-devtools-text-link);
+      }
       .scroll {
         flex: 1;
         overflow-y: auto;
       }
       .row {
         display: flex;
-        align-items: baseline;
+        align-items: center;
         gap: var(--lit-devtools-space-4);
-        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
+        min-height: var(--lit-devtools-row-height);
+        padding: 0 var(--lit-devtools-space-5);
         font-size: var(--lit-devtools-text-2xs);
         font-family: var(--lit-devtools-font-mono);
         border-bottom: 1px solid var(--lit-devtools-border);
@@ -89,7 +125,15 @@ export class UpdatesView extends LitElement {
         background: var(--lit-devtools-surface-hover);
       }
       .row.selected {
-        background: var(--lit-devtools-surface-active);
+        background: color-mix(
+          in oklch,
+          var(--lit-devtools-lit-blue) 18%,
+          var(--lit-devtools-surface)
+        );
+        box-shadow: inset 2px 0 0 var(--lit-devtools-lit-blue);
+      }
+      .tag .bracket {
+        color: var(--lit-devtools-text-muted);
       }
       .tag {
         flex: 1;
@@ -99,10 +143,36 @@ export class UpdatesView extends LitElement {
         white-space: nowrap;
       }
       .num {
-        color: var(--lit-devtools-text-secondary);
+        color: var(--lit-devtools-text-muted);
         flex-shrink: 0;
-        width: 72px;
+        width: 64px;
         text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .num.primary {
+        color: var(--lit-devtools-text);
+      }
+      /* The hot-path bar: width is this row's total time against the max. */
+      .num.total {
+        position: relative;
+        align-self: stretch;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        width: 80px;
+      }
+      .bar {
+        position: absolute;
+        left: 0;
+        bottom: 3px;
+        height: 3px;
+        width: var(--bar, 0%);
+        background: color-mix(
+          in oklch,
+          var(--lit-devtools-lit-blue) 60%,
+          transparent
+        );
+        pointer-events: none;
       }
       .reasons {
         color: var(--lit-devtools-accent);
@@ -134,8 +204,9 @@ export class UpdatesView extends LitElement {
         white-space: nowrap;
       }
       .changes {
-        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5)
-          var(--lit-devtools-space-2) calc(var(--lit-devtools-space-5) + 72px);
+        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-5)
+          var(--lit-devtools-space-1)
+          calc(var(--lit-devtools-space-5) + 80px + var(--lit-devtools-space-4));
         font-size: var(--lit-devtools-text-2xs);
         font-family: var(--lit-devtools-font-mono);
         color: var(--lit-devtools-text-secondary);
@@ -168,8 +239,9 @@ export class UpdatesView extends LitElement {
       .time {
         color: var(--lit-devtools-text-muted);
         flex-shrink: 0;
-        width: 64px;
+        width: 80px;
         text-align: right;
+        font-variant-numeric: tabular-nums;
       }
       .empty {
         display: flex;
@@ -313,17 +385,22 @@ export class UpdatesView extends LitElement {
         </div>
       `;
     }
+    const maxTotal = Math.max(...this._components.map((c) => c.totalMs));
     return html`
       <div class="pane components">
-        <div class="head">
-          <span>Component</span>
-          <span class="count">${this._components.length} components</span>
+        <div class="head columns">
+          <span class="title">Component · ${this._components.length}</span>
+          <span class="num" data-tip="Updates recorded">Updates</span>
+          <span class="num total" data-tip="Total time in performUpdate"
+            >Total</span
+          >
+          <span class="num" data-tip="Slowest single update">Slowest</span>
         </div>
         <div class="scroll">
           ${repeat(
             this._components,
             (entry) => entry.tagName,
-            (entry) => this._renderComponent(entry)
+            (entry) => this._renderComponent(entry, maxTotal)
           )}
         </div>
       </div>
@@ -331,7 +408,7 @@ export class UpdatesView extends LitElement {
     `;
   }
 
-  private _renderComponent(entry: ComponentRollup) {
+  private _renderComponent(entry: ComponentRollup, maxTotal: number) {
     const instances =
       entry.elementIds.length > 1 ? ` ×${entry.elementIds.length}` : '';
     return html`
@@ -339,7 +416,12 @@ export class UpdatesView extends LitElement {
         class="row ${this._selectedTag === entry.tagName ? 'selected' : ''}"
         @click=${() => this._select(entry.tagName)}
       >
-        <span class="tag">&lt;${entry.tagName}&gt;${instances}</span>
+        <span class="tag"
+          ><span class="bracket">&lt;</span>${entry.tagName}<span
+            class="bracket"
+            >&gt;</span
+          >${instances}</span
+        >
         <span class="reasons"
           >${entry.reasons.map((r) => r.key).join(', ')}</span
         >
@@ -369,11 +451,6 @@ export class UpdatesView extends LitElement {
               </wa-badge>`
             : nothing
         }
-        <span class="num" data-tip="Updates recorded"
-          ><wa-badge appearance="outlined" variant="neutral"
-            >${entry.updates}×</wa-badge
-          ></span
-        >
         ${
           entry.errors > 0
             ? html`<wa-badge
@@ -386,15 +463,19 @@ export class UpdatesView extends LitElement {
               </wa-badge>`
             : nothing
         }
-        <span class="num" data-tip="Total time in performUpdate"
-          ><wa-badge appearance="outlined" variant="neutral"
-            >${formatMs(entry.totalMs)}</wa-badge
-          ></span
+        <span class="num primary" data-tip="Updates recorded"
+          >${entry.updates}×</span
         >
+        <span class="num total primary" data-tip="Total time in performUpdate">
+          <span
+            class="bar"
+            aria-hidden="true"
+            style="--bar: ${maxTotal > 0 ? (entry.totalMs / maxTotal) * 100 : 0}%"
+          ></span>
+          ${formatMs(entry.totalMs)}
+        </span>
         <span class="num" data-tip="Slowest single update"
-          ><wa-badge appearance="outlined" variant="neutral"
-            >${formatMs(entry.maxMs)}</wa-badge
-          ></span
+          >${formatMs(entry.maxMs)}</span
         >
       </div>
     `;
@@ -424,8 +505,9 @@ export class UpdatesView extends LitElement {
     const site = entry?.elementIds.length === 1 ? entry.callSite : undefined;
     return html`
       <div class="pane cycles">
-        <div class="head">
-          <span>&lt;${this._selectedTag}&gt; updates</span>
+        <div class="head detail">
+          <span class="name">&lt;${this._selectedTag}&gt;</span>
+          <span>updates</span>
           ${
             source && !(this._canOpen || sourceOpener(source))
               ? html`<span class="link src-text"
@@ -481,7 +563,7 @@ export class UpdatesView extends LitElement {
             (cycle) => html`
               <div class=${classMap({row: true, failed: !!cycle.error})}>
                 <span class="time">${cycle.start.toFixed(1)}ms</span>
-                <span class="num">${formatMs(cycle.duration)}</span>
+                <span class="num primary">${formatMs(cycle.duration)}</span>
                 <span class="tag"
                   >${
                     cycle.changed.length > 0

@@ -78,7 +78,7 @@ test('Clear leaves the empty state in view', async () => {
   await page.getByRole('button', {name: 'Clear'}).click();
   const empty = page.locator('timeline-event-list .empty');
   await empty.waitFor();
-  expect(await empty.textContent()).toContain('No events recorded.');
+  expect(await empty.textContent()).toContain('No events yet');
   // Inside the viewport, not merely present: a virtualizer-sized scroller
   // once pushed it thousands of px out of sight.
   const box = (await empty.boundingBox())!;
