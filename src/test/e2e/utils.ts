@@ -185,6 +185,21 @@ export const startFixture = async (
   await page.reload();
   await ready();
 
+  const watcherSaw = async (
+    file: string,
+    since: number,
+    timeout: number
+  ): Promise<boolean> => {
+    const deadline = Date.now() + timeout;
+    while (Date.now() < deadline) {
+      if (watcherChanges.some((c) => c.file === file && c.at >= since)) {
+        return true;
+      }
+      await new Promise((done) => setTimeout(done, 25));
+    }
+    return false;
+  };
+
   let lastEdit: {file: string; at: number; updates: number | null} | undefined;
   const pageUpdates = () =>
     page
@@ -226,6 +241,13 @@ export const startFixture = async (
       }
       lastEdit = {file, at: Date.now(), updates: await pageUpdates()};
       await writeFile(file, next);
+      // The watcher now and then drops a change on the Linux CI runner: the
+      // write lands and no event follows. Writing the same bytes again bumps
+      // the mtime and gets one through; a second miss is left for the
+      // caller's poll to time out on, with `stalledLayer` saying where.
+      if (!(await watcherSaw(file, lastEdit.at, 2_000))) {
+        await writeFile(file, next);
+      }
     },
     stalledLayer: async () => {
       if (lastEdit === undefined) {
