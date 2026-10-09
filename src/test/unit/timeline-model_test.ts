@@ -108,7 +108,11 @@ describe('TimelineModel reconcile', () => {
     const model = modelWith([...a, ...b]);
     model.setFilter({elementId: 2, regex: 'update'});
     model.setEvents([]);
-    expect(model.filter).toEqual({elementId: null, regex: 'update'});
+    expect(model.filter).toEqual({
+      elementId: null,
+      regex: 'update',
+      range: null,
+    });
   });
 
   test('keeps an element filter whose element is still recorded', () => {

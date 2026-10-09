@@ -84,15 +84,19 @@ test('counts visible spans against all of them', async () => {
 });
 
 test('applies the element and regex filter', async () => {
-  const {el, count} = await mount({filter: {elementId: 2, regex: ''}});
+  const {el, count} = await mount({
+    filter: {elementId: 2, regex: '', range: null},
+  });
   expect(count()).toBe('1 / 3');
-  el.filter = {elementId: null, regex: 'click|x-a'};
+  el.filter = {elementId: null, regex: 'click|x-a', range: null};
   await el.updateComplete;
   expect(count()).toBe('2 / 3');
 });
 
 test('an invalid regex filters nothing', async () => {
-  const {count} = await mount({filter: {elementId: null, regex: 'foo('}});
+  const {count} = await mount({
+    filter: {elementId: null, regex: 'foo(', range: null},
+  });
   expect(count()).toBe('3 / 3');
 });
 

@@ -218,6 +218,58 @@ test('a filter that hides the selected mark keeps its detail in Tracks', async (
   expect(panel.errors).toEqual([]);
 });
 
+test('Shift+drag selects a range in Tracks and summarises it', async () => {
+  const {page} = panel;
+  // The previous test leaves its regex in the shared filter.
+  await page.locator('timeline-view wa-input.regex input').fill('');
+  await fixture.page.locator('hmr-counter #increment').click();
+  await page.getByText('Tracks', {exact: true}).first().click();
+  await expect
+    .poll(() => page.locator('timeline-tracks .mark').count())
+    .toBeGreaterThan(0);
+
+  const ticks = (await page.locator('timeline-tracks .ticks').boundingBox())!;
+  const lanes = (await page.locator('timeline-tracks .lanes').boundingBox())!;
+  const y = lanes.y + 6;
+  await page.keyboard.down('Shift');
+  await page.mouse.move(ticks.x + 4, y);
+  await page.mouse.down();
+  await page.mouse.move(ticks.x + ticks.width - 4, y, {steps: 8});
+  // The bounds are on screen while dragging.
+  await page.locator('timeline-tracks .range-label').waitFor();
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+
+  const summary = page.locator('timeline-tracks timeline-range-summary');
+  await summary.waitFor();
+  expect(await page.locator('timeline-tracks .range').count()).toBe(1);
+
+  // Filter to range hands the window to the shared filter...
+  await summary.getByText('Filter to range').click();
+  await page.locator('timeline-view .range-chip').waitFor();
+  // ...and Esc clears the selection, the chip the filter.
+  await page.keyboard.press('Escape');
+  await expect
+    .poll(() => page.locator('timeline-tracks .range').count())
+    .toBe(0);
+  await page.locator('timeline-view .range-chip').click();
+  await expect
+    .poll(() => page.locator('timeline-view .range-chip').count())
+    .toBe(0);
+
+  // A drag on the ruler draws one too, and a click there clears it.
+  await page.mouse.move(ticks.x + 10, ticks.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(ticks.x + 200, ticks.y + 8, {steps: 8});
+  await page.mouse.up();
+  await page.locator('timeline-tracks .range').waitFor();
+  await page.mouse.click(ticks.x + 300, ticks.y + 8);
+  await expect
+    .poll(() => page.locator('timeline-tracks .range').count())
+    .toBe(0);
+  expect(panel.errors).toEqual([]);
+});
+
 test('Pick is not offered when the source overlay is off', async () => {
   const {page} = panel;
   await page.goto(`${fixture.origin}/__lit/#tab=components`);

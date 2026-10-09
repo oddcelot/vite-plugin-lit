@@ -16,6 +16,7 @@ import type {
 } from '../types/timeline.js';
 import type {LayerState} from './timeline-layers.js';
 import {TimelineModel} from '../lib/timeline/model.js';
+import {describeRange} from '../lib/timeline/range.js';
 import './segmented-tabs.js';
 import type {TabItem} from './segmented-tabs.js';
 import './timeline-layers.js';
@@ -481,6 +482,26 @@ export class TimelineView extends LitElement {
     this.requestUpdate();
   }
 
+  /** The tracks drew, or cleared, a range. */
+  private _onRangeChange(
+    e: CustomEvent<{range: {start: number; end: number} | null}>
+  ) {
+    const {range} = e.detail;
+    this._model.setRange(range?.start ?? null, range?.end ?? null);
+    this.requestUpdate();
+  }
+
+  /** The range summary's **Filter to range**. */
+  private _onRangeFilter() {
+    this._model.setFilter({range: this._model.range});
+    this.requestUpdate();
+  }
+
+  private _clearRangeFilter() {
+    this._model.setFilter({range: null});
+    this.requestUpdate();
+  }
+
   private _onSpanSelect(e: CustomEvent<{key: string | null}>) {
     this._model.select(e.detail.key);
     this.requestUpdate();
@@ -631,6 +652,20 @@ export class TimelineView extends LitElement {
                 .value=${filter.regex}
                 @input=${this._onRegexInput}
               ></wa-input>
+              ${
+                filter.range === null
+                  ? nothing
+                  : html`<wa-button
+                      class="range-chip"
+                      size="small"
+                      appearance="outlined"
+                      data-tip="Showing only this time range. Click to show all of time again"
+                      @click=${this._clearRangeFilter}
+                    >
+                      Time ${describeRange(filter.range)}
+                      <wa-icon slot="end" name="x"></wa-icon>
+                    </wa-button>`
+              }
             </div>`
           : nothing
       }
@@ -652,7 +687,10 @@ export class TimelineView extends LitElement {
         .visibleTracks=${this._visibleTracks}
         .selectedKey=${model.selectedKey}
         .selectedSpan=${model.selectedSpan}
+        .range=${model.range}
         ?recording=${this._recording}
+        @range-change=${this._onRangeChange}
+        @range-filter=${this._onRangeFilter}
         @span-select=${this._onSpanSelect}
         @element-filter=${this._onElementFilter}
       ></timeline-tracks>
