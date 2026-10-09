@@ -17,6 +17,8 @@ import type {TimelineEvent} from '../../types/timeline.js';
 import {attributeInput, rollup, toSpans, toUpdateCycles} from './derive.js';
 import type {ComponentRollup, TimelineSpan, UpdateCycle} from './derive.js';
 import {compileRegex, filterSpans, listElements} from './filter.js';
+import {inRange, normalizeRange, sameRange} from './range.js';
+import type {TimeRange} from './range.js';
 
 const RAW_KEY_PREFIX = 'raw:';
 
@@ -41,22 +43,35 @@ export const rawRow = (event: TimelineEvent, index: number): TimelineSpan => ({
   events: [event],
 });
 
-/** The element and regex filters both presentations apply. */
+/** The element, regex and time-range filters both presentations apply. */
 export interface TimelineFilter {
   /** Element id to show, or null for all elements. */
   elementId: number | null;
   /** Case-insensitive regex source; empty matches everything. */
   regex: string;
+  /** Only spans starting inside this window, or null for all of time. */
+  range: TimeRange | null;
 }
 
-export const NO_FILTER: TimelineFilter = {elementId: null, regex: ''};
+export const NO_FILTER: TimelineFilter = {
+  elementId: null,
+  regex: '',
+  range: null,
+};
 
 /** Applies a {@link TimelineFilter} to spans or Raw-mode rows. */
 export const applyFilter = (
   rows: readonly TimelineSpan[],
   filter: TimelineFilter
-): TimelineSpan[] =>
-  filterSpans(rows, filter.elementId, compileRegex(filter.regex).re);
+): TimelineSpan[] => {
+  const {range} = filter;
+  const matched = filterSpans(
+    rows,
+    filter.elementId,
+    compileRegex(filter.regex).re
+  );
+  return range === null ? matched : matched.filter((s) => inRange(s, range));
+};
 
 /** Update cycles over `events`, each attributed to the input it followed. */
 export const updateCycles = (events: readonly TimelineEvent[]): UpdateCycle[] =>
@@ -84,6 +99,7 @@ export class TimelineModel {
   private _filter: TimelineFilter = NO_FILTER;
   private _filtered: TimelineSpan[] | null = [];
   private _selectedKey: string | null = null;
+  private _range: TimeRange | null = null;
 
   get events(): readonly TimelineEvent[] {
     return this._events;
@@ -118,6 +134,15 @@ export class TimelineModel {
     return this._selectedKey;
   }
 
+  /**
+   * The time range the reader drew, or null. Shared like {@link selectedKey}
+   * so both presentations agree; distinct from `filter.range`, which hides
+   * what lies outside it.
+   */
+  get range(): TimeRange | null {
+    return this._range;
+  }
+
   /** The selected span, or undefined for none or a Raw-mode row. */
   get selectedSpan(): TimelineSpan | undefined {
     const key = this._selectedKey;
@@ -148,6 +173,12 @@ export class TimelineModel {
     ) {
       this._filter = {...this._filter, elementId: null};
     }
+    // Times restart with a recording, so a window over the old one names
+    // nothing. Clear is the visible case.
+    if (events.length === 0) {
+      this._range = null;
+      this._filter = {...this._filter, range: null};
+    }
     // A span can fall out of the buffer cap, or vanish on Clear. Raw-mode
     // keys index the events and are the list's to interpret.
     const key = this._selectedKey;
@@ -161,12 +192,23 @@ export class TimelineModel {
     const next = {...this._filter, ...patch};
     if (
       next.elementId === this._filter.elementId &&
-      next.regex === this._filter.regex
+      next.regex === this._filter.regex &&
+      sameRange(next.range, this._filter.range)
     ) {
       return;
     }
     this._filter = next;
     this._filtered = null;
+  }
+
+  /**
+   * Draws a range between two times (either order), or clears it with null
+   * or a zero-width drag. Drawing one drops the span selection: the detail
+   * pane shows one or the other, and the latest gesture wins.
+   */
+  setRange(a: number | null, b = a): void {
+    this._range = a === null || b === null ? null : normalizeRange(a, b);
+    if (this._range !== null) this._selectedKey = null;
   }
 
   /** A click on a row or mark. */
