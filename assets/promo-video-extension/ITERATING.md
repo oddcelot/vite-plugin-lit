@@ -45,8 +45,9 @@ npx hyperframes snapshot --no-end --at 7.66,7.70,23.02,23.06   # the drops
 npx hyperframes render --quality high --output renders/video.mp4
 ```
 
-The Chrome Web Store field only takes a YouTube URL. Upload the render there,
-then record the URL in `extension/store/listing.md`.
+On YouTube: https://www.youtube.com/watch?v=3sPdpev0emU, set as the Chrome
+Web Store promo video (see `extension/store/listing.md`). A new render needs a
+new upload; the store field only takes a YouTube URL.
 
 `capture/ref/EXTENSION-REFERENCE.md` indexes 63 screenshots, but only the ten
 the scenes were drawn from are committed (see `.gitignore`). To shoot the rest
