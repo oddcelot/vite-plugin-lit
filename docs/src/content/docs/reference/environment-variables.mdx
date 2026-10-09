@@ -26,6 +26,7 @@ without editing `vite.config.ts`.
 | `LIT_PLUGIN_SOURCE_OVERLAY_THROTTLE_MS` | `sourceOverlay.throttleMs` |
 | `LIT_PLUGIN_TIMELINE`                   | `timeline` (enable)        |
 | `LIT_PLUGIN_CSS_SHEET_BUILD`            | `cssSheetBuild`            |
+| `LIT_PLUGIN_DEVTOOLS_WORKSPACE`         | `devtoolsWorkspace`        |
 
 ## Precedence
 
@@ -54,6 +55,9 @@ a reset restores.
   `vscode`, `cursor`, `zed`, `idea` or `windsurf`. Anything else logs a warning
   and falls back to the default. A custom editor object can only be passed as
   the `sourceOverlay.editor` option.
+- **`LIT_PLUGIN_DEVTOOLS_WORKSPACE`** takes a boolean to turn the workspace
+  reply on or off. Any other value is the folder to serve, relative to Vite's
+  `root`.
 
 ## Options with no environment variable
 

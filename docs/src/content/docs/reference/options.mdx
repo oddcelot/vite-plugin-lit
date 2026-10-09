@@ -37,6 +37,7 @@ environment variable, and where to read more.
 | `sourceOverlay.onSelect`      | `(info: ElementInfo) => void`                 | —            | —                                       |
 | `timeline`                    | `boolean`                                     | `false`      | `LIT_PLUGIN_TIMELINE`                   |
 | `cssSheetBuild`               | `'auto' \| 'url' \| 'inline' \| 'inline-raw'` | `'auto'`     | `LIT_PLUGIN_CSS_SHEET_BUILD`            |
+| `devtoolsWorkspace`           | `boolean \| string`                           | `true`       | `LIT_PLUGIN_DEVTOOLS_WORKSPACE`         |
 
 ## hmr
 
@@ -460,6 +461,34 @@ typo cannot change your build output silently.
 **Env:** `LIT_PLUGIN_CSS_SHEET_BUILD`
 
 See also: [Share one stylesheet with `?css-sheet`](/vite-plugin-lit/guides/stylesheets/css-sheet/).
+
+## devtoolsWorkspace
+
+Lets Chrome DevTools connect your project as a workspace, so edits you make in
+the **Sources** panel save to disk. In dev, the server answers
+`/.well-known/appspecific/com.chrome.devtools.json` with the folder and a
+stable ID, and DevTools offers to connect it.
+
+```ts title="vite.config.ts" {5}
+import {defineConfig} from 'vite';
+import {litPlugin} from '@oddsquad/vite-plugin-lit';
+
+export default defineConfig({
+  plugins: [litPlugin({devtoolsWorkspace: '../..'})],
+});
+```
+
+`true` uses Vite's workspace root, which in a monorepo is the repository root
+rather than the app, so sources served from sibling packages map too. A string
+names the folder, relative to Vite's `root`. `false` leaves the request
+unanswered.
+
+The reply contains an absolute path on your machine, so the server only gives
+it to clients on the same machine. A dev server exposed with `--host` passes
+requests from the network on to Vite.
+
+**Type:** `boolean | string` · **Default:** `true` · **Env:**
+`LIT_PLUGIN_DEVTOOLS_WORKSPACE`
 
 ## Related
 
