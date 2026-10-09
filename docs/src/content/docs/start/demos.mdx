@@ -1,6 +1,6 @@
 ---
 title: Demos
-description: Try the plugin in the browser. StackBlitz embeds of the Lit flame and Web Awesome examples and the playground, each running the latest release.
+description: Try the plugin in the browser. StackBlitz embeds of the Lit flame, Web Awesome and Fernhouse examples and the playground, each running the latest release.
 sidebar:
   order: 3
 ---
@@ -46,6 +46,22 @@ half-typed text survive too. See the
   path="examples/web-awesome"
   file="src/packing-list.ts"
   title="The Web Awesome example running on StackBlitz"
+/>
+
+## Fernhouse
+
+A small plant shop built to explore the DevTools on. Open the Lit panel in the
+dock, pick a product card, and turn on **Anatomy** to see its slots and parts
+drawn on the page; the cart button shows the context it reads from the app.
+Then record on the Timeline, with the Mouse and Custom events layers on, and
+add a plant to the cart: cause rails link the click to the card's update and
+the `add-to-cart` event to the cart button's. See the
+[example's README](https://github.com/oddcelot/vite-plugin-lit/tree/main/examples/fernhouse).
+
+<StackBlitzEmbed
+  path="examples/fernhouse"
+  file="src/fh-product-card.ts"
+  title="The Fernhouse example running on StackBlitz"
 />
 
 ## Playground
