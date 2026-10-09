@@ -387,7 +387,7 @@ describe('skipped updates', () => {
     expect(row.querySelector('.skipped')?.textContent?.trim()).toBe(
       '1 skipped'
     );
-    expect(row.querySelector('.num wa-badge')?.textContent?.trim()).toBe('1×');
+    expect(row.querySelector('.num')?.textContent?.trim()).toBe('1×');
   });
 
   test('marks the skipped update in the component pane', async () => {
