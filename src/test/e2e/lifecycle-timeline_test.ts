@@ -377,16 +377,22 @@ test('an update a click handler requests carries that click as its cause', async
   // A trusted click, so the browser dispatches it and sets `window.event`.
   // Repeated: recording may not be wired on the first one.
   // A trusted click, so the browser dispatches it through the shadow tree the
-  // way a user's would. Repeated: recording may not be wired on the first one.
+  // way a user's would. Repeated: recording may not be wired on the first one,
+  // and under load the dep optimizer can reload the page once more after the
+  // reload above, which destroys the click's execution context mid-flight.
   await expect
     .poll(
       async () => {
-        await page
-          .locator('hmr-lifecycle hmr-lifecycle-child #increment')
-          .click();
+        try {
+          await page
+            .locator('hmr-lifecycle hmr-lifecycle-child #increment')
+            .click({timeout: 2_000});
+        } catch {
+          return false;
+        }
         return caused() !== undefined;
       },
-      {timeout: 10_000}
+      {timeout: 15_000}
     )
     .toBe(true);
 
