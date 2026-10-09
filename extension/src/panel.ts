@@ -67,7 +67,7 @@ import {
   normalizeOrigin,
   patternsKeepPort,
 } from './registry.js';
-import {createSourceMapResolver} from './source-maps.js';
+import {createSourceMapResolver} from '../../src/lib/devframe/source-maps.js';
 import {createChromeStorage} from './storage.js';
 
 const $ = <T extends HTMLElement>(id: string) =>
@@ -181,7 +181,7 @@ const showPageStatus = (connected: boolean): void => {
 // the enabled site's host permission, and only from that site; forgotten
 // when the page navigates.
 const sourceMaps = createSourceMapResolver({
-  fetch: (input, init) => fetch(input, init),
+  fetch: (url) => fetch(url),
   allows: (url) => origin !== undefined && site(url) === origin,
 });
 

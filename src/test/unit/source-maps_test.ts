@@ -5,7 +5,7 @@ import {
   decodeDataUrl,
   displayPath,
   sourceMappingUrlOf,
-} from '../../../extension/src/source-maps.js';
+} from '../../lib/devframe/source-maps.js';
 import type {GeneratedFrame} from '../../types/inspector.js';
 
 // The resolver against an in-memory site: scripts and maps by URL, every
