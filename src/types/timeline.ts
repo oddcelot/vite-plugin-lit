@@ -11,6 +11,17 @@ export interface TimelineLayer {
   color: number; // 0xRRGGBB
 }
 
+/**
+ * Why an update tick ran, recorded by the page runtime at the `requestUpdate`
+ * that scheduled it: another element's update tick (a parent's render set a
+ * property on it, or created it), or an event whose handler ran it (an input
+ * event the browser dispatched, or a custom event a component dispatched).
+ * Recorded, not inferred from timing. Only `performUpdate:start` carries one.
+ */
+export type TimelineCause =
+  | {kind: 'update'; groupId: string}
+  | {kind: 'event'; layerId: string; time: number};
+
 export interface TimelineEvent<TData = unknown> {
   /**
    * Stable identity, stamped on the Node side (`${epoch}-${seq}`) when the
@@ -30,6 +41,8 @@ export interface TimelineEvent<TData = unknown> {
   subtitle?: string;
   /** Pairs a start event with its matching end event in the same update group. */
   groupId?: number | string;
+  /** What scheduled this update tick; see {@link TimelineCause}. */
+  cause?: TimelineCause;
   logType?: 'default' | 'warning' | 'error';
   meta?: {
     elementId?: number;

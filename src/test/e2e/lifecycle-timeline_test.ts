@@ -330,3 +330,71 @@ test('a component whose shouldUpdate returns false records an update skipped eve
   const tick = events.filter((e) => e.groupId === skip.groupId);
   expect(tick.map((e) => e.title)).not.toContain('update:start');
 });
+
+// The cause of a tick is recorded at the `requestUpdate` an event handler
+// makes, found through `window.event`. happy-dom never sets `window.event`,
+// so only a real browser shows the mouse layer's mark reaching the wrapper.
+test('an update a click handler requests carries that click as its cause', async () => {
+  const {page} = fixture;
+
+  const source = new TimelineChannelCodec();
+  source.connect(fromViteHot(fixture.server.hot));
+  const events: TimelineEvent[] = [];
+  source.attach({
+    pushEvents: (batch) => events.push(...batch),
+    addLayer: () => {},
+    inspectorMessage: () => {},
+    hmrIncompatible: () => {},
+    hmrPatched: () => {},
+    runtimeReady: () => {},
+  });
+
+  await page.reload();
+  await page.waitForFunction(
+    () => (window as {__hmr?: unknown}).__hmr !== undefined
+  );
+
+  source.setRecording(true);
+  source.setLayers({
+    recordingState: true,
+    litLifecycleEnabled: true,
+    litRenderEnabled: false,
+    litRenderVerboseEnabled: false,
+    litChangedValuesEnabled: false,
+    mouseEventEnabled: true,
+    keyboardEventEnabled: false,
+    customEventsEnabled: false,
+  });
+
+  const caused = () =>
+    events.find(
+      (e) =>
+        e.title === 'performUpdate:start' &&
+        e.cause?.kind === 'event' &&
+        e.cause.layerId === 'mouse'
+    );
+
+  // A trusted click, so the browser dispatches it and sets `window.event`.
+  // Repeated: recording may not be wired on the first one.
+  // A trusted click, so the browser dispatches it through the shadow tree the
+  // way a user's would. Repeated: recording may not be wired on the first one.
+  await expect
+    .poll(
+      async () => {
+        await page
+          .locator('hmr-lifecycle hmr-lifecycle-child #increment')
+          .click();
+        return caused() !== undefined;
+      },
+      {timeout: 10_000}
+    )
+    .toBe(true);
+
+  const tick = caused()!;
+  const cause = tick.cause as {layerId: string; time: number};
+  const click = events.find(
+    (e) => e.layerId === 'mouse' && e.time === cause.time
+  );
+  expect(click?.title).toBe('click');
+  expect(tick.meta?.tagName).toBe('hmr-lifecycle-child');
+});

@@ -719,3 +719,191 @@ describe('Lit warnings', () => {
     });
   });
 });
+
+/**
+ * A stand-in closer to Lit's scheduling: the constructor requests the first
+ * update, `requestUpdate` enqueues once (flipping `isUpdatePending`), and
+ * `performUpdate` clears the flag before `updated` the way Lit does. Updates
+ * run when a test calls `performUpdate`, not on a microtask.
+ */
+const makeSchedulingBase = () =>
+  class SchedulingElement extends HTMLElement {
+    hasUpdated = false;
+    isUpdatePending = false;
+    requests = 0;
+    onRender: () => void = () => {};
+    onUpdated: () => void = () => {};
+    constructor() {
+      super();
+      this.requestUpdate();
+    }
+    requestUpdate(..._args: unknown[]): string {
+      this.requests++;
+      if (!this.isUpdatePending) this.isUpdatePending = true;
+      return 'requested';
+    }
+    connectedCallback() {}
+    disconnectedCallback() {}
+    performUpdate() {
+      this.willUpdate();
+      this.update();
+      this.isUpdatePending = false;
+      this.hasUpdated = true;
+      this.updated();
+    }
+    willUpdate() {}
+    update() {
+      this.onRender();
+    }
+    updated() {
+      this.onUpdated();
+    }
+    firstUpdated() {}
+  };
+
+type SchedulingElement = InstanceType<ReturnType<typeof makeSchedulingBase>>;
+
+describe('update causes', () => {
+  const setup = async () => {
+    install(await load());
+    const base = makeSchedulingBase();
+    const make = () => {
+      const tag = `x-cause-${counter++}`;
+      customElements.define(tag, class extends base {});
+      return tag;
+    };
+    return {parentTag: make(), childTag: make()};
+  };
+
+  const starts = (el: Element) =>
+    events.filter(
+      (e) =>
+        e.title === 'performUpdate:start' && e.meta?.tagName === el.localName
+    );
+
+  test("a parent's render setting a child property names the parent's tick", async () => {
+    const {parentTag, childTag} = await setup();
+    const parent = document.createElement(parentTag) as SchedulingElement;
+    const child = document.createElement(childTag) as SchedulingElement;
+    document.body.append(parent, child);
+    parent.performUpdate();
+    child.performUpdate();
+    events.length = 0;
+
+    parent.onRender = () => {
+      // What a property binding does: set, and the setter requests.
+      child.requestUpdate('value', 0);
+    };
+    parent.requestUpdate();
+    parent.performUpdate();
+    child.performUpdate();
+
+    const [parentStart] = starts(parent);
+    const [childStart] = starts(child);
+    expect(parentStart!.cause).toBeUndefined();
+    expect(childStart!.cause).toEqual({
+      kind: 'update',
+      groupId: parentStart!.groupId,
+    });
+    expect(parentStart!.groupId).toMatch(/^\d+:2$/);
+  });
+
+  test("a child created in a parent's first render gets the parent's tick", async () => {
+    const {parentTag, childTag} = await setup();
+    const parent = document.createElement(parentTag) as SchedulingElement;
+    let child: SchedulingElement | undefined;
+    parent.onRender = () => {
+      child = document.createElement(childTag) as SchedulingElement;
+      parent.append(child);
+    };
+    document.body.append(parent);
+    parent.performUpdate();
+    child!.performUpdate();
+
+    const [parentStart] = starts(parent);
+    expect(starts(child!)[0]!.cause).toEqual({
+      kind: 'update',
+      groupId: parentStart!.groupId,
+    });
+  });
+
+  test('a request made in its own updated() names its own previous tick', async () => {
+    const {parentTag} = await setup();
+    const el = document.createElement(parentTag) as SchedulingElement;
+    document.body.append(el);
+    let once = true;
+    el.onUpdated = () => {
+      if (once) el.requestUpdate();
+      once = false;
+    };
+    el.performUpdate();
+    el.performUpdate();
+
+    const [first, second] = starts(el);
+    expect(second!.cause).toEqual({kind: 'update', groupId: first!.groupId});
+  });
+
+  test('a request from a timer with nothing running has no cause', async () => {
+    const {parentTag} = await setup();
+    const el = document.createElement(parentTag) as SchedulingElement;
+    document.body.append(el);
+    el.performUpdate();
+    events.length = 0;
+
+    await new Promise<void>((resolve) =>
+      setTimeout(() => {
+        el.requestUpdate();
+        resolve();
+      })
+    );
+    el.performUpdate();
+
+    expect(starts(el)).toHaveLength(1);
+    expect(starts(el)[0]).not.toHaveProperty('cause');
+  });
+
+  test('only the request that enqueues the update counts', async () => {
+    const {parentTag, childTag} = await setup();
+    const parent = document.createElement(parentTag) as SchedulingElement;
+    const child = document.createElement(childTag) as SchedulingElement;
+    document.body.append(parent, child);
+    parent.performUpdate();
+    child.performUpdate();
+    events.length = 0;
+
+    child.requestUpdate(); // first, from nowhere: no cause
+    parent.onRender = () => child.requestUpdate('value', 0);
+    parent.requestUpdate();
+    parent.performUpdate();
+    child.performUpdate();
+
+    expect(starts(child)[0]).not.toHaveProperty('cause');
+  });
+
+  test('not recording, requestUpdate passes straight through', async () => {
+    const {parentTag, childTag} = await setup();
+    const parent = document.createElement(parentTag) as SchedulingElement;
+    const child = document.createElement(childTag) as SchedulingElement;
+    document.body.append(parent, child);
+    parent.performUpdate();
+    child.performUpdate();
+    recording = false;
+
+    parent.onRender = () => {
+      expect(child.requestUpdate('value', 0)).toBe('requested');
+    };
+    parent.requestUpdate();
+    parent.performUpdate();
+    expect(child.isUpdatePending).toBe(true);
+    const before = child.requests;
+    expect(child.requestUpdate()).toBe('requested');
+    expect(child.requests).toBe(before + 1);
+    expect(child.isUpdatePending).toBe(true);
+
+    recording = true;
+    events.length = 0;
+    child.performUpdate();
+    expect(child.isUpdatePending).toBe(false);
+    expect(starts(child)[0]).not.toHaveProperty('cause');
+  });
+});

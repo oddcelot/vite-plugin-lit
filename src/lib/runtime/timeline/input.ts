@@ -5,6 +5,7 @@
 
 import type {TimelineEvent} from '../../../types/timeline.js';
 import {now} from './clock.js';
+import {markEventCause} from './cause-context.js';
 
 type EmitFn = (event: TimelineEvent) => void;
 type RecordingFn = () => boolean;
@@ -43,9 +44,13 @@ const mouseHandler =
       y: Math.round(me.clientY),
       button: me.button,
     };
+    const time = now();
+    // Handlers that run after this capture listener find the row again
+    // through `window.event`, so an update they request names this click.
+    markEventCause(e, {layerId: 'mouse', time});
     emit({
       layerId: 'mouse',
-      time: now(),
+      time,
       title: e.type,
       subtitle: `(${data.x}, ${data.y})`,
       data,
@@ -68,9 +73,11 @@ const keyHandler =
       code: ke.code,
       modifiers,
     };
+    const time = now();
+    markEventCause(e, {layerId: 'keyboard', time});
     emit({
       layerId: 'keyboard',
-      time: now(),
+      time,
       title: ke.key,
       subtitle: modifiers.length ? modifiers.join('+') : undefined,
       data,

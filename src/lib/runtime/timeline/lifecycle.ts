@@ -15,6 +15,9 @@
  * own override returning `false` emits one `update skipped` point event, inside
  * the `performUpdate` bracket it vetoed.
  *
+ * `requestUpdate` is wrapped too, to remember why the next tick was scheduled
+ * (see `cause-context.ts`); that cause rides on the tick's `performUpdate:start`.
+ *
  * Gated by the recording flag so overhead is near-zero when idle.
  */
 
@@ -22,8 +25,13 @@ import {idOf, metaOf, changedKeys} from './identity.js';
 import {now} from './clock.js';
 import {captureChangedValues} from './changed-values.js';
 import {wrapDispatchEvent} from './custom-events.js';
+import {
+  currentCause,
+  nextCauseSeq,
+  setUpdateCauseSource,
+} from './cause-context.js';
 import {erroredTasks} from '../inspector/extras.js';
-import type {TimelineEvent} from '../../../types/timeline.js';
+import type {TimelineCause, TimelineEvent} from '../../../types/timeline.js';
 
 export type LifecycleEmit = (event: TimelineEvent) => void;
 type EmitFn = LifecycleEmit;
@@ -87,16 +95,40 @@ const inFlight = new WeakMap<object, Set<string>>();
 
 /** The element inside `performUpdate` right now, if any. */
 let updating: object | null = null;
+/** When that update began, as a cause sequence (see `cause-context.ts`). */
+let updatingSeq = 0;
 
 const whileUpdating = <T>(el: object, fn: () => T): T => {
   const outer = updating;
+  const outerSeq = updatingSeq;
   updating = el;
+  updatingSeq = nextCauseSeq();
   try {
     return fn();
   } finally {
     updating = outer;
+    updatingSeq = outerSeq;
   }
 };
+
+// The tick running right now is the cause of any update it schedules.
+setUpdateCauseSource(() =>
+  updating === null
+    ? undefined
+    : {
+        cause: {
+          kind: 'update',
+          groupId: `${idOf(updating)}:${tickOf(updating)}`,
+        },
+        seq: updatingSeq,
+      }
+);
+
+/**
+ * Why each element's pending update was scheduled, set by the `requestUpdate`
+ * that enqueued it and taken by the `performUpdate` that runs it.
+ */
+const pendingCause = new WeakMap<object, TimelineCause>();
 
 /** Who is updating at this moment, for attributing a Lit warning to it. */
 export const currentlyUpdating = (): {
@@ -377,6 +409,8 @@ const wrap = (
     const groupId = `${elementId}:${tick}`;
     const time = now();
     const changed = changedKeys(args[0]);
+    const cause = isUpdate ? pendingCause.get(this) : undefined;
+    if (cause !== undefined) pendingCause.delete(this);
     // Only `update`, and only with the layer on: `willUpdate` may be an
     // override that never reaches our wrapper, and the previews cost a
     // serialize per key.
@@ -396,6 +430,7 @@ const wrap = (
           changedDetail === undefined
             ? {phase: name, changed}
             : {phase: name, changed, changedDetail},
+        ...(cause === undefined ? {} : {cause}),
         meta,
       });
     }
@@ -476,6 +511,61 @@ const wrap = (
     });
   } catch {
     // Non-configurable slot; instrumentation degrades gracefully.
+  }
+};
+
+/**
+ * Wrap `proto.requestUpdate` to record what scheduled each update tick. Only
+ * the request that enqueues the update counts (the first of a tick): Lit sets
+ * `isUpdatePending` when it does, and a request that changes nothing leaves it
+ * unset. A flag check while idle; the original always runs with its arguments.
+ */
+const wrapRequestUpdate = (
+  proto: Proto,
+  recording: RecordingFn,
+  enabled: LayerEnabledFn
+): void => {
+  if (isWrapped(proto, 'requestUpdate')) return;
+  const orig = proto.requestUpdate;
+  if (typeof orig !== 'function') return;
+  const wrapper: AnyFn & {[BRAND]?: true} = function (
+    this: object,
+    ...args: unknown[]
+  ) {
+    if (!recording() || !enabled()) return orig.apply(this, args);
+    const pending = (this as {isUpdatePending?: boolean}).isUpdatePending;
+    if (pending === true) return orig.apply(this, args);
+    let cause: TimelineCause | undefined;
+    try {
+      cause = currentCause();
+    } catch {
+      // dev tool — attribution is best-effort
+    }
+    const result = orig.apply(this, args);
+    try {
+      if (
+        cause !== undefined &&
+        (this as {isUpdatePending?: boolean}).isUpdatePending === true
+      ) {
+        pendingCause.set(this, cause);
+      } else {
+        // Nothing enqueued (or no cause): whatever was stored is stale.
+        pendingCause.delete(this);
+      }
+    } catch {
+      // dev tool — never throw into the app's request
+    }
+    return result;
+  };
+  wrapper[BRAND] = true;
+  try {
+    Object.defineProperty(proto, 'requestUpdate', {
+      value: wrapper,
+      writable: true,
+      configurable: true,
+    });
+  } catch {
+    // Non-configurable slot; update ticks go without a cause.
   }
 };
 
@@ -631,5 +721,7 @@ const patchBases = (
   for (const name of POINT_PHASES) {
     wrap(reProto, name, true, emit, recording, enabled, changedValues);
   }
+  const ruOwner = ownerOf(sample, 'requestUpdate');
+  if (ruOwner !== null) wrapRequestUpdate(ruOwner, recording, enabled);
   wrapDispatchEvent(reProto);
 };
