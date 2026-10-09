@@ -622,6 +622,7 @@ export class TimelineEventList extends LitElement {
           ? html`<timeline-span-detail
               filterable
               .span=${selected}
+              .layers=${this.layers}
               .causeSpan=${this._causeOf(selected)}
               @span-jump=${() => this._jumpToCause(selected)}
             ></timeline-span-detail>`

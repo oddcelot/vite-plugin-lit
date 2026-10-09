@@ -28,7 +28,11 @@ const span: TimelineSpan = {
   events: [{layerId: 'lit-lifecycle', time: 1.5, data: {phase: 'update'}}],
 };
 
-const mount = async (props: {span?: TimelineSpan; filterable?: boolean}) => {
+const mount = async (props: {
+  span?: TimelineSpan;
+  filterable?: boolean;
+  layers?: {id: string; label: string; color: number; enabled: boolean}[];
+}) => {
   const el = document.createElement('timeline-span-detail');
   Object.assign(el, props);
   document.body.append(el);
@@ -37,17 +41,14 @@ const mount = async (props: {span?: TimelineSpan; filterable?: boolean}) => {
   await new Promise((resolve) => setTimeout(resolve, 0));
   await el.updateComplete;
   const root = el.shadowRoot!;
-  const value = (key: string) =>
-    [...root.querySelectorAll('tr')]
-      .find((tr) => tr.querySelector('.key')?.textContent === key)
-      ?.querySelector('.val')
-      ?.textContent?.replace(/\s+/g, ' ')
-      .trim();
+  const text = (sel: string) =>
+    root.querySelector(sel)?.textContent?.replace(/\s+/g, ' ').trim();
+  const value = (key: string) => text(`.val[data-key="${key}"]`);
   const link = (text: string) =>
     [...root.querySelectorAll<HTMLElement>('wa-button')].find(
       (a) => a.textContent?.trim() === text
     );
-  return {el, root, value, link};
+  return {el, root, text, value, link};
 };
 
 afterEach(() => {
@@ -58,24 +59,36 @@ afterEach(() => {
 
 test('renders nothing without a span', async () => {
   const {root} = await mount({});
-  expect(root.querySelector('table')).toBeNull();
+  expect(root.querySelector('header')).toBeNull();
 });
 
-test('shows the span as a table of facts', async () => {
-  const {value} = await mount({span});
-  expect(value('layer')).toBe('lit-lifecycle');
-  expect(value('time')).toBe('1.500 ms');
-  expect(value('duration')).toBe('1.500 ms');
-  expect(value('changed')).toBe('count, label');
+test('heads the pane with the span name, layer, time and duration', async () => {
+  const {text} = await mount({
+    span,
+    layers: [
+      {id: 'lit-lifecycle', label: 'Lifecycle', color: 0x00ff00, enabled: true},
+    ],
+  });
+  expect(text('.name')).toBe('update');
+  expect(text('.layer')).toBe('Lifecycle');
+  expect(text('.time')).toBe('at 1.500 ms');
+  expect(text('.duration')).toBe('took 1.5ms');
+});
+
+test('lists the facts the span has', async () => {
+  const {value, text, root} = await mount({span});
+  expect(text('.layer')).toBe('lit-lifecycle');
+  const chips = root.querySelectorAll('.val[data-key="changed"] .chip');
+  expect([...chips].map((c) => c.textContent)).toEqual(['count', 'label']);
   expect(value('element')).toContain('<x-counter> #7');
-  expect(value('data')).toBe('{"phase":"update"}');
+  expect(JSON.parse(value('data')!)).toEqual({phase: 'update'});
 });
 
 test('leaves out what the span does not have', async () => {
-  const {value} = await mount({
+  const {value, text} = await mount({
     span: {...span, duration: undefined, changed: undefined, meta: undefined},
   });
-  expect(value('duration')).toBeUndefined();
+  expect(text('.duration')).toBeUndefined();
   expect(value('changed')).toBeUndefined();
   expect(value('element')).toBeUndefined();
   expect(value('source')).toBeUndefined();
@@ -119,30 +132,26 @@ test('lists old and new values when the span has them', async () => {
     },
   });
   expect(value('values')).toBe(
-    'count: 0 1 items: [1] [1]new reference, same value'
+    'count 0 1 items [1] [1] new reference, same value'
   );
   // An icon, not a text glyph, sits between each prev and next.
   const arrows = root.querySelectorAll('wa-icon.arrow[name="arrow-right"]');
   expect(arrows).toHaveLength(2);
-  const around = (arrow: Element) => {
-    const row = arrow.parentElement!;
-    const text = (side: 'before' | 'after') => {
-      const range = document.createRange();
-      if (side === 'before') {
-        range.setStart(row, 0);
-        range.setEndBefore(arrow);
-      } else {
-        range.setStartAfter(arrow);
-        range.setEnd(row, row.childNodes.length);
-      }
-      return range.toString().replace(/\s+/g, ' ').trim();
-    };
-    return [text('before'), text('after')];
-  };
-  expect(around(arrows[0]!)[0]).toBe('count: 0');
-  expect(around(arrows[0]!)[1]).toBe('1');
-  expect(around(arrows[1]!)[0]).toBe('items: [1]');
-  expect(around(arrows[1]!)[1]).toMatch(/^\[1\]/);
+  const cells = [...root.querySelectorAll('.values > *')].map((c) =>
+    c.localName === 'wa-icon' ? '→' : c.textContent!.trim()
+  );
+  expect(cells).toEqual([
+    'count',
+    '0',
+    '→',
+    '1',
+    '',
+    'items',
+    '[1]',
+    '→',
+    '[1]',
+    'new reference, same value',
+  ]);
 });
 
 test('has no values row without detail', async () => {
@@ -203,4 +212,27 @@ test('names an event cause by layer and time', async () => {
 
 test('has no caused by row without a cause', async () => {
   expect((await mount({span})).value('caused by')).toBeUndefined();
+});
+
+test('shows the error the span recorded', async () => {
+  const {value} = await mount({
+    span: {...span, error: {name: 'TypeError', message: 'boom', async: true}},
+  });
+  expect(value('error')).toBe('TypeError: boom (async)');
+});
+
+test('the handle resizes the pane and remembers the height', async () => {
+  localStorage.removeItem('lit-devtools-timeline-detail-height');
+  const {el, root} = await mount({span});
+  const handle = root.querySelector<HTMLElement>('.handle')!;
+  expect(el.style.getPropertyValue('--detail-height')).toBe('200px');
+  handle.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowUp'}));
+  await el.updateComplete;
+  expect(el.style.getPropertyValue('--detail-height')).toBe('216px');
+  expect(localStorage.getItem('lit-devtools-timeline-detail-height')).toBe(
+    '216'
+  );
+  handle.dispatchEvent(new MouseEvent('dblclick'));
+  await el.updateComplete;
+  expect(el.style.getPropertyValue('--detail-height')).toBe('200px');
 });
