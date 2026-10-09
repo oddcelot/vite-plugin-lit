@@ -81,9 +81,18 @@ DevTools.
   selects it in the panel and brings a panel tab forward on it. A browser only
   lets a page raise a tab it opened itself, so the first pick opens a second
   panel tab if you opened the panel yourself; later picks reuse that tab.
-- **Limits.** Outside Vite there are no build-time transforms, so HMR patching,
-  source locations and open-in-editor are unavailable: the picker shows a tag
-  name, not a file. The tree, inspector and timeline work.
+- **Where components are defined.** If the page ships sourcemaps, the panel
+  reads the original file and line from them and shows it in the details
+  pane's **defined** row, the **Updates** view and the timeline's span
+  details, as the [browser extension](/vite-plugin-lit/guides/devtools/browser-extension/#where-a-component-is-defined)
+  does. The page fetches its own scripts and maps for the server, and only
+  from its own origin; the server never requests a page's URLs itself. It
+  only sees components defined after `lit-devtools.js` runs, so keep the tag
+  in `<head>`, before the app. The location is text: there is no editor to
+  open it in.
+- **Limits.** Outside Vite there are no build-time transforms, so HMR patching
+  and open-in-editor are unavailable, and the picker shows a tag name, not a
+  file. The tree, inspector and timeline work.
 
 ### Production builds
 
@@ -97,8 +106,8 @@ to its production condition. An end-to-end test
   `willUpdate`, `update` and `updated` are all captured.
 - **Empty.** The render layers. Lit's production build never dispatches
   `lit-debug` events, so there is nothing to record.
-- **Unavailable.** Source locations, open-in-editor and HMR, as for any page
-  Vite does not serve.
+- **Unavailable.** Open-in-editor and HMR, as for any page Vite does not
+  serve; source locations too unless the build ships sourcemaps.
 - **Blocked.** A page whose Content Security Policy does not allow the server's
   origin in `script-src` (for instance `script-src 'self'`) refuses the script,
   and nothing attaches.
