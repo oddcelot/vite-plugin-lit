@@ -293,9 +293,33 @@ export class TimelineTracks extends LitElement {
     window.addEventListener('keydown', this._onKeyDown);
   }
 
-  /** Esc clears the range from anywhere in the panel, except while typing. */
+  /** Whether the tracks are on screen: not in List mode, nor behind another
+   *  tab (the shell keeps hidden tabs mounted). */
+  private _shown(): boolean {
+    if (this.hidden) return false;
+    if (this.checkVisibility) return this.checkVisibility();
+    return this.offsetParent !== null || this.getClientRects().length > 0;
+  }
+
+  /**
+   * Esc clears the range from anywhere in the panel, except where it already
+   * means something else: while typing (a Web Awesome input is found through
+   * the composed path), when something handled it first, or when the tracks
+   * are not showing.
+   */
   private readonly _onKeyDown = (e: KeyboardEvent) => {
-    if (e.key !== 'Escape' || this.hidden) return;
+    if (e.key !== 'Escape' || e.defaultPrevented || !this._shown()) return;
+    const typing = e
+      .composedPath()
+      .some(
+        (t) =>
+          t instanceof HTMLElement &&
+          (t.isContentEditable ||
+            ['INPUT', 'TEXTAREA', 'SELECT', 'WA-INPUT', 'WA-TEXTAREA'].includes(
+              t.tagName
+            ))
+      );
+    if (typing) return;
     if (this._draft !== null) {
       this._draft = null;
     } else if (this.range !== null) {

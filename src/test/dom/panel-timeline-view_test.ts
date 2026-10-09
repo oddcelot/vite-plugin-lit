@@ -334,3 +334,28 @@ test('the summary inspects and filters a component by its element', async () => 
   await flush(el);
   expect(root.querySelector('wa-select')!.value).toBe('2');
 });
+
+test('Esc typed in the filter box keeps the range', async () => {
+  const {el, root, tracks} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 9, end: 20});
+  const input = root.querySelector('wa-input.regex')!;
+  input.dispatchEvent(
+    new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, composed: true})
+  );
+  await flush(el);
+  expect(tracks().range).toEqual({start: 9, end: 20});
+});
+
+test('Esc that something else handled keeps the range', async () => {
+  const {el, tracks} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 9, end: 20});
+  const esc = new KeyboardEvent('keydown', {key: 'Escape', cancelable: true});
+  esc.preventDefault();
+  window.dispatchEvent(esc);
+  await flush(el);
+  expect(tracks().range).not.toBeNull();
+});
