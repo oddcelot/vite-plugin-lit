@@ -286,6 +286,17 @@ export class TimelineEventList extends LitElement {
       .flag.error {
         color: var(--lit-devtools-error, var(--lit-devtools-accent));
       }
+      .row.warning .title,
+      .row.warning .mark {
+        color: var(--lit-devtools-warning, var(--lit-devtools-accent));
+      }
+      .row.error .title,
+      .row.error .mark {
+        color: var(--lit-devtools-error, var(--lit-devtools-accent));
+      }
+      .mark {
+        flex-shrink: 0;
+      }
       .expand-all {
         font: inherit;
         color: var(--lit-devtools-text-secondary);
@@ -699,7 +710,7 @@ export class TimelineEventList extends LitElement {
       <div
         class="row ${this.selectedKey === row.key ? 'selected' : ''} ${
           item.depth > 0 ? 'nested' : ''
-        }"
+        } ${row.logType === 'warning' || row.logType === 'error' ? row.logType : ''}"
         @click=${() => this._select(row.key)}
         @mouseenter=${
           this._laneCount > 0
@@ -740,6 +751,11 @@ export class TimelineEventList extends LitElement {
           style=${'background:' + layerColor(this.layers, row.layerId)}
         ></span>
         <span class="title">${row.name}</span>
+        ${
+          row.logType === 'warning' || row.logType === 'error'
+            ? html`<span class="mark" data-tip=${`Lit ${row.logType}`}>!</span>`
+            : nothing
+        }
         ${
           tick
             ? html`<span class="nest" data-tip="Nested rows"

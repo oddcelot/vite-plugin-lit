@@ -438,3 +438,36 @@ test("the detail pane's show link selects the parent row", async () => {
   );
   expect(selected).toEqual([PARENT]);
 });
+
+test('warning and error point rows are marked, plain rows are not', async () => {
+  const point = (
+    id: string,
+    time: number,
+    logType?: 'warning' | 'error'
+  ): TimelineEvent => ({
+    id,
+    layerId: 'lit-warnings',
+    time,
+    data: {phase: 'warning', code: 'dev-mode', message: 'dev mode'},
+    title: 'warning:dev-mode',
+    logType,
+  });
+  const evs = [point('w', 1, 'warning'), point('e', 2, 'error'), point('p', 3)];
+  const {el} = await mount({
+    events: evs,
+    spans: toSpans(evs),
+    layers: [layer('lit-warnings')],
+  });
+  const rows = [...el.shadowRoot!.querySelectorAll('.row')];
+  expect(rows.map((r) => r.classList.contains('warning'))).toEqual([
+    true,
+    false,
+    false,
+  ]);
+  expect(rows[1]!.classList.contains('error')).toBe(true);
+  expect(rows.map((r) => r.querySelector('.mark') !== null)).toEqual([
+    true,
+    true,
+    false,
+  ]);
+});

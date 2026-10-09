@@ -221,6 +221,46 @@ test('shows the error the span recorded', async () => {
   expect(value('error')).toBe('TypeError: boom (async)');
 });
 
+const warningSpan = (replayed?: true): TimelineSpan => ({
+  layerId: 'lit-warnings',
+  key: 'w',
+  name: 'warning:dev-mode',
+  start: 1,
+  logType: 'warning',
+  events: [
+    {
+      layerId: 'lit-warnings',
+      time: 1,
+      logType: 'warning',
+      data: {
+        phase: 'warning',
+        code: 'dev-mode',
+        message: 'Lit is in dev mode.',
+        ...(replayed ? {replayed} : {}),
+      },
+    },
+  ],
+});
+
+test('shows a warning with its message and a lit.dev link to the code', async () => {
+  const {root, value} = await mount({span: warningSpan()});
+  expect(value('warning')).toBe('dev-mode Lit is in dev mode.');
+  const a = root.querySelector<HTMLAnchorElement>('.warning a.code')!;
+  expect(a.getAttribute('href')).toBe('https://lit.dev/msg/dev-mode');
+  expect(root.querySelector('.warning .note')).toBeNull();
+});
+
+test('notes a warning issued before the recording started', async () => {
+  const {root} = await mount({span: warningSpan(true)});
+  expect(root.querySelector('.warning .note')?.textContent).toBe(
+    'Issued before this recording started'
+  );
+});
+
+test('a span without a warning log type has no warning fact', async () => {
+  expect((await mount({span})).value('warning')).toBeUndefined();
+});
+
 test('the handle resizes the pane and remembers the height', async () => {
   localStorage.removeItem('lit-devtools-timeline-detail-height');
   const {el, root} = await mount({span});
