@@ -87,9 +87,26 @@ all of them show up.
 ## Read a row
 
 Switch **List | Tracks** at the left of the toolbar to **List** to read the
-recording row by row. Rows are collapsed spans, not raw events. The capture layers emit a start and
-an end per phase, so each row is one phase with its duration, and a lifecycle
-row also lists the reactive properties that changed.
+recording row by row. Rows are collapsed spans, not raw events: the capture
+layers emit a start and an end per phase, so each phase is one row with its
+duration, and a lifecycle row also lists the reactive properties that changed.
+
+One component update is one row. The list shows the `performUpdate` row of each
+update, collapsed, with its duration, the changed properties, and a count of
+the rows folded into it (`+3`). A marker after the count flags an update with
+something to look at inside: a warning, an error, or a skipped update. Press
+the arrow at the left of the row to open it and see the `willUpdate`, `update`
+and `updated` phases, plus the events that belong to the same update: `update
+skipped`, Lit warnings, errors from a rejected `updated`, and, with the
+Custom events layer on, events the component dispatched while it was updating. With the arrow focused,
+the Right and Left arrow keys open and close it too, and **Expand all** and
+**Collapse all** in the filter bar do every update at once. Rows that are not
+part of an update, such as mouse and keyboard input, stay as they are.
+
+Selecting a nested row from the tracks, a `#event=` link or the range summary
+opens its update first. A filter that hides a `performUpdate` but matches one of
+its phases keeps the `performUpdate` row, showing only the matching phases, so
+the match still has its context.
 
 <ThemedImage
   light={devtoolsTimelineCollapsedLight}
@@ -97,7 +114,7 @@ row also lists the reactive properties that changed.
   alt="The Timeline tab with collapsed lifecycle rows for hmr-counter, each showing its duration."
 />
 
-Press **Raw** in the filter bar for one row per recorded event instead. Reach
+Press **Raw** in the filter bar for one flat row per recorded event instead. Reach
 for it on ordering questions, and for
 [custom layers](/vite-plugin-lit/guides/devtools/custom-layers/), which have no
 pairs to collapse.

@@ -223,6 +223,8 @@ test('the lifecycle layer records updates, the render layers stay empty', async 
       {timeout: 15_000}
     )
     .toBeGreaterThan(0);
+  // The list folds each update's phases under its performUpdate row.
+  await panel.locator('timeline-event-list .expand-all').click();
   const rows = await panel.locator('timeline-event-list .row').allInnerTexts();
   const titles = rows.map((row) => row.split('\n')[1]);
   // The prototype wrapping survives minification: Lit's own method names are

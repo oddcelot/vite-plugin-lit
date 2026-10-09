@@ -12,6 +12,8 @@ import {layerColor} from './timeline-layers.js';
 import type {LayerState} from './timeline-layers.js';
 import {applyFilter, NO_FILTER, rawRow} from '../lib/timeline/model.js';
 import type {TimelineFilter} from '../lib/timeline/model.js';
+import {buildListRows, tickParentKey} from '../lib/timeline/tick-rows.js';
+import type {ListRow, TickAttention} from '../lib/timeline/tick-rows.js';
 import './timeline-span-detail.js';
 
 /** How long {@link TimelineEventList.reveal} waits for the virtualizer. */
@@ -28,6 +30,17 @@ const renderDuration = (row: TimelineSpan): string => {
   return row.groupId === undefined ? '' : '…';
 };
 
+const FLAG_LABEL: Record<TickAttention, string> = {
+  error: 'A nested row is an error',
+  warning: 'A nested row is a warning',
+  skipped: 'The update was skipped',
+};
+const FLAG_MARK: Record<TickAttention, string> = {
+  error: '!',
+  warning: '!',
+  skipped: 'skip',
+};
+
 /**
  * Scrollable list of recorded timeline events with an inline detail pane.
  *
@@ -36,6 +49,13 @@ const renderDuration = (row: TimelineSpan): string => {
  * component is five to ten raw rows whose durations the reader would
  * otherwise subtract by hand. The **Raw** toggle restores the per-event view
  * for ordering questions and for custom layers the pairing rules do not model.
+ *
+ * Spans of one update tick are grouped further: the list shows the tick's
+ * `performUpdate` row, collapsed, and a disclosure button reveals the phases
+ * and same-tick events nested under it (`buildListRows` owns what nests). The
+ * expanded set lives here rather than in `TimelineModel` because only this
+ * list has rows to open; selecting a nested span, from anywhere, opens its
+ * tick so the row can be shown.
  *
  * The spans and the selection belong to `timeline-view`, which shares both
  * with the Tracks presentation: this element reads `.spans` and
@@ -142,6 +162,60 @@ export class TimelineEventList extends LitElement {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .row.nested {
+        padding-left: calc(var(--lit-devtools-space-5) + 20px);
+      }
+      .twisty {
+        flex-shrink: 0;
+        width: 14px;
+        height: 14px;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--lit-devtools-text-muted);
+        cursor: pointer;
+        align-self: center;
+        position: relative;
+      }
+      .twisty:hover {
+        color: var(--lit-devtools-text);
+      }
+      .twisty::before {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 3px;
+        border: 4px solid transparent;
+        border-left: 5px solid currentColor;
+        border-right: 0;
+      }
+      .twisty[aria-expanded='true']::before {
+        left: 3px;
+        top: 4px;
+        border: 4px solid transparent;
+        border-top: 5px solid currentColor;
+        border-bottom: 0;
+      }
+      .nest {
+        flex-shrink: 0;
+        color: var(--lit-devtools-text-muted);
+      }
+      .flag {
+        flex-shrink: 0;
+        color: var(--lit-devtools-warning, var(--lit-devtools-accent));
+      }
+      .flag.error {
+        color: var(--lit-devtools-error, var(--lit-devtools-accent));
+      }
+      .expand-all {
+        font: inherit;
+        color: var(--lit-devtools-text-secondary);
+        background: none;
+        border: 0;
+        padding: 0;
+        cursor: pointer;
+        text-decoration: underline;
+      }
       .dur {
         color: var(--lit-devtools-text-secondary);
         flex-shrink: 0;
@@ -167,6 +241,9 @@ export class TimelineEventList extends LitElement {
   @property({attribute: false}) filter: TimelineFilter = NO_FILTER;
   /** One row per raw event instead of one per collapsed span. */
   @state() private _raw = false;
+  /** Keys of the ticks whose nested rows are listed. Replaced, never mutated,
+   *  so Lit and the row memo see it change. */
+  @state() private _expanded: ReadonlySet<string> = new Set();
 
   private readonly _scrollRef = createRef<HTMLDivElement>();
   /** Rows for the current mode, recomputed only when the events,
@@ -176,7 +253,14 @@ export class TimelineEventList extends LitElement {
   /** `_rowsCache` after the layer/element/regex filters, recomputed only when
    *  one of those or `_rowsCache` itself changes — not on every render (e.g.
    *  selecting a row must not re-filter up to `MAX_EVENTS` rows). */
-  private _visibleCache: TimelineSpan[] = [];
+  private _matchedCache: TimelineSpan[] = [];
+  /** What the virtualizer lists: `_matchedCache` grouped into ticks. Also
+   *  rebuilt when a tick opens or closes. */
+  private _visibleCache: ListRow[] = [];
+  /** `_rowsCache` after the layer toggles only. */
+  private _layered: TimelineSpan[] = [];
+  /** The expanded set `_visibleCache` was built with. */
+  private _rowsExpanded: ReadonlySet<string> = this._expanded;
 
   override willUpdate(changed: Map<string, unknown>) {
     if (changed.has('events') || changed.has('spans') || changed.has('_raw')) {
@@ -185,19 +269,36 @@ export class TimelineEventList extends LitElement {
       // `timeline-view` owns clearing it.
       this._rowsCache = this._raw ? this.events.map(rawRow) : this.spans;
     }
-    if (
+    // Selecting a nested span, from the tracks, a link or the range summary,
+    // opens its tick so there is a row to select. Only on a change of
+    // selection, so the reader can close the tick again afterwards.
+    let expanded = this._expanded;
+    if (changed.has('selectedKey') && !this._raw && this.selectedKey !== null) {
+      const span = this._rowsCache.find((row) => row.key === this.selectedKey);
+      const parent = span && tickParentKey(span, this._rowsCache);
+      if (parent !== undefined && !expanded.has(parent)) {
+        expanded = new Set(expanded).add(parent);
+        this._expanded = expanded;
+      }
+    }
+    const refilter =
       changed.has('events') ||
       changed.has('spans') ||
       changed.has('_raw') ||
       changed.has('layers') ||
-      changed.has('filter')
-    ) {
+      changed.has('filter');
+    if (refilter) {
       // Compile once per relevant change, not once per render; an invalid
       // pattern disables the filter (rather than hiding everything).
-      this._visibleCache = applyFilter(
-        this._rowsCache.filter((row) => this._layerOn(row)),
-        this.filter
-      );
+      this._layered = this._rowsCache.filter((row) => this._layerOn(row));
+      this._matchedCache = applyFilter(this._layered, this.filter);
+    }
+    if (refilter || expanded !== this._rowsExpanded) {
+      this._rowsExpanded = expanded;
+      // Raw rows have no ticks to group.
+      this._visibleCache = this._raw
+        ? this._matchedCache.map((span) => ({span, depth: 0}))
+        : buildListRows(this._layered, this._matchedCache, expanded);
     }
   }
 
@@ -232,7 +333,9 @@ export class TimelineEventList extends LitElement {
     const index =
       this.selectedKey === null
         ? -1
-        : this._visibleCache.findIndex((row) => row.key === this.selectedKey);
+        : this._visibleCache.findIndex(
+            (row) => row.span.key === this.selectedKey
+          );
     if (index === -1) {
       el.scrollTop = el.scrollHeight;
       return;
@@ -260,6 +363,31 @@ export class TimelineEventList extends LitElement {
     attempt();
   }
 
+  /** Opens or closes one tick. Closing the tick of the selected child moves
+   *  the selection to the tick, which is the row left to show it. */
+  private _toggle(row: ListRow, open: boolean) {
+    const key = row.span.key;
+    if (this._expanded.has(key) === open) return;
+    const next = new Set(this._expanded);
+    if (open) next.add(key);
+    else next.delete(key);
+    this._expanded = next;
+    if (!open && this.selectedKey !== null && this.selectedKey !== key) {
+      const selected = this._rowsCache.find((s) => s.key === this.selectedKey);
+      if (selected && tickParentKey(selected, this._layered) === key) {
+        this._select(key);
+      }
+    }
+  }
+
+  private _toggleAll() {
+    const ticks = this._visibleCache.filter((row) => row.tick);
+    const allOpen = ticks.every((row) => row.tick!.expanded);
+    this._expanded = allOpen
+      ? new Set()
+      : new Set(ticks.map((row) => row.span.key));
+  }
+
   private _layerOn(row: TimelineSpan): boolean {
     const l = this.layers.find((l) => l.id === row.layerId);
     return !l || l.enabled;
@@ -267,6 +395,8 @@ export class TimelineEventList extends LitElement {
 
   override render() {
     const visible = this._visibleCache;
+    const ticks = visible.filter((row) => row.tick);
+    const counts = `${this._matchedCache.length} / ${this._rowsCache.length}`;
     const selected =
       this.selectedKey === null
         ? undefined
@@ -290,9 +420,21 @@ export class TimelineEventList extends LitElement {
                 >
                   Raw
                 </wa-switch>
-                <span class="count"
-                  >${visible.length} / ${this._rowsCache.length}</span
-                >
+                ${
+                  ticks.length > 0
+                    ? html`<button
+                        class="expand-all"
+                        @click=${() => this._toggleAll()}
+                      >
+                        ${
+                          ticks.every((row) => row.tick!.expanded)
+                            ? 'Collapse all'
+                            : 'Expand all'
+                        }
+                      </button>`
+                    : nothing
+                }
+                <span class="count">${counts}</span>
               </div>
             `
           : nothing
@@ -320,7 +462,7 @@ export class TimelineEventList extends LitElement {
                   // The directive re-renders its previous index range against
                   // a new `items` before the virtualizer recomputes it, so the
                   // tail of that range can briefly be past the end.
-                  keyFunction: (row, i) => row?.key ?? i,
+                  keyFunction: (row, i) => row?.span.key ?? i,
                   renderItem: (row) => (row ? this._renderRow(row) : html``),
                 })}
               </div>
@@ -338,18 +480,59 @@ export class TimelineEventList extends LitElement {
   }
 
   /** One row of the virtualized list (`virtualize`'s `renderItem`). */
-  private _renderRow(row: TimelineSpan) {
+  private _renderRow(item: ListRow) {
+    const {span: row, tick} = item;
     return html`
       <div
-        class="row ${this.selectedKey === row.key ? 'selected' : ''}"
+        class="row ${this.selectedKey === row.key ? 'selected' : ''} ${
+          item.depth > 0 ? 'nested' : ''
+        }"
         @click=${() => this._select(row.key)}
       >
+        ${
+          tick
+            ? html`<button
+                class="twisty"
+                aria-expanded=${tick.expanded ? 'true' : 'false'}
+                aria-label=${
+                  (tick.expanded ? 'Collapse ' : 'Expand ') +
+                  `${tick.count} nested rows of ${row.subtitle ?? row.name}`
+                }
+                @click=${(e: Event) => {
+                  e.stopPropagation();
+                  this._toggle(item, !tick.expanded);
+                }}
+                @keydown=${(e: KeyboardEvent) => {
+                  if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+                  e.preventDefault();
+                  this._toggle(item, e.key === 'ArrowRight');
+                }}
+              ></button>`
+            : this._raw || item.depth > 0
+              ? nothing
+              : html`<span class="twisty" aria-hidden="true"></span>`
+        }
         <span class="time">${row.start.toFixed(1)}ms</span>
         <span
           class="dot"
           style=${'background:' + layerColor(this.layers, row.layerId)}
         ></span>
         <span class="title">${row.name}</span>
+        ${
+          tick
+            ? html`<span class="nest" data-tip="Nested rows"
+                  >+${tick.count}</span
+                >${
+                  tick.attention
+                    ? html`<span
+                        class="flag ${tick.attention === 'error' ? 'error' : ''}"
+                        title=${FLAG_LABEL[tick.attention]}
+                        >${FLAG_MARK[tick.attention]}</span
+                      >`
+                    : nothing
+                }`
+            : nothing
+        }
         ${
           row.changed?.length
             ? html`<span class="changed">${row.changed.join(', ')}</span>`
