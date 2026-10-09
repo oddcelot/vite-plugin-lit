@@ -17,6 +17,7 @@
   "module": "index.js",
   "files": [
     "/CHANGELOG.md",
+    "/THIRD_PARTY_NOTICES.md",
     "/lib/",
     "/dist/client/",
     "/dist/standalone/",
