@@ -659,6 +659,7 @@ export class TimelineTracks extends LitElement {
       ? html`<timeline-span-detail
           filterable
           .span=${selected}
+          .layers=${this.layers}
         ></timeline-span-detail>`
       : html`<timeline-range-summary
           .summary=${this._summary}

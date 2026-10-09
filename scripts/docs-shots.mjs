@@ -500,8 +500,8 @@ const SHOTS = [
       await (
         (await update.count()) > 0 ? update.first() : rows.first()
       ).click();
-      // The detail pane is capped at 130px and scrolls; its last rows (the
-      // source and "rendered at" links) start below the fold.
+      // The detail pane scrolls at its default height; its later facts can
+      // start below the fold.
       const site = eventList(panel)
         .locator('css=timeline-span-detail')
         .locator('css=.call-site');
