@@ -83,6 +83,26 @@ export const isInspectable = (el: Element): boolean => {
 };
 
 /**
+ * The id of the nearest inspectable element at or above `node`: itself, its
+ * ancestors, and past each shadow root to its host. `undefined` when no Lit
+ * element encloses it.
+ */
+export const inspectableIdOf = (node: unknown): number | undefined => {
+  let el: Element | null =
+    node instanceof Element
+      ? node
+      : node instanceof Node
+        ? node.parentElement
+        : null;
+  while (el !== null) {
+    if (isInspectable(el)) return idOf(el);
+    const root = el.getRootNode();
+    el = el.parentElement ?? (root instanceof ShadowRoot ? root.host : null);
+  }
+  return undefined;
+};
+
+/**
  * A custom-element tag nothing has defined: a forgotten import, a typo, a
  * chunk that has not loaded. Plain tags (no hyphen) are never custom, so they
  * skip the selector match. Devtools' own UI is left out as in

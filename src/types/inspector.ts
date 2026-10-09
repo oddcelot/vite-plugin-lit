@@ -421,6 +421,14 @@ export const ELEMENT_BY_ID_KEY = Symbol.for(
   '@oddsquad/vite-plugin-lit#element-by-id'
 );
 
+/**
+ * The `globalThis` key under which the page runtime exposes the id of the
+ * nearest Lit element at or above a node, crossing shadow roots. The
+ * extension evaluates it on DevTools' `$0` so an Elements selection selects
+ * the component it belongs to in the Lit panel.
+ */
+export const LIT_ID_OF_KEY = Symbol.for('@oddsquad/vite-plugin-lit#lit-id-of');
+
 /** HMR channel the server uses to forward a panel command to the app runtime. */
 export const INSPECT_CMD_CHANNEL = 'lit:inspect:cmd';
 

@@ -52,7 +52,7 @@ import {useBrand} from '../../src/panel/brand.js';
 import {useLocalClient} from '../../src/panel/client.js';
 import {useElementRevealer} from '../../src/panel/element-revealer.js';
 import {useSourceOpener} from '../../src/panel/source-opener.js';
-import {ELEMENT_BY_ID_KEY} from '../../src/types/inspector.js';
+import {ELEMENT_BY_ID_KEY, LIT_ID_OF_KEY} from '../../src/types/inspector.js';
 import type {ElementSource} from '../../src/types/inspector.js';
 import {loadedUrlFor} from './loaded-source.js';
 import {CHANNEL_PAGE_STATUS, PANEL_PORT} from './protocol.js';
@@ -284,6 +284,33 @@ const revealInElements = (
     )
   );
 
+/**
+ * Follows the Elements panel: when its selection (`$0`) is a Lit element, or
+ * sits inside one, the Lit panel selects that component, as a deep link
+ * would. `location.replace` with a fragment fires `hashchange` without a
+ * history entry. Nothing happens for a node no Lit element encloses.
+ */
+const followElementsSelection = (devtools: typeof chrome.devtools): void => {
+  const elements = devtools.panels.elements as
+    | typeof chrome.devtools.panels.elements
+    | undefined;
+  elements?.onSelectionChanged.addListener(() => {
+    devtools.inspectedWindow.eval<number | undefined>(
+      `globalThis[Symbol.for(${JSON.stringify(
+        LIT_ID_OF_KEY.description
+      )})]?.($0)`,
+      (id, exception) => {
+        if (exception || typeof id !== 'number') return;
+        const params = new URLSearchParams({
+          tab: 'components',
+          component: String(id),
+        });
+        location.replace(`#${params}`);
+      }
+    );
+  });
+};
+
 const boot = async (): Promise<void> => {
   setupEl.hidden = true;
   const {port, dial} = pagePort(showPageStatus);
@@ -301,12 +328,14 @@ const boot = async (): Promise<void> => {
     useSourceOpener((location) => openInSources(panels, location));
   }
   // "Reveal in Elements" evaluates in the page and calls DevTools' `inspect()`
-  // there, which Chrome and Firefox both provide.
+  // there, which Chrome and Firefox both provide; following the Elements
+  // selection back evaluates on `$0` the same way.
   if (
     devtools !== undefined &&
     typeof devtools.inspectedWindow.eval === 'function'
   ) {
     useElementRevealer((id) => revealInElements(devtools, id));
+    followElementsSelection(devtools);
   }
   // The extension's own name and mark, not the Lit project's.
   useBrand({name: 'Lit Inspector', iconUrl: chrome.runtime.getURL('icon.svg')});
