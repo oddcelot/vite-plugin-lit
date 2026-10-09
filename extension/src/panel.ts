@@ -34,6 +34,10 @@
  * never reach the host. A page that navigates re-announces itself on its new
  * document, and the host switches pages as it does on every carrier.
  *
+ * The details pane's "Reveal in Elements" and its source links go to
+ * DevTools' own panels from here, since only this page holds `chrome.devtools`
+ * (`element-revealer.ts`, `source-opener.ts`).
+ *
  * Test seam: opened as a plain tab (the e2e does, since DevTools itself is not
  * scriptable) there is no `chrome.devtools`, so the inspected tab comes from
  * a `?tabId=` query parameter and its origin from `chrome.tabs`, which only
@@ -46,8 +50,11 @@ import {createLocalLitHost} from '../../src/lib/devframe/port-link.js';
 import type {PortLike} from '../../src/lib/devframe/port-link.js';
 import {useBrand} from '../../src/panel/brand.js';
 import {useLocalClient} from '../../src/panel/client.js';
+import {useElementRevealer} from '../../src/panel/element-revealer.js';
 import {useSourceOpener} from '../../src/panel/source-opener.js';
+import {ELEMENT_BY_ID_KEY} from '../../src/types/inspector.js';
 import type {ElementSource} from '../../src/types/inspector.js';
+import {loadedUrlFor} from './loaded-source.js';
 import {CHANNEL_PAGE_STATUS, PANEL_PORT} from './protocol.js';
 import type {
   OriginStatus,
@@ -196,22 +203,55 @@ const openResource = (
   );
 
 /**
- * A resolved location in the Sources panel: the original source when
- * DevTools has loaded the page's sourcemap, else the generated script at the
- * define call, which DevTools always has and maps itself if it can.
+ * The URL the page loaded for a file path the plugin stamped, among every
+ * resource DevTools knows (the list the Sources panel shows, which Resource
+ * Timing would cap). `undefined` when DevTools cannot list them or none match.
+ */
+const loadedUrl = (file: string): Promise<string | undefined> =>
+  new Promise((resolve) => {
+    const inspected = devtools?.inspectedWindow;
+    if (typeof inspected?.getResources !== 'function')
+      return resolve(undefined);
+    inspected.getResources((resources) =>
+      resolve(
+        loadedUrlFor(
+          file,
+          resources.map((resource) => resource.url)
+        )
+      )
+    );
+  });
+
+/**
+ * A location in the Sources panel. A plugin-stamped file path has no URL, so
+ * it is matched to the one the page loaded it from (and nothing opens when
+ * none matches). A resolved location opens the original source when DevTools
+ * has loaded the page's sourcemap, else the generated script at the define
+ * call, which DevTools always has and maps itself if it can.
  */
 const openInSources = async (
   panels: typeof chrome.devtools.panels,
   location: ElementSource
 ): Promise<void> => {
+  if (location.url === undefined) {
+    const url = await loadedUrl(location.file);
+    if (url !== undefined) {
+      await openResource(
+        panels,
+        url,
+        location.line - 1,
+        (location.column ?? 1) - 1
+      );
+    }
+    return;
+  }
   if (
-    location.url !== undefined &&
-    (await openResource(
+    await openResource(
       panels,
       location.url,
       location.line - 1,
       (location.column ?? 1) - 1
-    ))
+    )
   ) {
     return;
   }
@@ -225,6 +265,25 @@ const openInSources = async (
   );
 };
 
+/**
+ * Selects the element with the runtime's id in the Elements panel, by
+ * evaluating in the page: `inspect()` is a console utility, so it only exists
+ * there, and the runtime's lookup (`ELEMENT_BY_ID_KEY`) is how the id becomes
+ * a node. Nothing happens for an element that is gone.
+ */
+const revealInElements = (
+  devtools: typeof chrome.devtools,
+  id: number
+): Promise<void> =>
+  new Promise((resolve) =>
+    devtools.inspectedWindow.eval(
+      `(() => { const el = globalThis[Symbol.for(${JSON.stringify(
+        ELEMENT_BY_ID_KEY.description
+      )})]?.(${JSON.stringify(id)}); if (el) inspect(el); return el !== undefined; })()`,
+      () => resolve()
+    )
+  );
+
 const boot = async (): Promise<void> => {
   setupEl.hidden = true;
   const {port, dial} = pagePort(showPageStatus);
@@ -236,10 +295,18 @@ const boot = async (): Promise<void> => {
   });
   useLocalClient(client);
   // Outside DevTools (the e2e's plain tab) there is no Sources panel, and a
-  // browser may lack `openResource`; the location stays plain text then.
+  // browser may lack `openResource` (Firefox); locations stay as they are then.
   const panels = devtools?.panels;
   if (typeof panels?.openResource === 'function') {
     useSourceOpener((location) => openInSources(panels, location));
+  }
+  // "Reveal in Elements" evaluates in the page and calls DevTools' `inspect()`
+  // there, which Chrome and Firefox both provide.
+  if (
+    devtools !== undefined &&
+    typeof devtools.inspectedWindow.eval === 'function'
+  ) {
+    useElementRevealer((id) => revealInElements(devtools, id));
   }
   // The extension's own name and mark, not the Lit project's.
   useBrand({name: 'Lit Inspector', iconUrl: chrome.runtime.getURL('icon.svg')});
