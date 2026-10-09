@@ -13,6 +13,7 @@ import {litCssLiterals} from './plugins/css-literals.js';
 import {litPrivateFields} from './plugins/private-fields.js';
 import {litSourceOverlay} from './plugins/source-overlay.js';
 import {litHmr} from './plugins/hmr.js';
+import {litDevtoolsWorkspace} from './plugins/devtools-workspace.js';
 
 export {createOpenInEditorMiddleware} from './plugins/open-in-editor.js';
 export {litCssQueries} from './plugins/css-queries.js';
@@ -47,6 +48,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
     litPrivateFields(ctx),
     litSourceOverlay(ctx),
     litHmr(ctx),
+    litDevtoolsWorkspace(ctx),
   ];
   // The one construction-time decision. An explicit `timeline: false` is final
   // (env can't override it), so it keeps the devframe plugin out of Vite

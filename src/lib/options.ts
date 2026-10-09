@@ -146,6 +146,15 @@ export interface LitPluginOptions {
    * Defaults to `'auto'`.
    */
   cssSheetBuild?: CssSheetBuild;
+
+  /**
+   * Answer Chrome's `/.well-known/appspecific/com.chrome.devtools.json` in
+   * dev, so DevTools can connect the project as a workspace and save Sources
+   * panel edits to disk. `true` uses Vite's workspace root; a string names
+   * the folder (relative to Vite's root). Only loopback clients get an
+   * answer. Defaults to `true`.
+   */
+  devtoolsWorkspace?: boolean | string;
 }
 
 /** Plugin options after merging explicit options, env vars, and defaults. */
@@ -159,6 +168,7 @@ export interface ResolvedOptions {
   sourceOverlay: false | SourceOverlayOptions;
   timeline: boolean;
   cssSheetBuild: CssSheetBuild;
+  devtoolsWorkspace: boolean | string;
   /**
    * Which layer each panel-visible setting came from. Source-overlay keys are
    * present only when the overlay is enabled.
@@ -344,6 +354,11 @@ export const resolveOptions = (
     ) ??
     'auto';
 
+  // A boolean-ish env value toggles; anything else names the folder.
+  const envWorkspace = env[`${ENV_PREFIX}_DEVTOOLS_WORKSPACE`] || undefined;
+  const devtoolsWorkspace =
+    options.devtoolsWorkspace ?? envBool(envWorkspace) ?? envWorkspace ?? true;
+
   return {
     hmrEnabled: hmrEnabled.value,
     reconnect: reconnect.value,
@@ -354,6 +369,7 @@ export const resolveOptions = (
     sourceOverlay,
     timeline: timeline.value,
     cssSheetBuild,
+    devtoolsWorkspace,
     sources,
   };
 };

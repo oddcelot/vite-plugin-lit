@@ -391,3 +391,25 @@ describe('toFeatureSettings', () => {
     expect(f.sources?.sourceOverlayEditor).toBe('option');
   });
 });
+
+describe('devtoolsWorkspace', () => {
+  test('defaults to true', () => {
+    expect(resolve({}).devtoolsWorkspace).toBe(true);
+  });
+
+  test('reads LIT_PLUGIN_DEVTOOLS_WORKSPACE as a toggle or a folder', () => {
+    expect(
+      resolve({}, {LIT_PLUGIN_DEVTOOLS_WORKSPACE: 'false'}).devtoolsWorkspace
+    ).toBe(false);
+    expect(
+      resolve({}, {LIT_PLUGIN_DEVTOOLS_WORKSPACE: '../..'}).devtoolsWorkspace
+    ).toBe('../..');
+  });
+
+  test('explicit option wins over the env var', () => {
+    expect(
+      resolve({devtoolsWorkspace: false}, {LIT_PLUGIN_DEVTOOLS_WORKSPACE: '1'})
+        .devtoolsWorkspace
+    ).toBe(false);
+  });
+});
