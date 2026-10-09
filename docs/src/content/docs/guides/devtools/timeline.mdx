@@ -100,18 +100,20 @@ and `updated` phases, plus the events that belong to the same update: `update
 skipped`, Lit warnings, errors from a rejected `updated`, and, with the
 Custom events layer on, events the component dispatched while it was updating. With the arrow focused,
 the Right and Left arrow keys open and close it too, and **Expand all** and
-**Collapse all** in the filter bar do every update at once. Rows that are not
-part of an update and did not cause one, such as a mouse click nothing reacted
-to, stay as they are.
+**Collapse all** in the filter bar open or close the phases of every update at
+once. Rows that are not part of an update stay as they are.
 
-Updates nest further by cause. An update scheduled while another component was
-updating, because its parent set a property on it or created it, nests under
-that update. An update scheduled from a mouse, keyboard or custom event handler
-nests under that event's row, so an input row gets an arrow too. The cause is
-recorded at the `requestUpdate` call that scheduled the update, not guessed
-from timing. A chain whose top has fallen out of the buffer starts at the first
-row still present. The details pane names the cause, with a **show** link that
-selects it.
+Rows stay in time order, and a column at the left of the list draws what caused
+each update, the way `git log --graph` draws branches. A line connects an update
+to the row that caused it: the update of a parent that set a property on it or
+created it, or the click, key or custom event whose handler requested it. The
+line runs past whatever happened in between, so a chain of updates reads top to
+bottom even when other rows sit inside it. Each chain has its own colour, and
+hovering one of its rows fades the others. The cause is recorded at the
+`requestUpdate` call that scheduled the update, not guessed from timing. An
+update with no line is a timer, a signal or a stray `requestUpdate()`. A chain
+whose top has fallen out of the buffer starts at the first row still present.
+The details pane names the cause, with a **show** link that selects it.
 
 Selecting a nested row from the tracks, a `#event=` link or the range summary
 opens its update first. A filter that hides a `performUpdate` but matches one of

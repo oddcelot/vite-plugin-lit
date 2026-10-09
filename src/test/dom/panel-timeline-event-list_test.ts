@@ -319,7 +319,6 @@ const chainEvents = (): TimelineEvent[] => [
 ];
 const PARENT = 'lit-lifecycle:1:1:performUpdate';
 const CHILD = 'lit-lifecycle:2:1:performUpdate';
-const GRANDCHILD = 'lit-lifecycle:2:1:update';
 
 const mountChain = (props: Partial<TimelineEventList> = {}) =>
   mount({
@@ -329,84 +328,103 @@ const mountChain = (props: Partial<TimelineEventList> = {}) =>
     ...props,
   });
 
-const rowOf = (el: TimelineEventList, title: string, nth = 0) =>
-  [...el.shadowRoot!.querySelectorAll<HTMLElement>('.row')].filter(
-    (r) => r.querySelector('.title')?.textContent === title
-  )[nth]!;
+/**
+ * A click, a lone timer tick, the tick the click caused, and a tick that one
+ * caused in turn: three rows in one chain with an unrelated row inside it.
+ */
+const graphEvents = (): TimelineEvent[] => [
+  {...click, time: 5},
+  ...tick(3, 5.5),
+  ...tick(1, 6, {kind: 'event', layerId: 'mouse', time: 5}),
+  ...tick(2, 7, {kind: 'update', groupId: '1:1'}),
+];
 
-test('a tick caused by another tick nests under it, one level deeper', async () => {
-  const {el} = await mountChain();
-  expect(titles(el)).toEqual(['performUpdate']);
-  twisty(el)!.click();
-  await el.updateComplete;
-  // The parent's own phase and the child tick, which is collapsed.
-  expect(titles(el)).toEqual(['performUpdate', 'update', 'performUpdate']);
-  const child = rowOf(el, 'performUpdate', 1);
-  expect(child.classList.contains('nested')).toBe(true);
-  expect(child.style.getPropertyValue('--depth')).toBe('1');
-  expect(
-    child.querySelector('button.twisty')?.getAttribute('aria-expanded')
-  ).toBe('false');
-  child.querySelector<HTMLButtonElement>('button.twisty')!.click();
-  await el.updateComplete;
+const mountGraph = (props: Partial<TimelineEventList> = {}) =>
+  mount({
+    events: graphEvents(),
+    spans: toSpans(graphEvents()),
+    layers: [layer('lit-lifecycle'), layer('mouse')],
+    ...props,
+  });
+
+const rows = (el: TimelineEventList) => [
+  ...el.shadowRoot!.querySelectorAll<HTMLElement>('.row'),
+];
+
+test('cause chains stay in time order with a rail on every row', async () => {
+  const {el} = await mountGraph();
   expect(titles(el)).toEqual([
+    'click',
     'performUpdate',
-    'update',
     'performUpdate',
-    'update',
+    'performUpdate',
   ]);
-  const phase = rowOf(el, 'update', 1);
-  expect(phase.classList.contains('nested')).toBe(true);
-  expect(phase.style.getPropertyValue('--depth')).toBe('2');
+  expect(rows(el).every((r) => r.querySelector('.rail') !== null)).toBe(true);
+  // No row nests under another: the twisty folds only a tick's phases.
+  expect(el.shadowRoot!.querySelectorAll('.row.nested')).toHaveLength(0);
+  const [clickRow, lone, caused, child] = rows(el);
+  // The click is the chain's root: a dot in lane 0, its line going down.
+  const clickDot = clickRow!.querySelector<HTMLElement>('.rail .dot')!;
+  expect(clickDot.style.left).toBe('calc(0px + 8px)');
+  const down = [...clickRow!.querySelectorAll('.rail svg line')];
+  expect(down).toHaveLength(1);
+  expect(down[0]!.getAttribute('y1')).toBe('8');
+  expect(down[0]!.getAttribute('y2')).toBe('16');
+  // The timer tick is not in the chain; the line passes it by.
+  expect(lone!.querySelector('.rail .dot')).toBeNull();
+  const through = [...lone!.querySelectorAll('.rail svg line')];
+  expect(through).toHaveLength(1);
+  expect(through[0]!.getAttribute('y1')).toBe('0');
+  expect(through[0]!.getAttribute('y2')).toBe('16');
+  // The caused tick continues the lane and carries on to its own child.
+  expect(caused!.querySelector('.rail .dot')).not.toBeNull();
+  expect(caused!.querySelectorAll('.rail svg line')).toHaveLength(2);
+  expect(child!.querySelector('.rail .dot')).not.toBeNull();
+  expect(child!.querySelectorAll('.rail svg line')).toHaveLength(1);
+  expect(child!.querySelector('.rail svg path')).toBeNull();
+  expect(clickRow!.querySelector('.rail')!.getAttribute('aria-hidden')).toBe(
+    'true'
+  );
 });
 
-test('selecting a depth-2 row opens both ancestors', async () => {
-  const {el} = await mountChain();
-  el.selectedKey = GRANDCHILD;
+test('hovering a row of a chain dims the rails of rows outside it', async () => {
+  const {el} = await mountGraph();
+  rows(el)[0]!.dispatchEvent(new MouseEvent('mouseenter'));
   await el.updateComplete;
-  expect(titles(el)).toHaveLength(4);
-  expect(
-    el.shadowRoot!.querySelector('.row.selected')?.getAttribute('style')
-  ).toContain('--depth: 2');
+  const dim = rows(el).map((r) =>
+    r.querySelector('.rail')!.classList.contains('dim')
+  );
+  expect(dim).toEqual([false, true, false, false]);
+  el.shadowRoot!.querySelector('.scroll')!.dispatchEvent(
+    new MouseEvent('mouseleave')
+  );
+  await el.updateComplete;
+  expect(el.shadowRoot!.querySelector('.rail.dim')).toBeNull();
 });
 
-test('closing the parent while a grandchild is selected selects the parent', async () => {
-  const {el} = await mountChain();
+test('Raw draws no rails', async () => {
+  const {el, raw} = await mountGraph();
+  raw().shadowRoot!.querySelector('input')!.click();
+  await new Promise((r) => setTimeout(r));
+  await el.updateComplete;
+  expect(rows(el).length).toBeGreaterThan(0);
+  expect(el.shadowRoot!.querySelector('.rail')).toBeNull();
+});
+
+test("the detail pane's show link selects the click that caused a tick", async () => {
+  const graphSpans = toSpans(graphEvents());
+  const clickKey = graphSpans.find((s) => s.name === 'click')!.key;
+  const {el, detail} = await mountGraph({
+    selectedKey: 'lit-lifecycle:1:1:performUpdate',
+  });
   const selected: Array<string | null> = [];
   el.addEventListener('span-select', (e) =>
     selected.push((e as CustomEvent<{key: string | null}>).detail.key)
   );
-  el.selectedKey = GRANDCHILD;
-  await el.updateComplete;
-  twisty(el)!.click();
-  await el.updateComplete;
-  expect(titles(el)).toEqual(['performUpdate']);
-  expect(selected).toEqual([PARENT]);
-});
-
-test('Expand all opens rows that only appear once their parent is open', async () => {
-  const {el} = await mountChain();
-  el.shadowRoot!.querySelector<HTMLButtonElement>('.expand-all')!.click();
-  await el.updateComplete;
-  expect(titles(el)).toHaveLength(4);
-});
-
-test('an input row with a tick it caused gets a twisty', async () => {
-  const events = [
-    {...click, time: 5},
-    ...tick(1, 6, {kind: 'event', layerId: 'mouse', time: 5}),
-  ];
-  const {el} = await mount({
-    events,
-    spans: toSpans(events),
-    layers: [layer('lit-lifecycle'), layer('mouse')],
-  });
-  expect(titles(el)).toEqual(['click']);
-  const row = rowOf(el, 'click');
-  expect(row.querySelector('.nest')?.textContent).toBe('+1');
-  row.querySelector<HTMLButtonElement>('button.twisty')!.click();
-  await el.updateComplete;
-  expect(titles(el)).toEqual(['click', 'performUpdate']);
+  detail()!.dispatchEvent(
+    new CustomEvent('span-jump', {detail: {}, bubbles: true, composed: true})
+  );
+  expect(selected).toEqual([clickKey]);
 });
 
 test("the detail pane's show link selects the parent row", async () => {

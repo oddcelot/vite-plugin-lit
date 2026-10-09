@@ -3,8 +3,9 @@ import {toSpans} from '../../lib/timeline/derive.js';
 import {applyFilter, NO_FILTER} from '../../lib/timeline/model.js';
 import {
   buildListRows,
-  tickAncestorKeys,
-  tickParentKey,
+  causeParentKey,
+  foldParentKey,
+  foldParentKeys,
 } from '../../lib/timeline/tick-rows.js';
 import type {TimelineCause, TimelineEvent} from '../../types/timeline.js';
 
@@ -161,20 +162,6 @@ describe('buildListRows', () => {
   });
 });
 
-describe('tickParentKey', () => {
-  test('names the performUpdate a nested span belongs to', () => {
-    const spans = toSpans(tick(1, 0));
-    const updated = spans.find((s) => s.name === 'updated')!;
-    expect(tickParentKey(updated, spans)).toBe(ROOT);
-    expect(
-      tickParentKey(
-        spans.find((s) => s.name === 'performUpdate')!,
-        spans
-      )
-    ).toBeUndefined();
-  });
-});
-
 /** A tick whose `performUpdate:start` carries the recorded cause. */
 const causedTick = (
   elementId: number,
@@ -189,147 +176,132 @@ const causedTick = (
 
 const PARENT = 'lit-lifecycle:1:1:performUpdate';
 const CHILD = 'lit-lifecycle:2:1:performUpdate';
-const GRAND = 'lit-lifecycle:3:1:performUpdate';
 
-describe('cause nesting', () => {
-  const chain = [
-    ...tick(1, 0),
-    ...causedTick(2, 1, 1, {kind: 'update', groupId: '1:1'}),
-    ...causedTick(3, 2, 1, {kind: 'update', groupId: '2:1'}),
-  ];
+describe('foldParentKey', () => {
+  test('names the performUpdate a folded span belongs to', () => {
+    const spans = toSpans(tick(1, 0));
+    const updated = spans.find((s) => s.name === 'updated')!;
+    expect(foldParentKey(updated, spans)).toBe(ROOT);
+    expect(
+      foldParentKey(
+        spans.find((s) => s.name === 'performUpdate')!,
+        spans
+      )
+    ).toBeUndefined();
+  });
 
-  test('a tick caused by another tick nests under it', () => {
-    const collapsed = rowsOf(chain);
-    expect(names(collapsed)).toEqual(['0:performUpdate']);
-    // Direct children only: its three phases and the child tick.
-    expect(collapsed[0]!.tick).toEqual({expanded: false, count: 4});
+  test('is undefined when the tick is not among the spans', () => {
+    const spans = toSpans(phase('updated', 0));
+    expect(foldParentKey(spans[0]!, spans)).toBeUndefined();
+  });
 
-    const rows = rowsOf(chain, [PARENT]);
-    expect(names(rows)).toEqual([
+  test('ignores a cause: a caused tick folds under nothing', () => {
+    const spans = toSpans([
+      ...tick(1, 0),
+      ...causedTick(2, 1, 1, {kind: 'update', groupId: '1:1'}),
+    ]);
+    const child = spans.find((s) => s.key === CHILD)!;
+    expect(foldParentKey(child, spans)).toBeUndefined();
+  });
+});
+
+describe('foldParentKeys', () => {
+  test('maps every folded span to its tick, once', () => {
+    const spans = toSpans([
+      ...tick(1, 0),
+      ...tick(2, 5),
+      point('mouse', 'x', 9),
+    ]);
+    const keys = foldParentKeys(spans);
+    expect(keys.size).toBe(6);
+    expect(keys.get('lit-lifecycle:1:1:updated')).toBe(ROOT);
+    expect(keys.get('lit-lifecycle:2:1:willUpdate')).toBe(CHILD);
+    expect(keys.has(ROOT)).toBe(false);
+  });
+});
+
+describe('causeParentKey', () => {
+  test('an update cause names the tick with that groupId', () => {
+    const spans = toSpans([
+      ...tick(1, 0),
+      ...causedTick(2, 1, 1, {kind: 'update', groupId: '1:1'}),
+    ]);
+    expect(
+      causeParentKey(
+        spans.find((s) => s.key === CHILD)!,
+        spans
+      )
+    ).toBe(PARENT);
+  });
+
+  test('an event cause names the point span at that layer and time', () => {
+    const spans = toSpans([
+      point('keyboard', 'keydown', 5),
+      point('mouse', 'click', 5),
+      ...causedTick(1, 6, 1, {kind: 'event', layerId: 'mouse', time: 5}),
+    ]);
+    const click = spans.find((s) => s.name === 'click')!;
+    expect(
+      causeParentKey(
+        spans.find((s) => s.key === PARENT)!,
+        spans
+      )
+    ).toBe(click.key);
+  });
+
+  test('is undefined when the target is not among the spans', () => {
+    const spans = toSpans([
+      ...causedTick(2, 1, 1, {kind: 'update', groupId: '1:1'}),
+      ...causedTick(3, 2, 1, {kind: 'event', layerId: 'mouse', time: 0}),
+      point('mouse', 'click', 7),
+    ]);
+    for (const span of spans.filter((s) => s.name === 'performUpdate')) {
+      expect(causeParentKey(span, spans)).toBeUndefined();
+    }
+  });
+
+  test('is undefined for a span that is not a tick', () => {
+    const spans = toSpans([
+      ...tick(1, 0),
+      point('mouse', 'click', 5, {cause: {kind: 'update', groupId: '1:1'}}),
+    ]);
+    const click = spans.find((s) => s.name === 'click')!;
+    expect(causeParentKey(click, spans)).toBeUndefined();
+    const updated = spans.find((s) => s.name === 'updated')!;
+    expect(causeParentKey(updated, spans)).toBeUndefined();
+  });
+
+  test('is undefined for a tick without a cause', () => {
+    const spans = toSpans(tick(1, 0));
+    expect(causeParentKey(spans[0]!, spans)).toBeUndefined();
+  });
+});
+
+describe('caused ticks in the list', () => {
+  test('a caused tick stays top-level, in time order, with its phases folded', () => {
+    const events = [
+      point('mouse', 'click', 0),
+      ...tick(1, 1),
+      ...causedTick(2, 2, 1, {kind: 'update', groupId: '1:1'}),
+      ...causedTick(3, 3, 1, {kind: 'event', layerId: 'mouse', time: 0}),
+    ];
+    const collapsed = rowsOf(events);
+    expect(names(collapsed)).toEqual([
+      '0:click',
+      '0:performUpdate',
+      '0:performUpdate',
+      '0:performUpdate',
+    ]);
+    expect(collapsed[0]!.tick).toBeUndefined();
+    expect(collapsed[2]!.tick).toEqual({expanded: false, count: 3});
+
+    const rows = rowsOf(events, [CHILD]);
+    expect(rows.map((r) => r.depth)).toEqual([0, 0, 0, 1, 1, 1, 0]);
+    expect(names(rows).slice(2, 6)).toEqual([
       '0:performUpdate',
       '1:willUpdate',
       '1:update',
       '1:updated',
-      '1:performUpdate',
     ]);
-    expect(rows[4]!.tick).toEqual({expanded: false, count: 4});
-  });
-
-  test('an expanded child lists its phases and grandchild at depth 2', () => {
-    const rows = rowsOf(chain, [PARENT, CHILD]);
-    expect(rows.map((r) => r.depth)).toEqual([0, 1, 1, 1, 1, 2, 2, 2, 2]);
-    expect(rows[4]!.tick?.expanded).toBe(true);
-    expect(rows[8]!.span.key).toBe(GRAND);
-  });
-
-  test('descendants are hidden unless every ancestor is expanded', () => {
-    expect(names(rowsOf(chain, [CHILD]))).toEqual(['0:performUpdate']);
-  });
-
-  test('a tick caused by an event nests under that event row', () => {
-    const events = [
-      point('mouse', 'click', 5, {meta: undefined}),
-      ...causedTick(1, 6, 1, {kind: 'event', layerId: 'mouse', time: 5}),
-    ];
-    const collapsed = rowsOf(events);
-    expect(names(collapsed)).toEqual(['0:click']);
-    expect(collapsed[0]!.tick).toEqual({expanded: false, count: 1});
-
-    const rows = rowsOf(events, ['mouse:point:0']);
-    expect(names(rows)).toEqual(['0:click', '1:performUpdate']);
-  });
-
-  test('an event cause needs the same layer and time', () => {
-    const events = [
-      point('keyboard', 'keydown', 5),
-      point('mouse', 'click', 7),
-      ...causedTick(1, 6, 1, {kind: 'event', layerId: 'mouse', time: 5}),
-    ];
-    expect(names(rowsOf(events))).toEqual([
-      '0:keydown',
-      '0:performUpdate',
-      '0:click',
-    ]);
-  });
-
-  test('a tick whose cause was evicted stays top-level', () => {
-    const events = [
-      ...causedTick(2, 1, 1, {kind: 'update', groupId: '1:1'}),
-      ...causedTick(3, 2, 1, {kind: 'event', layerId: 'mouse', time: 0}),
-    ];
-    expect(names(rowsOf(events))).toEqual([
-      '0:performUpdate',
-      '0:performUpdate',
-    ]);
-  });
-
-  test('a cause loop does not lose rows', () => {
-    const events = [
-      ...causedTick(1, 0, 1, {kind: 'update', groupId: '2:1'}),
-      ...causedTick(2, 1, 1, {kind: 'update', groupId: '1:1'}),
-      ...causedTick(3, 2, 1, {kind: 'update', groupId: '3:1'}),
-    ];
-    const keys = rowsOf(events, [PARENT, CHILD, GRAND])
-      .filter((r) => r.span.name === 'performUpdate')
-      .map((r) => r.span.key);
-    expect([...keys].sort()).toEqual([PARENT, CHILD, GRAND]);
-  });
-
-  test('a filter matching only a grandchild shows its ancestors', () => {
-    const spans = toSpans(chain);
-    const match = spans.filter(
-      (s) => s.name === 'updated' && s.meta?.elementId === 3
-    );
-    const rows = buildListRows(spans, match, new Set([PARENT, CHILD, GRAND]));
-    expect(names(rows)).toEqual([
-      '0:performUpdate',
-      '1:performUpdate',
-      '2:performUpdate',
-      '3:updated',
-    ]);
-    expect(rows[0]!.tick?.count).toBe(1);
-    expect(rows[1]!.tick?.count).toBe(1);
-  });
-
-  test('count is direct children; attention covers every shown descendant', () => {
-    const events = [
-      ...chain,
-      point('lit-lifecycle', 'dev warning', 2.5, {
-        groupId: '3:1',
-        logType: 'warning',
-      }),
-    ];
-    const [top] = rowsOf(events);
-    expect(top!.tick).toEqual({
-      expanded: false,
-      count: 4,
-      attention: 'warning',
-    });
-    const rows = rowsOf(events, [PARENT]);
-    expect(rows[4]!.tick).toEqual({
-      expanded: false,
-      count: 4,
-      attention: 'warning',
-    });
-  });
-});
-
-describe('tickAncestorKeys', () => {
-  test('lists parents nearest first, empty at top level', () => {
-    const spans = toSpans([
-      point('mouse', 'click', 0),
-      ...causedTick(1, 1, 1, {kind: 'event', layerId: 'mouse', time: 0}),
-      ...causedTick(2, 2, 1, {kind: 'update', groupId: '1:1'}),
-    ]);
-    const updated = spans.find(
-      (s) => s.name === 'updated' && s.meta?.elementId === 2
-    )!;
-    expect(tickAncestorKeys(updated, spans)).toEqual([
-      CHILD,
-      PARENT,
-      'mouse:point:0',
-    ]);
-    expect(tickAncestorKeys(spans[0]!, spans)).toEqual([]);
-    expect(tickParentKey(updated, spans)).toBe(CHILD);
   });
 });

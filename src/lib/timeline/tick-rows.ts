@@ -1,26 +1,21 @@
 /**
- * Groups the Timeline list's spans into a tree of update ticks, as pure
- * functions.
+ * Folds the Timeline list's spans into update ticks, as pure functions.
  *
  * One component update is four spans (`performUpdate`, `willUpdate`,
  * `update`, `updated`) plus whatever else happened inside it. Read flat, that
  * is four rows per tick and the reader loses the thread; this module turns the
  * filtered span list into the rows the list shows — one `performUpdate` row
- * per tick, with the rest nested under it while the tick is expanded.
+ * per tick, with the rest folded under it while the tick is expanded.
  *
- * What nests is decided by `groupId`: the lifecycle layer stamps every phase of
+ * What folds is decided by `groupId`: the lifecycle layer stamps every phase of
  * a tick with `${elementId}:${tick}`, and the lifecycle layer's point events
  * (`update skipped`, Lit warnings, late async errors) and the Custom events
  * layer's rows (when dispatched during the element's own update) carry the same
- * id.
+ * id. Folding is one level deep and never crosses ticks.
  *
- * Ticks nest further by recorded cause (`TimelineSpan.cause`): a tick that was
- * scheduled while another element was updating hangs under that element's
- * `performUpdate`, and a tick scheduled by an event handler hangs under that
- * event's row (a mouse, keyboard or custom-event point span), which then
- * becomes an expandable row of its own. A tick whose parent is not among the
- * candidates (evicted, or its layer is off) stays a top-level row, as does
- * everything else.
+ * Why a tick ran (`TimelineSpan.cause`) is not nested here: rows stay in time
+ * order and `cause-rails.ts` draws the chain as rails. {@link causeParentKey}
+ * only looks the cause's target up.
  *
  * Framework-free and memoisation-free on purpose: the list recomputes it when
  * its spans, filter or expanded set change, and the cost is linear.
@@ -31,7 +26,7 @@ import type {TimelineSpan} from './derive.js';
 /** The phase that brackets a tick and stands for it in the list. */
 const ROOT_PHASE = 'performUpdate';
 
-/** Layers whose rows nest under the tick their `groupId` names. */
+/** Layers whose rows fold under the tick their `groupId` names. */
 const NESTING_LAYERS: readonly string[] = ['lit-lifecycle', 'custom-events'];
 
 const SKIP_EVENT = 'update skipped';
@@ -39,17 +34,17 @@ const SKIP_EVENT = 'update skipped';
 /** What a collapsed tick row flags about the rows it hides. */
 export type TickAttention = 'error' | 'warning' | 'skipped';
 
-/** One row of the list: a span at a depth, with its subtree's state if it has one. */
+/** One row of the list: a span at a depth, with its fold's state if it has one. */
 export interface ListRow {
   span: TimelineSpan;
-  /** 0 for top-level rows, one more per level of nesting. */
+  /** 0 for top-level rows, 1 for a row folded under a tick. */
   depth: number;
-  /** Set on any row that has shown children: a tick or an event that caused one. */
+  /** Set on a tick row that has shown children. */
   tick?: {
     expanded: boolean;
-    /** Direct children that pass the filters (what expanding would show). */
+    /** Children that pass the filters (what expanding would show). */
     count: number;
-    /** The most severe thing among all shown descendants, or the row itself. */
+    /** The most severe thing among the shown children, or the tick itself. */
     attention?: TickAttention;
   };
 }
@@ -86,91 +81,70 @@ const worse = (
     ? b
     : a;
 
-/**
- * Each nested span's parent among `spans`, by the rules in the header: same
- * tick, then `update` cause, then `event` cause. A cause loop is cut where it
- * closes, so every span stays reachable from a top-level row.
- */
-const parentsOf = (
+/** The `performUpdate` span of each tick among `spans`, by pairing id. */
+const tickRoots = (
   spans: readonly TimelineSpan[]
-): Map<TimelineSpan, TimelineSpan> => {
+): Map<string, TimelineSpan> => {
   const roots = new Map<string, TimelineSpan>();
-  const points = new Map<string, TimelineSpan>();
   for (const span of spans) {
     if (isTickRoot(span)) roots.set(String(span.groupId), span);
-    else if (span.groupId === undefined) {
-      const id = `${span.layerId}\0${span.start}`;
-      if (!points.has(id)) points.set(id, span);
-    }
   }
-
-  const parents = new Map<TimelineSpan, TimelineSpan>();
-  for (const span of spans) {
-    let parent: TimelineSpan | undefined;
-    if (!isTickRoot(span)) {
-      const id = tickIdOf(span);
-      parent = id === undefined ? undefined : roots.get(id);
-    } else if (span.cause?.kind === 'update') {
-      parent = roots.get(span.cause.groupId);
-    } else if (span.cause?.kind === 'event') {
-      parent = points.get(`${span.cause.layerId}\0${span.cause.time}`);
-    }
-    if (parent !== undefined) parents.set(span, parent);
-  }
-
-  for (const span of spans) {
-    const seen = new Set([span]);
-    let current = span;
-    for (let up = parents.get(current); up !== undefined;) {
-      if (seen.has(up)) {
-        parents.delete(current);
-        break;
-      }
-      seen.add(up);
-      current = up;
-      up = parents.get(current);
-    }
-  }
-  return parents;
-};
-
-/** The keys of the spans `span` nests under, nearest parent first; empty at top level. */
-export const tickAncestorKeys = (
-  span: TimelineSpan,
-  spans: readonly TimelineSpan[]
-): string[] => {
-  const parents = parentsOf(spans);
-  const keys: string[] = [];
-  for (let up = parents.get(span); up !== undefined; up = parents.get(up)) {
-    keys.push(up.key);
-  }
-  return keys;
+  return roots;
 };
 
 /**
- * Every nested span's key mapped to its direct parent's key, computed once
- * for all of `spans`; what "expand all" opens.
+ * Every folded span's key mapped to the key of its tick, computed once for all
+ * of `spans`; what "expand all" opens.
  */
-export const tickParentKeys = (
+export const foldParentKeys = (
   spans: readonly TimelineSpan[]
 ): Map<string, string> => {
+  const roots = tickRoots(spans);
   const keys = new Map<string, string>();
-  for (const [child, parent] of parentsOf(spans))
-    keys.set(child.key, parent.key);
+  for (const span of spans) {
+    if (isTickRoot(span)) continue;
+    const id = tickIdOf(span);
+    const root = id === undefined ? undefined : roots.get(id);
+    if (root !== undefined) keys.set(span.key, root.key);
+  }
   return keys;
 };
 
-/** The key of the row `span` nests under directly, if it nests. */
-export const tickParentKey = (
+/** The key of the `performUpdate` row `span` folds under, if it folds. */
+export const foldParentKey = (
   span: TimelineSpan,
   spans: readonly TimelineSpan[]
-): string | undefined => tickAncestorKeys(span, spans)[0];
+): string | undefined => {
+  if (isTickRoot(span)) return undefined;
+  const id = tickIdOf(span);
+  if (id === undefined) return undefined;
+  return spans.find((s) => isTickRoot(s) && String(s.groupId) === id)?.key;
+};
 
-interface Node {
-  span: TimelineSpan;
-  kids: Node[];
-  attention?: TickAttention;
-}
+/**
+ * The key of the span that caused the tick `span`, if `span` is a tick with a
+ * recorded cause whose target is among `spans`: the tick root the `update`
+ * cause names, or the point span (no `groupId`) at the `event` cause's layer
+ * and time.
+ */
+export const causeParentKey = (
+  span: TimelineSpan,
+  spans: readonly TimelineSpan[]
+): string | undefined => {
+  const {cause} = span;
+  if (cause === undefined || !isTickRoot(span)) return undefined;
+  if (cause.kind === 'update') {
+    return spans.find(
+      (s) => isTickRoot(s) && String(s.groupId) === cause.groupId
+    )?.key;
+  }
+  return spans.find(
+    (s) =>
+      s.groupId === undefined &&
+      s.layerId === cause.layerId &&
+      s.start === cause.time
+  )?.key;
+};
 
 /**
  * Builds the list's rows.
@@ -178,13 +152,13 @@ interface Node {
  * `candidates` are the spans of the enabled layers, in start order; `matched`
  * is the subset the element, regex and range filters keep. Rules:
  *
- * - A row that matches is shown with all of its candidate descendants. A row
- *   that does not match is shown anyway when a descendant matches (so the
- *   match keeps its context), with just the matching descendants and their
- *   ancestors under it.
- * - A span whose parent is not among the candidates stays a top-level row.
- * - Children are listed only while every ancestor's key is in `expanded`.
- * - Any row with shown children carries `tick`; one without is a plain row.
+ * - A tick that matches is shown with all of its candidate children. A tick
+ *   that does not match is shown anyway when a child matches (so the match
+ *   keeps its context), with just the matching children under it.
+ * - A span whose tick is not among the candidates stays a top-level row, and a
+ *   tick is always top level, whatever caused it.
+ * - Children are listed only while their tick's key is in `expanded`.
+ * - A tick with shown children carries `tick`; one without is a plain row.
  */
 export const buildListRows = (
   candidates: readonly TimelineSpan[],
@@ -192,62 +166,45 @@ export const buildListRows = (
   expanded: ReadonlySet<string>
 ): ListRow[] => {
   const match = new Set(matched);
-  const parents = parentsOf(candidates);
+  const roots = tickRoots(candidates);
   const children = new Map<TimelineSpan, TimelineSpan[]>();
   const tops: TimelineSpan[] = [];
   for (const span of candidates) {
-    const parent = parents.get(span);
-    if (parent === undefined) {
+    const id = isTickRoot(span) ? undefined : tickIdOf(span);
+    const root = id === undefined ? undefined : roots.get(id);
+    if (root === undefined) {
       tops.push(span);
       continue;
     }
-    const list = children.get(parent);
-    if (list === undefined) children.set(parent, [span]);
+    const list = children.get(root);
+    if (list === undefined) children.set(root, [span]);
     else list.push(span);
   }
 
-  const hasMatch = new Map<TimelineSpan, boolean>();
-  const subtreeMatches = (span: TimelineSpan): boolean => {
-    let hit = hasMatch.get(span);
-    if (hit === undefined) {
-      hit = match.has(span) || (children.get(span) ?? []).some(subtreeMatches);
-      hasMatch.set(span, hit);
-    }
-    return hit;
-  };
-
-  /** `all`: an ancestor matched, so everything below it is shown. */
-  const build = (span: TimelineSpan, all: boolean): Node => {
-    const below = all || match.has(span);
-    const kids = (children.get(span) ?? [])
-      .filter((child) => below || subtreeMatches(child))
-      .map((child) => build(child, below));
-    let attention = attentionOf(span);
-    for (const kid of kids) attention = worse(attention, kid.attention);
-    return {span, kids, ...(attention === undefined ? {} : {attention})};
-  };
-
   const rows: ListRow[] = [];
-  const emit = (node: Node, depth: number): void => {
-    if (node.kids.length === 0) {
-      rows.push({span: node.span, depth});
-      return;
+  for (const span of tops) {
+    const all = match.has(span);
+    const kids = (children.get(span) ?? []).filter(
+      (child) => all || match.has(child)
+    );
+    if (!all && kids.length === 0) continue;
+    if (kids.length === 0) {
+      rows.push({span, depth: 0});
+      continue;
     }
-    const open = expanded.has(node.span.key);
+    let attention = attentionOf(span);
+    for (const kid of kids) attention = worse(attention, attentionOf(kid));
+    const open = expanded.has(span.key);
     rows.push({
-      span: node.span,
-      depth,
+      span,
+      depth: 0,
       tick: {
         expanded: open,
-        count: node.kids.length,
-        ...(node.attention === undefined ? {} : {attention: node.attention}),
+        count: kids.length,
+        ...(attention === undefined ? {} : {attention}),
       },
     });
-    if (open) for (const kid of node.kids) emit(kid, depth + 1);
-  };
-
-  for (const span of tops) {
-    if (subtreeMatches(span)) emit(build(span, false), 0);
+    if (open) for (const kid of kids) rows.push({span: kid, depth: 1});
   }
   return rows;
 };

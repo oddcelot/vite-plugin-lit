@@ -1,4 +1,4 @@
-import {LitElement, html, css, nothing} from 'lit';
+import {LitElement, html, svg, css, nothing} from 'lit';
 import {customElement, property, state} from 'lit/decorators.js';
 import {ref, createRef} from 'lit/directives/ref.js';
 import {virtualize, virtualizerRef} from '@lit-labs/virtualizer/virtualize.js';
@@ -14,11 +14,13 @@ import {applyFilter, NO_FILTER, rawRow} from '../lib/timeline/model.js';
 import type {TimelineFilter} from '../lib/timeline/model.js';
 import {
   buildListRows,
-  tickAncestorKeys,
-  tickParentKey,
-  tickParentKeys,
+  causeParentKey,
+  foldParentKey,
+  foldParentKeys,
 } from '../lib/timeline/tick-rows.js';
 import type {ListRow, TickAttention} from '../lib/timeline/tick-rows.js';
+import {buildRails} from '../lib/timeline/cause-rails.js';
+import type {RailRow} from '../lib/timeline/cause-rails.js';
 import './timeline-span-detail.js';
 
 /** How long {@link TimelineEventList.reveal} waits for the virtualizer. */
@@ -34,6 +36,21 @@ const renderDuration = (row: TimelineSpan): string => {
   // of the buffer. A point event never had one to wait for.
   return row.groupId === undefined ? '' : '…';
 };
+
+/** Width of one lane of the cause rail column, in px (and SVG units). */
+const LANE = 16;
+/** How many `--rail-N` colours the chains cycle through. */
+const RAIL_COLORS = 6;
+
+/** One row's rail, with the chain that owns each lane it draws in. */
+interface RailCell {
+  rail: RailRow;
+  /** Lane to chain, for the node's lane, its fork and every through line. */
+  chains: Record<number, number>;
+}
+
+const railColor = (chain: number | undefined): string =>
+  `var(--rail-${(chain ?? 0) % RAIL_COLORS})`;
 
 const FLAG_LABEL: Record<TickAttention, string> = {
   error: 'A nested row is an error',
@@ -62,6 +79,12 @@ const FLAG_MARK: Record<TickAttention, string> = {
  * list has rows to open; selecting a nested span, from anywhere, opens its
  * tick so the row can be shown.
  *
+ * Update ticks with a recorded cause stay in time order; a rail column on
+ * the left draws a line from each one to the row that caused it, across the
+ * rows in between, the way `git log --graph` draws branches
+ * (`buildRails` owns the layout). Hovering a row of a chain fades the
+ * others.
+ *
  * The spans and the selection belong to `timeline-view`, which shares both
  * with the Tracks presentation: this element reads `.spans` and
  * `.selectedKey` and reports clicks as a `span-select` event. It still reads
@@ -74,6 +97,15 @@ export class TimelineEventList extends LitElement {
     waSquare,
     css`
       :host {
+        /* One hue per cause chain; mid lightness so each reads on both the
+           light and the dark panel, and none of them is the layer blues and
+           purples or the grey of the selected row. */
+        --rail-0: hsl(174 72% 40%);
+        --rail-1: hsl(24 88% 54%);
+        --rail-2: hsl(330 72% 58%);
+        --rail-3: hsl(203 82% 50%);
+        --rail-4: hsl(96 52% 44%);
+        --rail-5: hsl(46 92% 45%);
         display: flex;
         flex-direction: column;
         flex: 1;
@@ -116,10 +148,15 @@ export class TimelineEventList extends LitElement {
         /* The virtualizer positions rows absolutely; stretch them back. */
         box-sizing: border-box;
         width: 100%;
+        position: relative;
         display: flex;
         align-items: baseline;
         gap: var(--lit-devtools-space-4);
         padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
+        /* Room for the rail column, the same on every row. */
+        padding-left: calc(
+          var(--lit-devtools-space-5) + var(--lane-count, 0) * 16px
+        );
         font-size: var(--lit-devtools-text-2xs);
         font-family: var(--lit-devtools-font-mono);
         border-bottom: 1px solid var(--lit-devtools-border);
@@ -137,7 +174,7 @@ export class TimelineEventList extends LitElement {
         width: 56px;
         text-align: right;
       }
-      .dot {
+      .row > .dot {
         width: 8px;
         height: 8px;
         border-radius: 0;
@@ -167,13 +204,45 @@ export class TimelineEventList extends LitElement {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      /* One twisty width (plus the row gap) per level: every row carries a
-         twisty or a placeholder, so titles at one depth line up. */
+      /* One twisty width plus the row gap: every row carries a twisty or a
+         placeholder, so nested titles line up. */
       .row.nested {
         padding-left: calc(
-          var(--lit-devtools-space-5) + (14px + var(--lit-devtools-space-4)) *
-            var(--depth, 1)
+          var(--lit-devtools-space-5) + var(--lane-count, 0) * 16px + 14px +
+            var(--lit-devtools-space-4)
         );
+      }
+      /* Spans the row's full height (and its bottom border) so the lines of
+         neighbouring rows meet. */
+      .rail {
+        position: absolute;
+        top: 0;
+        bottom: -1px;
+        left: var(--lit-devtools-space-5);
+        width: calc(var(--lane-count) * 16px);
+        pointer-events: none;
+      }
+      .rail svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        fill: none;
+      }
+      .rail .dot {
+        position: absolute;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        margin: 0;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        /* A ring in the list's background keeps a line behind it legible. */
+        box-shadow: 0 0 0 2px var(--lit-devtools-bg);
+      }
+      .rail .off {
+        opacity: 0.35;
       }
       .twisty {
         flex-shrink: 0;
@@ -254,6 +323,8 @@ export class TimelineEventList extends LitElement {
   /** Keys of the ticks whose nested rows are listed. Replaced, never mutated,
    *  so Lit and the row memo see it change. */
   @state() private _expanded: ReadonlySet<string> = new Set();
+  /** The cause chain of the hovered row, whose rails stay at full strength. */
+  @state() private _hoverChain: number | null = null;
 
   private readonly _scrollRef = createRef<HTMLDivElement>();
   /** Rows for the current mode, recomputed only when the events,
@@ -269,6 +340,10 @@ export class TimelineEventList extends LitElement {
   private _visibleCache: ListRow[] = [];
   /** `_rowsCache` after the layer toggles only. */
   private _layered: TimelineSpan[] = [];
+  /** The rail of each of `_visibleCache`'s rows; empty in Raw mode. */
+  private _railsCache = new Map<ListRow, RailCell>();
+  /** Lanes the rail column is wide, on every row; 0 hides it. */
+  private _laneCount = 0;
   /** The expanded set `_visibleCache` was built with. */
   private _rowsExpanded: ReadonlySet<string> = this._expanded;
 
@@ -285,9 +360,9 @@ export class TimelineEventList extends LitElement {
     let expanded = this._expanded;
     if (changed.has('selectedKey') && !this._raw && this.selectedKey !== null) {
       const span = this._rowsCache.find((row) => row.key === this.selectedKey);
-      const ancestors = span ? tickAncestorKeys(span, this._rowsCache) : [];
-      if (ancestors.some((key) => !expanded.has(key))) {
-        expanded = new Set([...expanded, ...ancestors]);
+      const parent = span ? foldParentKey(span, this._rowsCache) : undefined;
+      if (parent !== undefined && !expanded.has(parent)) {
+        expanded = new Set([...expanded, parent]);
         this._expanded = expanded;
       }
     }
@@ -309,7 +384,40 @@ export class TimelineEventList extends LitElement {
       this._visibleCache = this._raw
         ? this._matchedCache.map((span) => ({span, depth: 0}))
         : buildListRows(this._layered, this._matchedCache, expanded);
+      this._buildRails();
     }
+  }
+
+  /**
+   * Lays out `_visibleCache`'s rail column. `buildRails` does not say which
+   * chain a through line belongs to, so the owner of each lane is carried
+   * down the rows here: a node claims its lane for its chain.
+   */
+  private _buildRails() {
+    this._railsCache = new Map();
+    this._laneCount = 0;
+    if (this._raw) return;
+    const rails = buildRails(this._visibleCache);
+    const laneChain: number[] = [];
+    let lanes = 0;
+    rails.forEach((rail, i) => {
+      const chains: Record<number, number> = {};
+      for (const lane of rail.through) {
+        chains[lane] = laneChain[lane] ?? 0;
+        lanes = Math.max(lanes, lane + 1);
+      }
+      if (rail.lane !== undefined && rail.chain !== undefined) {
+        chains[rail.lane] = rail.chain;
+        laneChain[rail.lane] = rail.chain;
+        lanes = Math.max(lanes, rail.lane + 1);
+        if (rail.fork !== undefined) {
+          chains[rail.fork] = rail.chain;
+          lanes = Math.max(lanes, rail.fork + 1);
+        }
+      }
+      this._railsCache.set(this._visibleCache[i]!, {rail, chains});
+    });
+    this._laneCount = lanes;
   }
 
   override updated(changed: Map<string, unknown>) {
@@ -373,7 +481,7 @@ export class TimelineEventList extends LitElement {
     attempt();
   }
 
-  /** Opens or closes one tick. Closing the tick of the selected child moves
+  /** Opens or closes one tick. Closing the tick of the selected phase moves
    *  the selection to the tick, which is the row left to show it. */
   private _toggle(row: ListRow, open: boolean) {
     const key = row.span.key;
@@ -384,7 +492,7 @@ export class TimelineEventList extends LitElement {
     this._expanded = next;
     if (!open && this.selectedKey !== null && this.selectedKey !== key) {
       const selected = this._rowsCache.find((s) => s.key === this.selectedKey);
-      if (selected && tickAncestorKeys(selected, this._layered).includes(key)) {
+      if (selected && foldParentKey(selected, this._layered) === key) {
         this._select(key);
       }
     }
@@ -397,14 +505,12 @@ export class TimelineEventList extends LitElement {
       this._expanded = new Set();
       return;
     }
-    // Rows under a closed parent are not visible yet, so open every span
-    // that some span nests under.
-    this._expanded = new Set(tickParentKeys(this._layered).values());
+    this._expanded = new Set(foldParentKeys(this._layered).values());
   }
 
-  /** Selects the row `span` nests under; nothing if it is not in the buffer. */
-  private _jumpToParent(span: TimelineSpan) {
-    const parent = tickParentKey(span, this._layered);
+  /** Selects the row that caused `span`; nothing if it is not in the buffer. */
+  private _jumpToCause(span: TimelineSpan) {
+    const parent = causeParentKey(span, this._layered);
     if (parent !== undefined) this._select(parent);
   }
 
@@ -475,7 +581,18 @@ export class TimelineEventList extends LitElement {
               </div>
             `
           : html`
-              <div class="scroll" ${ref(this._scrollRef)}>
+              <div
+                class="scroll"
+                style=${
+                  this._laneCount > 0
+                    ? `--lane-count: ${this._laneCount}`
+                    : nothing
+                }
+                ${ref(this._scrollRef)}
+                @mouseleave=${() => {
+                  this._hoverChain = null;
+                }}
+              >
                 ${virtualize({
                   scroller: true,
                   items: visible,
@@ -493,11 +610,72 @@ export class TimelineEventList extends LitElement {
           ? html`<timeline-span-detail
               filterable
               .span=${selected}
-              @span-jump=${() => this._jumpToParent(selected)}
+              @span-jump=${() => this._jumpToCause(selected)}
             ></timeline-span-detail>`
           : nothing
       }
     `;
+  }
+
+  /**
+   * The row's slice of the rail column: straight lines for the lanes passing
+   * through, the node's own lane above and below its dot, and a curve from
+   * the parent's lane when the node forked. The SVG stretches to the row's
+   * height; the dot is HTML so it stays round.
+   */
+  private _renderRail(item: ListRow) {
+    const cell = this._railsCache.get(item);
+    if (this._laneCount === 0 || cell === undefined) return nothing;
+    const {rail, chains} = cell;
+    const hover = this._hoverChain;
+    const off = (chain: number | undefined) =>
+      hover !== null && chain !== hover ? 'off' : '';
+    const line = (lane: number, y1: number, y2: number) => {
+      const x = lane * LANE + LANE / 2;
+      return svg`<line
+        class=${off(chains[lane])}
+        x1=${x} y1=${y1} x2=${x} y2=${y2}
+        style=${`stroke: ${railColor(chains[lane])}`}
+        stroke-width="1.5"
+        vector-effect="non-scaling-stroke"
+      />`;
+    };
+    const {lane, fork, chain} = rail;
+    const x = lane === undefined ? 0 : lane * LANE + LANE / 2;
+    const fx = fork === undefined ? 0 : fork * LANE + LANE / 2;
+    const dim = hover !== null && chain !== hover;
+    return html`<span class="rail ${dim ? 'dim' : ''}" aria-hidden="true"
+      ><svg
+        viewBox="0 0 ${this._laneCount * LANE} ${LANE}"
+        preserveAspectRatio="none"
+      >
+        ${rail.through.map((l) => line(l, 0, LANE))}
+        ${lane !== undefined && rail.above ? line(lane, 0, LANE / 2) : nothing}
+        ${
+          lane !== undefined && rail.below
+            ? line(lane, LANE / 2, LANE)
+            : nothing
+        }
+        ${
+          lane !== undefined && fork !== undefined
+            ? svg`<path
+                class=${off(chain)}
+                d="M ${fx} 0 C ${fx} ${LANE / 2}, ${x} 0, ${x} ${LANE / 2}"
+                style=${`stroke: ${railColor(chain)}`}
+                stroke-width="1.5"
+                vector-effect="non-scaling-stroke"
+              />`
+            : nothing
+        }</svg
+      >${
+        lane !== undefined
+          ? html`<i
+              class="dot ${off(chain)}"
+              style=${`left: calc(${lane * LANE}px + ${LANE / 2}px); background: ${railColor(chain)}`}
+            ></i>`
+          : nothing
+      }</span
+    >`;
   }
 
   /** One row of the virtualized list (`virtualize`'s `renderItem`). */
@@ -508,9 +686,17 @@ export class TimelineEventList extends LitElement {
         class="row ${this.selectedKey === row.key ? 'selected' : ''} ${
           item.depth > 0 ? 'nested' : ''
         }"
-        style=${item.depth > 0 ? `--depth: ${item.depth}` : nothing}
         @click=${() => this._select(row.key)}
+        @mouseenter=${
+          this._laneCount > 0
+            ? () => {
+                this._hoverChain =
+                  this._railsCache.get(item)?.rail.chain ?? null;
+              }
+            : nothing
+        }
       >
+        ${this._renderRail(item)}
         ${
           tick
             ? html`<button
