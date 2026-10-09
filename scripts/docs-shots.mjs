@@ -125,10 +125,93 @@ const exercise = async (app) => {
 };
 
 /**
+ * Route clicks woven between counter and list clicks, for the shots that show
+ * the Router layer beside Lit's rows.
+ *
+ * The playground stamps `navigate` with raw `performance.now()`, while Lit's
+ * own events use the recording clock, so a navigate lands later than the
+ * update it caused by however long the page had been open when recording
+ * started (see `recordSession`'s `reload`). Interleaving the clicks puts Lit
+ * updates on both sides of every navigate whatever that offset comes to.
+ */
+const exerciseRoutes = async (app) => {
+  const counter = app.locator('hmr-counter').locator('css=#increment');
+  const add = app.locator('hmr-properties').locator('css=#add-item');
+  const routes = app.locator('hmr-custom-layer').locator('css=nav button');
+  for (let lap = 0; lap < 6; lap++) {
+    await routes.nth((lap + 1) % 3).click();
+    await counter.click();
+    await sleep(40);
+    await add.click();
+    await sleep(40);
+  }
+};
+
+/**
+ * One route click and one counter update at the same recording time, so a
+ * zoom that makes the update readable still has a Router tick in it.
+ *
+ * The playground stamps `navigate` with raw `performance.now()`, while Lit's
+ * events use the recording clock, which starts at whatever the page's clock
+ * read when recording began. Measure that offset from one click, read back
+ * from the live list, then click the counter that long after a route.
+ */
+const routeBesideUpdate = async (app, panel) => {
+  const latestCounterUpdate = () =>
+    eventList(panel).evaluate(
+      (list) =>
+        list.events
+          .filter(
+            (e) =>
+              e.title === 'performUpdate:start' &&
+              e.meta?.tagName === 'hmr-counter'
+          )
+          .at(-1)?.time ?? null
+    );
+  const before = await latestCounterUpdate();
+  const clicked = await app.evaluate(() => {
+    const t = performance.now();
+    document
+      .querySelector('hmr-counter')
+      .shadowRoot.querySelector('#increment')
+      .click();
+    return t;
+  });
+  let at = null;
+  for (let i = 0; i < 40 && (at === null || at === before); i++) {
+    await sleep(100);
+    at = await latestCounterUpdate();
+  }
+  if (at === null || at === before) {
+    throw new Error('counter update never reached the panel');
+  }
+  const offset = clicked - at;
+  await app.evaluate(async (offset) => {
+    const button = (sel) =>
+      document.querySelector(sel.host).shadowRoot.querySelector(sel.button);
+    button({
+      host: 'hmr-custom-layer',
+      button: 'nav button:nth-child(2)',
+    }).click();
+    await new Promise((r) => setTimeout(r, offset));
+    button({host: 'hmr-counter', button: '#increment'}).click();
+  }, offset);
+};
+
+/**
  * Open the app, open the panel on the Timeline tab, record a short session,
  * and stop. Returns both pages with the panel in front.
+ *
+ * `reload` reloads the app once recording is on, so the page boots straight
+ * into a recording and its clock zero sits close to its own time origin;
+ * that keeps raw-`performance.now()` custom events near the Lit rows they
+ * belong with. `throttle` slows the app's CPU so sub-ms spans get wide enough
+ * to read in Tracks.
  */
-const recordSession = async (ctx) => {
+const recordSession = async (
+  ctx,
+  {run = exercise, reload = false, throttle = 1} = {}
+) => {
   const app = await ctx.openApp();
   const panel = await ctx.openPanel('#tab=timeline');
   const record = timelineView(panel).locator('css=wa-button.record');
@@ -136,13 +219,48 @@ const recordSession = async (ctx) => {
   await record.click();
   await record.and(panel.locator('css=.active')).waitFor();
   await app.bringToFront();
-  await exercise(app);
+  if (reload) {
+    await app.reload();
+    await app.waitForFunction(() => window.__hmr !== undefined);
+    await sleep(600);
+  }
+  const cdp = throttle > 1 ? await ctx.context.newCDPSession(app) : null;
+  await cdp?.send('Emulation.setCPUThrottlingRate', {rate: throttle});
+  await run(app, panel);
+  await cdp?.send('Emulation.setCPUThrottlingRate', {rate: 1});
   await sleep(500);
   await panel.bringToFront();
   await record.click();
   await eventList(panel).locator('css=.row').first().waitFor();
   await sleep(300);
   return {app, panel};
+};
+
+/**
+ * Scroll the Timeline list. `'top'` / `'bottom'`, or a function run in the
+ * page that gets the scroller and returns the scrollTop to use. The list
+ * pins itself to its newest row whenever events arrive, so this runs after
+ * recording stops.
+ */
+const scrollList = async (page, where) => {
+  await eventList(page).evaluate((list, where) => {
+    const el = [...list.shadowRoot.querySelectorAll('.scroll')].at(-1);
+    if (!el) return;
+    el.scrollTop =
+      where === 'top' ? 0 : where === 'bottom' ? el.scrollHeight : where;
+  }, where);
+  await sleep(300);
+};
+
+/** Drop focus and park the pointer, so no clicked control carries a focus
+ *  ring or a hover state into the shot. */
+const blur = async (page) => {
+  await page.evaluate(() => {
+    let el = document.activeElement;
+    while (el?.shadowRoot?.activeElement) el = el.shadowRoot.activeElement;
+    el?.blur?.();
+  });
+  await page.mouse.move(0, 0);
 };
 
 /* ------------------------------------------------- Chrome Performance */
@@ -463,6 +581,8 @@ const SHOTS = [
         await counter.click();
         await sleep(60);
       }
+      // The clicked button keeps a focus ring otherwise.
+      await blur(page);
       await page.evaluate(async () => {
         const els = [...document.querySelectorAll('*')].filter((el) =>
           el.localName.startsWith('hmr-')
@@ -479,6 +599,10 @@ const SHOTS = [
     name: 'devtools-timeline-collapsed',
     capture: async (ctx) => {
       const {panel} = await recordSession(ctx);
+      // The list follows the newest row; the counter's updates, with their
+      // changed `count`, are the first thing the recording did.
+      await scrollList(panel, 'top');
+      await blur(panel);
       await ctx.shot(panel);
     },
   },
@@ -488,6 +612,9 @@ const SHOTS = [
       const {panel} = await recordSession(ctx);
       await eventList(panel).locator('css=.filterbar wa-switch').click();
       await sleep(400);
+      await blur(panel);
+      // The Router's navigate events are the tail of the recording.
+      await scrollList(panel, 'bottom');
       await ctx.shot(panel);
     },
   },
@@ -495,56 +622,108 @@ const SHOTS = [
     name: 'devtools-timeline-row-details',
     capture: async (ctx) => {
       const {panel} = await recordSession(ctx);
-      const rows = eventList(panel).locator('css=.row');
-      const update = rows.filter({hasText: 'update'});
-      await (
-        (await update.count()) > 0 ? update.first() : rows.first()
-      ).click();
-      // The detail pane scrolls at its default height; its later facts can
-      // start below the fold.
-      const site = eventList(panel)
-        .locator('css=timeline-span-detail')
-        .locator('css=.call-site');
-      if ((await site.count()) > 0) await site.scrollIntoViewIfNeeded();
+      await scrollList(panel, 'top');
+      // The second counter update, so the row above it gives it context.
+      const update = eventList(panel)
+        .locator('css=.row', {hasText: 'performUpdate'})
+        .filter({hasText: 'hmr-counter'})
+        .nth(1);
+      await update.locator('css=.twisty').click();
+      await sleep(200);
+      // Its `update` phase, the one that carries the changed keys.
+      await eventList(panel)
+        .locator('css=.row.nested', {hasText: 'update'})
+        .filter({hasNotText: 'willUpdate'})
+        .filter({hasNotText: 'updated'})
+        .first()
+        .click();
       await sleep(400);
+      await scrollList(panel, 'top');
+      // Shorten the window until the list ends on a row boundary, so no row
+      // is cut in half at the detail pane's edge.
+      for (let i = 0; i < 4; i++) {
+        const cut = await eventList(panel).evaluate((list) => {
+          const el = [...list.shadowRoot.querySelectorAll('.scroll')].at(-1);
+          const rows = [...(el?.querySelectorAll('.row') ?? [])]
+            .map((r) => r.getBoundingClientRect().top)
+            .sort((a, b) => a - b);
+          if (!el || rows.length < 2) return 0;
+          const pitch = rows[1] - rows[0];
+          return el.clientHeight % pitch;
+        });
+        if (cut < 1) break;
+        const vp = panel.viewportSize();
+        await panel.setViewportSize({
+          width: vp.width,
+          height: vp.height - Math.ceil(cut),
+        });
+        await sleep(300);
+      }
+      await blur(panel);
+      await panel.mouse.move(0, 0);
+      await sleep(300);
       await ctx.shot(panel);
     },
   },
   {
     name: 'devtools-timeline-tracks',
     capture: async (ctx) => {
-      const {panel} = await recordSession(ctx);
+      const {panel} = await recordSession(ctx, {
+        run: async (app, panel) => {
+          await exercise(app);
+          await routeBesideUpdate(app, panel);
+          // Something after it, or the pan clamps that pair to the end of
+          // the recording and the window cannot centre on it.
+          await sleep(200);
+          await app.locator('hmr-properties').locator('css=#add-item').click();
+        },
+        // A slower CPU, so the update is wide enough for its label.
+        throttle: 4,
+      });
       await timelineView(panel)
-        .locator('css=segmented-tabs wa-tab', {hasText: 'Tracks'})
+        .locator('css=.modes [role="radio"][data-mode="tracks"]')
         .click();
       const tracks = timelineView(panel).locator('css=timeline-tracks');
-      // Zoom in on the start of the recording, anchored at the left edge,
-      // so the first update ticks show their nesting under performUpdate
-      // rather than one tick-wide column.
-      const mark = tracks.locator('css=.mark').first();
-      await mark.waitFor();
-      const box = await mark.boundingBox();
-      if (box) {
-        await panel.mouse.move(box.x, box.y + box.height / 2);
-        for (let i = 0; i < 6; i++) {
-          await panel.mouse.wheel(0, -400);
-          await sleep(30);
+      await tracks.locator('css=.mark').first().waitFor();
+      // Zoom to the tightest window holding a navigate and a whole counter
+      // update, through the element's own view setter: wheel zoom anchors
+      // on the pointer and cannot aim at a span it has not drawn yet.
+      const key = await tracks.evaluate((el) => {
+        const navs = el.spans.filter((s) => s.layerId === 'app-router');
+        const updates = el.spans.filter(
+          (s) =>
+            s.name === 'performUpdate' &&
+            s.end !== undefined &&
+            s.meta?.tagName === 'hmr-counter'
+        );
+        let best = null;
+        for (const u of updates) {
+          for (const n of navs) {
+            const a = Math.min(u.start, n.start);
+            const b = Math.max(u.end, n.start);
+            if (!best || b - a < best.b - best.a) best = {a, b, u};
+          }
         }
-      }
-      // Not `.click()`: the zoom is anchored on this mark, so it ends up on
-      // the plot's left edge, clipped at -1px beside the gutter's border.
-      // Depending on sub-pixel rounding the hit test at its centre lands on
-      // the gutter, and the click retries until it times out. The shot only
-      // needs the mark selected.
-      await tracks.locator('css=.mark').first().dispatchEvent('click');
+        if (!best) return null;
+        const span = best.b - best.a;
+        const width = span * 1.25 + 0.3;
+        const start = best.a - (width - span) / 2;
+        // The tracks element's own view state (private members): no input
+        // gesture lands this precisely. A rename makes the shot fail loudly.
+        const {origin, extent} = el._bounds;
+        el._setView(extent / width, start - origin);
+        return best.u.key;
+      });
+      if (key === null) throw new Error('no counter update beside a navigate');
+      await sleep(300);
+      await tracks.evaluate((el, key) => el._select(key), key);
       // Park the pointer off the plot, or its "wheel to zoom" hint tooltip
       // sits over the axis.
       await panel.mouse.move(0, 0);
-      const site = timelineView(panel)
-        .locator('css=timeline-span-detail')
-        .locator('css=.call-site')
-        .filter({visible: true});
-      if ((await site.count()) > 0) await site.first().scrollIntoViewIfNeeded();
+      await blur(panel);
+      // Four lanes and the detail pane; the default height leaves a band of
+      // empty plot between them.
+      await panel.setViewportSize({width: PANEL_VIEWPORT.width, height: 560});
       await sleep(600);
       await ctx.shot(panel);
     },
@@ -552,13 +731,14 @@ const SHOTS = [
   {
     name: 'devtools-custom-layer',
     capture: async (ctx) => {
-      const {panel} = await recordSession(ctx);
-      // The Router layer's events are the only ones titled `navigate …`, and
-      // custom layers have no toggle chip — the regex box is the filter.
-      await timelineView(panel)
-        .locator('css=wa-input.regex input')
-        .fill('navigate');
-      await sleep(400);
+      // Unfiltered, so the Router's navigate rows sit among Lit's own rows;
+      // see `exerciseRoutes` for why that takes a reload and woven clicks.
+      const {panel} = await recordSession(ctx, {
+        run: exerciseRoutes,
+        reload: true,
+      });
+      await blur(panel);
+      await scrollList(panel, 'bottom');
       await ctx.shot(panel);
     },
   },
@@ -592,9 +772,31 @@ const SHOTS = [
     capture: async (ctx) => {
       await ctx.openApp();
       const panel = await ctx.openPanel('#tab=settings');
-      await panelRoot(panel).locator('css=devtools-settings').waitFor();
+      const settings = panelRoot(panel).locator('css=devtools-settings');
+      await settings.waitFor();
       await sleep(700);
+      // One override, so the note gets its Reset to env button. Switched
+      // on, not toggled: overrides live in the dev server's session, so the
+      // light run's is still there when the dark one starts.
+      const flash = settings
+        .locator('css=tr', {hasText: 'flash updates'})
+        .locator('css=wa-switch');
+      if (!(await flash.evaluate((el) => el.checked))) await flash.click();
+      await sleep(400);
+      await blur(panel);
+      // Tall enough for the Timeline section at the bottom.
+      const height = await settings.evaluate((el) =>
+        Math.ceil(el.getBoundingClientRect().top + el.scrollHeight)
+      );
+      await panel.setViewportSize({
+        width: PANEL_VIEWPORT.width,
+        height: Math.max(PANEL_VIEWPORT.height, height + 16),
+      });
+      await sleep(500);
       await ctx.shot(panel);
+      // Drop it again, so the shots after this one start from the defaults.
+      await settings.locator('css=wa-button.reset').click();
+      await sleep(300);
     },
   },
   {
