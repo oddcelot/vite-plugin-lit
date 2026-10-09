@@ -3,6 +3,7 @@ import {afterEach, describe, expect, test} from 'vite-plus/test';
 import {
   buildTree,
   collectDetails,
+  isForeignElement,
   isInspectable,
   isUndefinedElement,
 } from '../../lib/runtime/inspector/collect.js';
@@ -194,6 +195,78 @@ describe('undefined elements', () => {
       properties: [],
     });
     expect(d.source).toBeUndefined();
+  });
+});
+
+/** Defines a custom element with no Lit look-alike API; returns its tag. */
+const defineForeign = (shadow = false): string => {
+  const tag = uniqueTag('plain-el');
+  customElements.define(
+    tag,
+    class extends HTMLElement {
+      constructor() {
+        super();
+        if (shadow) this.attachShadow({mode: 'open'});
+      }
+    }
+  );
+  return tag;
+};
+
+describe('custom elements other libraries define', () => {
+  test('flags a defined non-Lit element, not Lit, undefined or plain ones', () => {
+    expect(isForeignElement(document.createElement(defineForeign()))).toBe(
+      true
+    );
+    expect(isForeignElement(document.createElement(define()))).toBe(false);
+    expect(isForeignElement(document.createElement('never-defined'))).toBe(
+      false
+    );
+    expect(isForeignElement(document.createElement('div'))).toBe(false);
+  });
+
+  test("leaves out the DevTools hub's dock", () => {
+    customElements.define('devframes-dock-test', class extends HTMLElement {});
+    expect(
+      isForeignElement(document.createElement('devframes-dock-test'))
+    ).toBe(false);
+  });
+
+  test('keeps it in place, with the components in its shadow and light DOM', () => {
+    const outer = document.createElement(defineForeign(true));
+    const inShadow = define();
+    const inLight = define();
+    outer.shadowRoot!.append(document.createElement(inShadow));
+    outer.append(document.createElement(inLight));
+    outer.setAttribute('data-lit-source', 'src/app.ts:3:1');
+    document.body.append(outer);
+
+    const [node] = buildTree();
+    expect(node).toMatchObject({
+      tagName: outer.localName,
+      notLit: true,
+      callSite: {file: 'src/app.ts', line: 3, column: 1},
+    });
+    expect(node!.notDefined).toBeUndefined();
+    expect(node!.children.map((c) => c.tagName)).toEqual([inShadow, inLight]);
+  });
+
+  test('a Lit node is not flagged', () => {
+    document.body.append(document.createElement(define()));
+    expect(buildTree()[0]!.notLit).toBeUndefined();
+  });
+
+  test('details of one say so, with attributes but no properties', () => {
+    const el = document.createElement(defineForeign());
+    el.setAttribute('variant', 'brand');
+    document.body.append(el);
+    const d = collectDetails(el);
+    expect(d).toMatchObject({
+      notLit: true,
+      attributes: [{name: 'variant', value: 'brand'}],
+      properties: [],
+    });
+    expect(d.notDefined).toBeUndefined();
   });
 });
 

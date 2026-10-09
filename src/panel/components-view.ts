@@ -146,6 +146,13 @@ const warnedChip = (
   >`;
 };
 
+/** Marks a custom element another library defined, in the tree and the pane. */
+const notLitChip = html`<span
+  class="status not-lit"
+  data-tip="A custom element, but not a Lit component"
+  >not Lit</span
+>`;
+
 /** Ids of every node in the tree with this tag, in tree order. */
 const idsWithTag = (
   roots: readonly InspectorTreeNode[],
@@ -502,7 +509,11 @@ export class ComponentsView extends LitElement {
       .status.undefined {
         color: var(--lit-devtools-warning);
       }
+      .status.not-lit {
+        color: var(--lit-devtools-text-muted);
+      }
       .row .status.undefined,
+      .row .status.not-lit,
       .row .status.warned {
         margin-left: var(--lit-devtools-space-3);
       }
@@ -1378,6 +1389,7 @@ export class ComponentsView extends LitElement {
               >`
             : nothing
         }
+        ${node.notLit === true ? notLitChip : nothing}
         ${warnedChip(node.warnings)}
       </div>
       ${
@@ -2045,8 +2057,9 @@ export class ComponentsView extends LitElement {
               >`
             : nothing
         }
+        ${d.notLit === true ? notLitChip : nothing}
         ${
-          d.flags.hasUpdated || d.notDefined === true
+          d.flags.hasUpdated || d.notDefined === true || d.notLit === true
             ? nothing
             : html`<span
                 class="status"
@@ -2125,6 +2138,15 @@ export class ComponentsView extends LitElement {
               <code>customElements.define('${d.tagName}')</code>, so the browser
               treats this as an unknown element. Check that the component's
               module is imported and the tag is spelled the same in both places.
+            </p>`
+          : nothing
+      }
+      ${
+        d.notLit === true
+          ? html`<p class="not-defined-note">
+              Defined, but not as a Lit component, so there are no reactive
+              properties or updates to show. Attributes and slots are read from
+              the page.
             </p>`
           : nothing
       }

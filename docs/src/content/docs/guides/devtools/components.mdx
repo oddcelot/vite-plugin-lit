@@ -48,6 +48,12 @@ usual causes, and the **rendered** line when the template position is known;
 it has no properties because it has no class. Once the tag is defined the
 chip goes away on its own, as long as the tree is [live](#follow-changes-live).
 
+A custom element another library defined, a vanilla web component or one built
+with Stencil or FAST, also stays in place, with a muted `not Lit` chip, so the
+tree shows what really wraps your components. Selecting it shows its
+attributes and slots and a short note; it has no properties or updates because
+Lit doesn't render it. Plain HTML elements are still left out.
+
 A component Lit's development build has warned about carries an amber
 `n warnings` chip on its row, and the **Components** tab shows an amber count
 of the components Lit warned about, next to the red HMR issues count. Every

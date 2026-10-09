@@ -1,7 +1,8 @@
 /**
  * A tag used on the page that nothing defines must show in the tree flagged
  * `notDefined`, in its real position, and stop being flagged when it is
- * defined later. Defining a tag mutates no DOM, so only the runtime's
+ * defined later; a custom element another library defines shows flagged
+ * `notLit`. Defining a tag mutates no DOM, so only the runtime's
  * `customElements.whenDefined` wait can refresh a live tree; that and the
  * browser's own `:not(:defined)` are why this runs against a real page.
  */
@@ -87,4 +88,50 @@ test('lists an undefined tag, then drops the flag once it is defined', async () 
   await expect
     .poll(() => find(roots, tag), {timeout: 5_000})
     .not.toHaveProperty('notDefined');
+});
+
+test('lists a non-Lit custom element in place, including one defined late', async () => {
+  const outer = 'e2e-plain-outer';
+  const late = 'e2e-plain-late';
+  // A vanilla element wrapping a Lit one, and a tag defined only afterwards.
+  await fixture.page.evaluate(`(() => {
+    customElements.define('${outer}', class extends HTMLElement {
+      constructor() { super(); this.attachShadow({mode: 'open'}); }
+    });
+    const el = document.createElement('${outer}');
+    el.setAttribute('variant', 'brand');
+    el.shadowRoot.append(document.createElement('hmr-counter'));
+    document.body.append(el, document.createElement('${late}'));
+  })()`);
+
+  await expect
+    .poll(() => find(roots, outer), {timeout: 5_000})
+    .toMatchObject({
+      notLit: true,
+      children: [expect.objectContaining({tagName: 'hmr-counter'})],
+    });
+  expect(find(roots, outer)!.children[0]).not.toHaveProperty('notLit');
+  expect(find(roots, late)).toMatchObject({notDefined: true});
+
+  details = undefined;
+  fixture.server.hot.send(INSPECT_CMD_CHANNEL, {
+    type: 'details',
+    id: find(roots, outer)!.id,
+  });
+  await expect
+    .poll(() => details, {timeout: 5_000})
+    .toMatchObject({
+      tagName: outer,
+      notLit: true,
+      attributes: [{name: 'variant', value: 'brand'}],
+      properties: [],
+    });
+
+  await fixture.page.evaluate(
+    `customElements.define('${late}', class extends HTMLElement {})`
+  );
+  await expect
+    .poll(() => find(roots, late), {timeout: 5_000})
+    .toMatchObject({notLit: true});
+  expect(find(roots, late)).not.toHaveProperty('notDefined');
 });
