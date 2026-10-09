@@ -1,5 +1,6 @@
 /**
- * Groups the Timeline list's spans into update ticks, as pure functions.
+ * Groups the Timeline list's spans into a tree of update ticks, as pure
+ * functions.
  *
  * One component update is four spans (`performUpdate`, `willUpdate`,
  * `update`, `updated`) plus whatever else happened inside it. Read flat, that
@@ -11,7 +12,15 @@
  * a tick with `${elementId}:${tick}`, and the lifecycle layer's point events
  * (`update skipped`, Lit warnings, late async errors) and the Custom events
  * layer's rows (when dispatched during the element's own update) carry the same
- * id. Everything else stays a top-level row.
+ * id.
+ *
+ * Ticks nest further by recorded cause (`TimelineSpan.cause`): a tick that was
+ * scheduled while another element was updating hangs under that element's
+ * `performUpdate`, and a tick scheduled by an event handler hangs under that
+ * event's row (a mouse, keyboard or custom-event point span), which then
+ * becomes an expandable row of its own. A tick whose parent is not among the
+ * candidates (evicted, or its layer is off) stays a top-level row, as does
+ * everything else.
  *
  * Framework-free and memoisation-free on purpose: the list recomputes it when
  * its spans, filter or expanded set change, and the cost is linear.
@@ -30,17 +39,17 @@ const SKIP_EVENT = 'update skipped';
 /** What a collapsed tick row flags about the rows it hides. */
 export type TickAttention = 'error' | 'warning' | 'skipped';
 
-/** One row of the list: a span at a depth, with its tick's state if it is one. */
+/** One row of the list: a span at a depth, with its subtree's state if it has one. */
 export interface ListRow {
   span: TimelineSpan;
-  /** 0 for top-level rows, 1 for rows nested under a tick. */
-  depth: 0 | 1;
-  /** Set on a tick's `performUpdate` row that has something nested under it. */
+  /** 0 for top-level rows, one more per level of nesting. */
+  depth: number;
+  /** Set on any row that has shown children: a tick or an event that caused one. */
   tick?: {
     expanded: boolean;
-    /** Nested rows that pass the filters (what expanding would show). */
+    /** Direct children that pass the filters (what expanding would show). */
     count: number;
-    /** The most severe thing among them, or the tick row itself. */
+    /** The most severe thing among all shown descendants, or the row itself. */
     attention?: TickAttention;
   };
 }
@@ -68,16 +77,100 @@ const attentionOf = (span: TimelineSpan): TickAttention | undefined => {
 
 const SEVERITY: readonly TickAttention[] = ['error', 'warning', 'skipped'];
 
-/** The key of the `performUpdate` row `span` nests under, if it nests. */
+const worse = (
+  a: TickAttention | undefined,
+  b: TickAttention | undefined
+): TickAttention | undefined =>
+  a === undefined ||
+  (b !== undefined && SEVERITY.indexOf(b) < SEVERITY.indexOf(a))
+    ? b
+    : a;
+
+/**
+ * Each nested span's parent among `spans`, by the rules in the header: same
+ * tick, then `update` cause, then `event` cause. A cause loop is cut where it
+ * closes, so every span stays reachable from a top-level row.
+ */
+const parentsOf = (
+  spans: readonly TimelineSpan[]
+): Map<TimelineSpan, TimelineSpan> => {
+  const roots = new Map<string, TimelineSpan>();
+  const points = new Map<string, TimelineSpan>();
+  for (const span of spans) {
+    if (isTickRoot(span)) roots.set(String(span.groupId), span);
+    else if (span.groupId === undefined) {
+      const id = `${span.layerId}\0${span.start}`;
+      if (!points.has(id)) points.set(id, span);
+    }
+  }
+
+  const parents = new Map<TimelineSpan, TimelineSpan>();
+  for (const span of spans) {
+    let parent: TimelineSpan | undefined;
+    if (!isTickRoot(span)) {
+      const id = tickIdOf(span);
+      parent = id === undefined ? undefined : roots.get(id);
+    } else if (span.cause?.kind === 'update') {
+      parent = roots.get(span.cause.groupId);
+    } else if (span.cause?.kind === 'event') {
+      parent = points.get(`${span.cause.layerId}\0${span.cause.time}`);
+    }
+    if (parent !== undefined) parents.set(span, parent);
+  }
+
+  for (const span of spans) {
+    const seen = new Set([span]);
+    let current = span;
+    for (let up = parents.get(current); up !== undefined;) {
+      if (seen.has(up)) {
+        parents.delete(current);
+        break;
+      }
+      seen.add(up);
+      current = up;
+      up = parents.get(current);
+    }
+  }
+  return parents;
+};
+
+/** The keys of the spans `span` nests under, nearest parent first; empty at top level. */
+export const tickAncestorKeys = (
+  span: TimelineSpan,
+  spans: readonly TimelineSpan[]
+): string[] => {
+  const parents = parentsOf(spans);
+  const keys: string[] = [];
+  for (let up = parents.get(span); up !== undefined; up = parents.get(up)) {
+    keys.push(up.key);
+  }
+  return keys;
+};
+
+/**
+ * Every nested span's key mapped to its direct parent's key, computed once
+ * for all of `spans`; what "expand all" opens.
+ */
+export const tickParentKeys = (
+  spans: readonly TimelineSpan[]
+): Map<string, string> => {
+  const keys = new Map<string, string>();
+  for (const [child, parent] of parentsOf(spans))
+    keys.set(child.key, parent.key);
+  return keys;
+};
+
+/** The key of the row `span` nests under directly, if it nests. */
 export const tickParentKey = (
   span: TimelineSpan,
   spans: readonly TimelineSpan[]
-): string | undefined => {
-  if (isTickRoot(span)) return undefined;
-  const id = tickIdOf(span);
-  if (id === undefined) return undefined;
-  return spans.find((s) => isTickRoot(s) && String(s.groupId) === id)?.key;
-};
+): string | undefined => tickAncestorKeys(span, spans)[0];
+
+interface Node {
+  span: TimelineSpan;
+  kids: Node[];
+  attention?: TickAttention;
+}
 
 /**
  * Builds the list's rows.
@@ -85,13 +178,13 @@ export const tickParentKey = (
  * `candidates` are the spans of the enabled layers, in start order; `matched`
  * is the subset the element, regex and range filters keep. Rules:
  *
- * - A tick is shown when its `performUpdate` matches, with all of its
- *   candidate children, or when only some child matches, in which case the
- *   parent is shown anyway (so the child keeps its context) with just the
- *   matching children.
- * - A nested span whose tick has no `performUpdate` among the candidates (the
- *   buffer cap evicted it, or the layer was off) stays a top-level row.
- * - Children are listed only while the tick's key is in `expanded`.
+ * - A row that matches is shown with all of its candidate descendants. A row
+ *   that does not match is shown anyway when a descendant matches (so the
+ *   match keeps its context), with just the matching descendants and their
+ *   ancestors under it.
+ * - A span whose parent is not among the candidates stays a top-level row.
+ * - Children are listed only while every ancestor's key is in `expanded`.
+ * - Any row with shown children carries `tick`; one without is a plain row.
  */
 export const buildListRows = (
   candidates: readonly TimelineSpan[],
@@ -99,57 +192,62 @@ export const buildListRows = (
   expanded: ReadonlySet<string>
 ): ListRow[] => {
   const match = new Set(matched);
-  const roots = new Map<string, TimelineSpan>();
+  const parents = parentsOf(candidates);
+  const children = new Map<TimelineSpan, TimelineSpan[]>();
+  const tops: TimelineSpan[] = [];
   for (const span of candidates) {
-    if (isTickRoot(span)) roots.set(String(span.groupId), span);
-  }
-  const children = new Map<string, TimelineSpan[]>();
-  const nested = new Set<TimelineSpan>();
-  for (const span of candidates) {
-    if (isTickRoot(span)) continue;
-    const id = tickIdOf(span);
-    if (id === undefined || !roots.has(id)) continue;
-    nested.add(span);
-    const list = children.get(id);
-    if (list === undefined) children.set(id, [span]);
+    const parent = parents.get(span);
+    if (parent === undefined) {
+      tops.push(span);
+      continue;
+    }
+    const list = children.get(parent);
+    if (list === undefined) children.set(parent, [span]);
     else list.push(span);
   }
 
+  const hasMatch = new Map<TimelineSpan, boolean>();
+  const subtreeMatches = (span: TimelineSpan): boolean => {
+    let hit = hasMatch.get(span);
+    if (hit === undefined) {
+      hit = match.has(span) || (children.get(span) ?? []).some(subtreeMatches);
+      hasMatch.set(span, hit);
+    }
+    return hit;
+  };
+
+  /** `all`: an ancestor matched, so everything below it is shown. */
+  const build = (span: TimelineSpan, all: boolean): Node => {
+    const below = all || match.has(span);
+    const kids = (children.get(span) ?? [])
+      .filter((child) => below || subtreeMatches(child))
+      .map((child) => build(child, below));
+    let attention = attentionOf(span);
+    for (const kid of kids) attention = worse(attention, kid.attention);
+    return {span, kids, ...(attention === undefined ? {} : {attention})};
+  };
+
   const rows: ListRow[] = [];
-  for (const span of candidates) {
-    if (nested.has(span)) continue;
-    if (!isTickRoot(span)) {
-      if (match.has(span)) rows.push({span, depth: 0});
-      continue;
+  const emit = (node: Node, depth: number): void => {
+    if (node.kids.length === 0) {
+      rows.push({span: node.span, depth});
+      return;
     }
-    const all = children.get(String(span.groupId)) ?? [];
-    const shown = match.has(span) ? all : all.filter((c) => match.has(c));
-    if (!match.has(span) && shown.length === 0) continue;
-    if (shown.length === 0) {
-      rows.push({span, depth: 0});
-      continue;
-    }
-    const open = expanded.has(span.key);
-    const worst = [span, ...shown]
-      .map(attentionOf)
-      .reduce<TickAttention | undefined>(
-        (a, b) =>
-          a === undefined ||
-          (b !== undefined && SEVERITY.indexOf(b) < SEVERITY.indexOf(a))
-            ? b
-            : a,
-        undefined
-      );
+    const open = expanded.has(node.span.key);
     rows.push({
-      span,
-      depth: 0,
+      span: node.span,
+      depth,
       tick: {
         expanded: open,
-        count: shown.length,
-        ...(worst === undefined ? {} : {attention: worst}),
+        count: node.kids.length,
+        ...(node.attention === undefined ? {} : {attention: node.attention}),
       },
     });
-    if (open) for (const child of shown) rows.push({span: child, depth: 1});
+    if (open) for (const kid of node.kids) emit(kid, depth + 1);
+  };
+
+  for (const span of tops) {
+    if (subtreeMatches(span)) emit(build(span, false), 0);
   }
   return rows;
 };

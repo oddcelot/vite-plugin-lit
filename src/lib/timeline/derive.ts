@@ -24,7 +24,11 @@
  * server-side over the ring buffer for the agent-facing summary.
  */
 
-import type {ChangedValue, TimelineEvent} from '../../types/timeline.js';
+import type {
+  ChangedValue,
+  TimelineCause,
+  TimelineEvent,
+} from '../../types/timeline.js';
 
 /** Layer whose events describe Lit update ticks. */
 const LIFECYCLE_LAYER_ID = 'lit-lifecycle';
@@ -66,6 +70,11 @@ export interface TimelineSpan {
   changed?: string[];
   /** Old/new value previews; present only when the Changed values layer was on. */
   changedDetail?: ChangedValue[];
+  /**
+   * What scheduled this update, copied from the start event. Recorded by the
+   * runtime on `performUpdate` spans only; absent when unknown.
+   */
+  cause?: TimelineCause;
   subtitle?: string;
   logType?: TimelineEvent['logType'];
   /** Set when the phase threw; from the end event. */
@@ -102,8 +111,10 @@ export interface UpdateCycle {
   /** Old/new previews per changed key; omitted when none were recorded. */
   changedDetail?: ChangedValue[];
   phases: TimelineSpan[];
-  /** The input event this update followed, if any. See {@link attributeInput}. */
+  /** The input event or update this tick followed, if any. See {@link attributeInput}. */
   cause?: {layerId: string; type: string; detail?: string; time: number};
+  /** Set when the runtime recorded another tick as the cause; its cycle `key`. */
+  causedBy?: {groupId: string};
   /** The first phase in this tick that threw, if any. */
   error?: {phase: string} & SpanError;
   /**
@@ -259,6 +270,7 @@ export const toSpans = (events: readonly TimelineEvent[]): TimelineSpan[] => {
         start: event.time,
         changed: changedOf(event),
         changedDetail: changedDetailOf(event),
+        ...(event.cause === undefined ? {} : {cause: event.cause}),
         subtitle: event.subtitle,
         logType: event.logType,
         meta: event.meta,
@@ -494,14 +506,21 @@ export const rollup = (cycles: readonly UpdateCycle[]): ComponentRollup[] => {
 };
 
 /**
- * Attributes each update cycle to the input event that preceded it, within
- * `windowMs`.
+ * Attributes each update cycle to what caused it.
  *
  * This is what the mouse and keyboard layers are for. On their own they
  * duplicate what the browser's own event log already shows; joined to the
  * updates they precede they answer the question the raw layers only imply —
  * an update with a cause is an interaction, and an update without one is a
  * timer, a signal, or a stray `requestUpdate()`.
+ *
+ * A cause the runtime recorded on the tick's `performUpdate` span wins over
+ * guessing: an `event` cause is resolved to that event in `events`, and an
+ * `update` cause to the causing cycle in `cycles` (`cause` reads "<tag>
+ * update" on the `lit-lifecycle` layer and `causedBy` names its key). A
+ * recorded cause whose target is not in the buffer falls back to the
+ * heuristic: the nearest mouse or keyboard event before the cycle, within
+ * `windowMs`.
  *
  * Returns a new array; cycles with no cause are returned as-is.
  */
@@ -513,11 +532,48 @@ export const attributeInput = (
   const inputs = events
     .filter((event) => INPUT_LAYER_IDS.includes(event.layerId))
     .sort((a, b) => a.time - b.time);
-  if (inputs.length === 0) return [...cycles];
+  const byKey = new Map(cycles.map((cycle) => [cycle.key, cycle]));
+  // Recorded event causes name an event by layer and time; index once rather
+  // than scanning the buffer per cycle.
+  const byLayerTime = new Map<string, TimelineEvent>();
+  for (const event of events) {
+    const id = `${event.layerId}\0${event.time}`;
+    if (!byLayerTime.has(id)) byLayerTime.set(id, event);
+  }
 
   // Both sides are sorted by time, so one forward pass suffices.
   let cursor = 0;
   return cycles.map((cycle) => {
+    const recorded = cycle.phases.find((p) => p.name === ROOT_PHASE)?.cause;
+    if (recorded?.kind === 'event') {
+      const hit = byLayerTime.get(`${recorded.layerId}\0${recorded.time}`);
+      if (hit !== undefined) {
+        return {
+          ...cycle,
+          cause: {
+            layerId: hit.layerId,
+            type: hit.title ?? hit.layerId,
+            detail: hit.subtitle,
+            time: hit.time,
+          },
+        };
+      }
+    } else if (recorded?.kind === 'update') {
+      const causing = byKey.get(recorded.groupId);
+      if (causing !== undefined) {
+        return {
+          ...cycle,
+          cause: {
+            layerId: LIFECYCLE_LAYER_ID,
+            type: `${causing.tagName} update`,
+            time: causing.start,
+          },
+          causedBy: {groupId: causing.key},
+        };
+      }
+    }
+
+    if (inputs.length === 0) return cycle;
     while (
       cursor + 1 < inputs.length &&
       inputs[cursor + 1]!.time <= cycle.start
