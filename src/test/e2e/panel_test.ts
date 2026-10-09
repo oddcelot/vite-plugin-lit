@@ -244,6 +244,25 @@ test('Shift+drag selects a range in Tracks and summarises it', async () => {
   await summary.waitFor();
   expect(await page.locator('timeline-tracks .range').count()).toBe(1);
 
+  // The edges are sliders: keys and a drag adjust them.
+  const end = page.locator('timeline-tracks [aria-label="Range end"]');
+  const before = Number(await end.getAttribute('aria-valuenow'));
+  await end.focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect
+    .poll(async () => Number(await end.getAttribute('aria-valuenow')))
+    .toBeLessThan(before);
+  const start = page.locator('timeline-tracks [aria-label="Range start"]');
+  const startBefore = Number(await start.getAttribute('aria-valuenow'));
+  const box = (await start.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, lanes.y + 6);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 40, lanes.y + 6, {steps: 4});
+  await page.mouse.up();
+  await expect
+    .poll(async () => Number(await start.getAttribute('aria-valuenow')))
+    .toBeGreaterThan(startBefore);
+
   // Filter to range hands the window to the shared filter...
   await summary.getByText('Filter to range').click();
   await page.locator('timeline-view .range-chip').waitFor();

@@ -359,3 +359,145 @@ test('Esc that something else handled keeps the range', async () => {
   await flush(el);
   expect(tracks().range).not.toBeNull();
 });
+
+test("the range overlay stops short of the lanes' scrollbar", async () => {
+  const {el, tracks} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 0, end: 20});
+  const root = tracks().shadowRoot!;
+  const lanes = root.querySelector<HTMLElement>('.lanes')!;
+  // No layout here: give the lanes a 15px vertical scrollbar and the ruler a width.
+  Object.defineProperty(lanes, 'offsetWidth', {value: 400});
+  Object.defineProperty(lanes, 'clientWidth', {value: 385});
+  (tracks() as unknown as {_width: number})._width = 385;
+  tracks().requestUpdate();
+  await flush(el);
+  const overlay = root.querySelector<HTMLElement>('.overlay')!;
+  expect(overlay.style.getPropertyValue('--scrollbar')).toBe('15px');
+});
+
+/** Gives the tracks a width to scale against: happy-dom has no layout. */
+const sized = async (
+  el: TimelineView,
+  tracks: Element & {requestUpdate(): void}
+) => {
+  (tracks as unknown as {_width: number})._width = 385;
+  tracks.requestUpdate();
+  await flush(el);
+};
+
+test('the range edges are sliders the arrow keys move', async () => {
+  const {el, tracks} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 2, end: 8});
+  await sized(el, tracks());
+  const handles = () => [
+    ...tracks().shadowRoot!.querySelectorAll<HTMLElement>('[role=slider]'),
+  ];
+  expect(handles().map((h) => h.getAttribute('aria-label'))).toEqual([
+    'Range start',
+    'Range end',
+  ]);
+  expect(handles()[0]!.getAttribute('aria-valuenow')).toBe('2');
+  expect(handles()[0]!.getAttribute('aria-valuemax')).toBe('8');
+  expect(handles()[1]!.getAttribute('aria-valuemin')).toBe('2');
+  const press = async (i: number, key: string, shiftKey = false) => {
+    handles()[i]!.dispatchEvent(
+      new KeyboardEvent('keydown', {key, shiftKey, bubbles: true})
+    );
+    await flush(el);
+  };
+  // One tick step (5ms at this zoom) per press.
+  await press(0, 'ArrowRight');
+  expect(tracks().range).toEqual({start: 7, end: 8});
+  await press(1, 'ArrowRight');
+  expect(tracks().range).toEqual({start: 7, end: 11}); // the recording's end
+  await press(0, 'ArrowLeft', true);
+  expect(tracks().range!.start).toBe(0); // five steps, held at the start
+  await press(1, 'Enter'); // not an adjustment
+  expect(tracks().range).toEqual({start: 0, end: 11});
+  window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
+  await flush(el);
+  expect(tracks().range).toBeNull();
+});
+
+test('a range link waits for a span inside it, then draws and shows it', async () => {
+  const {el, tracks} = await mount();
+  el.location.apply({range: {start: 9, end: 20}});
+  await flush(el);
+  // Nothing loaded yet: held, and the link keeps reporting it.
+  expect(el.location.requested('range')).toEqual({start: 9, end: 20});
+  expect(tracks().range).toBeNull();
+  // A buffer with nothing in the window does not satisfy it either.
+  setEvents(pair(1, 0));
+  await flush(el);
+  expect(el.location.requested('range')).toEqual({start: 9, end: 20});
+  setEvents(events);
+  await flush(el);
+  expect(tracks().range).toEqual({start: 9, end: 20});
+  expect(el.location.requested('range')).toBeUndefined();
+  expect(el.location.link().range).toEqual({start: 9, end: 20});
+  expect(tracks().hidden).toBe(false);
+});
+
+test('a range link is dropped when the buffer is cleared after it', async () => {
+  const {el, tracks} = await mount();
+  setEvents(pair(1, 0));
+  await flush(el);
+  el.location.apply({range: {start: 9, end: 20}});
+  await flush(el);
+  expect(el.location.requested('range')).toBeDefined();
+  setEvents([]); // Clear, or a new recording
+  await flush(el);
+  expect(el.location.requested('range')).toBeUndefined();
+  setEvents(events);
+  await flush(el);
+  expect(tracks().range).toBeNull();
+  expect(el.location.link().range).toBeUndefined();
+});
+
+test('a range the user draws supersedes one a link still holds', async () => {
+  const {el, tracks} = await mount();
+  el.location.apply({range: {start: 90, end: 99}});
+  await flush(el);
+  setEvents(events);
+  await drawRange(el, tracks(), {start: 0, end: 5});
+  expect(el.location.requested('range')).toBeUndefined();
+  expect(tracks().range).toEqual({start: 0, end: 5});
+  expect(el.location.link().range).toEqual({start: 0, end: 5});
+  await drawRange(el, tracks(), null);
+  expect(el.location.link().range).toBeUndefined();
+});
+
+test('Copy link puts the range link on the clipboard', async () => {
+  const writeText = vi.fn(async () => {});
+  Object.defineProperty(navigator, 'clipboard', {
+    value: {writeText},
+    configurable: true,
+  });
+  const {el, tracks} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 9, end: 20});
+  const summary = tracks().shadowRoot!.querySelector('timeline-range-summary')!;
+  summary
+    .shadowRoot!.querySelector<HTMLElement>('wa-button.copy-link')!
+    .click();
+  await flush(el);
+  const [text] = writeText.mock.calls[0] as unknown as [string];
+  expect(text).toContain('#tab=timeline&range=9-20');
+  expect(
+    summary.shadowRoot!.querySelector('wa-button.copy-link')!.textContent
+  ).toContain('Copied');
+});
+
+test('a link with a range and an event shows both', async () => {
+  const {el, tracks} = await mount();
+  el.location.apply({range: {start: 9, end: 20}, eventId: '2-start'});
+  setEvents(events);
+  await flush(el);
+  expect(tracks().range).toEqual({start: 9, end: 20});
+  expect(tracks().selectedKey).toBe('lit-lifecycle:2:1:update');
+});

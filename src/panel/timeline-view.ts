@@ -16,13 +16,15 @@ import type {
 } from '../types/timeline.js';
 import type {LayerState} from './timeline-layers.js';
 import {TimelineModel} from '../lib/timeline/model.js';
-import {describeRange} from '../lib/timeline/range.js';
+import {describeRange, sameRange, spansInRange} from '../lib/timeline/range.js';
+import type {TimeRange} from '../lib/timeline/range.js';
 import './segmented-tabs.js';
 import type {TabItem} from './segmented-tabs.js';
 import './timeline-layers.js';
 import './timeline-event-list.js';
 import type {TimelineEventList} from './timeline-event-list.js';
 import './timeline-tracks.js';
+import type {TimelineTracks} from './timeline-tracks.js';
 import {litRpc, getMeta, describeError} from './client.js';
 import {LocationController} from './location-controller.js';
 import {PanelLocation} from './panel-location.js';
@@ -214,11 +216,18 @@ export class TimelineView extends LitElement {
   private readonly _model = new TimelineModel();
   /** The selected span's start event as last reported to the location. */
   private _announcedEventId: string | null = null;
+  /** The drawn range as last reported to the location. */
+  private _announcedRange: TimeRange | null = null;
+  /** A link's range was just applied: show it once the tracks have it. */
+  private _revealRange = false;
+  private readonly _tracksRef = createRef<TimelineTracks>();
 
   /** Where the panel is; the shell hands its own in. */
   @property({attribute: false}) location = new PanelLocation();
 
   protected readonly _locationController = new LocationController(this, () => {
+    // The range first: drawing one drops the span selection.
+    this._resolveRangeRequest();
     this._resolveRequest();
     this.requestUpdate();
   });
@@ -265,7 +274,10 @@ export class TimelineView extends LitElement {
         )
         .map((l) => l.id);
     }
-    if (this._model.setEvents(this._events)) this._resolveRequest();
+    if (this._model.setEvents(this._events)) {
+      this._resolveRangeRequest();
+      this._resolveRequest();
+    }
   }
 
   /**
@@ -281,7 +293,33 @@ export class TimelineView extends LitElement {
     this.location.resolve('timeline', this._announcedEventId);
   }
 
+  /**
+   * Draw the range a link named, once a span of the loaded buffer starts in
+   * it. Times are the buffer's own clock, so a range no span falls in is
+   * either for events that have not arrived (a snapshot still loading, a live
+   * buffer still filling) and stays held, or for another recording; a Clear
+   * drops it ({@link _readStore}) so it is never drawn over a buffer that
+   * replaced the one it was copied from.
+   */
+  private _resolveRangeRequest(): void {
+    const range = this.location.requested('range');
+    if (range === undefined) return;
+    if (spansInRange(this._model.spans, range).length === 0) return;
+    this._model.setRange(range.start, range.end);
+    this._announcedRange = this._model.range;
+    // The range lives in the tracks, so show them.
+    this._mode = 'tracks';
+    this._revealRange = true;
+    this.location.resolve('range', this._announcedRange);
+  }
+
   override updated() {
+    if (this._revealRange) {
+      this._revealRange = false;
+      void this.updateComplete
+        .then(() => this._tracksRef.value?.updateComplete)
+        .then(() => this._tracksRef.value?.zoomToRange());
+    }
     if (this._revealSelection) {
       this._revealSelection = false;
       // After the *list's* update, not ours: it pins itself to the newest row
@@ -300,11 +338,26 @@ export class TimelineView extends LitElement {
       this._announcedEventId = id;
       this.location.select('timeline', id);
     }
+    // Esc, Clear or a new recording took the range away.
+    const range = this._model.range;
+    if (
+      !sameRange(range, this._announcedRange) &&
+      this.location.requested('range') === undefined
+    ) {
+      this._announcedRange = range;
+      this.location.select('range', range);
+    }
   }
 
   private _readStore(): void {
     if (!this._active) return;
-    this._events = getTimelineEvents();
+    const events = getTimelineEvents();
+    // A Clear (or a new recording) empties the buffer a held range link was
+    // copied from; what arrives next is a different recording.
+    if (events.length === 0 && this._events.length > 0) {
+      this.location.resolve('range', null);
+    }
+    this._events = events;
     const storeError = getTimelineError();
     if (storeError !== null) this._error = storeError;
   }
@@ -488,6 +541,9 @@ export class TimelineView extends LitElement {
   ) {
     const {range} = e.detail;
     this._model.setRange(range?.start ?? null, range?.end ?? null);
+    // The user's own range supersedes one a link is still waiting to draw.
+    this._announcedRange = this._model.range;
+    this.location.select('range', this._announcedRange);
     this.requestUpdate();
   }
 
@@ -681,6 +737,7 @@ export class TimelineView extends LitElement {
         @element-filter=${this._onElementFilter}
       ></timeline-event-list>
       <timeline-tracks
+        ${ref(this._tracksRef)}
         ?hidden=${!tracks}
         .spans=${model.filteredSpans}
         .layers=${this._layers}

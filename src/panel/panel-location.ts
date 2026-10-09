@@ -17,6 +17,7 @@
  * Framework-free; the shell owns the instance and hands it to the views.
  */
 
+import type {TimeRange} from '../lib/timeline/range.js';
 import type {DeepLink, DeepLinkTab} from './deep-link.js';
 
 /** The views that hold a selection, and what each selects by. */
@@ -27,6 +28,8 @@ export interface Selections {
   updates: number;
   /** The start event of the selected timeline span. */
   timeline: string;
+  /** The time range drawn in the Timeline's tracks. */
+  range: TimeRange;
 }
 
 export type SelectingView = keyof Selections;
@@ -37,6 +40,7 @@ export class PanelLocation {
     components: null,
     updates: null,
     timeline: null,
+    range: null,
   };
   readonly #requested: {[V in SelectingView]?: Selections[V]} = {};
   readonly #listeners = new Set<() => void>();
@@ -71,7 +75,8 @@ export class PanelLocation {
   }
 
   /**
-   * Go where `link` points. An event id with no element id is the timeline's.
+   * Go where `link` points. An event id or a range with no element id is the
+   * timeline's.
    * An element id means the same thing in Components and Updates, so the tab
    * the link named is honoured and only defaults to Components when it named
    * none; otherwise `#tab=updates&component=3` would land on the wrong tab
@@ -83,9 +88,10 @@ export class PanelLocation {
       const view = link.tab === 'updates' ? 'updates' : 'components';
       this.#tab = view;
       this.#requested[view] = link.componentId;
-    } else if (link.eventId !== undefined) {
+    } else if (link.eventId !== undefined || link.range !== undefined) {
       this.#tab = 'timeline';
-      this.#requested.timeline = link.eventId;
+      if (link.eventId !== undefined) this.#requested.timeline = link.eventId;
+      if (link.range !== undefined) this.#requested.range = link.range;
     }
     this.#changed();
   }
@@ -120,6 +126,8 @@ export class PanelLocation {
     } else if (tab === 'timeline') {
       const id = this.#requested.timeline ?? this.#selected.timeline;
       if (id !== null) link.eventId = id;
+      const range = this.#requested.range ?? this.#selected.range;
+      if (range !== null) link.range = range;
     }
     return link;
   }

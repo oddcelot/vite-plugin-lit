@@ -97,7 +97,7 @@ Reference:
 
 The DevTools panel's data is also exposed as MCP tools — `lit_list-components`,
 `lit_component-details`, `lit_update-summary`, `lit_recent-events`,
-`lit_get-meta`, `lit_hmr-history`, `lit_hmr-incompatibilities`, `lit_set-recording` — so an agent
+`lit_range-summary`, `lit_get-meta`, `lit_hmr-history`, `lit_hmr-incompatibilities`, `lit_set-recording` — so an agent
 can read the live component tree and timeline instead of guessing from source.
 
 These answer only while a Vite dev server with DevTools is **running**. There

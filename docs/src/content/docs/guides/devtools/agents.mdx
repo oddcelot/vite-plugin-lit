@@ -34,7 +34,7 @@ The command needs two optional peers, `cac` and `@devframes/agentic`. See the
 [CLI reference](/vite-plugin-lit/reference/cli/) for the message it prints when
 one is missing.
 
-## The eight tools
+## The nine tools
 
 | Tool                        | Answers                                                                                                                                                                                        |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -43,17 +43,18 @@ one is missing.
 | `lit_component-details`     | Reactive properties, attributes, update flags and Lit dev-mode warnings for one element id, or for every element of a tag name, read from the page on each call.                               |
 | `lit_update-summary`        | Which components updated, how often, how long for, and what changed.                                                                                                                           |
 | `lit_recent-events`         | Recent lifecycle (including warning), render and input events, filterable by tag name, element or layer.                                                                                       |
+| `lit_range-summary`         | What happened between two instants: spans per layer and which components updated, for a `start` and `end` taken from `lit_recent-events` times.                                                |
 | `lit_hmr-history`           | Recent hot patches that landed (instances, duration, child-state mode) and ones that could not, oldest first, up to 50 of each.                                                                |
 | `lit_hmr-incompatibilities` | Components the plugin could not hot-patch in place, and why.                                                                                                                                   |
 | `lit_set-recording`         | Starts or stops timeline recording. The only tool that changes state.                                                                                                                          |
 
-Seven of the eight only read. `lit_set-recording` exists because
+Eight of the nine only read. `lit_set-recording` exists because
 `lit_recent-events` is a dead end while recording is off, and an agent that can
 read the timeline but not start it just hands the question back to you.
 Recording is a shared toggle, so an agent turning it on also changes what you
 see in an open panel. The layer toggles and the element picker stay panel-only.
 
-All eight answer only while a dev server with DevTools is running. Nothing is
+All nine answer only while a dev server with DevTools is running. Nothing is
 stored, so with the server down an agent gets a connection error rather than an
 empty answer.
 
@@ -63,6 +64,12 @@ Point the agent at `lit_update-summary` first for anything shaped like "why did
 this re-render". It returns the same derived cycles and per-component totals the
 [Updates tab](/vite-plugin-lit/guides/devtools/updates/) shows, so the agent
 never pairs thousands of start and end events itself.
+
+`lit_range-summary` takes a `start` and an `end` in milliseconds, on the same
+clock as the `time` of each event `lit_recent-events` returns, so an agent can
+bracket a click and the update it caused with times it already saw. It does not
+read the range you selected in the panel, because that selection lives in the
+browser; a link or a pasted range has to carry the numbers.
 
 Two prompts that work:
 

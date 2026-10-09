@@ -31,6 +31,51 @@ export const normalizeRange = (a: number, b: number): TimeRange | null => {
   return end - start < MIN_RANGE_MS ? null : {start, end};
 };
 
+/** One end of a {@link TimeRange}. */
+export type RangeEdge = 'start' | 'end';
+
+/**
+ * `range` with one edge moved to `ms`: kept inside `bounds` and at least
+ * `minWidth` from the other edge, so dragging or nudging an edge never
+ * flips the range or collapses it into a click (which would clear it).
+ */
+export const moveEdge = (
+  range: TimeRange,
+  edge: RangeEdge,
+  ms: number,
+  bounds: {min: number; max: number},
+  minWidth: number
+): TimeRange => {
+  if (!Number.isFinite(ms)) return range;
+  if (edge === 'start') {
+    const hi = Math.max(bounds.min, range.end - minWidth);
+    return {start: Math.min(Math.max(ms, bounds.min), hi), end: range.end};
+  }
+  const lo = Math.min(bounds.max, range.start + minWidth);
+  return {start: range.start, end: Math.max(Math.min(ms, bounds.max), lo)};
+};
+
+/** Link precision: microseconds, which is finer than the panel shows. */
+const PARAM_SCALE = 1000;
+
+/**
+ * A range as a link carries it, `1.25-3.5` in milliseconds on the buffer's
+ * clock. Rounded outward to microseconds so the linked range still covers
+ * every span the drawn one did.
+ */
+export const formatRangeParam = (range: TimeRange): string =>
+  `${Math.floor(range.start * PARAM_SCALE) / PARAM_SCALE}-${
+    Math.ceil(range.end * PARAM_SCALE) / PARAM_SCALE
+  }`;
+
+const RANGE_PARAM = /^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/;
+
+/** The range a link names, or null for anything but `start-end` numbers. */
+export const parseRangeParam = (value: string): TimeRange | null => {
+  const match = RANGE_PARAM.exec(value);
+  return match ? normalizeRange(Number(match[1]), Number(match[2])) : null;
+};
+
 export const sameRange = (a: TimeRange | null, b: TimeRange | null): boolean =>
   a === b ||
   (a !== null && b !== null && a.start === b.start && a.end === b.end);

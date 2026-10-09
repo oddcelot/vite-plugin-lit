@@ -309,6 +309,27 @@ describe('static snapshot export', () => {
     expect(await page.evaluate(() => location.hash)).toContain(
       `event=${target}`
     );
+
+    // A range link opens the Tracks on it: the snapshot's times are fixed,
+    // so the numbers mean the same thing wherever it is opened.
+    const cold = await browser.newPage();
+    cold.on('pageerror', (error) => errors.push(error.message));
+    await cold.goto(
+      `http://127.0.0.1:${port}/__lit/#tab=timeline&range=500-700`
+    );
+    await cold.locator('timeline-tracks .range').waitFor();
+    // Spans start every 10ms: 500, 510, ... 700.
+    await cold
+      .locator('timeline-tracks timeline-range-summary')
+      .getByText('21 events')
+      .waitFor();
+    expect(
+      await cold
+        .locator('timeline-tracks [aria-label="Range start"]')
+        .getAttribute('aria-valuenow')
+    ).toBe('500');
+    expect(await cold.evaluate(() => location.hash)).toContain('range=500-700');
+    await cold.close();
     expect(errors).toEqual([]);
   });
 });
