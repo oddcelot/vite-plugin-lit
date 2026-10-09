@@ -16,7 +16,8 @@ docs/.astro/
 # Dependencies
 node_modules/
 docs/.generated/
-/lit-devtools-snapshot/
+# The Export snapshot default, written under whichever cwd the server ran in
+lit-devtools-snapshot/
 
 # Local env files (the playground's own .gitignore covers its directory)
 .env
