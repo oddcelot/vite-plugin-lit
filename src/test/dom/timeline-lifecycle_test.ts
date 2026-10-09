@@ -501,6 +501,35 @@ describe('installLifecycleLayer', () => {
       );
     });
 
+    test('a vetoed tick skips the update hook, recording or not', async () => {
+      const base = vetoBase();
+      const {tag: plainTag} = define(base);
+      document.body.append(document.createElement(plainTag));
+      const m = await load();
+      install(m);
+      let veto = true;
+      class Vetoer extends base {
+        shouldUpdate(_changed: Map<string, unknown>) {
+          return !veto;
+        }
+      }
+      const tag = `x-life-${counter++}`;
+      customElements.define(tag, Vetoer);
+      const el = document.createElement(tag) as FakeReactiveElement;
+      document.body.append(el);
+      const hook = vi.fn();
+      m.setUpdateHook(hook);
+
+      el.performUpdate();
+      recording = false;
+      el.performUpdate();
+      expect(hook).not.toHaveBeenCalled();
+
+      veto = false;
+      el.performUpdate();
+      expect(hook.mock.calls).toEqual([[el, true]]);
+    });
+
     test('a veto outside a recording is not reported', async () => {
       const base = vetoBase();
       const {tag: plainTag} = define(base);

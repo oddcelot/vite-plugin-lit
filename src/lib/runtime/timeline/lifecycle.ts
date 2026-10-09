@@ -44,8 +44,8 @@ type RecordingFn = () => boolean;
 type LayerEnabledFn = () => boolean;
 
 /**
- * Called once per completed `performUpdate`, with the element and whether that
- * was its first update. Independent of the recording gate: the flash overlay
+ * Called once per completed `performUpdate` that rendered, with the element and
+ * whether that was its first update. Independent of the recording gate: the flash overlay
  * wants every update while it is on, whether or not the timeline is recording.
  */
 export type UpdateHook = (el: Element, first: boolean) => void;
@@ -57,9 +57,15 @@ export const setUpdateHook = (hook: UpdateHook | null): void => {
   updateHook = hook;
 };
 
+/**
+ * Elements whose `update` ran inside the `performUpdate` now in progress. A
+ * tick `shouldUpdate` vetoed never reaches `update`, and must not flash.
+ */
+const rendered = new WeakSet<object>();
+
 /** Runs the update hook, never letting a consumer's throw reach the app. */
 const notifyUpdated = (el: object, first: boolean): void => {
-  if (updateHook === null) return;
+  if (updateHook === null || !rendered.has(el)) return;
   try {
     updateHook(el as Element, first);
   } catch {
@@ -574,6 +580,7 @@ const wrap = (
 
   const run = function (this: object, ...args: unknown[]) {
     const isUpdate = name === 'performUpdate';
+    if (name === 'update') rendered.add(this);
     if (!recording() || !enabled()) {
       if (!isUpdate || updateHook === null) return orig?.apply(this, args);
       const first = isFirstUpdate(this);
@@ -692,6 +699,7 @@ const wrap = (
     ...args: unknown[]
   ) {
     if (name !== 'performUpdate') return run.apply(this, args);
+    rendered.delete(this);
     // Tracked whether or not anything is recording: a Lit warning is issued
     // from inside an update and wants to know whose.
     return whileUpdating(this, () => run.apply(this, args));
