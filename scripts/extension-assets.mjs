@@ -12,8 +12,10 @@
  * transparent padding on each side, as the store asks.
  *
  * `store` shoots the real extension: the unpacked build (`dist/extension`)
- * on a production build of the playground (`playground/dist`), served by
- * `vite preview` with no plugin and no injected runtime. As in the extension
+ * on a production build of the Fernhouse example (`examples/fernhouse/dist`),
+ * served by `vite preview` with no plugin and no injected runtime. It is the
+ * shop the promo video shows, and its sourcemaps give the details pane a
+ * defined link. As in the extension
  * e2e, a copy of the build lists the served origin under `host_permissions`,
  * standing in for the permission prompt, and the Lit tab (`panel.html`) is
  * opened in a tab of its own with `?tabId=`. Each screenshot puts the page
@@ -21,7 +23,7 @@
  * right. The promo tiles are the mark and the name, nothing else.
  *
  * `--build` runs `pnpm run build`, `pnpm run build:extension` and the
- * playground build first; without it, the last builds are used.
+ * Fernhouse build first; without it, the last builds are used.
  *
  * Sizes and file names are in `ICONS`, `STORE_ICON`, `SCREENSHOT` and
  * `TILES` below; change them there if the store's requirements change.
@@ -38,7 +40,7 @@ import {preview} from 'vite';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const EXTENSION = path.join(ROOT, 'extension');
 const DIST = path.join(ROOT, 'dist', 'extension');
-const PLAYGROUND = path.join(ROOT, 'playground');
+const APP = path.join(ROOT, 'examples', 'fernhouse');
 const STORE = path.join(EXTENSION, 'store');
 const FONTS = path.join(ROOT, 'assets', 'promo-video', 'assets');
 
@@ -153,28 +155,27 @@ const renderTile = async (browser, {name, width, height}) => {
   console.log(`  ${path.relative(ROOT, file)}`);
 };
 
-/** Clicks through the playground so the panel has updates to show. */
+/** Shops a little, so the panel has updates to show. */
 const exercise = async (app) => {
-  const counter = app.locator('hmr-counter #increment');
-  for (let i = 0; i < 3; i++) await counter.click();
-  const props = app.locator('hmr-properties');
-  await props.locator('#add-item').click();
-  await props.locator('#add-item').click();
-  await app.locator('hmr-lifecycle #toggle').click();
-  const routes = app.locator('hmr-custom-layer nav button');
-  if ((await routes.count()) > 2) {
-    for (let lap = 0; lap < 2; lap++) {
-      await routes.nth(1).click();
-      await routes.nth(2).click();
-      await routes.nth(0).click();
-    }
-  }
+  const cards = app.locator('fh-product-card');
+  await cards.nth(1).locator('button.cta').click();
+  await app.locator('fh-reviews button').click();
+  await sleep(500);
+  await cards.nth(2).locator('button.cta').click();
 };
 
 /** Records a short session on the panel's Timeline tab, then stops. */
 const record = async (app, panel) => {
   const button = panel.locator('timeline-view wa-button.record');
   await button.waitFor();
+  // Off by default; the cause rails start from the click and the cart event.
+  const chips = panel.locator('timeline-layers .chip');
+  for (const name of ['Mouse', 'Custom events']) {
+    const chip = chips.filter({hasText: name});
+    if (!(await chip.evaluate((c) => c.classList.contains('on')))) {
+      await chip.click();
+    }
+  }
   await button.click();
   await sleep(300);
   await exercise(app);
@@ -187,6 +188,15 @@ const record = async (app, panel) => {
   return panel;
 };
 
+/** A point on a product card's text, below the picture: picking the
+ *  picture selects `<fh-app>`, which renders it into the card's slot. */
+const cardText = async (app, index) => {
+  const card = app.locator('fh-product-card').nth(index);
+  await card.scrollIntoViewIfNeeded();
+  const box = await card.boundingBox();
+  return {x: box.x + box.width / 2, y: box.y + box.height - 70};
+};
+
 const SHOTS = [
   {
     name: 'screenshot-1-components.png',
@@ -194,9 +204,16 @@ const SHOTS = [
       const panel = await openPanel('components');
       const rows = panel.locator('components-view .row');
       await rows.first().waitFor({timeout: 15_000});
-      await rows.filter({hasText: 'hmr-properties'}).first().click();
+      // The tree opens on a collapsed <fh-app>; the right arrow unfolds it.
+      await rows.first().click();
+      await panel.keyboard.press('ArrowRight');
+      // The second card, the Fiddle Leaf Fig, holds the reviews task.
+      await app.locator('fh-product-card').nth(1).scrollIntoViewIfNeeded();
+      await rows.filter({hasText: 'fh-product-card'}).nth(1).click();
       await panel.locator('components-view .details h2').waitFor();
-      await sleep(600);
+      // Off the tree, so its hover highlight leaves the page.
+      await panel.mouse.move(0, 0);
+      await sleep(800);
       return {app, panel};
     },
   },
@@ -207,10 +224,10 @@ const SHOTS = [
       await panel.locator('components-view .row').first().waitFor();
       await panel.locator('components-view wa-button.pick').click();
       await sleep(300);
-      const box = await app.locator('hmr-counter').boundingBox();
-      await app.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      const {x, y} = await cardText(app, 0);
+      await app.mouse.move(x, y);
       await sleep(200);
-      await app.mouse.move(box.x + box.width / 2 + 2, box.y + box.height / 2);
+      await app.mouse.move(x + 2, y);
       await sleep(700);
       return {app, panel};
     },
@@ -220,7 +237,7 @@ const SHOTS = [
     async capture({app, openPanel}) {
       const panel = await record(app, await openPanel('timeline'));
       const rows = panel.locator('timeline-view timeline-event-list .row');
-      const update = rows.filter({hasText: 'update'});
+      const update = rows.filter({hasText: 'fh-product-card'});
       await (
         (await update.count()) > 0 ? update.first() : rows.first()
       ).click();
@@ -237,8 +254,10 @@ const SHOTS = [
         .first()
         .getByText('Updates', {exact: true})
         .click();
-      await panel.locator('updates-view .row').first().waitFor();
-      await panel.locator('updates-view .row').first().click();
+      const rows = panel.locator('updates-view .row');
+      await rows.first().waitFor();
+      const card = rows.filter({hasText: 'fh-product-card'});
+      await ((await card.count()) > 0 ? card.first() : rows.first()).click();
       await sleep(600);
       return {app, panel};
     },
@@ -247,7 +266,7 @@ const SHOTS = [
 
 const renderScreenshots = async (browser) => {
   const server = await preview({
-    root: PLAYGROUND,
+    root: APP,
     preview: {port: 4181, strictPort: false},
     logLevel: 'warn',
   });
@@ -292,7 +311,7 @@ const renderScreenshots = async (browser) => {
       const app = await context.newPage();
       await app.setViewportSize({width: pageWidth, height});
       await app.goto(origin);
-      await app.locator('hmr-counter').waitFor();
+      await app.locator('fh-product-card').first().waitFor();
       const tabId = await extensionPage.evaluate(
         async (origin) =>
           (await chrome.tabs.query({url: `${origin}/*`}))[0]?.id,
@@ -343,7 +362,7 @@ if (argv.includes('--build')) {
     execFileSync(command, args, {cwd, stdio: 'inherit'});
   run('pnpm', ['run', 'build']);
   run('pnpm', ['run', 'build:extension']);
-  run('vp', ['build'], PLAYGROUND);
+  run('pnpm', ['run', 'build'], APP);
 }
 
 const browser = await chromium.launch({channel: 'chromium'});

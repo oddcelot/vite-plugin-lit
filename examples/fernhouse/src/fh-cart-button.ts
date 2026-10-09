@@ -1,5 +1,5 @@
 import {LitElement, css, html} from 'lit';
-import {customElement} from 'lit/decorators.js';
+import {customElement, state} from 'lit/decorators.js';
 import {consume} from '@lit/context';
 import {cartContext, type Cart} from './cart-context';
 
@@ -33,6 +33,7 @@ export class FhCartButton extends LitElement {
   // <fh-app> above, however many shadow roots away. When it changes, only
   // this button re-renders. The panel's Components tab shows the link.
   @consume({context: cartContext, subscribe: true})
+  @state()
   private cart?: Cart;
 
   render() {
