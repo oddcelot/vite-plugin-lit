@@ -1,0 +1,112 @@
+<template id="s12-endcard-template">
+  <style>
+    @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:600;src:url("assets/manrope-semibold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:500;src:url("assets/manrope-medium.woff2") format("woff2")}
+    @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2")}
+    #s12-endcard{overflow:hidden;font-family:"Manrope",sans-serif}
+    #s12-endcard *{box-sizing:border-box}
+    #s12-endcard .abs{position:absolute}
+    #s12-rail{left:0;top:0;width:1920px;height:1080px}
+    #s12-eyebrow{left:80px;top:330px;width:420px;font-weight:700;font-size:16px;line-height:20px;letter-spacing:.14em;text-transform:uppercase;color:#4d63ff}
+    #s12-cap{left:80px;top:362px;width:430px;font-weight:800;font-size:58px;line-height:60px;letter-spacing:-0.03em;color:#fff}
+    #s12-cap span{display:block;white-space:nowrap}
+    #s12-cap b{color:#00e8ff;font-weight:800}
+    #s12-sub{left:80px;top:490px;width:400px;font-weight:500;font-size:22px;line-height:30px;color:#a1a1a1}
+    #s12-win{left:540px;top:0;width:1340px;height:1080px}
+    #s12-body{left:0;top:548px;width:1340px;height:464px;background:#030303;overflow:hidden}
+    #s12-tools{left:0;top:0;width:1340px;height:55px;border-bottom:1px solid #363636}
+    .s12-btn{position:absolute;top:9px;height:36px;border:1px solid #363636;background:#0d0d0d;color:#e3e3e3;font-weight:600;font-size:15px;line-height:34px;padding:0 16px;display:flex;align-items:center;gap:8px}
+    .s12-btn i{display:block;width:12px;height:12px;border:1.5px solid #919191;border-radius:50%}
+    #s12-filter{left:130px;width:262px;color:#919191;font-weight:500}
+    #s12-live{right:204px;background:#102070;border-color:#4d63ff;color:#cfd6ff}
+    #s12-flash{right:116px}
+    #s12-anat{right:12px}
+    #s12-tree{left:0;top:55px;width:1090px;height:409px}
+    #s12-div{left:1090px;top:55px;width:3px;height:409px;background:#363636;opacity:.6}
+    #s12-side{left:1103px;top:78px;width:237px;font-weight:500;font-size:16px;color:#919191;opacity:.6;text-align:center}
+    .s12-row{position:absolute;left:0;height:27px;width:1090px;font-family:"Roboto Mono",monospace;font-size:15px;line-height:27px;color:#82aaff;white-space:nowrap}
+    .s12-row em{font-style:normal;color:#919191}
+    .s12-row svg{position:absolute;top:8px;width:10px;height:10px}
+    #s12-lock{left:0;top:0;width:1920px;height:1080px}
+    #s12-glow{left:460px;top:-40px;width:1000px;height:800px;border-radius:50%;background:radial-gradient(circle,rgba(50,79,255,0.5) 0%,rgba(0,232,255,0.14) 34%,rgba(42,44,157,0) 68%);opacity:0}
+    #s12-icon{left:860px;top:260px;width:200px;height:200px;opacity:0}
+    #s12-icon svg{display:block}
+    .s12-line{position:absolute;left:0;width:1920px;display:flex;justify-content:center;white-space:nowrap;opacity:0}
+    #s12-title{top:506px;height:108px;font-weight:800;font-size:92px;line-height:108px;letter-spacing:-0.03em;color:#fff}
+    #s12-tag{top:622px;height:36px;font-weight:500;font-size:26px;line-height:36px;color:#a1a1a1}
+    #s12-btnwrap{top:708px;height:64px}
+    #s12-btn{height:64px;padding:0 44px;border-radius:6px;background:#1a73e8;color:#fff;font-weight:600;font-size:24px;line-height:64px;box-shadow:0 8px 30px rgba(26,115,232,.45)}
+    #s12-fine{top:1000px;height:20px;font-weight:500;font-size:15px;line-height:20px;color:#616161}
+  </style>
+  <div id="s12-endcard" data-composition-id="s12-endcard" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <div id="s12-rail" class="abs">
+      <div id="s12-eyebrow" class="abs">Any Lit site</div>
+      <div id="s12-cap" class="abs"><span>Any site.</span><span><b>Any build.</b></span></div>
+      <div id="s12-sub" class="abs">Follows the inspected tab across navigations.</div>
+    </div>
+    <div id="s12-win" class="abs">
+      <div id="s12-body" class="abs">
+        <div id="s12-tools" class="abs">
+          <div class="s12-btn" style="left:12px"><i></i>Pick</div>
+          <div class="s12-btn" id="s12-filter">Filter tags</div>
+          <div class="s12-btn" id="s12-live">Live</div>
+          <div class="s12-btn" id="s12-flash">Flash</div>
+          <div class="s12-btn" id="s12-anat">Anatomy</div>
+        </div>
+        <div id="s12-tree" class="abs"></div>
+        <div id="s12-div" class="abs"></div>
+        <div id="s12-side" class="abs">Select a component</div>
+      </div>
+    </div>
+    <div id="s12-lock" class="abs">
+      <div id="s12-glow" class="abs"></div>
+      <div id="s12-icon" class="abs"><svg viewBox="0 0 64 64" width="200" height="200">
+  
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#324fff" d="M48,28L42.14,42.14L36.49,36.49L40,28L48,28Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#283198" d="M42.14,42.14L28,48L28,40L36.49,36.49L42.14,42.14Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#324fff" d="M28,48L13.86,42.14L19.51,36.49L28,40L28,48Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#283198" d="M13.86,42.14L8,28L16,28L19.51,36.49L13.86,42.14Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#00e8ff" d="M8,28L13.86,13.86L19.51,19.51L16,28L8,28Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#00ffff" d="M13.86,13.86L28,8L28,16L19.51,19.51L13.86,13.86Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#00e8ff" d="M28,8L42.14,13.86L36.49,19.51L28,16L28,8Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#324fff" d="M42.14,13.86L48,28L40,28L36.49,19.51L42.14,13.86Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -10.921962 -11.010142)" fill="#324fff" d="M42.947,43.08L44.309,39.726L55.5,50.5L42.947,43.08Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -10.921962 -11.010142)" fill="#283198" d="M42.947,43.08L55.5,50.5L50.5,55.5L40.395,44.137L42.947,43.08Z"/>
+</svg>
+</div>
+      <div class="s12-line" id="s12-title">Lit Inspector</div>
+      <div class="s12-line" id="s12-tag">Inspect Lit components on any site. Production builds included.</div>
+      <div class="s12-line" id="s12-btnwrap"><div id="s12-btn">Add to Chrome</div></div>
+      <div class="s12-line" id="s12-fine">Independent tool. Not affiliated with Google or the Lit project.</div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var rows = [[0,"fh-app",2],[1,"fh-header",2],[2,"fh-search",0],[2,"fh-cart-button",0],[1,"fh-product-card",1],[1,"fh-product-card",2],[2,"fh-reviews",0],[1,"fh-product-card",1],[1,"fh-newsletter",1],[1,"fh-footer",0]];
+      var h = "";
+      rows.forEach(function (r, i) {
+        var x = 14 + r[0] * 20;
+        var chev = r[2] === 1 ? '<svg style="left:' + (x - 4) + 'px" viewBox="0 0 10 10"><path d="M3 1.5L7 5L3 8.5" fill="none" stroke="#919191" stroke-width="1.3"/></svg>' : r[2] === 2 ? '<svg style="left:' + (x - 4) + 'px" viewBox="0 0 10 10"><path d="M1.5 3L5 7L8.5 3" fill="none" stroke="#919191" stroke-width="1.3"/></svg>' : "";
+        h += '<div class="s12-row" style="top:' + (8 + i * 27) + 'px;padding-left:' + (x + 14) + 'px">' + chev + '<em>&lt;</em>' + r[1] + '<em>&gt;</em></div>';
+      });
+      document.getElementById("s12-tree").innerHTML = h;
+
+      var tl = gsap.timeline({ paused: true });
+      // the body collapses with the browser window (same scale and fade as the chrome)
+      tl.fromTo("#s12-win", { scale: 1, opacity: 1, transformOrigin: "670px 540px" }, { scale: 0.9, opacity: 0, duration: 0.66, ease: "power3.in" }, 0);
+      tl.fromTo("#s12-rail", { opacity: 1 }, { opacity: 0, duration: 0.3, ease: "power1.in" }, 0);
+
+      tl.fromTo("#s12-glow", { scale: 0.6, opacity: 0, transformOrigin: "50% 50%" }, { scale: 1, opacity: 1, duration: 0.9, ease: "power2.out" }, 0.48);
+      tl.fromTo("#s12-icon", { scale: 0.6, opacity: 0, transformOrigin: "50% 50%" }, { scale: 1, opacity: 1, duration: 0.55, ease: "power3.out" }, 0.48);
+      tl.fromTo("#s12-title", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 0.96);
+      tl.fromTo("#s12-tag", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 1.2);
+      tl.fromTo("#s12-btnwrap", { scale: 0.6, opacity: 0, transformOrigin: "50% 50%" }, { scale: 1, opacity: 1, duration: 0.7, ease: "elastic.out(1, 0.55)" }, 1.44);
+      tl.fromTo("#s12-fine", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power1.out" }, 1.92);
+      tl.to("#s12-glow", { scale: 1.06, duration: 1.2, ease: "sine.inOut", yoyo: true, repeat: 1 }, 1.6);
+      tl.to("#s12-lock", { opacity: 0, duration: 0.5, ease: "power1.inOut" }, 4.46);
+      window.__timelines["s12-endcard"] = tl;
+    })();
+  </script>
+</template>

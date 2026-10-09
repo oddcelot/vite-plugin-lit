@@ -1,0 +1,170 @@
+<template id="s03-pick-template">
+  <style>
+    @font-face { font-family: "Manrope"; font-weight: 500; src: url("assets/manrope-medium.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 600; src: url("assets/manrope-semibold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 700; src: url("assets/manrope-bold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 800; src: url("assets/manrope-extrabold.woff2") format("woff2"); }
+    @font-face { font-family: "Roboto Mono"; font-weight: 400; src: url("assets/RobotoMono-Latin-400.woff2") format("woff2"); }
+
+    #s03-pick { overflow: hidden; background: transparent; font-family: "Manrope", sans-serif; }
+    #s03-pick * { box-sizing: border-box; }
+    .s03-eyebrow { position: absolute; left: 80px; top: 330px; width: 420px; font-weight: 700; font-size: 16px; letter-spacing: .14em; text-transform: uppercase; color: #4d63ff; line-height: 20px; white-space: nowrap; }
+    .s03-line { position: absolute; left: 80px; width: 440px; font-weight: 800; font-size: 58px; letter-spacing: -0.03em; line-height: 60px; color: #fff; white-space: nowrap; }
+    .s03-line em { font-style: normal; color: #00e8ff; }
+    .s03-sub { position: absolute; left: 80px; width: 380px; font-weight: 500; font-size: 22px; line-height: 30px; color: #a1a1a1; }
+    .s03-cursor { position: absolute; left: 0; top: 0; width: 24px; height: 28px; pointer-events: none; z-index: 20; }
+    .s03-cursor svg { position: absolute; left: 0; top: 0; width: 24px; height: 28px; overflow: visible; transform-origin: 0 0; }
+    .s03-ring { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,.9); opacity: 0; z-index: 19; }
+    .s03-ring.blue { border-color: #8a9bff; }
+
+    #s03-body { position: absolute; left: 540px; top: 548px; width: 1340px; height: 464px; background: #030303; overflow: hidden; font-family: "Roboto Mono", monospace; }
+    #s03-tb { position: absolute; left: 0; top: 0; width: 1340px; height: 40px; background: #0d0d0d; border-bottom: 1px solid #363636; }
+    .s03-btn { position: absolute; top: 5px; height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #545868; color: #9194a2; font-family: "Manrope", sans-serif; font-weight: 600; font-size: 15px; white-space: nowrap; }
+    .s03-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; flex: none; }
+    .s03-btn.on { background: #1a2366; border-color: #1a2366; color: #8a9bff; }
+    .s03-btn.pressable .s03-on { opacity: 0; }
+    #s03-filter { position: absolute; left: 100px; top: 5px; width: 200px; height: 30px; border: 1px solid #363636; background: #030303; display: flex; align-items: center; padding: 0 10px; gap: 9px; font-family: "Manrope", sans-serif; font-weight: 500; font-size: 15px; color: #919191; }
+    #s03-filter svg { width: 15px; height: 15px; fill: none; stroke: #919191; stroke-width: 1.7; flex: none; }
+    #s03-tree { position: absolute; left: 0; top: 40px; width: 900px; height: 424px; border-right: 1px solid #363636; padding-top: 6px; overflow: hidden; }
+    .s03-row { position: relative; height: 27px; font-size: 15px; line-height: 27px; color: #e3e3e3; white-space: nowrap; }
+    .s03-row .tw { position: absolute; top: 0; color: #919191; font-size: 13px; width: 14px; text-align: center; }
+    .s03-row .tx { position: absolute; top: 0; }
+    .s03-row .tg { color: #82aaff; }
+    .s03-row .br { color: #6b7ab8; }
+    .s03-selbg { position: absolute; inset: 0; background: rgb(24,29,61); opacity: 0; }
+    .s03-selbar { position: absolute; left: 0; top: 0; width: 2px; height: 27px; background: #4d63ff; opacity: 0; }
+    #s03-chip { position: absolute; left: 596px; top: 52px; height: 26px; padding: 0 12px 0 10px; display: flex; align-items: center; gap: 8px; background: #292929; border: 1px solid #363636; font-size: 14px; color: #c7c7c7; white-space: nowrap; opacity: 0; }
+    #s03-chip i { width: 8px; height: 8px; border-radius: 50%; background: #f4bf4f; display: block; }
+    #s03-det { position: absolute; left: 901px; top: 40px; width: 439px; height: 424px; }
+    #s03-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: "Manrope", sans-serif; font-weight: 500; font-size: 16px; color: #919191; }
+
+    #s03-detail .ico { width: 17px; height: 17px; fill: none; stroke: #919191; stroke-width: 1.6; }
+    #s03-detail .d-sec { border-top: 1px solid #363636; padding: 6px 0 8px; }
+    #s03-detail .d-sh { height: 24px; line-height: 24px; font-family: "Manrope", sans-serif; font-weight: 600; font-size: 13px; letter-spacing: .08em; color: #919191; }
+    #s03-detail .d-sh b { font-weight: 600; margin-left: 8px; }
+    #s03-detail .d-ent { position: relative; display: flex; align-items: center; height: 26px; white-space: nowrap; }
+    #s03-detail .d-ent > *:not(.d-flash) { position: relative; }
+    #s03-detail .nm { width: 96px; flex: none; color: #e3e3e3; }
+    #s03-detail .str { color: #c3e88d; }
+    #s03-detail .num { color: #f78c6c; }
+    #s03-detail .bool { color: #c792ea; }
+    #s03-detail .swap { display: inline-grid; }
+    #s03-detail .swap > span { grid-area: 1 / 1; }
+    #s03-detail .chip { margin-right: 8px; font-size: 12px; line-height: 17px; padding: 0 6px; background: rgba(255,255,255,.08); color: #919191; }
+    #s03-detail .ok { color: #20c997; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+    #s03-detail .ok i { width: 7px; height: 7px; border-radius: 50%; background: #20c997; display: block; }
+    #s03-detail .d-flash { position: absolute; left: -8px; right: -8px; top: 0; bottom: 0; background: rgba(77,99,255,.35); opacity: 0; }
+    #s03-pagelayer { position: absolute; left: 540px; top: 128px; width: 1340px; height: 342px; overflow: hidden; }
+    #s03-pickbox { position: absolute; left: 464px; top: 72px; width: 412px; height: 252px; background: rgba(77,99,255,.18); border: 1px solid #4d63ff; opacity: 0; }
+    #s03-picklabel { position: absolute; left: 464px; top: 44px; height: 26px; padding: 0 10px; display: flex; align-items: center; gap: 8px; background: #1e1e1e; border: 1px solid #363636; color: #e3e3e3; font-family: "Roboto Mono", monospace; font-size: 15px; white-space: nowrap; opacity: 0; }
+    #s03-picklabel svg { width: 14px; height: 14px; fill: none; stroke: #8a9bff; stroke-width: 1.6; }
+    #s03-flashbox { position: absolute; left: 464px; top: 72px; width: 412px; height: 252px; border: 2px solid #4d63ff; border-radius: 10px; opacity: 0; }
+    #s03-btnpress { position: absolute; left: 480px; top: 272px; width: 124px; height: 36px; border-radius: 6px; background: rgba(77,99,255,.25); opacity: 0; }
+    #s03-cart { position: absolute; left: 1180px; top: 7px; width: 136px; height: 38px; border-radius: 19px; background: #2f6f4e; color: #fff; font-family: "Manrope", sans-serif; font-weight: 700; font-size: 16px; display: flex; align-items: center; justify-content: center; opacity: 0; }
+  </style>
+
+  <div id="s03-pick" data-composition-id="s03-pick" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <div class="s03-eyebrow" id="s03-eyebrow">Components</div>
+    <div class="s03-line" id="s03-l1" style="top:362px">Click it.</div>
+    <div class="s03-line" id="s03-l2" style="top:422px"><em>Inspect it.</em></div>
+    <div class="s03-sub" id="s03-sub" style="top:500px">Production builds included.</div>
+
+        <div id="s03-body">
+          <div id="s03-tb">
+            <div class="s03-btn" id="s03-pick" style="left:16px"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="5.5"/><circle cx="10" cy="10" r="1.5"/></svg>Pick<div class="s03-btn on" id="s03-pickon" style="left:-1px;top:-1px;width:calc(100% + 2px);height:calc(100% + 2px)"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="5.5"/><circle cx="10" cy="10" r="1.5"/></svg>Pick</div></div>
+            <div id="s03-filter"><svg viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4.5 4.5"/></svg>Filter tags</div>
+            <div class="s03-btn on" style="right:244px"><svg viewBox="0 0 20 20"><path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z"/><circle cx="10" cy="10" r="2.3"/></svg>Live</div>
+            <div class="s03-btn on" id="s03-flashbtn" style="right:148px"><svg viewBox="0 0 20 20"><path d="M11 2L4 11h5l-1 7 8-10h-5z"/></svg>Flash</div>
+            <div class="s03-btn" style="right:16px"><svg viewBox="0 0 20 20"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/></svg>Anatomy</div>
+          </div>
+          <div id="s03-tree">
+          <div class="s03-row" id="s03-row0"><div class="s03-selbg"></div><div class="s03-selbar"></div><span class="tw" style="left:6px">▾</span><span class="tx" style="left:26px"><span class="br">&lt;</span><span class="tg">fh-app</span><span class="br">&gt;</span></span></div>
+          <div class="s03-row" id="s03-row1"><div class="s03-selbg"></div><div class="s03-selbar"></div><span class="tw" style="left:24px">▾</span><span class="tx" style="left:44px"><span class="br">&lt;</span><span class="tg">fh-header</span><span class="br">&gt;</span></span></div>
+          <div class="s03-row" id="s03-row2"><div class="s03-selbg"></div><div class="s03-selbar"></div><span class="tx" style="left:62px"><span class="br">&lt;</span><span class="tg">fh-search</span><span class="br">&gt;</span></span></div>
+          <div class="s03-row" id="s03-row3"><div class="s03-selbg"></div><div class="s03-selbar"></div><span class="tx" style="left:62px"><span class="br">&lt;</span><span class="tg">fh-cart-button</span><span class="br">&gt;</span></span></div>
+          <div class="s03-row" id="s03-row4"><div class="s03-selbg"></div><div class="s03-selbar"></div><span class="tx" style="left:44px"><span class="br">&lt;</span><span class="tg">fh-product-card</span><span class="br">&gt;</span></span></div>
+          <div class="s03-row" id="s03-row5"><div class="s03-selbg"></div><div class="s03-selbar"></div><span class="tw" style="left:24px">▾</span><span class="tx" style="left:44px"><span class="br">&lt;</span><span class="tg">fh-product-card</span><span class="br">&gt;</span></span></div>
+          <div class="s03-row" id="s03-row6"><div class="s03-selbg"></div><div class="s03-selbar"></div><span class="tx" style="left:62px"><span class="br">&lt;</span><span class="tg">fh-reviews</span><span class="br">&gt;</span></span></div>
+          <div class="s03-row" id="s03-row7"><div class="s03-selbg"></div><div class="s03-selbar"></div><span class="tx" style="left:44px"><span class="br">&lt;</span><span class="tg">fh-product-card</span><span class="br">&gt;</span></span></div>
+          <div class="s03-row" id="s03-row8"><div class="s03-selbg"></div><div class="s03-selbar"></div><span class="tx" style="left:44px"><span class="br">&lt;</span><span class="tg">fh-toast</span><span class="br">&gt;</span></span></div>
+          </div>
+          <div id="s03-chip"><i></i>production build · minified</div>
+          <div id="s03-det"><div id="s03-hint">Select a component to inspect.</div>
+          <div id="s03-detail" style="position:absolute;left:20px;top:14px;right:20px;font-size:15px;color:#e3e3e3">
+            <div class="d-blk" style="display:flex;align-items:center;height:30px"><span style="font-size:20px;font-weight:700;color:#fff"><span style="color:#919191;font-weight:400">&lt;</span>fh-product-card<span style="color:#919191;font-weight:400">&gt;</span></span>
+              <span style="margin-left:auto;display:flex;gap:12px"><svg class="ico" viewBox="0 0 20 20"><circle cx="10" cy="10" r="6"/><circle cx="10" cy="10" r="2"/></svg><svg class="ico" viewBox="0 0 20 20"><path d="M8 4H4v4M12 4h4v4M16 12v4h-4M8 16H4v-4"/></svg></span></div>
+            <div class="d-blk" style="display:flex;height:24px;line-height:24px;margin-top:2px"><span style="width:84px;color:#919191">root</span><span>shadow, open</span></div>
+            <div class="d-blk" style="height:32px;margin:8px 0 12px;border:1px solid #363636;display:flex;align-items:center;gap:9px;padding:0 10px;font-family:'Manrope',sans-serif;font-weight:500;color:#919191"><svg class="ico" style="stroke:#919191" viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4.5 4.5"/></svg>Filter rows</div>
+
+            <div class="d-blk d-sec"><div class="d-sh">⌄ PROPERTIES<b>2</b></div>
+              <div class="d-ent"><span class="nm">name</span><span class="str">"Fiddle Leaf Fig"</span></div>
+              <div class="d-ent"><span class="nm">price</span><span class="num">48</span></div></div>
+            <div class="d-blk d-sec"><div class="d-sh">⌄ STATE<b>1</b></div>
+              <div class="d-ent" id="s03-ent-incart"><div class="d-flash" id="s03-fl1"></div><span class="nm">inCart</span><span class="swap"><span class="bool" id="s03-incart-a">false</span><span class="bool" id="s03-incart-b" style="opacity:0">true</span></span></div></div>
+            <div class="d-blk d-sec"><div class="d-sh">⌄ INSTANCE<b>2</b></div>
+              <div class="d-ent"><span class="nm">reviews</span><span class="chip">task</span><span class="ok"><i></i>complete</span></div>
+              <div class="d-ent" id="s03-ent-renders"><div class="d-flash" id="s03-fl2"></div><span class="nm">renders</span><span class="swap"><span class="num" id="s03-ren-a">3</span><span class="num" id="s03-ren-b" style="opacity:0">4</span></span></div></div>
+          </div></div>
+        </div>
+
+    <div id="s03-pagelayer">
+      <div id="s03-pickbox"></div>
+      <div id="s03-picklabel"><svg viewBox="0 0 20 20"><path d="M10 2l7 4v8l-7 4-7-4V6zM3 6l7 4 7-4M10 10v8"/></svg>&lt;fh-product-card&gt;</div>
+      <div id="s03-btnpress"></div>
+      <div id="s03-flashbox"></div>
+      <div id="s03-cart">Cart · 3</div>
+    </div>
+
+    <div class="s03-ring" id="s03-ring1"></div>
+    <div class="s03-ring" id="s03-ring2"></div>
+    <div class="s03-cursor" id="s03-cursor"><svg viewBox="0 0 24 28"><path d="M1.5 1.5 L1.5 21.5 L6.8 16.9 L10.4 25 L14 23.4 L10.4 15.6 L17.6 15.6 Z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+  </div>
+
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      var slam = function (sel, at) { tl.fromTo(sel, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, at); };
+      tl.fromTo("#s03-eyebrow", { opacity: 0 }, { opacity: 1, duration: 0.12 }, 0);
+      slam("#s03-l1", 0); slam("#s03-l2", 0.96); slam("#s03-sub", 2.88);
+      tl.set("#s03-chip", { opacity: 1 }, 0);
+      tl.set("#s03-hint", { opacity: 1 }, 0);
+
+      // 0.00 HIT: pick overlay + label + click on card 2
+      tl.fromTo("#s03-pickbox", { opacity: 0 }, { opacity: 1, duration: 0.1 }, 0);
+      tl.fromTo("#s03-picklabel", { opacity: 0, y: 4 }, { opacity: 1, y: 0, duration: 0.14, ease: "power2.out" }, 0);
+      var cur = "#s03-cursor", svg = "#s03-cursor svg";
+      tl.fromTo(cur, { x: 1244, y: 332, opacity: 0 }, { x: 1244, y: 332, opacity: 1, duration: 0.1 }, 0);
+      tl.fromTo(svg, { scale: 0.82 }, { scale: 1, duration: 0.12, ease: "power1.out" }, 0);
+      tl.fromTo("#s03-ring1", { x: 1244, y: 332, scale: 0.3, opacity: 0.9 }, { scale: 1.7, opacity: 0, duration: 0.4, ease: "power2.out", immediateRender: false }, 0);
+      // pick overlay clears after the click selects the row, Pick button releases
+      tl.to("#s03-pickbox", { opacity: 0, duration: 0.25 }, 0.5);
+      tl.to("#s03-picklabel", { opacity: 0, duration: 0.25 }, 0.5);
+      tl.to("#s03-pickon", { opacity: 0, duration: 0.2 }, 0.28);
+
+      // 0.24 select row 5, details fill
+      tl.fromTo("#s03-row5 .s03-selbg, #s03-row5 .s03-selbar", { opacity: 0 }, { opacity: 1, duration: 0.12 }, 0.24);
+      tl.to("#s03-hint", { opacity: 0, duration: 0.1 }, 0.24);
+      tl.fromTo("#s03-detail .d-blk", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.2, ease: "power2.out", stagger: 0.04 }, 0.26);
+
+      // cursor to Add to cart
+      tl.fromTo(cur, { x: 1244, y: 332 }, { x: 1082, y: 418, duration: 0.55, ease: "power2.inOut", immediateRender: false }, 1.2);
+      tl.fromTo(svg, { scale: 1 }, { scale: 0.82, duration: 0.06, ease: "power1.out", immediateRender: false }, 1.9);
+      tl.to(svg, { scale: 1, duration: 0.08, ease: "power1.in" }, 1.96);
+      tl.fromTo("#s03-ring2", { x: 1082, y: 418, scale: 0.3, opacity: 0.9 }, { scale: 1.7, opacity: 0, duration: 0.4, ease: "power2.out", immediateRender: false }, 1.92);
+
+      // 1.92 HIT: Add to cart click, Flash outline, cart 3, details highlight
+      tl.fromTo("#s03-btnpress", { opacity: 0 }, { opacity: 1, duration: 0.06 }, 1.92);
+      tl.to("#s03-btnpress", { opacity: 0, duration: 0.2 }, 2.04);
+      tl.fromTo("#s03-flashbox", { opacity: 0 }, { opacity: 1, duration: 0.06 }, 1.92);
+      tl.to("#s03-flashbox", { opacity: 0, duration: 0.8, ease: "power1.in" }, 2.0);
+      tl.fromTo("#s03-cart", { opacity: 0, scale: 1 }, { opacity: 1, duration: 0.01 }, 1.92);
+      tl.fromTo("#s03-cart", { scale: 1.12 }, { scale: 1, duration: 0.25, ease: "power3.out", immediateRender: false }, 1.92);
+      tl.set("#s03-incart-a", { opacity: 0 }, 1.92); tl.set("#s03-incart-b", { opacity: 1 }, 1.92);
+      tl.set("#s03-ren-a", { opacity: 0 }, 1.92); tl.set("#s03-ren-b", { opacity: 1 }, 1.92);
+      tl.fromTo("#s03-fl1, #s03-fl2", { opacity: 1 }, { opacity: 0, duration: 0.8, ease: "power1.in", immediateRender: false }, 1.92);
+      tl.set("#s03-fl1, #s03-fl2", { opacity: 0 }, 0);
+
+      window.__timelines["s03-pick"] = tl;
+    })();
+  </script>
+</template>

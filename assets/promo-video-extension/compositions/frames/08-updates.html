@@ -1,0 +1,188 @@
+<template id="s08-updates-template">
+  <div id="s08-updates" data-composition-id="s08-updates" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <style>
+      @font-face{font-family:"Manrope";font-weight:500;src:url("assets/manrope-medium.woff2") format("woff2");}
+      @font-face{font-family:"Manrope";font-weight:600;src:url("assets/manrope-semibold.woff2") format("woff2");}
+      @font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2");}
+      @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2");}
+      @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2");}
+      #s08-updates,#s08-updates *{box-sizing:border-box;}
+      #s08-updates{font-family:"Manrope",sans-serif;color:#e3e3e3;overflow:hidden;}
+      #s08-eyebrow{position:absolute;left:80px;top:330px;font-weight:700;font-size:16px;letter-spacing:.14em;text-transform:uppercase;color:#4d63ff;white-space:nowrap;}
+      .s08-h{position:absolute;left:80px;display:block;font-weight:800;font-size:58px;line-height:60px;letter-spacing:-.03em;color:#fff;white-space:nowrap;}
+      .s08-h b{color:#00e8ff;font-weight:800;}
+      #s08-body{position:absolute;left:540px;top:548px;width:1340px;height:464px;background:#030303;overflow:hidden;font-family:"Roboto Mono",monospace;font-size:15px;}
+      #s08-hd{position:absolute;left:0;top:0;width:1340px;height:30px;border-bottom:1px solid #1f1f1f;font-family:"Manrope",sans-serif;font-weight:500;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:#919191;line-height:29px;}
+      #s08-hd span{position:absolute;white-space:nowrap;}
+      .s08-row{position:absolute;left:0;width:1340px;height:29px;border-bottom:1px solid #1a1a1a;line-height:28px;color:#e3e3e3;}
+      .s08-row>*{position:absolute;white-space:nowrap;}
+      .s08-tag{left:16px;color:#e3e3e3;}
+      .s08-tag b{font-weight:400;color:#fff;}
+      .s08-grp{right:302px;top:0;height:28px;display:flex;align-items:center;gap:10px;}
+      .s08-prop{color:#4d63ff;font-size:14px;}
+      .s08-pill{border:1px solid #e8803a;color:#e8803a;font-size:12px;line-height:20px;height:22px;padding:0 7px;}
+      .s08-stk{top:0;height:28px;}
+      .s08-stk span{position:absolute;top:0;right:0;text-align:right;white-space:nowrap;opacity:0;}
+      .s08-up{right:216px;width:50px;}
+      .s08-tot{right:100px;width:80px;color:#fff;}
+      .s08-sl{right:16px;color:#919191;}
+      .s08-bar{left:1140px;top:24px;height:3px;background:#2a3bc4;transform-origin:0 50%;}
+      .s08-sel{position:absolute;left:0;width:1340px;height:29px;background:rgb(24,29,61);opacity:0;}
+      .s08-sel i{position:absolute;left:0;top:0;width:2px;height:29px;background:#4d63ff;}
+      #s08-pane{position:absolute;left:0;top:236px;width:1340px;height:228px;border-top:1px solid #363636;}
+      #s08-hint{position:absolute;left:0;top:0;width:1340px;height:226px;text-align:center;line-height:226px;font-family:"Manrope",sans-serif;font-size:14px;color:#919191;}
+      .s08-pg{position:absolute;left:0;top:0;width:1340px;height:226px;opacity:0;}
+      .s08-ph{position:absolute;left:0;top:0;width:1340px;height:30px;background:#0d0d0d;border-bottom:1px solid #1f1f1f;line-height:29px;}
+      .s08-ph b{position:absolute;left:16px;font-weight:400;color:#fff;font-size:16px;}
+      .s08-ph em{position:absolute;left:0;font-style:normal;font-family:"Manrope",sans-serif;font-size:14px;color:#c4c4c4;}
+      .s08-ph u{position:absolute;right:16px;text-decoration:none;font-family:"Manrope",sans-serif;font-size:14px;color:#c4c4c4;}
+      .s08-ur{position:absolute;left:0;width:1340px;height:29px;border-bottom:1px solid #1a1a1a;line-height:28px;}
+      .s08-ur>*{position:absolute;white-space:nowrap;}
+      .s08-ur .a{left:0;width:112px;text-align:right;color:#919191;}
+      .s08-ur .b{left:112px;width:88px;text-align:right;color:#fff;}
+      .s08-ur .c{left:218px;color:#4d63ff;}
+      .s08-ur .f{right:70px;color:#919191;font-size:14px;}
+      .s08-ur .g{right:16px;color:#919191;font-size:14px;}
+      .s08-sub{position:absolute;left:0;width:1340px;height:28px;line-height:27px;border-bottom:1px solid #1a1a1a;}
+      .s08-sub>*{position:absolute;white-space:nowrap;}
+      .s08-sub .a{left:126px;color:#e3e3e3;}
+      .s08-sub .a em{font-style:normal;color:#919191;margin:0 8px;}
+      #s08-cur{position:absolute;left:0;top:0;width:24px;height:24px;z-index:9;}
+      #s08-cur svg{display:block;width:24px;height:24px;}
+      #s08-rip{position:absolute;left:0;top:0;width:34px;height:34px;margin:-17px 0 0 -17px;border:2px solid #fff;border-radius:50%;opacity:0;z-index:8;}
+    </style>
+
+    <div id="s08-cap">
+      <div id="s08-eyebrow">Updates</div>
+      <span class="s08-h" id="s08-h1" style="top:362px">What changed,</span>
+      <span class="s08-h" id="s08-h2" style="top:422px"><b>how often.</b></span>
+    </div>
+
+    <div id="s08-body">
+      <div id="s08-hd">
+        <span style="left:16px">Component &middot; 4</span>
+        <span style="right:216px">Updates</span>
+        <span style="right:100px;width:80px;text-align:right">Total</span>
+        <span style="right:16px">Slowest</span>
+      </div>
+
+      <div class="s08-sel" id="s08-selA" style="top:59px"><i></i></div>
+      <div class="s08-sel" id="s08-selB" style="top:88px"><i></i></div>
+
+      <div class="s08-row" id="s08-r0" style="top:30px">
+        <span class="s08-tag">&lt;<b>fh-product-card</b>&gt;</span>
+        <div class="s08-grp"><span class="s08-prop" style="position:static">inCart</span></div>
+        <div class="s08-stk s08-up" style="width:50px"><span id="s08-u0a" style="opacity:1">3&times;</span><span id="s08-u0b">4&times;</span><span id="s08-u0c">5&times;</span><span id="s08-u0d">6&times;</span></div>
+        <div class="s08-stk s08-tot" style="width:80px"><span id="s08-t0a" style="opacity:1">1.2ms</span><span id="s08-t0b">1.5ms</span><span id="s08-t0c">1.8ms</span><span id="s08-t0d">2.1ms</span></div>
+        <i class="s08-bar" id="s08-b0" style="width:100px"></i>
+        <span class="s08-sl">0.60ms</span>
+      </div>
+      <div class="s08-row" id="s08-r1" style="top:59px">
+        <span class="s08-tag">&lt;<b>fh-cart-button</b>&gt;</span>
+        <div class="s08-grp"><span class="s08-prop" style="position:static">count</span></div>
+        <div class="s08-stk s08-up" style="width:50px"><span style="opacity:1">3&times;</span></div>
+        <div class="s08-stk s08-tot" style="width:80px"><span style="opacity:1">0.4ms</span></div>
+        <i class="s08-bar" style="width:19px"></i>
+        <span class="s08-sl">0.20ms</span>
+      </div>
+      <div class="s08-row" id="s08-r2" style="top:88px">
+        <span class="s08-tag">&lt;<b>fh-reviews</b>&gt;</span>
+        <div class="s08-grp"><span class="s08-prop" style="position:static">userId</span><span class="s08-pill" id="s08-pill" style="position:static">1 skipped</span></div>
+        <div class="s08-stk s08-up" style="width:50px"><span style="opacity:1">2&times;</span></div>
+        <div class="s08-stk s08-tot" style="width:80px"><span style="opacity:1">0.6ms</span></div>
+        <i class="s08-bar" style="width:29px"></i>
+        <span class="s08-sl">0.30ms</span>
+      </div>
+      <div class="s08-row" id="s08-r3" style="top:117px">
+        <span class="s08-tag">&lt;<b>fh-search</b>&gt;</span>
+        <div class="s08-grp"><span class="s08-prop" style="position:static">query</span></div>
+        <div class="s08-stk s08-up" style="width:50px"><span style="opacity:1">1&times;</span></div>
+        <div class="s08-stk s08-tot" style="width:80px"><span style="opacity:1">0.1ms</span></div>
+        <i class="s08-bar" style="width:5px"></i>
+        <span class="s08-sl">0.10ms</span>
+      </div>
+
+      <div id="s08-pane">
+        <div id="s08-hint">Pick a component to see each of its updates and what changed.</div>
+
+        <!-- fh-cart-button -->
+        <div class="s08-pg" id="s08-pgA">
+          <div class="s08-ph"><b>&lt;fh-cart-button&gt;</b><em style="left:178px">updates</em><u>3</u></div>
+          <div class="s08-ur" style="top:31px"><span class="a">1204.6ms</span><span class="b">0.10ms</span><span class="c">count</span><span class="f">after click (612, 388)</span><span class="g">#4</span></div>
+          <div class="s08-sub" style="top:60px"><span class="a">count 0<em>&rarr;</em>1</span></div>
+          <div class="s08-ur" style="top:88px"><span class="a">1760.2ms</span><span class="b">0.20ms</span><span class="c">count</span><span class="f">after click (904, 402)</span><span class="g">#4</span></div>
+          <div class="s08-sub" style="top:117px"><span class="a">count 1<em>&rarr;</em>2</span></div>
+          <div class="s08-ur" style="top:145px"><span class="a">2211.2ms</span><span class="b">0.10ms</span><span class="c">count</span><span class="f">after click (1188, 431)</span><span class="g">#4</span></div>
+          <div class="s08-sub" style="top:174px"><span class="a">count 2<em>&rarr;</em>3</span></div>
+        </div>
+
+        <!-- fh-reviews -->
+        <div class="s08-pg" id="s08-pgB">
+          <div class="s08-ph"><b>&lt;fh-reviews&gt;</b><em style="left:152px">updates</em><u>2</u></div>
+          <div class="s08-ur" style="top:31px"><span class="a">2523.1ms</span><span class="b">0.30ms</span><span class="c">userId</span><span class="f">after reviewsTask task</span><span class="g">#9</span></div>
+          <div class="s08-sub" style="top:60px"><span class="a">userId 1<em>&rarr;</em>2</span></div>
+          <div class="s08-ur" id="s08-skipRow" style="top:88px"><span class="a">2611.4ms</span><span class="b">0.30ms</span><span class="c" style="color:#e8803a">skipped</span><span class="f">after click (1188, 431)</span><span class="g">#9</span></div>
+          <div class="s08-sub" style="top:117px"><span class="a" style="color:#919191">no changed properties</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="s08-rip"></div>
+    <div id="s08-cur"><svg viewBox="0 0 24 24"><path d="M4 2 L4 19 L8.5 15 L11.5 22 L14.5 20.7 L11.6 14 L17.5 14 Z" fill="#fff" stroke="#0b0b0b" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
+
+    <script>
+      (function () {
+        var tl = gsap.timeline({ paused: true });
+        var click = function (x, y, t) {
+          tl.set("#s08-rip", { x: x, y: y }, t);
+          tl.fromTo("#s08-rip", { scale: 0.3, opacity: 0.85 }, { scale: 1.6, opacity: 0, duration: 0.4, ease: "power2.out" }, t);
+          tl.fromTo("#s08-cur svg", { scale: 1 }, { scale: 0.82, duration: 0.06, ease: "power2.out", transformOrigin: "4px 2px", yoyo: true, repeat: 1 }, t);
+        };
+        // caption
+        tl.fromTo("#s08-eyebrow", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.25, ease: "power3.out" }, 0);
+        tl.fromTo("#s08-h1", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.28, ease: "power3.out" }, 0.1);
+        tl.fromTo("#s08-h2", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.28, ease: "power3.out" }, 0.48);
+        // list
+        tl.fromTo("#s08-hd", { opacity: 0 }, { opacity: 1, duration: 0.14 }, 0);
+        [0, 1, 2, 3].forEach(function (i) {
+          tl.fromTo("#s08-r" + i, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.22, ease: "power3.out" }, 0.02 + i * 0.04);
+        });
+        tl.fromTo("#s08-pane", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 0.1);
+        // cursor selects fh-cart-button (row at y 607 -> 636)
+        tl.set("#s08-cur", { x: 1046, y: 700 }, 0);
+        tl.fromTo("#s08-cur", { opacity: 0 }, { opacity: 1, duration: 0.1 }, 0.02);
+        tl.to("#s08-cur", { x: 836, y: 619, duration: 0.2, ease: "power2.inOut" }, 0.0);
+        click(840, 621, 0.22);
+        tl.set("#s08-selA", { opacity: 1 }, 0.24);
+        tl.set("#s08-hint", { opacity: 0 }, 0.24);
+        tl.fromTo("#s08-pgA", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.22, ease: "power3.out" }, 0.24);
+        // counts tick on the beats (product-card)
+        var ticks = [["a", "b", 0.48], ["b", "c", 0.96], ["c", "d", 1.44]];
+        var barW = { a: 57, b: 71, c: 86, d: 100 };
+        tl.set("#s08-b0", { scaleX: barW.a / 100 }, 0);
+        ticks.forEach(function (s) {
+          ["u0", "t0"].forEach(function (k) {
+            tl.set("#s08-" + k + s[0], { opacity: 0 }, s[2]);
+            tl.fromTo("#s08-" + k + s[1], { opacity: 0, y: -8 }, { opacity: 1, y: 0, duration: 0.18, ease: "power3.out" }, s[2]);
+          });
+          tl.to("#s08-b0", { scaleX: barW[s[1]] / 100, duration: 0.2, ease: "power3.out" }, s[2]);
+        });
+        // HIT: fh-reviews selected
+        tl.to("#s08-cur", { x: 836, y: 648, duration: 0.24, ease: "power2.inOut" }, 1.66);
+        click(840, 650, 1.9);
+        tl.set("#s08-selA", { opacity: 0 }, 1.92);
+        tl.set("#s08-selB", { opacity: 1 }, 1.92);
+        tl.fromTo("#s08-selB", { backgroundColor: "rgb(52,62,150)" }, { backgroundColor: "rgb(24,29,61)", duration: 0.5, ease: "power2.out" }, 1.92);
+        tl.set("#s08-pgA", { opacity: 0 }, 1.92);
+        tl.fromTo("#s08-pgB", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.22, ease: "power3.out" }, 1.92);
+        tl.fromTo("#s08-pill", { boxShadow: "0 0 0 0 rgba(232,128,58,0)" }, { boxShadow: "0 0 12px 2px rgba(232,128,58,.7)", duration: 0.2, yoyo: true, repeat: 1, ease: "power2.out" }, 2.0);
+        tl.fromTo("#s08-skipRow", { backgroundColor: "rgba(232,128,58,0)" }, { backgroundColor: "rgba(232,128,58,.14)", duration: 0.3, ease: "power2.out" }, 2.4);
+        tl.to("#s08-cur", { x: 1010, y: 800, duration: 0.5, ease: "power2.inOut" }, 2.5);
+        tl.to("#s08-cur", { opacity: 0, duration: 0.2 }, 3.0);
+        // exit
+        tl.to("#s08-body,#s08-cap,#s08-cur", { opacity: 0, duration: 0.15, ease: "power1.in" }, 3.72);
+        window.__timelines["s08-updates"] = tl;
+      })();
+    </script>
+  </div>
+</template>

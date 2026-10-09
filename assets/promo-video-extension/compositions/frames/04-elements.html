@@ -1,0 +1,198 @@
+<template id="s04-elements-template">
+  <style>
+    @font-face { font-family: "Manrope"; font-weight: 500; src: url("assets/manrope-medium.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 600; src: url("assets/manrope-semibold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 700; src: url("assets/manrope-bold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 800; src: url("assets/manrope-extrabold.woff2") format("woff2"); }
+    @font-face { font-family: "Roboto Mono"; font-weight: 400; src: url("assets/RobotoMono-Latin-400.woff2") format("woff2"); }
+
+    #s04-elements, #s04-elements * { box-sizing: border-box; }
+    #s04-elements { position: absolute; inset: 0; font-family: "Manrope", sans-serif; }
+    .s4-abs { position: absolute; }
+    .s4-eb { position: absolute; left: 80px; top: 330px; font-weight: 700; font-size: 16px; letter-spacing: .14em; text-transform: uppercase; color: #4d63ff; line-height: 22px; white-space: nowrap; opacity: 0; }
+    .s4-hl { position: absolute; left: 80px; font-weight: 800; font-size: 58px; line-height: 60px; letter-spacing: -0.03em; color: #fff; white-space: nowrap; opacity: 0; }
+    .s4-sub { position: absolute; left: 80px; width: 420px; font-weight: 500; font-size: 22px; line-height: 30px; color: #a1a1a1; opacity: 0; }
+    .s4-cy { color: #00e8ff; }
+    /* Lit body */
+    .s4-lit { position: absolute; left: 540px; top: 548px; width: 1340px; height: 464px; background: #030303; overflow: hidden; }
+    .s4-tb { position: absolute; left: 0; top: 0; width: 1340px; height: 40px; background: #0d0d0d; border-bottom: 1px solid #363636; }
+    .s4-btn { position: absolute; top: 4px; height: 32px; border: 1px solid #363636; background: #0d0d0d; color: #e3e3e3; font-weight: 600; font-size: 15px; line-height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 12px; white-space: nowrap; }
+    .s4-btn svg { width: 15px; height: 15px; fill: none; stroke: #919191; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .s4-btn.on { background: #1a2366; border-color: #324fff; color: #8a9bff; }
+    .s4-btn.on svg { stroke: #8a9bff; }
+    .s4-flt { position: absolute; left: 118px; top: 4px; width: 250px; height: 32px; border: 1px solid #363636; background: #0d0d0d; color: #919191; font-family: "Roboto Mono", monospace; font-size: 14px; line-height: 30px; padding-left: 38px; letter-spacing: .02em; }
+    .s4-flt svg { position: absolute; left: 14px; top: 8px; width: 14px; height: 14px; fill: none; stroke: #919191; stroke-width: 1.5; }
+    .s4-tree { position: absolute; left: 0; top: 41px; width: 900px; height: 423px; }
+    .s4-tr { position: absolute; left: 0; width: 900px; height: 27px; line-height: 27px; font-family: "Roboto Mono", monospace; font-size: 15px; color: #e3e3e3; white-space: nowrap; opacity: 0; }
+    .s4-tr .nm { color: #82aaff; }
+    .s4-tr .br { color: #919191; }
+    .s4-tr.sel { background: rgb(24,29,61); }
+    .s4-tr.sel::before { content: ""; position: absolute; left: 0; top: 0; width: 2px; height: 27px; background: #4d63ff; }
+    .s4-tr i { position: absolute; top: 9px; width: 7px; height: 7px; border-right: 1.5px solid #919191; border-bottom: 1.5px solid #919191; }
+    .s4-tr i.o { transform: rotate(45deg); top: 8px; }
+    .s4-tr i.c { transform: rotate(-45deg); }
+    .s4-det { position: absolute; left: 900px; top: 41px; width: 440px; height: 423px; border-left: 1px solid #363636; }
+    .s4-dtag { position: absolute; left: 16px; top: 9px; height: 34px; line-height: 34px; font-family: "Roboto Mono", monospace; font-weight: 700; font-size: 20px; color: #fff; white-space: nowrap; opacity: 0; }
+    .s4-dbtn { position: absolute; top: 12px; width: 28px; height: 28px; background: #1c1c1c; border: 1px solid #363636; display: flex; align-items: center; justify-content: center; opacity: 0; }
+    .s4-dbtn svg { width: 16px; height: 16px; fill: none; stroke: #c9c9c9; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .s4-dr { position: absolute; left: 16px; right: 16px; height: 23px; line-height: 23px; font-family: "Roboto Mono", monospace; font-size: 15px; color: #e3e3e3; white-space: nowrap; opacity: 0; }
+    .s4-dr .k { position: absolute; left: 0; top: 0; }
+    .s4-dr .v { position: absolute; top: 0; }
+    .s4-dr.sl .k { left: 20px; }
+    .s4-dr .sw { position: absolute; left: 0; top: 6px; width: 11px; height: 11px; }
+    .s4-dr .hl { position: absolute; left: -16px; right: -16px; top: 0; bottom: 0; background: rgba(194,37,92,.2); border-left: 2px solid #c2255c; opacity: 0; }
+    .s4-dr .ch { display: inline-block; height: 19px; line-height: 19px; padding: 0 6px; margin-left: 8px; background: #292929; color: #a1a1a1; font-size: 12px; vertical-align: middle; position: relative; top: -1px; }
+    .s4-dr .mu { color: #919191; }
+    .s4-dr .num { color: #ff8a6b; }
+    .s4-dr .str { color: #c3e88d; }
+    .s4-dr .bool { color: #c792ea; }
+    .s4-dr .lk { color: #8a9bff; }
+    .s4-dflt { position: absolute; left: 16px; right: 16px; height: 34px; border: 1px solid #363636; background: #0d0d0d; color: #919191; font-family: "Roboto Mono", monospace; font-size: 14px; line-height: 32px; padding-left: 38px; opacity: 0; }
+    .s4-dflt svg { position: absolute; left: 13px; top: 9px; width: 14px; height: 14px; fill: none; stroke: #919191; stroke-width: 1.5; }
+    .s4-dsep { position: absolute; left: 16px; right: 16px; height: 1px; background: #262626; opacity: 0; }
+    .s4-dsh { position: absolute; left: 16px; height: 24px; line-height: 24px; font-weight: 600; font-size: 13px; letter-spacing: .1em; color: #919191; white-space: nowrap; opacity: 0; }
+    .s4-dsh i { display: inline-block; width: 7px; height: 7px; border-right: 1.5px solid #919191; border-bottom: 1.5px solid #919191; transform: rotate(45deg); margin-right: 12px; position: relative; top: -3px; }
+    .s4-dsh b { font-weight: 600; margin-left: 6px; }
+    /* cursor */
+    .s4-cur { position: absolute; left: -2px; top: -2px; width: 22px; height: 29px; opacity: 0; transform-origin: 2px 2px; z-index: 20; }
+    .s4-rip { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border: 2px solid rgba(255,255,255,.85); border-radius: 50%; opacity: 0; z-index: 19; }
+
+    .s4-el { position: absolute; left: 540px; top: 504px; width: 1340px; height: 536px; background: #1e1e1e; overflow: hidden; }
+    .s4-er { position: absolute; left: 0; width: 840px; height: 24px; line-height: 24px; font-family: "Roboto Mono", monospace; font-size: 15px; color: #e8eaed; white-space: nowrap; opacity: 0; }
+    .s4-er i { position: absolute; top: 9px; width: 0; height: 0; }
+    .s4-er i.o { border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid #9aa0a6; top: 9px; }
+    .s4-er i.c { border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid #9aa0a6; top: 8px; }
+    .s4-er .pu { color: #989898; } .s4-er .tn { color: #5db0d7; } .s4-er .an { color: #9bbbdc; } .s4-er .av { color: #f29766; }
+    .s4-er .sr { color: #9aa0a6; } .s4-er .eq { color: #e8eaed; }
+    .s4-selbg { position: absolute; left: 0; top: 224px; width: 840px; height: 24px; background: #2c3e57; opacity: 0; }
+    .s4-pane2 { position: absolute; left: 840px; top: 0; width: 500px; height: 536px; border-left: 1px solid #3c3c3c; background: #1e1e1e; }
+    .s4-ptabs { position: absolute; left: 0; top: 0; width: 499px; height: 34px; background: #282828; border-bottom: 1px solid #3c3c3c; font-weight: 500; font-size: 14px; color: #c4c7c5; white-space: nowrap; }
+    .s4-ptabs span { position: absolute; top: 0; line-height: 34px; }
+    .s4-ptabs .act { color: #e3e3e3; border-bottom: 2px solid #a8c7fa; height: 34px; }
+    .s4-pf { position: absolute; left: 12px; top: 44px; width: 475px; height: 28px; border: 1px solid #3c3c3c; background: #282828; color: #8b8b8b; font-size: 13px; line-height: 26px; padding-left: 10px; font-weight: 500; }
+    .s4-pf em { position: absolute; right: 10px; font-style: normal; font-family: "Roboto Mono", monospace; }
+    .s4-css { position: absolute; left: 14px; width: 470px; font-family: "Roboto Mono", monospace; font-size: 14px; line-height: 22px; color: #e8eaed; white-space: nowrap; }
+    .s4-css .sel { color: #e8eaed; } .s4-css .pr { color: #5db0d7; } .s4-css .vl { color: #f29766; } .s4-css .src { position: absolute; right: 0; top: 0; color: #9aa0a6; }
+    .s4-bc { position: absolute; left: 0; top: 506px; width: 840px; height: 30px; border-top: 1px solid #3c3c3c; background: #282828; font-size: 13px; font-weight: 500; line-height: 29px; color: #9aa0a6; white-space: nowrap; }
+    .s4-bc span { position: absolute; }
+    .s4-hi { position: absolute; left: 1720px; top: 137px; width: 136px; height: 34px; background: rgba(111,168,220,.66); outline: 1px solid rgba(111,168,220,.9); opacity: 0; z-index: 4; }
+    .s4-tip { position: absolute; right: 64px; top: 177px; height: 30px; padding: 0 12px; background: #202124; border: 1px solid #5f6368; box-shadow: 0 6px 18px rgba(0,0,0,.5); font-family: "Roboto Mono", monospace; font-size: 13px; line-height: 28px; color: #9aa0a6; white-space: nowrap; opacity: 0; z-index: 4; }
+    .s4-tip b { font-weight: 400; color: #5db0d7; }
+    .s4-chip { position: absolute; left: 790px; top: 674.5px; height: 30px; line-height: 30px; padding: 0 14px 0 12px; background: #292929; border: 1px solid #4d63ff; color: #e3e3e3; font-weight: 600; font-size: 14px; white-space: nowrap; opacity: 0; z-index: 4; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+    .s4-chip::before { content: ""; display: inline-block; width: 7px; height: 7px; background: #00e8ff; border-radius: 50%; margin-right: 9px; vertical-align: 1px; }
+    .s4-tt { position: absolute; right: 16px; top: 640px; height: 28px; line-height: 28px; padding: 0 10px; background: #1b1b1b; border: 1px solid #4a4a4a; color: #e3e3e3; font-weight: 500; font-size: 14px; white-space: nowrap; opacity: 0; z-index: 4; }
+  </style>
+
+  <div id="s04-elements" data-composition-id="s04-elements" data-width="1920" data-height="1080">
+    <div class="s4-capwrap" style="position:absolute;inset:0">
+<div class="s4-eb">Elements panel</div><div class="s4-hl s4-hl0" style="top:362px">Select in</div><div class="s4-hl s4-hl0" style="top:422px"><span class="s4-cy">Elements.</span></div><div class="s4-hl s4-hl1" style="top:362px">Land in</div><div class="s4-hl s4-hl1" style="top:422px"><span class="s4-cy">Lit.</span></div>
+    </div>
+
+    <!-- Chrome Elements body -->
+    <div class="s4-el s4-elbody">
+      <div class="s4-selbg"></div>
+      <div style="position:absolute;left:0;top:0;width:840px;height:536px"><div class="s4-er" style="top:8px"><span style="position:absolute;left:34px"><span class="pu">&lt;!DOCTYPE html&gt;</span></span></div><div class="s4-er" style="top:32px"><i class="o" style="left:20px"></i><span style="position:absolute;left:34px"><span class="pu">&lt;</span><span class="tn">html</span> <span class="an">lang</span><span class="pu">=</span><span class="av">"en"</span><span class="pu">&gt;</span></span></div><div class="s4-er" style="top:56px"><i class="c" style="left:36px"></i><span style="position:absolute;left:50px"><span class="pu">&lt;</span><span class="tn">head</span><span class="pu">&gt;</span>…<span class="pu">&lt;/</span><span class="tn">head</span><span class="pu">&gt;</span></span></div><div class="s4-er" style="top:80px"><i class="o" style="left:36px"></i><span style="position:absolute;left:50px"><span class="pu">&lt;</span><span class="tn">body</span><span class="pu">&gt;</span></span></div><div class="s4-er" style="top:104px"><i class="o" style="left:52px"></i><span style="position:absolute;left:66px"><span class="pu">&lt;</span><span class="tn">fh-app</span><span class="pu">&gt;</span></span></div><div class="s4-er" style="top:128px"><i class="o" style="left:68px"></i><span style="position:absolute;left:82px"><span class="sr">#shadow-root (open)</span></span></div><div class="s4-er" style="top:152px"><i class="o" style="left:84px"></i><span style="position:absolute;left:98px"><span class="pu">&lt;</span><span class="tn">fh-header</span><span class="pu">&gt;</span></span></div><div class="s4-er" style="top:176px"><i class="o" style="left:100px"></i><span style="position:absolute;left:114px"><span class="sr">#shadow-root (open)</span></span></div><div class="s4-er" style="top:200px"><i class="c" style="left:116px"></i><span style="position:absolute;left:130px"><span class="pu">&lt;</span><span class="tn">fh-search</span><span class="pu">&gt;</span>…<span class="pu">&lt;/</span><span class="tn">fh-search</span><span class="pu">&gt;</span></span></div><div class="s4-er" style="top:224px"><span style="position:absolute;left:130px"><span class="pu">&lt;</span><span class="tn">fh-cart-button</span><span class="pu">&gt;&lt;/</span><span class="tn">fh-cart-button</span><span class="pu">&gt;</span><span class="d0" style="opacity:0"> <span class="eq">== $0</span></span></span></div><div class="s4-er" style="top:248px"><span style="position:absolute;left:98px"><span class="pu">&lt;/</span><span class="tn">fh-header</span><span class="pu">&gt;</span></span></div><div class="s4-er" style="top:272px"><i class="c" style="left:84px"></i><span style="position:absolute;left:98px"><span class="pu">&lt;</span><span class="tn">fh-product-card</span><span class="pu">&gt;</span>…<span class="pu">&lt;/</span><span class="tn">fh-product-card</span><span class="pu">&gt;</span></span></div><div class="s4-er" style="top:296px"><i class="c" style="left:84px"></i><span style="position:absolute;left:98px"><span class="pu">&lt;</span><span class="tn">fh-product-card</span><span class="pu">&gt;</span>…<span class="pu">&lt;/</span><span class="tn">fh-product-card</span><span class="pu">&gt;</span></span></div><div class="s4-er" style="top:320px"><i class="c" style="left:84px"></i><span style="position:absolute;left:98px"><span class="pu">&lt;</span><span class="tn">fh-product-card</span><span class="pu">&gt;</span>…<span class="pu">&lt;/</span><span class="tn">fh-product-card</span><span class="pu">&gt;</span></span></div><div class="s4-er" style="top:344px"><i class="c" style="left:84px"></i><span style="position:absolute;left:98px"><span class="pu">&lt;</span><span class="tn">fh-toast</span><span class="pu">&gt;</span>…<span class="pu">&lt;/</span><span class="tn">fh-toast</span><span class="pu">&gt;</span></span></div><div class="s4-er" style="top:368px"><span style="position:absolute;left:66px"><span class="pu">&lt;/</span><span class="tn">fh-app</span><span class="pu">&gt;</span></span></div><div class="s4-er" style="top:392px"><span style="position:absolute;left:50px"><span class="pu">&lt;/</span><span class="tn">body</span><span class="pu">&gt;</span></span></div><div class="s4-er" style="top:416px"><span style="position:absolute;left:34px"><span class="pu">&lt;/</span><span class="tn">html</span><span class="pu">&gt;</span></span></div></div>
+      <div class="s4-pane2">
+        <div class="s4-ptabs"><span class="act" style="left:14px">Styles</span><span style="left:76px">Computed</span><span style="left:164px">Layout</span><span style="left:226px">Event Listeners</span><span style="left:340px">DOM Breakpoints</span></div>
+        <div class="s4-pf">Filter<em>:hov  .cls  +</em></div>
+<div class="s4-css" style="top:88px">element.style {</div><div class="s4-css" style="top:110px">}</div><div class="s4-css" style="top:144px">:host {<span class="src">index-DkP3a1.js:1</span></div><div class="s4-css" style="top:166px">  <span class="pr">display</span>: <span class="vl">inline-block</span>;</div><div class="s4-css" style="top:188px">  <span class="pr">cursor</span>: <span class="vl">pointer</span>;</div><div class="s4-css" style="top:210px">}</div><div class="s4-css" style="top:244px">button {<span class="src">user agent stylesheet</span></div><div class="s4-css" style="top:266px">  <span class="pr">cursor</span>: <span class="vl">default</span>;</div><div class="s4-css" style="top:288px">}</div>
+      </div>
+      <div class="s4-bc"><span style="left:14px">html</span><span style="left:56px">body</span><span style="left:106px">fh-app</span><span style="left:166px">#shadow-root</span><span style="left:262px">fh-header</span><span style="left:340px">#shadow-root</span><span class="s4-bclast" style="left:438px;color:#e8eaed">fh-cart-button</span></div>
+    </div>
+
+    <!-- Lit body -->
+    <div class="s4-lit s4-litbody" style="opacity:0">
+<div class="s4-tb">
+    <div class="s4-btn " style="left:16px;width:95px"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1.6"/></svg>Pick</div>
+    <div class="s4-flt"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg>Filter tags</div>
+    <div class="s4-btn on" style="left:988px;width:91px"><svg viewBox="0 0 16 16"><path d="M1.5 8C3 5 5.5 3.5 8 3.5S13 5 14.5 8C13 11 10.5 12.5 8 12.5S3 11 1.5 8Z"/><circle cx="8" cy="8" r="2"/></svg>Live</div>
+    <div class="s4-btn " style="left:1089px;width:101px"><svg viewBox="0 0 16 16"><path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8Z"/></svg>Flash</div>
+    <div class="s4-btn s4-anat" style="left:1200px;width:124px"><svg viewBox="0 0 16 16"><path d="M2 5.5V2h3.5M10.5 2H14v3.5M14 10.5V14h-3.5M5.5 14H2v-3.5"/><path d="M6 6h4v4H6Z"/></svg>Anatomy</div>
+  </div>
+<div class="s4-tree"><div class="s4-tr" style="top:6px"><i class="o" style="left:12px"></i><span style="position:absolute;left:32px"><span class="br">&lt;</span><span class="nm">fh-app</span><span class="br">&gt;</span></span></div><div class="s4-tr" style="top:33px"><i class="o" style="left:30px"></i><span style="position:absolute;left:50px"><span class="br">&lt;</span><span class="nm">fh-header</span><span class="br">&gt;</span></span></div><div class="s4-tr" style="top:60px"><span style="position:absolute;left:68px"><span class="br">&lt;</span><span class="nm">fh-search</span><span class="br">&gt;</span></span></div><div class="s4-tr sel" style="top:87px"><span style="position:absolute;left:68px"><span class="br">&lt;</span><span class="nm">fh-cart-button</span><span class="br">&gt;</span></span></div><div class="s4-tr" style="top:114px"><span style="position:absolute;left:50px"><span class="br">&lt;</span><span class="nm">fh-product-card</span><span class="br">&gt;</span></span></div><div class="s4-tr" style="top:141px"><i class="o" style="left:30px"></i><span style="position:absolute;left:50px"><span class="br">&lt;</span><span class="nm">fh-product-card</span><span class="br">&gt;</span></span></div><div class="s4-tr" style="top:168px"><span style="position:absolute;left:68px"><span class="br">&lt;</span><span class="nm">fh-reviews</span><span class="br">&gt;</span></span></div><div class="s4-tr" style="top:195px"><span style="position:absolute;left:50px"><span class="br">&lt;</span><span class="nm">fh-product-card</span><span class="br">&gt;</span></span></div><div class="s4-tr" style="top:222px"><span style="position:absolute;left:50px"><span class="br">&lt;</span><span class="nm">fh-toast</span><span class="br">&gt;</span></span></div></div>
+      <div class="s4-det"><div class="s4-dtag" style="top:9px;"><span>&lt;fh-cart-button&gt;</span></div><div class="s4-dbtn s4-b1" style="right:50px"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2.2"/><path d="M8 0.8v2.4M8 12.8v2.4M0.8 8h2.4M12.8 8h2.4"/></svg></div><div class="s4-dbtn s4-b2" style="right:16px"><svg viewBox="0 0 16 16"><path d="M6.5 3H3v10h10V9.5"/><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5"/></svg></div><div class="s4-dr s4-meta0" style="top:50px"><span class="k mu">root</span><span class="v" style="left:80px">shadow, open</span></div><div class="s4-dflt s4-flt2" style="top:81px"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg>Filter rows</div><div class="s4-dsep s4-sep0" style="top:129px"></div><div class="s4-dsh s4-sh0" style="top:137px"><i></i>STATE<b>1</b></div><div class="s4-dr s4-r0_0" style="top:165px"><span class="k">count</span><span class="v" style="left:160px"><span class="num">3</span></span></div><div class="s4-dsep s4-sep1" style="top:200px"></div><div class="s4-dsh s4-sh1" style="top:208px"><i></i>CONTEXT<b>1</b></div><div class="s4-dr s4-r1_0" style="top:236px"><span class="k">cart</span><span class="v" style="left:80px">{items: <span class="num">3</span>} <span class="lk">&larr; &lt;fh-app&gt;</span></span></div></div>
+    </div>
+
+    <div class="s4-cartpill" style="position:absolute;left:1720px;top:137px;width:136px;height:34px;border-radius:17px;background:#2f6f4e;color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700;font-size:15px;z-index:3"><svg width="18" height="18" viewBox="0 0 18 18"><path d="M2 3H4L5.6 11.5H14L15.5 5.5H5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.8" cy="14.6" r="1.3" fill="#fff"/><circle cx="12.8" cy="14.6" r="1.3" fill="#fff"/></svg><span>Cart · 3</span></div>
+    <div class="s4-hi"></div>
+    <div class="s4-tip"><b>fh-cart-button</b>&nbsp;&nbsp;136 &times; 34</div>
+    <div class="s4-chip">followed the Elements selection</div>
+    <div class="s4-tt">Reveal in Elements</div>
+    <div class="s4-cur s4-cur"><svg viewBox="-2 -2 18 24"><path d="M0 0 L0 17 L4.3 12.9 L7.2 19.6 L9.8 18.4 L6.9 11.9 L13 11.7 Z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg></div>
+  </div>
+
+  <script>
+    (function () {
+      var ID = "s04-elements", P = "s4";
+
+      var R = document.getElementById(ID);
+      var q = function (s) { return R.querySelector(s); };
+      var qa = function (s) { return R.querySelectorAll(s); };
+      var tl = gsap.timeline({ paused: true });
+      var slam = function (el, t, dy) { tl.fromTo(el, { opacity: 0, y: dy === undefined ? 20 : dy }, { opacity: 1, y: 0, duration: 0.28, ease: "power3.out" }, t); };
+      var fadeIn = function (el, t, d) { tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: d || 0.2, ease: "power2.out" }, t); };
+      var fadeOut = function (el, t, d) { tl.to(el, { opacity: 0, duration: d || 0.15, ease: "power2.in" }, t); };
+      var cur = q("." + P + "-cur");
+      var move = function (x0, y0, x1, y1, t, d, ease) { tl.fromTo(cur, { x: x0, y: y0 }, { x: x1, y: y1, duration: d, ease: ease || "power2.inOut" }, t); };
+      var click = function (x, y, t) {
+        tl.fromTo(cur, { scale: 1 }, { scale: 0.82, duration: 0.06, ease: "power2.out" }, t);
+        tl.to(cur, { scale: 1, duration: 0.06, ease: "power2.in" }, t + 0.06);
+        var rp = document.createElement("div"); rp.className = P + "-rip"; rp.style.left = x + "px"; rp.style.top = y + "px"; R.appendChild(rp);
+        tl.fromTo(rp, { opacity: 0.9, scale: 0.3 }, { opacity: 0, scale: 1.5, duration: 0.45, ease: "power2.out", immediateRender: false }, t);
+      };
+      var waterfall = function (sel, t, step) { qa(sel).forEach(function (el, i) { tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.12, ease: "power2.out" }, t + i * step); }); };
+
+      var cap = q(".s4-capwrap");
+      tl.fromTo(q("." + P + "-eb"), { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 0);
+      slam(q("." + P + "-hl0"), 0.10);
+      slam(qa("." + P + "-hl0")[1], 0.48);
+      fadeOut(qa("." + P + "-hl0"), 1.78, 0.12);
+      slam(q("." + P + "-hl1"), 1.92);
+      slam(qa("." + P + "-hl1")[1], 2.40);
+      fadeOut(cap, 3.72, 0.15);
+
+      /* Elements body: visible 0 -> 1.92 and 3.12 -> end */
+      var el = q(".s4-elbody"), lit = q(".s4-litbody");
+      waterfall(".s4-er", 0, 0.02);
+      tl.set(el, { opacity: 0 }, 1.92);
+      tl.set(el, { opacity: 1 }, 3.12);
+      tl.set(lit, { opacity: 1 }, 1.92);
+      tl.set(lit, { opacity: 0 }, 3.12);
+
+      /* cursor 0 -> click row at 0.48 */
+      var rowX = 760, rowY = 740;
+      tl.set(cur, { opacity: 1 }, 0.0);
+      move(1180, 880, rowX, rowY, 0.0, 0.42, "power2.out");
+      click(rowX, rowY, 0.48);
+      tl.fromTo(q(".s4-selbg"), { opacity: 0 }, { opacity: 1, duration: 0.08 }, 0.48);
+      tl.fromTo(q(".d0"), { opacity: 0 }, { opacity: 1, duration: 0.1 }, 0.5);
+      /* page inspect highlight */
+      fadeIn(q(".s4-hi"), 0.5, 0.12);
+      fadeIn(q(".s4-tip"), 0.5, 0.12);
+      fadeOut([q(".s4-hi"), q(".s4-tip")], 1.8, 0.12);
+      move(rowX, rowY, 1200, 760, 1.2, 0.7, "power2.inOut");
+
+      /* Lit body at 1.92 */
+      waterfall("." + P + "-tr", 1.92, 0.025);
+      tl.fromTo(q("." + P + "-dtag"), { opacity: 0 }, { opacity: 1, duration: 0.15 }, 1.92);
+      tl.fromTo(qa("." + P + "-dbtn"), { opacity: 0 }, { opacity: 1, duration: 0.15 }, 1.92);
+      waterfall("." + P + "-dr, ." + P + "-dflt, ." + P + "-dsep, ." + P + "-dsh", 1.96, 0.035);
+      tl.fromTo(q("." + P + "-r0_0 .num"), { backgroundColor: "rgba(77,99,255,.55)" }, { backgroundColor: "rgba(77,99,255,0)", duration: 0.8, ease: "power2.out" }, 2.1);
+      slam(q(".s4-chip"), 2.16, 8);
+      move(1200, 760, 1850, 614, 1.95, 0.55, "power3.inOut");
+      fadeIn(q(".s4-tt"), 2.4, 0.12);
+      click(1850, 614, 2.64);
+      tl.fromTo(q("." + P + "-b2"), { backgroundColor: "#1c1c1c" }, { backgroundColor: "#324fff", duration: 0.1 }, 2.64);
+      fadeOut(q(".s4-tt"), 2.74, 0.1);
+      fadeOut(q(".s4-chip"), 2.9, 0.15);
+
+      /* back to Elements at 3.12: row flashes once */
+      tl.fromTo(q(".s4-selbg"), { backgroundColor: "#2c3e57" }, { backgroundColor: "#3f6396", duration: 0.12, ease: "power2.out" }, 3.14);
+      tl.to(q(".s4-selbg"), { backgroundColor: "#2c3e57", duration: 0.4, ease: "power2.inOut" }, 3.26);
+      tl.fromTo(q(".s4-hi"), { opacity: 0 }, { opacity: 1, duration: 0.1 }, 3.14);
+      tl.to(q(".s4-hi"), { opacity: 0, duration: 0.45, ease: "power2.inOut" }, 3.28);
+      fadeOut(cur, 3.3, 0.15);
+      window.__timelines[ID] = tl;
+    })();
+  </script>
+</template>

@@ -1,0 +1,158 @@
+<template id="s07-timeline-template">
+  <div id="s07-timeline" data-composition-id="s07-timeline" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <style>
+      @font-face{font-family:"Manrope";font-weight:500;src:url("assets/manrope-medium.woff2") format("woff2");}
+      @font-face{font-family:"Manrope";font-weight:600;src:url("assets/manrope-semibold.woff2") format("woff2");}
+      @font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2");}
+      @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2");}
+      @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2");}
+      #s07-timeline,#s07-timeline *{box-sizing:border-box;}
+      #s07-timeline{font-family:"Manrope",sans-serif;color:#e3e3e3;overflow:hidden;}
+      #s07-eyebrow{position:absolute;left:80px;top:330px;font-weight:700;font-size:16px;letter-spacing:.14em;text-transform:uppercase;color:#4d63ff;white-space:nowrap;}
+      .s07-h{position:absolute;left:80px;display:block;font-weight:800;font-size:58px;line-height:60px;letter-spacing:-.03em;color:#fff;white-space:nowrap;}
+      .s07-h b{color:#00e8ff;font-weight:800;}
+      #s07-body{position:absolute;left:540px;top:548px;width:1340px;height:464px;background:#030303;overflow:hidden;}
+      #s07-tb{position:absolute;left:0;top:0;width:1340px;height:44px;background:#0d0d0d;border-bottom:1px solid #363636;}
+      #s07-seg{position:absolute;left:16px;top:6px;height:32px;display:flex;border:1px solid #363636;}
+      #s07-seg span{display:block;padding:0 18px;line-height:30px;font-weight:600;font-size:15px;color:#919191;}
+      #s07-seg span.s07-on{background:#292929;color:#fff;font-weight:700;}
+      .s07-btn{position:absolute;top:6px;height:32px;padding:0 16px 0 12px;border:1px solid #363636;line-height:30px;font-weight:600;font-size:15px;color:#e3e3e3;background:#0d0d0d;white-space:nowrap;display:flex;align-items:center;gap:9px;}
+      .s07-btn svg{width:14px;height:14px;}
+      #s07-clear{right:130px;}
+      #s07-stop{right:16px;background:#5c1224;border-color:#8a1f2b;color:#ffb3bd;}
+      #s07-chips{position:absolute;left:0;top:44px;width:1340px;height:44px;border-bottom:1px solid #1f1f1f;background:#030303;}
+      .s07-chip{position:absolute;top:6px;height:32px;padding:0 13px 0 11px;background:#212121;border:1px solid #363636;font-weight:600;font-size:15px;line-height:30px;color:#e3e3e3;white-space:nowrap;display:flex;align-items:center;gap:8px;}
+      .s07-chip i{display:block;width:10px;height:10px;}
+      #s07-lh{position:absolute;left:0;top:88px;width:1340px;height:30px;border-bottom:1px solid #1f1f1f;font-size:15px;line-height:29px;color:#e3e3e3;}
+      #s07-lh .s07-sw{position:absolute;left:16px;top:7px;width:30px;height:15px;background:#212121;border:1px solid #474747;}
+      #s07-lh .s07-sw i{position:absolute;left:3px;top:3px;width:7px;height:7px;background:#919191;}
+      #s07-lh .s07-raw{position:absolute;left:56px;top:0;font-weight:600;}
+      #s07-lh .s07-exp{position:absolute;left:100px;top:2px;font-size:13px;color:#8a9bff;text-decoration:underline;}
+      #s07-lh .s07-cnt{position:absolute;right:16px;top:0;font-family:"Roboto Mono",monospace;font-size:14px;color:#919191;}
+      .s07-row{position:absolute;left:0;width:1340px;height:29px;border-bottom:1px solid #121212;font-family:"Roboto Mono",monospace;font-size:15px;line-height:28px;color:#e3e3e3;}
+      .s07-row span,.s07-row svg,.s07-row i{position:absolute;display:block;white-space:nowrap;}
+      .s07-row .c{left:58px;top:9px;width:9px;height:11px;}
+      .s07-row .t{left:76px;width:76px;text-align:right;color:#c4c4c4;}
+      .s07-row .q{left:164px;top:9px;width:11px;height:11px;}
+      .s07-row .n{left:186px;color:#fff;}
+      .s07-row .e{right:130px;text-align:right;color:#b8b8b8;}
+      .s07-row .d{right:16px;text-align:right;color:#fff;}
+      .s07-hl{position:absolute;left:0;width:1340px;height:29px;background:rgba(32,201,151,.11);}
+      .s07-hl.s07-or{background:rgba(253,126,20,.1);}
+      .s07-rl{position:absolute;width:3px;}
+      .s07-teal{background:#20c997;box-shadow:0 0 0 0 rgba(32,201,151,0);}
+      .s07-orng{background:#fd7e14;box-shadow:0 0 0 0 rgba(253,126,20,0);}
+      .s07-nd{position:absolute;width:15px;height:15px;border-radius:50%;margin:-7px 0 0 -7px;background:#030303;border:3px solid #20c997;}
+      .s07-nd.s07-or{border-color:#fd7e14;}
+      #s07-cause{position:absolute;left:372px;top:178px;height:23px;padding:0 12px 0 10px;background:#292929;border:1px solid #474747;font-family:"Roboto Mono",monospace;font-size:14px;line-height:21px;color:#e3e3e3;white-space:nowrap;display:flex;align-items:center;gap:8px;z-index:6;}
+      #s07-cause i{display:block;width:8px;height:8px;border-radius:50%;background:#20c997;}
+      #s07-det{position:absolute;left:0;top:346px;width:1340px;height:118px;border-top:1px solid #363636;background:#0d0d0d;font-family:"Roboto Mono",monospace;font-size:15px;color:#c4c4c4;}
+      #s07-det span{position:absolute;white-space:nowrap;}
+      #s07-det .k{color:#919191;font-family:"Manrope",sans-serif;font-size:14px;font-weight:500;}
+      #s07-det a{color:#8a9bff;}
+    </style>
+
+    <div id="s07-cap">
+      <div id="s07-eyebrow">Timeline</div>
+      <span class="s07-h" id="s07-h1" style="top:362px">Every update</span>
+      <span class="s07-h" id="s07-h2" style="top:422px">knows <b>why.</b></span>
+    </div>
+
+    <div id="s07-body">
+      <div id="s07-tb">
+        <div id="s07-seg"><span class="s07-on">List</span><span>Tracks</span></div>
+        <div class="s07-btn" id="s07-clear"><svg viewBox="0 0 16 16" fill="none" stroke="#c4c4c4" stroke-width="1.4"><path d="M3 4.5h10M6 4.5V3h4v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>Clear</div>
+        <div class="s07-btn" id="s07-stop"><svg viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" fill="#ff6b80"/></svg>Stop</div>
+      </div>
+      <div id="s07-chips">
+        <div class="s07-chip" style="left:12px"><i style="background:#4d63ff"></i>Lit Lifecycle</div>
+        <div class="s07-chip" style="left:150px"><i style="background:#4d63ff"></i>Changed values</div>
+        <div class="s07-chip" style="left:312px"><i style="background:#a451af"></i>Mouse</div>
+        <div class="s07-chip" style="left:406px"><i style="background:#8151af"></i>Keyboard</div>
+        <div class="s07-chip" style="left:522px"><i style="background:#af7a51"></i>Custom events</div>
+      </div>
+      <div id="s07-lh"><div class="s07-sw"><i></i></div><span class="s07-raw">Raw</span><span class="s07-exp">Expand all</span><span class="s07-cnt">7 / 7</span></div>
+
+      <div id="s07-hl1" class="s07-hl" style="top:147px;opacity:0"></div>
+      <div id="s07-hl2" class="s07-hl" style="top:176px;opacity:0"></div>
+      <div id="s07-hl3" class="s07-hl" style="top:205px;opacity:0"></div>
+      <div id="s07-hl5" class="s07-hl" style="top:263px;opacity:0"></div>
+
+      <div class="s07-row" id="s07-r0" style="top:118px;opacity:.5"><svg class="c" viewBox="0 0 9 11"><path d="M1 1l7 4.5L1 10z" fill="#8a8a8a"/></svg><span class="t">2105.7ms</span><i class="q" style="background:#4d63ff"></i><span class="n">performUpdate</span><span class="e">fh-search</span><span class="d">0.10ms</span></div>
+      <div class="s07-row" id="s07-r1" style="top:147px"><svg class="c" viewBox="0 0 9 11"><path d="M1 1l7 4.5L1 10z" fill="#8a8a8a"/></svg><span class="t">2210.4ms</span><i class="q" style="background:#a451af"></i><span class="n">click</span><span class="e" style="right:16px">(1188, 431)</span></div>
+      <div class="s07-row" id="s07-r2" style="top:176px"><svg class="c" viewBox="0 0 9 11"><path d="M1 1l7 4.5L1 10z" fill="#8a8a8a"/></svg><span class="t">2210.6ms</span><i class="q" style="background:#4d63ff"></i><span class="n">performUpdate</span><span class="e">fh-product-card</span><span class="d">0.40ms</span></div>
+      <div class="s07-row" id="s07-r3" style="top:205px"><svg class="c" viewBox="0 0 9 11"><path d="M1 1l7 4.5L1 10z" fill="#8a8a8a"/></svg><span class="t">2210.9ms</span><i class="q" style="background:#4d63ff"></i><span class="n">task</span><span class="e">fh-reviews</span><span class="d">312.0ms</span></div>
+      <div class="s07-row" id="s07-r4" style="top:234px"><svg class="c" viewBox="0 0 9 11"><path d="M1 1l7 4.5L1 10z" fill="#8a8a8a"/></svg><span class="t">2211.2ms</span><i class="q" style="background:#4d63ff"></i><span class="n">performUpdate</span><span class="e">fh-cart-button</span><span class="d">0.10ms</span></div>
+      <div class="s07-row" id="s07-r5" style="top:263px"><svg class="c" viewBox="0 0 9 11"><path d="M1 1l7 4.5L1 10z" fill="#8a8a8a"/></svg><span class="t">2523.1ms</span><i class="q" style="background:#4d63ff"></i><span class="n">performUpdate</span><span class="e">fh-reviews</span><span class="d">0.30ms</span></div>
+      <div class="s07-row" id="s07-r6" style="top:292px;opacity:.5"><svg class="c" viewBox="0 0 9 11"><path d="M1 1l7 4.5L1 10z" fill="#8a8a8a"/></svg><span class="t">2760.4ms</span><i class="q" style="background:#4d63ff"></i><span class="n">performUpdate</span><span class="e">fh-toast</span><span class="d">0.20ms</span></div>
+
+      <!-- teal chain: click -> product-card -> task -> reviews -->
+      <div class="s07-rl s07-teal" id="s07-tA" style="left:16.5px;top:161.5px;height:29px;transform-origin:50% 0"></div>
+      <div class="s07-rl s07-teal" id="s07-tB" style="left:16.5px;top:190.5px;height:29px;transform-origin:50% 0"></div>
+      <div class="s07-rl s07-teal" id="s07-tC" style="left:16.5px;top:219.5px;height:58px;transform-origin:50% 0"></div>
+      <i class="s07-nd" id="s07-tn1" style="left:18px;top:161.5px"></i>
+      <i class="s07-nd" id="s07-tn2" style="left:18px;top:190.5px"></i>
+      <i class="s07-nd" id="s07-tn3" style="left:18px;top:219.5px"></i>
+      <i class="s07-nd" id="s07-tn5" style="left:18px;top:277.5px"></i>
+      <!-- orange chain: click -> cart-button -->
+      <div class="s07-rl s07-orng" id="s07-oA" style="left:32.5px;top:161.5px;height:87px;transform-origin:50% 0"></div>
+      <i class="s07-nd s07-or" id="s07-on1" style="left:34px;top:161.5px"></i>
+      <i class="s07-nd s07-or" id="s07-on4" style="left:34px;top:248.5px"></i>
+
+      <div id="s07-cause"><i></i>after click (1188, 431)</div>
+
+      <div id="s07-det">
+        <span style="left:16px;top:10px;width:11px;height:11px;background:#4d63ff"></span>
+        <span style="left:38px;top:5px;color:#fff;font-size:17px;">performUpdate</span>
+        <span style="left:176px;top:7px;font-family:'Manrope',sans-serif;font-size:14px;color:#919191;">Lit Lifecycle</span>
+        <span style="right:16px;top:7px;font-size:14px;color:#919191;">at 2210.600 ms&nbsp;&nbsp;&nbsp;took <b style="font-weight:400;color:#fff">0.40ms</b></span>
+        <span class="k" style="left:16px;top:42px">element</span>
+        <span style="left:96px;top:40px;color:#82aaff;">&lt;fh-product-card&gt;</span>
+        <span style="left:300px;top:40px;color:#919191;">#7</span>
+        <span style="left:336px;top:40px;"><a>filter</a>&nbsp;&nbsp;&nbsp;<a>inspect</a></span>
+        <span class="k" style="left:16px;top:70px">data</span>
+        <span style="left:96px;top:68px;color:#e3e3e3;">{ "phase": "performUpdate" }</span>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var tl = gsap.timeline({ paused: true });
+        var pop = function (id, t) { tl.fromTo(id, { scale: 0 }, { scale: 1, duration: 0.2, ease: "back.out(2.5)" }, t); };
+        // caption slam on the drop
+        tl.fromTo("#s07-eyebrow", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.25, ease: "power3.out" }, 0);
+        tl.fromTo("#s07-h1", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.28, ease: "power3.out" }, 0);
+        tl.fromTo("#s07-h2", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.28, ease: "power3.out" }, 0.04);
+        // chrome of the panel
+        tl.fromTo("#s07-tb,#s07-chips,#s07-lh", { opacity: 0 }, { opacity: 1, duration: 0.14, ease: "power2.out" }, 0);
+        // rows slam in
+        var rows = [0, 1, 2, 3, 4, 5, 6];
+        rows.forEach(function (i) {
+          var to = (i === 0 || i === 6) ? 0.5 : 1;
+          tl.fromTo("#s07-r" + i, { opacity: 0, y: 14 }, { opacity: to, y: 0, duration: 0.22, ease: "power3.out" }, 0.04 + i * 0.04);
+        });
+        // teal rail draws on the beats
+        pop("#s07-tn1", 0.24);
+        tl.fromTo("#s07-tA", { scaleY: 0 }, { scaleY: 1, duration: 0.24, ease: "none" }, 0.24);
+        pop("#s07-tn2", 0.48);
+        tl.fromTo("#s07-tB", { scaleY: 0 }, { scaleY: 1, duration: 0.24, ease: "none" }, 0.48);
+        pop("#s07-tn3", 0.72);
+        tl.fromTo("#s07-tC", { scaleY: 0 }, { scaleY: 1, duration: 0.24, ease: "none" }, 0.72);
+        pop("#s07-tn5", 0.96);
+        // orange rail on the hit
+        pop("#s07-on1", 1.92);
+        tl.fromTo("#s07-oA", { scaleY: 0 }, { scaleY: 1, duration: 0.24, ease: "none" }, 1.92);
+        pop("#s07-on4", 2.16);
+        // hover highlights the teal chain
+        tl.to("#s07-hl1,#s07-hl2,#s07-hl3,#s07-hl5", { opacity: 1, duration: 0.25, ease: "power2.out", stagger: 0.04 }, 2.4);
+        tl.to(".s07-teal", { boxShadow: "0 0 12px 2px rgba(32,201,151,.65)", duration: 0.25, ease: "power2.out" }, 2.4);
+        tl.fromTo("#s07-det", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.28, ease: "power3.out" }, 2.4);
+        // cause chip
+        tl.fromTo("#s07-cause", { opacity: 0, scale: 0.8, transformOrigin: "0% 50%" }, { opacity: 1, scale: 1, duration: 0.25, ease: "back.out(2)" }, 2.88);
+        // exit
+        tl.to("#s07-body,#s07-cap", { opacity: 0, duration: 0.15, ease: "power1.in" }, 3.72);
+        window.__timelines["s07-timeline"] = tl;
+      })();
+    </script>
+  </div>
+</template>

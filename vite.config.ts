@@ -115,6 +115,7 @@ export default defineConfig({
       // HyperFrames video projects, written and checked by their own CLI.
       '/assets/promo-video/',
       '/assets/promo-video-v2/',
+      '/assets/promo-video-extension/',
     ],
   },
   fmt: {
@@ -138,6 +139,7 @@ export default defineConfig({
       'docs/.generated/',
       '/assets/promo-video/',
       '/assets/promo-video-v2/',
+      '/assets/promo-video-extension/',
     ],
   },
 });
