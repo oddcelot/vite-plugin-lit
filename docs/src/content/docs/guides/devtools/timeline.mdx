@@ -98,16 +98,17 @@ layers emit a start and an end per phase, so each phase is one row with its
 duration, and a lifecycle row also lists the reactive properties that changed.
 
 One component update is one row. The list shows the `performUpdate` row of each
-update, collapsed, with its duration, the changed properties, and a count of
-the rows folded into it (`+3`). A marker after the count flags an update with
-something to look at inside: a warning, an error, or a skipped update. Press
-the arrow at the left of the row to open it and see the `willUpdate`, `update`
-and `updated` phases, plus the events that belong to the same update: `update
-skipped`, Lit warnings, errors from a rejected `updated`, and, with the
-Custom events layer on, events the component dispatched while it was updating. With the arrow focused,
-the Right and Left arrow keys open and close it too, and **Expand all** and
-**Collapse all** in the filter bar open or close the phases of every update at
-once. Rows that are not part of an update stay as they are.
+update, collapsed, with its duration and a count of the rows folded into it
+(`+2`); the changed properties are on the phases inside. A marker after the
+count flags an update with something to look at inside: a warning, an error, or
+a skipped update. Press the arrow at the left of the row to open it and see the
+`willUpdate`, `update` and `updated` phases, plus the events that belong to the
+same update: `update skipped`, Lit warnings, errors from a rejected `updated`,
+and, with the Custom events layer on, events the component dispatched while it
+was updating. With the arrow focused, the Right and Left arrow keys open and
+close it too, and **Expand all** and **Collapse all** in the filter bar open or
+close the phases of every update at once. Rows that are not part of an update
+stay as they are.
 
 Rows stay in time order, and a column at the left of the list draws what caused
 each update, the way `git log --graph` draws branches. A line connects an update
@@ -131,7 +132,7 @@ the match still has its context.
 <ThemedImage
   light={devtoolsTimelineCollapsedLight}
   dark={devtoolsTimelineCollapsedDark}
-  alt="The Timeline tab with collapsed lifecycle rows for hmr-counter, each showing its duration."
+  alt="The Timeline list from the top of a recording: collapsed performUpdate rows for hmr-counter, hmr-properties and hmr-static-props, each with its fold count and duration, between the separate render rows."
 />
 
 Press **Raw** in the filter bar for one flat row per recorded event instead. Reach
@@ -154,7 +155,7 @@ it instead.
 <ThemedImage
   light={devtoolsTimelineRowDetailsLight}
   dark={devtoolsTimelineRowDetailsDark}
-  alt="A timeline row expanded to show the changed properties, the element and instance id, and its source and rendered at links."
+  alt="An hmr-counter update expanded in the Timeline list, its willUpdate and update rows marked count, and the selected update row's details: the element and instance id, its source and rendered at links, and count under changed."
 />
 
 An element row also carries two links. **filter** narrows the list and the tracks to
@@ -172,7 +173,7 @@ panel remembers which view you left it in.
 <ThemedImage
   light={devtoolsTimelineTracksLight}
   dark={devtoolsTimelineTracksDark}
-  alt="The Timeline in Tracks mode: lanes for Lit Lifecycle, Lit Render and Router on a millisecond axis, with a selected performUpdate span shown in the detail pane."
+  alt="The Timeline in Tracks mode zoomed to about a millisecond: lanes for Lit Lifecycle, Lit Render, Lit warnings and Router, a selected hmr-counter performUpdate span with its phases beneath it, a Router navigate tick, and the selected span's details in the pane below."
 />
 
 Each mark is one span, placed by its start and end. Overlapping spans stack
