@@ -73,14 +73,19 @@ const callSiteOf = (el: Element): ElementSource | undefined => {
  * duck-types as a ReactiveElement. Catches Lit components regardless of whether
  * the source-meta transform touched them, while skipping devtools' own UI.
  */
-export const isInspectable = (el: Element): boolean => {
-  const tag = el.tagName.toLowerCase();
-  if (!tag.includes('-')) return false;
-  if (tag === 'lit-source-overlay' || tag.startsWith('lit-devtools-')) {
-    return false;
-  }
-  return typeof (el as ReactiveElementLike).requestUpdate === 'function';
-};
+export const isInspectable = (el: Element): boolean =>
+  isCustomTag(el.localName) &&
+  typeof (el as ReactiveElementLike).requestUpdate === 'function';
+
+/**
+ * A tag that can name a custom element (it has a hyphen) and isn't devtools
+ * UI: ours, or the devframes dock the Vite DevTools hub mounts in the page.
+ */
+const isCustomTag = (tag: string): boolean =>
+  tag.includes('-') &&
+  tag !== 'lit-source-overlay' &&
+  !tag.startsWith('lit-devtools-') &&
+  !tag.startsWith('devframes-');
 
 /**
  * The id of the nearest inspectable element at or above `node`: itself, its
@@ -110,20 +115,29 @@ export const inspectableIdOf = (node: unknown): number | undefined => {
  */
 export const isUndefinedElement = (el: Element): boolean => {
   const tag = el.localName;
-  if (!tag.includes('-')) return false;
-  if (tag === 'lit-source-overlay' || tag.startsWith('lit-devtools-')) {
-    return false;
-  }
+  if (!isCustomTag(tag)) return false;
   // The registry lookup is the cheap rejection for the usual, defined case;
   // the selector settles the rest, since an element can be defined in a
   // registry other than the global one.
   return customElements.get(tag) === undefined && el.matches(':not(:defined)');
 };
 
+/**
+ * A custom element another library defined: upgraded, but not a Lit
+ * component, so it has no reactive state to read. Listed so the tree shows
+ * the whole component structure, not only Lit's part of it.
+ */
+export const isForeignElement = (el: Element): boolean =>
+  isCustomTag(el.localName) &&
+  !isInspectable(el) &&
+  // As in isUndefinedElement: the global registry first, the selector for
+  // elements defined in another registry.
+  (customElements.get(el.localName) !== undefined || el.matches(':defined'));
+
 const nodeFor = (
   el: Element,
   children: InspectorTreeNode[],
-  notDefined = false
+  flag?: 'notDefined' | 'notLit'
 ): InspectorTreeNode => {
   const meta = metaOf(el);
   // No stamp: a host that can map the define call's stack fills `source`.
@@ -134,7 +148,7 @@ const nodeFor = (
   ).length;
   return {
     id: idOf(el),
-    ...(notDefined ? {notDefined: true} : {}),
+    ...(flag !== undefined ? {[flag]: true} : {}),
     ...(warned > 0 ? {warnings: warned} : {}),
     tagName: el.tagName.toLowerCase(),
     componentName: meta?.componentName,
@@ -169,7 +183,11 @@ const visit = (
     onUndefined?.(el.localName);
     const children: InspectorTreeNode[] = [];
     descend(el, children, onUndefined);
-    sink.push(nodeFor(el, children, true));
+    sink.push(nodeFor(el, children, 'notDefined'));
+  } else if (isForeignElement(el)) {
+    const children: InspectorTreeNode[] = [];
+    descend(el, children, onUndefined);
+    sink.push(nodeFor(el, children, 'notLit'));
   } else {
     descend(el, sink, onUndefined);
   }
@@ -287,6 +305,7 @@ export const collectDetails = (el: Element): InspectorDetails => {
     callSite: callSiteOf(el),
     ...(defineFrames !== undefined ? {defineFrames} : {}),
     ...(isUndefinedElement(el) ? {notDefined: true} : {}),
+    ...(isForeignElement(el) ? {notLit: true} : {}),
     attributes,
     properties,
     flags: {

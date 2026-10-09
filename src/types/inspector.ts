@@ -65,6 +65,11 @@ export interface InspectorTreeNode {
    */
   notDefined?: true;
   /**
+   * Set when the tag is a custom element another library defined (it has no
+   * `requestUpdate`). It is listed where it sits, but has no Lit state.
+   */
+  notLit?: true;
+  /**
    * How many distinct Lit dev-mode warnings name this component. Lit issues
    * each once per page, so this is per tag/class, not per instance. Absent
    * when there are none.
@@ -305,6 +310,8 @@ export interface InspectorDetails {
   defineFrames?: GeneratedFrame[];
   /** As {@link InspectorTreeNode.notDefined}. */
   notDefined?: true;
+  /** As {@link InspectorTreeNode.notLit}. */
+  notLit?: true;
   attributes: Array<{name: string; value: string}>;
   properties: InspectorProp[];
   flags: {
