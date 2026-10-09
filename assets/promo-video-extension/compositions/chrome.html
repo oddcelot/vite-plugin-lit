@@ -1,0 +1,516 @@
+<template id="chrome-template">
+  <style>
+    @font-face{font-family:"Manrope";font-weight:400;src:url("assets/manrope-regular.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:500;src:url("assets/manrope-medium.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:600;src:url("assets/manrope-semibold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2")}
+    @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2")}
+
+    #chrome{position:absolute;inset:0;overflow:hidden;font-family:"Manrope",sans-serif;color:#e8eaed}
+    #chrome *{box-sizing:border-box}
+    #chrome svg{display:block}
+    #chrome-ground{position:absolute;left:0;top:0;width:1920px;height:1080px;background:radial-gradient(circle 1100px at 1200px 540px,rgba(42,44,157,0.35),rgba(42,44,157,0) 100%),#030308}
+    #chrome-black{position:absolute;left:0;top:0;width:1920px;height:1080px;background:#000;opacity:0}
+
+    /* ---------- window ---------- */
+    #chrome-win{position:absolute;left:540px;top:40px;width:1340px;height:1000px;border-radius:12px;overflow:hidden;background:#202124;box-shadow:0 30px 80px rgba(0,0,0,0.6),0 0 0 1px #3c3c3c}
+    #chrome-tabstrip{position:absolute;left:0;top:0;width:1340px;height:42px;background:#202124}
+    #chrome-tab{position:absolute;left:16px;top:6px;width:280px;height:36px;background:#35363a;border-radius:8px 8px 0 0}
+    #chrome-tab::before,#chrome-tab::after{content:"";position:absolute;bottom:0;width:8px;height:8px;background:transparent}
+    #chrome-tab::before{left:-8px;border-bottom-right-radius:8px;box-shadow:4px 4px 0 4px #35363a}
+    #chrome-tab::after{right:-8px;border-bottom-left-radius:8px;box-shadow:-4px 4px 0 4px #35363a}
+    .chrome-fav{position:absolute;left:12px;top:10px;width:16px;height:16px}
+    #chrome-spin{position:absolute;left:12px;top:10px;width:16px;height:16px;opacity:0}
+    .chrome-tabtitle{position:absolute;left:38px;top:0;height:36px;line-height:36px;font-weight:500;font-size:15px;color:#e8eaed;white-space:nowrap}
+    #chrome-tabx{position:absolute;right:10px;top:10px;width:16px;height:16px}
+    #chrome-newtab{position:absolute;left:308px;top:11px;width:20px;height:20px}
+    #chrome-wctl{position:absolute;right:0;top:0;height:34px;display:flex}
+    #chrome-wctl div{width:44px;height:34px;display:flex;align-items:center;justify-content:center}
+
+    #chrome-toolbar{position:absolute;left:0;top:42px;width:1340px;height:46px;background:#35363a}
+    .chrome-tbi{position:absolute;top:13px;width:20px;height:20px}
+    #chrome-omni{position:absolute;left:130px;top:7px;width:1070px;height:32px;border-radius:16px;background:#202124}
+    #chrome-lock{position:absolute;left:14px;top:8px;width:16px;height:16px}
+    .chrome-url{position:absolute;left:40px;top:0;height:32px;line-height:32px;font-weight:500;font-size:16px;color:#e8eaed;white-space:nowrap}
+    #chrome-star{position:absolute;right:12px;top:7px;width:18px;height:18px}
+    #chrome-avatar{position:absolute;left:1290px;top:11px;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#8ab4f8,#5b7fd6);color:#202124;font-weight:700;font-size:13px;line-height:24px;text-align:center}
+
+    /* ---------- page ---------- */
+    #chrome-page{position:absolute;left:0;top:88px;width:1340px;height:912px;background:#f4f1ea;overflow:hidden;color:#1f2a1f}
+    .chrome-site{position:absolute;left:0;top:0;width:1340px;height:912px}
+    #chrome-fh-hdr{position:absolute;left:0;top:0;width:1340px;height:52px;background:#ffffff;border-bottom:1px solid #e3ddd0}
+    #chrome-fh-logo{position:absolute;left:32px;top:0;height:52px;display:flex;align-items:center;gap:8px;font-weight:800;font-size:24px;letter-spacing:-0.02em;color:#2f6f4e}
+    #chrome-fh-nav{position:absolute;left:206px;top:0;height:52px;display:flex;align-items:center;gap:26px;font-weight:600;font-size:15px;color:#4a564a}
+    #chrome-fh-search{position:absolute;left:360px;top:9px;width:400px;height:34px;border-radius:17px;background:#f4f1ea;border:1px solid #e8e2d4;display:flex;align-items:center;gap:10px;padding:0 14px;font-weight:500;font-size:15px;color:#8b927f}
+    #chrome-fh-links{position:absolute;left:800px;top:0;height:52px;display:flex;align-items:center;gap:22px;font-weight:600;font-size:15px;color:#4a564a}
+    #chrome-fh-cart{position:absolute;left:1180px;top:9px;width:136px;height:34px;border-radius:17px;background:#2f6f4e;color:#ffffff;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700;font-size:15px}
+    .chrome-card{position:absolute;top:72px;width:412px;height:252px;background:#ffffff;border:1px solid #e3ddd0;border-radius:10px;overflow:hidden;box-shadow:0 1px 2px rgba(31,42,31,0.04),0 6px 18px rgba(31,42,31,0.05)}
+    .chrome-card svg.chrome-img{position:absolute;left:0;top:0;width:412px;height:120px}
+    .chrome-ctitle{position:absolute;left:16px;top:134px;height:24px;line-height:24px;font-weight:700;font-size:18px;letter-spacing:-0.01em;color:#1f2a1f}
+    .chrome-cprice{position:absolute;right:16px;top:134px;height:24px;line-height:24px;font-family:"Roboto Mono",monospace;font-size:16px;color:#1f2a1f}
+    .chrome-csub{position:absolute;left:16px;top:162px;height:20px;line-height:20px;font-weight:500;font-size:14px;color:#6b7466}
+    .chrome-csub b{color:#c98a16;font-weight:700}
+    .chrome-cbtn{position:absolute;left:16px;top:200px;width:124px;height:36px;border:1.5px solid #2f6f4e;border-radius:6px;color:#2f6f4e;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
+    .chrome-cheart{position:absolute;right:16px;top:208px;width:20px;height:20px}
+    .chrome-ctag{position:absolute;left:12px;top:10px;height:22px;line-height:22px;padding:0 9px;border-radius:11px;background:rgba(255,255,255,0.85);font-weight:700;font-size:12px;color:#2f6f4e}
+    #chrome-fh-banner{position:absolute;left:32px;top:344px;width:1276px;height:72px;border-radius:10px;background:#2f6f4e;color:#eaf3ec;display:flex;align-items:center;gap:16px;padding:0 24px;font-weight:600;font-size:17px}
+    #chrome-fh-banner span.chrome-bb{margin-left:auto;height:36px;line-height:36px;padding:0 18px;border-radius:18px;background:#eaf3ec;color:#2f6f4e;font-weight:700;font-size:15px}
+    #chrome-fh-h2{position:absolute;left:32px;top:440px;font-weight:800;font-size:22px;letter-spacing:-0.02em;color:#1f2a1f}
+    #chrome-fh-h2s{position:absolute;left:32px;top:472px;font-weight:500;font-size:15px;color:#6b7466}
+    .chrome-card2{top:510px}
+    #chrome-pagedim{position:absolute;left:0;top:0;width:1340px;height:912px;background:#f4f1ea;opacity:0}
+    #chrome-pagebar{position:absolute;left:0;top:0;width:0;height:3px;background:#8ab4f8;opacity:0}
+
+    /* ---------- DevTools ---------- */
+    #chrome-dt{position:absolute;left:0;top:430px;width:1340px;height:570px;background:#1e1e1e;border-top:1px solid #3c3c3c}
+    #chrome-dtbar{position:absolute;left:0;top:0;width:1340px;height:34px;background:#282828;border-bottom:1px solid #3c3c3c}
+    .chrome-dti{position:absolute;top:8px;width:18px;height:18px}
+    #chrome-dtsep{position:absolute;left:72px;top:8px;width:1px;height:18px;background:#4a4a4a}
+    #chrome-dttabs{position:absolute;left:80px;top:0;height:33px;display:flex}
+    .chrome-dttab{height:33px;padding:0 14px;display:flex;align-items:center;gap:6px;font-weight:500;font-size:15px;color:#c4c7c5;white-space:nowrap}
+    .chrome-dttab svg{width:14px;height:14px}
+    #chrome-dtul{position:absolute;top:31px;height:2px;background:#a8c7fa;left:80px;width:80px}
+    #chrome-dtright{position:absolute;right:10px;top:0;height:33px;display:flex;align-items:center;gap:14px}
+    #chrome-dtright svg{width:18px;height:18px}
+
+    #chrome-gate{position:absolute;left:0;top:34px;width:1340px;height:536px;background:#121212;opacity:0}
+    #chrome-gatein{position:absolute;left:0;top:0;width:1340px;height:536px}
+    .chrome-glab{position:absolute;left:15px;height:22px;line-height:22px;font-weight:500;font-size:16px;color:#ffffff}
+    .chrome-gval{position:absolute;left:79px;height:22px;line-height:22px;font-weight:500;font-size:16px;color:#ffffff;white-space:nowrap}
+    .chrome-gval.chrome-mono{font-family:"Roboto Mono",monospace;font-size:15px}
+    #chrome-gbtn{position:absolute;left:15px;top:75px;height:29px;line-height:27px;padding:0 12px;border-radius:3px;background:#5f5f5f;border:1px solid #767676;font-weight:500;font-size:16px;color:#ffffff;white-space:nowrap}
+
+    #chrome-lit{position:absolute;left:0;top:34px;width:1340px;height:536px;opacity:0}
+    #chrome-litbody{position:absolute;left:0;top:44px;width:1340px;height:464px;background:#030303}
+    #chrome-lithdr{position:absolute;left:0;top:0;width:1340px;height:44px;background:#0d0d0d;border-bottom:1px solid #363636}
+    #chrome-lithdr .chrome-licon{position:absolute;left:20px;top:12px;width:20px;height:20px}
+    #chrome-littitle{position:absolute;left:48px;top:0;height:43px;line-height:43px;font-weight:800;font-size:15px;letter-spacing:0.08em;color:#e3e3e3;white-space:nowrap}
+    #chrome-littabs{position:absolute;left:220px;top:0;height:43px;display:flex}
+    .chrome-littab{height:43px;padding:0 18px;display:flex;align-items:center;gap:8px;font-weight:600;font-size:16px;color:#a8a8a8;white-space:nowrap}
+    .chrome-littab svg{width:16px;height:16px}
+    #chrome-litul{position:absolute;top:42px;height:2px;background:#324fff;left:220px;width:150px}
+    #chrome-litfoot{position:absolute;left:0;top:508px;width:1340px;height:28px;background:#0d0d0d;border-top:1px solid #363636}
+    .chrome-litconn{position:absolute;left:16px;top:0;height:27px;line-height:27px;font-weight:500;font-size:13px;color:#919191;white-space:nowrap}
+    #chrome-litdis{position:absolute;right:16px;top:0;height:27px;line-height:27px;font-weight:500;font-size:13px;color:#8a9bff;white-space:nowrap}
+
+    /* ---------- permission prompt ---------- */
+    #chrome-prompt{position:absolute;left:840px;top:84px;width:480px;height:176px;border-radius:12px;background:#35363a;box-shadow:0 12px 32px rgba(0,0,0,0.45),0 2px 6px rgba(0,0,0,0.35),0 0 0 1px #4a4c50;opacity:0}
+    #chrome-prompt .chrome-licon{position:absolute;left:20px;top:18px;width:20px;height:20px}
+    #chrome-ptitle{position:absolute;left:50px;top:16px;height:24px;line-height:24px;font-weight:600;font-size:16px;color:#e8eaed}
+    #chrome-pclose{position:absolute;right:16px;top:18px;width:18px;height:18px}
+    #chrome-ptext{position:absolute;left:20px;top:52px;width:440px;font-weight:500;font-size:16px;line-height:23px;color:#e8eaed}
+    .chrome-pbtn{position:absolute;top:122px;height:34px;line-height:32px;border-radius:16px;font-weight:600;font-size:15px;text-align:center}
+    #chrome-pdeny{left:272px;width:88px;border:1px solid #8e918f;color:#a8c7fa}
+    #chrome-pallow{left:372px;width:88px;border:1px solid #a8c7fa;background:#a8c7fa;color:#062e6f}
+  </style>
+
+  <div id="chrome" data-composition-id="chrome" data-width="1920" data-height="1080">
+    <div id="chrome-ground"></div>
+
+    <div id="chrome-win">
+      <!-- tab strip -->
+      <div id="chrome-tabstrip">
+        <div id="chrome-tab">
+          <svg class="chrome-fav" id="chrome-fav-fh" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#2f6f4e"/><path d="M4.6 11.4C4.6 7.2 7.4 4.6 11.6 4.4C11.6 8.4 9 11.2 4.6 11.4Z" fill="#cfe8d6"/><path d="M4.6 11.4L9 7" stroke="#2f6f4e" stroke-width="1.1" stroke-linecap="round"/></svg>
+          <svg class="chrome-fav" id="chrome-fav-atlas" viewBox="0 0 16 16" style="opacity:0"><rect width="16" height="16" rx="4" fill="#6c5ce7"/><path d="M4 12L8 4L12 12" stroke="#fff" stroke-width="1.8" fill="none" stroke-linejoin="round"/></svg>
+          <svg class="chrome-fav" id="chrome-fav-tk" viewBox="0 0 16 16" style="opacity:0"><rect width="16" height="16" rx="4" fill="#e8590c"/><path d="M4 5.5H12M4 8H12M4 10.5H9" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <svg id="chrome-spin" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2" stroke="#4a4c50" stroke-width="2" fill="none"/><path d="M8 1.8A6.2 6.2 0 0 1 14.2 8" stroke="#8ab4f8" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+          <div class="chrome-tabtitle" id="chrome-tt-fh">Fernhouse · Plants</div>
+          <div class="chrome-tabtitle" id="chrome-tt-atlas" style="opacity:0">Atlas · Analytics</div>
+          <div class="chrome-tabtitle" id="chrome-tt-tk" style="opacity:0">Tickets · Events</div>
+          <svg id="chrome-tabx" viewBox="0 0 16 16"><path d="M4.5 4.5L11.5 11.5M11.5 4.5L4.5 11.5" stroke="#9aa0a6" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </div>
+        <svg id="chrome-newtab" viewBox="0 0 20 20"><path d="M10 4V16M4 10H16" stroke="#9aa0a6" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <div id="chrome-wctl">
+          <div><svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 6H11" stroke="#9aa0a6" stroke-width="1.2"/></svg></div>
+          <div><svg width="12" height="12" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" stroke="#9aa0a6" stroke-width="1.2" fill="none"/></svg></div>
+          <div><svg width="12" height="12" viewBox="0 0 12 12"><path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="#9aa0a6" stroke-width="1.2"/></svg></div>
+        </div>
+      </div>
+
+      <!-- toolbar -->
+      <div id="chrome-toolbar">
+        <svg class="chrome-tbi" style="left:26px" viewBox="0 0 20 20"><path d="M16 10H4.5M9.5 5L4.5 10L9.5 15" stroke="#9aa0a6" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg class="chrome-tbi" style="left:60px;opacity:0.45" viewBox="0 0 20 20"><path d="M4 10H15.5M10.5 5L15.5 10L10.5 15" stroke="#9aa0a6" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg class="chrome-tbi" id="chrome-reload" style="left:94px" viewBox="0 0 20 20"><path d="M15.6 10A5.6 5.6 0 1 1 13.9 6" stroke="#9aa0a6" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M15.4 3.2V7H11.6" stroke="#9aa0a6" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg class="chrome-tbi" id="chrome-stop" style="left:94px;opacity:0" viewBox="0 0 20 20"><path d="M5 5L15 15M15 5L5 15" stroke="#9aa0a6" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <div id="chrome-omni">
+          <svg id="chrome-lock" viewBox="0 0 16 16"><path d="M2 4.5H9M2 11.5H6" stroke="#9aa0a6" stroke-width="1.5" stroke-linecap="round"/><circle cx="11.5" cy="4.5" r="2" stroke="#9aa0a6" stroke-width="1.5" fill="none"/><circle cx="8.5" cy="11.5" r="2" stroke="#9aa0a6" stroke-width="1.5" fill="none"/><path d="M13.5 4.5H14M10.5 11.5H14" stroke="#9aa0a6" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <div class="chrome-url" id="chrome-url-fh">fernhouse.example</div>
+          <div class="chrome-url" id="chrome-url-atlas" style="opacity:0">atlas.example/app</div>
+          <div class="chrome-url" id="chrome-url-tk" style="opacity:0">tickets.example</div>
+          <svg id="chrome-star" viewBox="0 0 18 18"><path d="M9 2.2L10.9 6.4L15.4 6.8L12 9.8L13 14.3L9 11.9L5 14.3L6 9.8L2.6 6.8L7.1 6.4Z" stroke="#9aa0a6" stroke-width="1.4" fill="none" stroke-linejoin="round"/></svg>
+        </div>
+        <svg class="chrome-tbi" style="left:1224px" viewBox="0 0 20 20"><path d="M7 3.5H10.5V5.2A1.6 1.6 0 1 0 13.7 5.2V3.5H16.5V7.2H14.8A1.6 1.6 0 1 0 14.8 10.4H16.5V16.5H12.6V14.8A1.6 1.6 0 1 0 9.4 14.8V16.5H3.5V10.5H5.2A1.6 1.6 0 1 0 5.2 7.3H3.5V3.5Z" stroke="#9aa0a6" stroke-width="1.4" fill="none" stroke-linejoin="round"/></svg>
+        <div class="chrome-tbi chrome-licon" style="left:1260px"></div>
+        <div id="chrome-avatar">S</div>
+        <svg class="chrome-tbi" style="left:1316px;width:16px" viewBox="0 0 16 20"><circle cx="8" cy="4.5" r="1.6" fill="#9aa0a6"/><circle cx="8" cy="10" r="1.6" fill="#9aa0a6"/><circle cx="8" cy="15.5" r="1.6" fill="#9aa0a6"/></svg>
+      </div>
+
+      <!-- page -->
+      <div id="chrome-page">
+        <div class="chrome-site" id="chrome-fh">
+          <div id="chrome-fh-hdr">
+            <div id="chrome-fh-logo">
+              <svg width="26" height="26" viewBox="0 0 26 26"><path d="M4 22C4 11 11 4 23 3.5C23 15 16 22 4 22Z" fill="#2f6f4e"/><path d="M4 22L15 11" stroke="#cfe8d6" stroke-width="1.8" stroke-linecap="round"/><path d="M10 16L10 12.5M12.6 13.4L16.2 13.4" stroke="#cfe8d6" stroke-width="1.4" stroke-linecap="round"/></svg>
+              <span>Fernhouse</span>
+            </div>
+            <div id="chrome-fh-nav"><span>Shop</span><span>Care</span></div>
+            <div id="chrome-fh-search">
+              <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.6" stroke="#8b927f" stroke-width="1.6" fill="none"/><path d="M10.4 10.4L14 14" stroke="#8b927f" stroke-width="1.6" stroke-linecap="round"/></svg>
+              <span>Search plants</span>
+            </div>
+            <div id="chrome-fh-links"><span>Journal</span><span>Gifts</span><span>Workshops</span><span>Account</span></div>
+            <div id="chrome-fh-cart">
+              <svg width="18" height="18" viewBox="0 0 18 18"><path d="M2 3H4L5.6 11.5H14L15.5 5.5H5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.8" cy="14.6" r="1.3" fill="#fff"/><circle cx="12.8" cy="14.6" r="1.3" fill="#fff"/></svg>
+              <span style="display:grid"><span id="chrome-cart2" style="grid-area:1/1">Cart · 2</span><span id="chrome-cart3" style="grid-area:1/1;opacity:0">Cart · 3</span></span>
+            </div>
+          </div>
+
+          <!-- card 1: Monstera -->
+          <div class="chrome-card" style="left:32px">
+            <svg class="chrome-img" viewBox="0 0 412 120" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="chrome-g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eaf2e3"/><stop offset="1" stop-color="#cfe2cc"/></linearGradient>
+                <radialGradient id="chrome-g1b" cx="0.5" cy="0.6" r="0.5"><stop offset="0" stop-color="#ffffff" stop-opacity="0.75"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+                <linearGradient id="chrome-leafA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f9a64"/><stop offset="1" stop-color="#2c6a45"/></linearGradient>
+              </defs>
+              <rect width="412" height="120" fill="url(#chrome-g1)"/>
+              <ellipse cx="206" cy="70" rx="150" ry="70" fill="url(#chrome-g1b)"/>
+              <ellipse cx="206" cy="118" rx="44" ry="4" fill="#1f2a1f" opacity="0.10"/>
+              <g transform="translate(206 92) scale(0.8)">
+                <path d="M0 0C-4 -18 -10 -30 -26 -40M0 0C2 -20 8 -34 22 -46M0 0C-2 -14 -2 -30 -2 -56" stroke="#2c6a45" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+                <g transform="translate(-30 -44) rotate(-30)"><path d="M0 0C-30 -6 -36 -36 -12 -48C2 -54 22 -48 26 -32C30 -14 18 -2 0 0Z" fill="url(#chrome-leafA)"/><path d="M-22 -18L-6 -22M-24 -32L-6 -30M-10 -44L0 -34M8 -46L4 -32M18 -30L6 -24" stroke="#d9e8d4" stroke-width="2.4" stroke-linecap="round"/></g>
+                <g transform="translate(24 -48) rotate(28)"><path d="M0 0C-26 -4 -32 -30 -12 -42C0 -48 18 -44 22 -30C26 -14 16 -2 0 0Z" fill="#3f8a57"/><path d="M-18 -16L-4 -20M-20 -30L-4 -26M-8 -40L0 -30M10 -38L4 -26M16 -24L6 -18" stroke="#d9e8d4" stroke-width="2.2" stroke-linecap="round"/></g>
+                <g transform="translate(-2 -58) rotate(-4)"><path d="M0 0C-22 -2 -28 -24 -12 -34C-2 -40 14 -36 18 -24C22 -10 14 -2 0 0Z" fill="#5aa56e"/><path d="M-16 -12L-4 -16M-16 -24L-2 -22M4 -34L2 -24M14 -20L4 -14" stroke="#d9e8d4" stroke-width="2" stroke-linecap="round"/></g>
+              </g>
+              <path d="M184 92H228L223 118H189Z" fill="#d9c7a7"/>
+              <path d="M182 88H230V95H182Z" fill="#cbb38d"/>
+            </svg>
+            <div class="chrome-ctag">Bestseller</div>
+            <div class="chrome-ctitle">Monstera</div>
+            <div class="chrome-cprice">€34</div>
+            <div class="chrome-csub">Bright, indirect light · 40 cm</div>
+            <div class="chrome-cbtn">Add to cart</div>
+            <svg class="chrome-cheart" viewBox="0 0 20 20"><path d="M10 16.5C4 12.5 2.5 9.8 2.5 7.4C2.5 5.2 4.2 3.5 6.3 3.5C7.8 3.5 9.2 4.4 10 5.7C10.8 4.4 12.2 3.5 13.7 3.5C15.8 3.5 17.5 5.2 17.5 7.4C17.5 9.8 16 12.5 10 16.5Z" stroke="#8b927f" stroke-width="1.5" fill="none" stroke-linejoin="round"/></svg>
+          </div>
+
+          <!-- card 2: Fiddle Leaf Fig -->
+          <div class="chrome-card" style="left:464px">
+            <svg class="chrome-img" viewBox="0 0 412 120" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="chrome-g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e4efe6"/><stop offset="1" stop-color="#c6dccb"/></linearGradient>
+                <radialGradient id="chrome-g2b" cx="0.5" cy="0.6" r="0.5"><stop offset="0" stop-color="#ffffff" stop-opacity="0.75"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+              </defs>
+              <rect width="412" height="120" fill="url(#chrome-g2)"/>
+              <ellipse cx="206" cy="70" rx="150" ry="70" fill="url(#chrome-g2b)"/>
+              <ellipse cx="206" cy="118" rx="40" ry="4" fill="#1f2a1f" opacity="0.10"/>
+              <path d="M206 92C205 70 207 44 205 16" stroke="#6b5235" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <g fill="#3d7a4f">
+                <ellipse cx="190" cy="78" rx="11" ry="15" transform="rotate(-55 190 78)"/>
+                <ellipse cx="223" cy="66" rx="11" ry="15" transform="rotate(50 223 66)"/>
+                <ellipse cx="188" cy="50" rx="10" ry="14" transform="rotate(-45 188 50)"/>
+              </g>
+              <g fill="#5c9a63">
+                <ellipse cx="222" cy="38" rx="10" ry="14" transform="rotate(48 222 38)"/>
+                <ellipse cx="192" cy="25" rx="9" ry="12" transform="rotate(-40 192 25)"/>
+                <ellipse cx="216" cy="16" rx="8" ry="11" transform="rotate(35 216 16)"/>
+                <ellipse cx="205" cy="12" rx="6" ry="8"/>
+              </g>
+              <path d="M184 72L196 84M228 60L216 72M184 45L194 55M228 33L216 43" stroke="#a9cfa9" stroke-width="1.2" stroke-linecap="round" opacity="0.8"/>
+              <path d="M186 92H226L222 118H190Z" fill="#f1ece2"/>
+              <path d="M184 88H228V95H184Z" fill="#e2d9c8"/>
+            </svg>
+            <div class="chrome-ctitle">Fiddle Leaf Fig</div>
+            <div class="chrome-cprice">€48</div>
+            <div class="chrome-csub"><b>★ 4.8</b> · 126 reviews</div>
+            <div class="chrome-cbtn">Add to cart</div>
+            <svg class="chrome-cheart" viewBox="0 0 20 20"><path d="M10 16.5C4 12.5 2.5 9.8 2.5 7.4C2.5 5.2 4.2 3.5 6.3 3.5C7.8 3.5 9.2 4.4 10 5.7C10.8 4.4 12.2 3.5 13.7 3.5C15.8 3.5 17.5 5.2 17.5 7.4C17.5 9.8 16 12.5 10 16.5Z" stroke="#8b927f" stroke-width="1.5" fill="none" stroke-linejoin="round"/></svg>
+          </div>
+
+          <!-- card 3: Snake Plant -->
+          <div class="chrome-card" style="left:896px">
+            <svg class="chrome-img" viewBox="0 0 412 120" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="chrome-g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eef0e0"/><stop offset="1" stop-color="#d6e2c8"/></linearGradient>
+                <radialGradient id="chrome-g3b" cx="0.5" cy="0.6" r="0.5"><stop offset="0" stop-color="#ffffff" stop-opacity="0.75"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+              </defs>
+              <rect width="412" height="120" fill="url(#chrome-g3)"/>
+              <ellipse cx="206" cy="70" rx="150" ry="70" fill="url(#chrome-g3b)"/>
+              <ellipse cx="206" cy="118" rx="40" ry="4" fill="#1f2a1f" opacity="0.10"/>
+              <g stroke="#c9c46a" stroke-width="1.6" stroke-linejoin="round">
+                <path d="M190 92C184 70 182 44 188 22C194 44 198 70 198 92Z" fill="#3e6e47"/>
+                <path d="M222 92C226 66 230 40 226 16C218 40 212 66 212 92Z" fill="#3e6e47"/>
+                <path d="M200 92C198 64 200 34 206 8C212 34 214 64 212 92Z" fill="#4c8255"/>
+                <path d="M182 92C172 76 168 60 170 46C178 60 186 76 192 92Z" fill="#4c8255"/>
+                <path d="M228 92C238 78 242 62 240 50C232 64 224 78 218 92Z" fill="#4c8255"/>
+              </g>
+              <path d="M202 30H210M201 46H211M201 62H212M190 50H196M219 46H226M188 68H196" stroke="#77a978" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+              <path d="M184 92H228L224 118H188Z" fill="#c9785a"/>
+              <path d="M182 88H230V95H182Z" fill="#b8684b"/>
+            </svg>
+            <div class="chrome-ctag">Low light</div>
+            <div class="chrome-ctitle">Snake Plant</div>
+            <div class="chrome-cprice">€22</div>
+            <div class="chrome-csub">Beginner friendly · 55 cm</div>
+            <div class="chrome-cbtn">Add to cart</div>
+            <svg class="chrome-cheart" viewBox="0 0 20 20"><path d="M10 16.5C4 12.5 2.5 9.8 2.5 7.4C2.5 5.2 4.2 3.5 6.3 3.5C7.8 3.5 9.2 4.4 10 5.7C10.8 4.4 12.2 3.5 13.7 3.5C15.8 3.5 17.5 5.2 17.5 7.4C17.5 9.8 16 12.5 10 16.5Z" stroke="#8b927f" stroke-width="1.5" fill="none" stroke-linejoin="round"/></svg>
+          </div>
+
+          <!-- below the fold (visible only before DevTools docks) -->
+          <div id="chrome-fh-banner">
+            <svg width="28" height="28" viewBox="0 0 28 28"><path d="M3 9H17V20H3Z" stroke="#eaf3ec" stroke-width="1.8" fill="none" stroke-linejoin="round"/><path d="M17 12H22L25 16V20H17" stroke="#eaf3ec" stroke-width="1.8" fill="none" stroke-linejoin="round"/><circle cx="8" cy="21" r="2.2" fill="#2f6f4e" stroke="#eaf3ec" stroke-width="1.8"/><circle cx="20.5" cy="21" r="2.2" fill="#2f6f4e" stroke="#eaf3ec" stroke-width="1.8"/></svg>
+            <span>Free delivery over €50 · every plant ships in a recyclable pot</span>
+            <span class="chrome-bb">Shop the sale</span>
+          </div>
+          <div id="chrome-fh-h2">New this week</div>
+          <div id="chrome-fh-h2s">Fresh from the greenhouse, ready to repot.</div>
+          <div class="chrome-card chrome-card2" style="left:32px">
+            <svg class="chrome-img" viewBox="0 0 412 120" preserveAspectRatio="none">
+              <rect width="412" height="120" fill="#e6efe0"/>
+              <path d="M206 30C180 40 170 70 176 104M206 30C232 42 244 70 238 104M206 30C206 56 204 80 206 104" stroke="#3f8a57" stroke-width="2" fill="none"/>
+              <g fill="#5aa56e"><ellipse cx="178" cy="62" rx="7" ry="5"/><ellipse cx="238" cy="64" rx="7" ry="5"/><ellipse cx="174" cy="86" rx="7" ry="5"/><ellipse cx="240" cy="88" rx="7" ry="5"/><ellipse cx="196" cy="36" rx="9" ry="6"/><ellipse cx="216" cy="36" rx="9" ry="6"/></g>
+              <path d="M184 18H228L223 40H189Z" fill="#e2d9c8"/>
+            </svg>
+            <div class="chrome-ctitle">Golden Pothos</div>
+            <div class="chrome-cprice">€18</div>
+          </div>
+          <div class="chrome-card chrome-card2" style="left:464px">
+            <svg class="chrome-img" viewBox="0 0 412 120" preserveAspectRatio="none">
+              <rect width="412" height="120" fill="#e3ede6"/>
+              <g stroke="#2c6a45" stroke-width="2" fill="none"><path d="M200 96C196 70 190 44 184 22"/><path d="M206 96C206 66 208 40 212 16"/><path d="M212 96C218 74 226 52 234 34"/></g>
+              <g fill="#2f7a4c"><ellipse cx="188" cy="40" rx="5" ry="8"/><ellipse cx="194" cy="62" rx="5" ry="8"/><ellipse cx="210" cy="30" rx="5" ry="8"/><ellipse cx="208" cy="56" rx="5" ry="8"/><ellipse cx="228" cy="46" rx="5" ry="8"/><ellipse cx="220" cy="70" rx="5" ry="8"/></g>
+              <path d="M186 96H226L222 118H190Z" fill="#3a3f3a"/>
+            </svg>
+            <div class="chrome-ctitle">ZZ Plant</div>
+            <div class="chrome-cprice">€29</div>
+          </div>
+          <div class="chrome-card chrome-card2" style="left:896px">
+            <svg class="chrome-img" viewBox="0 0 412 120" preserveAspectRatio="none">
+              <rect width="412" height="120" fill="#ece9e0"/>
+              <g><ellipse cx="190" cy="60" rx="14" ry="24" transform="rotate(-30 190 60)" fill="#4f7d55"/><ellipse cx="222" cy="58" rx="14" ry="24" transform="rotate(30 222 58)" fill="#4f7d55"/><ellipse cx="206" cy="48" rx="14" ry="28" fill="#5f9065"/></g>
+              <path d="M206 24V76M190 44L198 70M222 42L214 70" stroke="#a7c7a0" stroke-width="1.4"/>
+              <path d="M184 92H228L224 118H188Z" fill="#d9c7a7"/>
+            </svg>
+            <div class="chrome-ctitle">Calathea Orbifolia</div>
+            <div class="chrome-cprice">€39</div>
+          </div>
+        </div>
+        <div id="chrome-pagedim"></div>
+        <div id="chrome-pagebar"></div>
+      </div>
+
+      <!-- DevTools dock -->
+      <div id="chrome-dt">
+        <div id="chrome-dtbar">
+          <svg class="chrome-dti" style="left:16px" viewBox="0 0 18 18"><path d="M7 15.5H3.5A1.5 1.5 0 0 1 2 14V3.5A1.5 1.5 0 0 1 3.5 2H14A1.5 1.5 0 0 1 15.5 3.5V7" stroke="#c4c7c5" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M9 9L16 11.6L13 12.9L11.7 16Z" fill="#c4c7c5"/></svg>
+          <svg class="chrome-dti" style="left:44px" viewBox="0 0 18 18"><rect x="2" y="2.5" width="9" height="13" rx="1.5" stroke="#c4c7c5" stroke-width="1.4" fill="none"/><rect x="11" y="6.5" width="5.5" height="9" rx="1.2" stroke="#c4c7c5" stroke-width="1.4" fill="#282828"/></svg>
+          <div id="chrome-dtsep"></div>
+          <div id="chrome-dttabs">
+            <div class="chrome-dttab" style="color:#e3e3e3">Elements</div>
+            <div class="chrome-dttab">Console</div>
+            <div class="chrome-dttab">Sources</div>
+            <div class="chrome-dttab">Network</div>
+            <div class="chrome-dttab">Performance</div>
+            <div class="chrome-dttab">Memory</div>
+            <div class="chrome-dttab">Application</div>
+            <div class="chrome-dttab"><span class="chrome-licon" style="display:block;width:14px;height:14px"></span><span>Lit</span></div>
+          </div>
+          <div id="chrome-dtul"></div>
+          <div id="chrome-dtright">
+            <svg viewBox="0 0 18 18"><circle cx="9" cy="9" r="2.4" stroke="#c4c7c5" stroke-width="1.4" fill="none"/><path d="M9 1.8V4M9 14V16.2M1.8 9H4M14 9H16.2M3.9 3.9L5.5 5.5M12.5 12.5L14.1 14.1M3.9 14.1L5.5 12.5M12.5 5.5L14.1 3.9" stroke="#c4c7c5" stroke-width="1.4" stroke-linecap="round"/></svg>
+            <svg viewBox="0 0 18 18"><circle cx="9" cy="3.8" r="1.4" fill="#c4c7c5"/><circle cx="9" cy="9" r="1.4" fill="#c4c7c5"/><circle cx="9" cy="14.2" r="1.4" fill="#c4c7c5"/></svg>
+            <svg viewBox="0 0 18 18"><path d="M4.5 4.5L13.5 13.5M13.5 4.5L4.5 13.5" stroke="#c4c7c5" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+
+        <!-- gate (Lit active, site not enabled) -->
+        <div id="chrome-gate">
+          <div id="chrome-gatein">
+            <div class="chrome-glab" style="top:14px">Site</div>
+            <div class="chrome-gval chrome-mono" style="top:14px">https://fernhouse.example</div>
+            <div class="chrome-glab" style="top:39px">Status</div>
+            <div class="chrome-gval" style="top:39px">not permitted</div>
+            <div id="chrome-gbtn">Enable on this site</div>
+          </div>
+        </div>
+
+        <!-- Lit panel frame -->
+        <div id="chrome-lit">
+          <div id="chrome-litbody"></div>
+          <div id="chrome-lithdr">
+            <div class="chrome-licon"></div>
+            <div id="chrome-littitle">LIT INSPECTOR</div>
+            <div id="chrome-littabs">
+              <div class="chrome-littab" style="color:#4d63ff"><svg viewBox="0 0 16 16"><path d="M8 1.6L13.6 4.6V11.4L8 14.4L2.4 11.4V4.6Z" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linejoin="round"/><path d="M2.6 4.7L8 7.6L13.4 4.7M8 7.6V14.2" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linejoin="round"/></svg><span>Components</span></div>
+              <div class="chrome-littab"><svg viewBox="0 0 16 16"><path d="M9 2.5H3.5A1 1 0 0 0 2.5 3.5V12.5A1 1 0 0 0 3.5 13.5H12.5A1 1 0 0 0 13.5 12.5V7" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M10.5 1.8H14.2V5.5M14 2L8.5 7.5" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Updates</span></div>
+              <div class="chrome-littab"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M8 4.4V8L10.6 9.6" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Timeline</span></div>
+              <div class="chrome-littab"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M8 1.5V3.3M8 12.7V14.5M1.5 8H3.3M12.7 8H14.5M3.4 3.4L4.7 4.7M11.3 11.3L12.6 12.6M3.4 12.6L4.7 11.3M11.3 4.7L12.6 3.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>Settings</span></div>
+            </div>
+            <div id="chrome-litul"></div>
+          </div>
+          <div id="chrome-litfoot">
+            <div class="chrome-litconn" id="chrome-conn-fh">Lit runtime connected on https://fernhouse.example</div>
+            <div class="chrome-litconn" id="chrome-conn-atlas" style="opacity:0">Lit runtime connected on https://atlas.example</div>
+            <div class="chrome-litconn" id="chrome-conn-tk" style="opacity:0">Lit runtime connected on https://tickets.example</div>
+            <div id="chrome-litdis">Disable on this site</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- permission prompt (anchored under the omnibox's right end) -->
+      <div id="chrome-prompt">
+        <div class="chrome-licon"></div>
+        <div id="chrome-ptitle">Lit Inspector</div>
+        <svg id="chrome-pclose" viewBox="0 0 18 18"><path d="M4.5 4.5L13.5 13.5M13.5 4.5L4.5 13.5" stroke="#9aa0a6" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <div id="chrome-ptext">Allow this extension to read and change your data on fernhouse.example?</div>
+        <div class="chrome-pbtn" id="chrome-pdeny">Deny</div>
+        <div class="chrome-pbtn" id="chrome-pallow">Allow</div>
+      </div>
+    </div>
+
+    <div id="chrome-black"></div>
+  </div>
+
+  <script>
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var ICON = '<svg viewBox="0 0 64 64" width="100%" height="100%">' +
+        '<g transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)">' +
+        '<path fill="#324fff" d="M48,28L42.14,42.14L36.49,36.49L40,28L48,28Z"/>' +
+        '<path fill="#283198" d="M42.14,42.14L28,48L28,40L36.49,36.49L42.14,42.14Z"/>' +
+        '<path fill="#324fff" d="M28,48L13.86,42.14L19.51,36.49L28,40L28,48Z"/>' +
+        '<path fill="#283198" d="M13.86,42.14L8,28L16,28L19.51,36.49L13.86,42.14Z"/>' +
+        '<path fill="#00e8ff" d="M8,28L13.86,13.86L19.51,19.51L16,28L8,28Z"/>' +
+        '<path fill="#00ffff" d="M13.86,13.86L28,8L28,16L19.51,19.51L13.86,13.86Z"/>' +
+        '<path fill="#00e8ff" d="M28,8L42.14,13.86L36.49,19.51L28,16L28,8Z"/>' +
+        '<path fill="#324fff" d="M42.14,13.86L48,28L40,28L36.49,19.51L42.14,13.86Z"/></g>' +
+        '<g transform="matrix(1.334898 0 0 1.334898 -10.921962 -11.010142)">' +
+        '<path fill="#324fff" d="M42.947,43.08L44.309,39.726L55.5,50.5L42.947,43.08Z"/>' +
+        '<path fill="#283198" d="M42.947,43.08L55.5,50.5L50.5,55.5L40.395,44.137L42.947,43.08Z"/></g></svg>';
+      var icons = document.querySelectorAll("#chrome .chrome-licon");
+      for (var i = 0; i < icons.length; i++) icons[i].innerHTML = ICON;
+
+      function build() {
+        var tl = gsap.timeline({ paused: true });
+        var IR = { immediateRender: false };
+        function F(el, from, to, pos) { return tl.fromTo(el, from, Object.assign({}, IR, to), pos); }
+        function G(el, from, to, pos) { return tl.fromTo(el, from, to, pos); }
+        function cut(el, a, b, t) { F(el, { opacity: a }, { opacity: b, duration: 0.01, ease: "none" }, t); }
+
+        // ---------- measure tab boxes ----------
+        var dtTabs = document.querySelectorAll("#chrome-dttabs .chrome-dttab");
+        var dtBox = [];
+        for (var a = 0; a < dtTabs.length; a++) dtBox.push({ x: 80 + dtTabs[a].offsetLeft, w: dtTabs[a].offsetWidth });
+        var litTabs = document.querySelectorAll("#chrome-littabs .chrome-littab");
+        var litBox = [];
+        for (var b = 0; b < litTabs.length; b++) litBox.push({ x: 220 + litTabs[b].offsetLeft, w: litTabs[b].offsetWidth });
+        var dtul = $("chrome-dtul"), litul = $("chrome-litul");
+        dtul.style.left = dtBox[0].x + "px"; dtul.style.width = dtBox[0].w + "px";
+        litul.style.left = litBox[0].x + "px"; litul.style.width = litBox[0].w + "px";
+
+        // ---------- DevTools dock slides up 1.00 → 1.60 ----------
+        G($("chrome-dt"), { y: 570 }, { y: 0, duration: 0.6, ease: "power3.out" }, 1.0);
+
+        // ---------- active DevTools tab ----------
+        var EL = 0, SRC = 2, PERF = 4, LIT = 7;
+        var DT = [[1.60, EL], [2.40, LIT], [11.52, EL], [13.44, LIT], [14.64, EL], [15.36, LIT], [20.64, SRC], [23.04, LIT], [31.92, PERF], [34.56, LIT]];
+        for (var k = 1; k < DT.length; k++) {
+          var t = DT[k][0], from = DT[k - 1][1], to = DT[k][1];
+          F(dtTabs[from], { color: "#e3e3e3" }, { color: "#c4c7c5", duration: 0.01, ease: "none" }, t);
+          F(dtTabs[to], { color: "#c4c7c5" }, { color: "#e3e3e3", duration: 0.01, ease: "none" }, t);
+          F(dtul, { left: dtBox[from].x, width: dtBox[from].w }, { left: dtBox[to].x, width: dtBox[to].w, duration: 0.2, ease: "power2.out" }, t);
+        }
+
+        // ---------- gate 2.40 → 5.76 ----------
+        var gate = $("chrome-gate");
+        cut(gate, 0, 1, 2.40);
+        F($("chrome-gatein"), { opacity: 1 }, { opacity: 0, duration: 0.12, ease: "none" }, 5.40);
+        F(gate, { backgroundColor: "#121212" }, { backgroundColor: "#030303", duration: 0.12, ease: "none" }, 5.40);
+        cut(gate, 1, 0, 5.76);
+
+        // ---------- Lit panel frame (Lit active + enabled) ----------
+        var lit = $("chrome-lit"), hdr = $("chrome-lithdr"), foot = $("chrome-litfoot");
+        cut(lit, 0, 1, 5.76);
+        G([hdr, foot], { opacity: 0 }, { opacity: 1, duration: 0.15, ease: "power1.out" }, 5.76);
+        cut(lit, 1, 0, 11.52);
+        cut(lit, 0, 1, 13.44);
+        cut(lit, 1, 0, 14.64);
+        cut(lit, 0, 1, 15.36);
+        cut(lit, 1, 0, 20.64);
+        cut(lit, 0, 1, 23.04);
+        cut(lit, 1, 0, 31.92);
+        cut(lit, 0, 1, 34.56);
+
+        // ---------- Lit tab per period ----------
+        var COMP = 0, UPD = 1, TL = 2, SET = 3;
+        var LT = [[23.04, COMP, TL, 0.01], [26.88, TL, UPD, 0.2], [30.72, UPD, SET, 0.2], [34.56, SET, COMP, 0.01]];
+        LT.forEach(function (s) {
+          F(litTabs[s[1]], { color: "#4d63ff" }, { color: "#a8a8a8", duration: 0.01, ease: "none" }, s[0]);
+          F(litTabs[s[2]], { color: "#a8a8a8" }, { color: "#4d63ff", duration: 0.01, ease: "none" }, s[0]);
+          F(litul, { left: litBox[s[1]].x, width: litBox[s[1]].w }, { left: litBox[s[2]].x, width: litBox[s[2]].w, duration: s[3], ease: "power2.out" }, s[0]);
+        });
+
+        // ---------- permission prompt 4.32 → 5.38 ----------
+        var pr = $("chrome-prompt");
+        G(pr, { opacity: 0, scale: 0.96 }, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out", transformOrigin: "100% 0%" }, 4.32);
+        F($("chrome-pallow"), { backgroundColor: "#a8c7fa" }, { backgroundColor: "#c2d7fb", duration: 0.08, ease: "none" }, 5.24);
+        F(pr, { opacity: 1 }, { opacity: 0, duration: 0.08, ease: "none" }, 5.38);
+
+        // ---------- reload 5.40 → 5.76 ----------
+        cut($("chrome-fav-fh"), 1, 0, 5.40);
+        cut($("chrome-spin"), 0, 1, 5.40);
+        G($("chrome-spin"), { rotation: 0 }, { rotation: 540, duration: 0.36, ease: "none", transformOrigin: "50% 50%" }, 5.40);
+        cut($("chrome-spin"), 1, 0, 5.76);
+        cut($("chrome-fav-fh"), 0, 1, 5.76);
+        cut($("chrome-reload"), 1, 0, 5.40);
+        cut($("chrome-stop"), 0, 1, 5.40);
+        cut($("chrome-stop"), 1, 0, 5.76);
+        cut($("chrome-reload"), 0, 1, 5.76);
+        F($("chrome-pagedim"), { opacity: 0 }, { opacity: 1, duration: 0.1, ease: "power1.out" }, 5.40);
+        F($("chrome-pagedim"), { opacity: 1 }, { opacity: 0, duration: 0.14, ease: "power1.in" }, 5.62);
+        var bar = $("chrome-pagebar");
+        cut(bar, 0, 1, 5.40);
+        F(bar, { width: 0 }, { width: 1340, duration: 0.34, ease: "power1.inOut" }, 5.40);
+        cut(bar, 1, 0, 5.76);
+
+        // ---------- omnibox / tab / footer origin (scene 11) ----------
+        function site(prev, next, t) {
+          ["url", "tt", "fav", "conn"].forEach(function (p) {
+            cut($("chrome-" + p + "-" + prev), 1, 0, t);
+            cut($("chrome-" + p + "-" + next), 0, 1, t);
+          });
+        }
+        site("fh", "atlas", 39.36);
+        site("atlas", "tk", 40.32);
+        site("tk", "fh", 41.28);
+
+        // ---------- outro collapse + fade to black ----------
+        F($("chrome-win"), { scale: 1, opacity: 1 }, { scale: 0.9, opacity: 0, duration: 0.66, ease: "power3.in", transformOrigin: "50% 50%" }, 42.24);
+        F($("chrome-black"), { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "none" }, 46.70);
+
+        // Below the fold once DevTools is docked: hide it so it never sits under the dock.
+
+        tl.set("#chrome-fh-banner, #chrome-fh-h2, #chrome-fh-h2s, .chrome-card2", {opacity: 0}, 1.7);
+
+        // Scene 03 adds a plant to the cart at 9.60; the count stays 3 from there.
+
+        tl.set("#chrome-cart2", {opacity: 0}, 9.6).set("#chrome-cart3", {opacity: 1}, 9.6);
+
+        window.__timelines["chrome"] = tl;
+        if (window.__hfForceTimelineRebind) window.__hfForceTimelineRebind();
+      }
+
+      var fontsReady = (document.fonts && document.fonts.load)
+        ? Promise.all([
+            document.fonts.load('500 15px "Manrope"'),
+            document.fonts.load('600 16px "Manrope"'),
+            document.fonts.load('800 15px "Manrope"'),
+            document.fonts.load('15px "Roboto Mono"')
+          ]).catch(function () {})
+        : Promise.resolve();
+      fontsReady.then(build);
+    })();
+  </script>
+</template>

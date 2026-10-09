@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: #030308; }
+      .layer { position: absolute; inset: 0; z-index: 1; }
+      .scene { position: absolute; inset: 0; z-index: 2; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="47.2"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- Persistent Chrome window, Fernhouse page, DevTools dock and Lit panel frame. -->
+      <div
+        id="el-chrome"
+        class="layer"
+        data-composition-id="chrome"
+        data-composition-src="compositions/chrome.html"
+        data-start="0"
+        data-duration="47.2"
+        data-track-index="1"
+      ></div>
+
+      <!-- Scenes: caption rail, DevTools body and page overlays. -->
+      <div
+        id="el-s01-open"
+        class="scene"
+        data-composition-id="s01-open"
+        data-composition-src="compositions/frames/01-open.html"
+        data-start="0"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s02-enable"
+        class="scene"
+        data-composition-id="s02-enable"
+        data-composition-src="compositions/frames/02-enable.html"
+        data-start="3.84"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s03-pick"
+        class="scene"
+        data-composition-id="s03-pick"
+        data-composition-src="compositions/frames/03-pick.html"
+        data-start="7.68"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s04-elements"
+        class="scene"
+        data-composition-id="s04-elements"
+        data-composition-src="compositions/frames/04-elements.html"
+        data-start="11.52"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s05-anatomy"
+        class="scene"
+        data-composition-id="s05-anatomy"
+        data-composition-src="compositions/frames/05-anatomy.html"
+        data-start="15.36"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s06-sources"
+        class="scene"
+        data-composition-id="s06-sources"
+        data-composition-src="compositions/frames/06-sources.html"
+        data-start="19.2"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s07-timeline"
+        class="scene"
+        data-composition-id="s07-timeline"
+        data-composition-src="compositions/frames/07-timeline.html"
+        data-start="23.04"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s08-updates"
+        class="scene"
+        data-composition-id="s08-updates"
+        data-composition-src="compositions/frames/08-updates.html"
+        data-start="26.88"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s09-performance"
+        class="scene"
+        data-composition-id="s09-performance"
+        data-composition-src="compositions/frames/09-performance.html"
+        data-start="30.72"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s10-trust"
+        class="scene"
+        data-composition-id="s10-trust"
+        data-composition-src="compositions/frames/10-trust.html"
+        data-start="34.56"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s11-any-site"
+        class="scene"
+        data-composition-id="s11-any-site"
+        data-composition-src="compositions/frames/11-any-site.html"
+        data-start="38.4"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s12-endcard"
+        class="scene"
+        data-composition-id="s12-endcard"
+        data-composition-src="compositions/frames/12-endcard.html"
+        data-start="42.24"
+        data-duration="4.96"
+        data-track-index="2"
+      ></div>
+
+      <!-- BGM: Bounce Énergique from its bar 4 -->
+      <audio
+        id="el-bgm"
+        src="assets/bgm/bounce-energique-from-bar4.m4a"
+        data-start="0"
+        data-duration="47.2"
+        data-track-index="11"
+        data-volume="0.9"
+      ></audio>
+    </div>
+    <script>
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Lit Inspector: a magnifying glass with a faceted lens in the flame
+       blues, no tile, so it reads on light and dark backgrounds. Original
+       artwork; not the Lit logo. Rendered to PNG by
+       scripts/extension-assets.mjs. -->
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#324fff" d="M48,28L42.14,42.14L36.49,36.49L40,28L48,28Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#283198" d="M42.14,42.14L28,48L28,40L36.49,36.49L42.14,42.14Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#324fff" d="M28,48L13.86,42.14L19.51,36.49L28,40L28,48Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#283198" d="M13.86,42.14L8,28L16,28L19.51,36.49L13.86,42.14Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#00e8ff" d="M8,28L13.86,13.86L19.51,19.51L16,28L8,28Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#00ffff" d="M13.86,13.86L28,8L28,16L19.51,19.51L13.86,13.86Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#00e8ff" d="M28,8L42.14,13.86L36.49,19.51L28,16L28,8Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -9.844091 -9.755911)" fill="#324fff" d="M42.14,13.86L48,28L40,28L36.49,19.51L42.14,13.86Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -10.921962 -11.010142)" fill="#324fff" d="M42.947,43.08L44.309,39.726L55.5,50.5L42.947,43.08Z"/>
+  <path transform="matrix(1.334898 0 0 1.334898 -10.921962 -11.010142)" fill="#283198" d="M42.947,43.08L55.5,50.5L50.5,55.5L40.395,44.137L42.947,43.08Z"/>
+</svg>

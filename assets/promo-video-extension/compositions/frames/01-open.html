@@ -1,0 +1,107 @@
+<template id="s01-open-template">
+  <style>
+    @font-face { font-family: "Manrope"; font-weight: 500; src: url("assets/manrope-medium.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 600; src: url("assets/manrope-semibold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 700; src: url("assets/manrope-bold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 800; src: url("assets/manrope-extrabold.woff2") format("woff2"); }
+    @font-face { font-family: "Roboto Mono"; font-weight: 400; src: url("assets/RobotoMono-Latin-400.woff2") format("woff2"); }
+
+    #s01-open { overflow: hidden; background: transparent; font-family: "Manrope", sans-serif; }
+    #s01-open * { box-sizing: border-box; }
+    .s01-eyebrow { position: absolute; left: 80px; top: 330px; width: 420px; font-weight: 700; font-size: 16px; letter-spacing: .14em; text-transform: uppercase; color: #4d63ff; line-height: 20px; white-space: nowrap; }
+    .s01-line { position: absolute; left: 80px; width: 440px; font-weight: 800; font-size: 58px; letter-spacing: -0.03em; line-height: 60px; color: #fff; white-space: nowrap; }
+    .s01-line em { font-style: normal; color: #00e8ff; }
+    .s01-cursor { position: absolute; left: 0; top: 0; width: 24px; height: 28px; pointer-events: none; z-index: 20; }
+    .s01-cursor svg { position: absolute; left: 0; top: 0; width: 24px; height: 28px; overflow: visible; transform-origin: 0 0; }
+    .s01-ring { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,.9); opacity: 0; z-index: 19; }
+
+    #s01-body { position: absolute; left: 540px; top: 504px; width: 1340px; height: 536px; background: #1e1e1e; overflow: hidden; opacity: 0; font-family: "Roboto Mono", monospace; }
+    #s01-dom { position: absolute; left: 0; top: 0; width: 840px; height: 506px; padding-top: 8px; }
+    .s01-row { position: relative; height: 24px; line-height: 24px; font-size: 15px; color: #e8eaed; white-space: nowrap; }
+    .s01-row .tw { position: absolute; top: 0; width: 14px; text-align: center; font-size: 11px; color: #9aa0a6; }
+    .s01-row .tx { position: absolute; top: 0; }
+    .s01-row .t { color: #5db0d7; } .s01-row .a { color: #9bbbdc; } .s01-row .v { color: #f29766; } .s01-row .g { color: #9aa0a6; }
+    #s01-styles { position: absolute; left: 840px; top: 0; width: 500px; height: 506px; border-left: 1px solid #3c3c3c; }
+    #s01-stabs { height: 32px; background: #282828; border-bottom: 1px solid #3c3c3c; display: flex; font-family: "Manrope", sans-serif; font-weight: 500; font-size: 15px; color: #c4c7c5; }
+    #s01-stabs span { padding: 0 14px; line-height: 31px; }
+    #s01-stabs span.on { color: #e3e3e3; box-shadow: inset 0 -2px #a8c7fa; }
+    #s01-sfilter { margin: 8px 12px; height: 26px; border: 1px solid #3c3c3c; background: #1e1e1e; font-family: "Manrope", sans-serif; font-weight: 500; font-size: 14px; color: #9aa0a6; padding: 0 10px; line-height: 24px; display: flex; }
+    #s01-sfilter b { margin-left: auto; font-weight: 500; letter-spacing: .04em; }
+    .s01-rule { padding: 6px 14px 4px; font-size: 14px; line-height: 22px; color: #e8eaed; }
+    .s01-rule .sel { color: #e8eaed; } .s01-rule .p { color: #5db0d7; } .s01-rule .val { color: #f29766; } .s01-rule .src { float: right; color: #9aa0a6; font-family: "Manrope", sans-serif; }
+    .s01-rule .ind { padding-left: 22px; }
+    #s01-crumb { position: absolute; left: 0; top: 506px; width: 1340px; height: 30px; background: #282828; border-top: 1px solid #3c3c3c; font-family: "Manrope", sans-serif; font-weight: 500; font-size: 14px; color: #c4c7c5; padding: 0 14px; line-height: 29px; display: flex; gap: 16px; }
+    #s01-keys { position: absolute; left: 1186px; top: 236px; display: flex; gap: 6px; opacity: 0; z-index: 18; }
+    #s01-keys span { min-width: 38px; height: 34px; padding: 0 10px; display: flex; align-items: center; justify-content: center; background: #2a2a31; border: 1px solid #55555f; border-bottom-width: 3px; border-radius: 7px; color: #fff; font-family: "Manrope", sans-serif; font-weight: 700; font-size: 17px; box-shadow: 0 6px 16px rgba(0,0,0,.45); }
+    #s01-glow { position: absolute; left: 1285px; top: 473px; width: 66px; height: 28px; border-radius: 6px; box-shadow: 0 0 0 2px rgba(0,232,255,.75), 0 0 26px 8px rgba(0,232,255,.55); background: rgba(0,232,255,.14); opacity: 0; }
+  </style>
+
+  <div id="s01-open" data-composition-id="s01-open" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <div class="s01-eyebrow" id="s01-eyebrow">Lit Inspector</div>
+    <div class="s01-line" id="s01-l1" style="top:362px">A Lit tab</div>
+    <div class="s01-line" id="s01-l2" style="top:422px">for <em>any site.</em></div>
+
+    <div id="s01-body">
+      <div id="s01-dom">
+        <div class="s01-row" id="s01-row0"><span class="tx" style="left:28px"><span class="g">&lt;!DOCTYPE html&gt;</span></span></div>
+        <div class="s01-row" id="s01-row1"><span class="tw" style="left:8px">▾</span><span class="tx" style="left:28px">&lt;<span class="t">html</span> <span class="a">lang</span>=<span class="v">"en"</span>&gt;</span></div>
+        <div class="s01-row" id="s01-row2"><span class="tw" style="left:26px">▸</span><span class="tx" style="left:46px">&lt;<span class="t">head</span>&gt;…&lt;/<span class="t">head</span>&gt;</span></div>
+        <div class="s01-row" id="s01-row3"><span class="tw" style="left:26px">▾</span><span class="tx" style="left:46px">&lt;<span class="t">body</span>&gt;</span></div>
+        <div class="s01-row" id="s01-row4"><span class="tw" style="left:44px">▾</span><span class="tx" style="left:64px">&lt;<span class="t">fh-app</span>&gt;</span></div>
+        <div class="s01-row" id="s01-row5"><span class="tw" style="left:62px">▾</span><span class="tx" style="left:82px"><span class="g">#shadow-root (open)</span></span></div>
+        <div class="s01-row" id="s01-row6"><span class="tw" style="left:80px">▸</span><span class="tx" style="left:100px">&lt;<span class="t">fh-header</span>&gt;…&lt;/<span class="t">fh-header</span>&gt;</span></div>
+        <div class="s01-row" id="s01-row7"><span class="tw" style="left:80px">▸</span><span class="tx" style="left:100px">&lt;<span class="t">fh-product-card</span>&gt;…&lt;/<span class="t">fh-product-card</span>&gt;</span></div>
+        <div class="s01-row" id="s01-row8"><span class="tw" style="left:80px">▸</span><span class="tx" style="left:100px">&lt;<span class="t">fh-product-card</span>&gt;…&lt;/<span class="t">fh-product-card</span>&gt;</span></div>
+        <div class="s01-row" id="s01-row9"><span class="tw" style="left:80px">▸</span><span class="tx" style="left:100px">&lt;<span class="t">fh-product-card</span>&gt;…&lt;/<span class="t">fh-product-card</span>&gt;</span></div>
+        <div class="s01-row" id="s01-row10"><span class="tx" style="left:64px">&lt;/<span class="t">fh-app</span>&gt;</span></div>
+        <div class="s01-row" id="s01-row11"><span class="tx" style="left:46px">&lt;/<span class="t">body</span>&gt;</span></div>
+        <div class="s01-row" id="s01-row12"><span class="tx" style="left:28px">&lt;/<span class="t">html</span>&gt;</span></div>
+      </div>
+      <div id="s01-styles">
+        <div id="s01-stabs"><span class="on">Styles</span><span>Computed</span><span>Layout</span><span>Event Listeners</span><span>»</span></div>
+        <div id="s01-sfilter">Filter<b>:hov .cls +</b></div>
+        <div class="s01-rule"><span class="sel">element.style</span> {</div>
+      </div>
+      <div id="s01-crumb"><span>html</span><span>body</span><span>fh-app</span></div>
+    </div>
+
+    <div id="s01-glow"></div>
+    <div id="s01-keys"><span>⌥</span><span>⌘</span><span>I</span></div>
+    <div class="s01-ring" id="s01-ring"></div>
+    <div class="s01-cursor" id="s01-cursor"><svg viewBox="0 0 24 28"><path d="M1.5 1.5 L1.5 21.5 L6.8 16.9 L10.4 25 L14 23.4 L10.4 15.6 L17.6 15.6 Z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+  </div>
+
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      var slam = function (sel, at) { tl.fromTo(sel, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, at); };
+      tl.fromTo("#s01-eyebrow", { opacity: 0 }, { opacity: 1, duration: 0.25 }, 0);
+      slam("#s01-l1", 0.48); slam("#s01-l2", 0.96);
+
+      // Elements body only while the Elements tab is active (1.60 -> 2.40)
+      tl.set("#s01-body", { opacity: 1 }, 1.6);
+      tl.set("#s01-body", { opacity: 0 }, 2.4);
+      for (var i = 0; i < 13; i++) {
+        tl.fromTo("#s01-row" + i, { opacity: 0, x: -12 }, { opacity: 1, x: 0, duration: 0.2, ease: "power2.out" }, 1.6 + i * 0.04);
+      }
+      tl.fromTo("#s01-styles", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 1.7);
+
+      // keycap chip
+      tl.fromTo("#s01-keys", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.22, ease: "power3.out" }, 0.96);
+      tl.to("#s01-keys", { opacity: 0, duration: 0.2 }, 1.7);
+
+      // cursor
+      var cur = "#s01-cursor", svg = "#s01-cursor svg";
+      tl.fromTo(cur, { x: 1110, y: 336, opacity: 0 }, { x: 1170, y: 296, opacity: 1, duration: 0.7, ease: "sine.inOut" }, 0.2);
+      tl.fromTo(cur, { x: 1170, y: 296 }, { x: 1318, y: 489, duration: 0.38, ease: "power2.inOut", immediateRender: false }, 1.92);
+      tl.fromTo(svg, { scale: 1 }, { scale: 0.82, duration: 0.06, ease: "power1.out", immediateRender: false }, 2.3);
+      tl.to(svg, { scale: 1, duration: 0.08, ease: "power1.in" }, 2.36);
+      tl.fromTo("#s01-ring", { x: 1318, y: 489, scale: 0.3, opacity: 0.9 }, { scale: 1.7, opacity: 0, duration: 0.4, ease: "power2.out", immediateRender: false }, 2.3);
+      tl.fromTo("#s01-glow", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power2.out" }, 2.3);
+      tl.to("#s01-glow", { opacity: 0, duration: 0.5, ease: "power2.in" }, 2.55);
+      tl.fromTo(cur, { x: 1318, y: 489 }, { x: 690, y: 640, duration: 0.7, ease: "power2.inOut", immediateRender: false }, 2.45);
+
+      window.__timelines["s01-open"] = tl;
+    })();
+  </script>
+</template>

@@ -1,0 +1,111 @@
+<template id="s10-trust-template">
+  <style>
+    @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:600;src:url("assets/manrope-semibold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:500;src:url("assets/manrope-medium.woff2") format("woff2")}
+    @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2")}
+    #s10-trust{overflow:hidden;font-family:"Manrope",sans-serif}
+    #s10-trust *{box-sizing:border-box}
+    #s10-trust .abs{position:absolute}
+    #s10-rail{left:0;top:0;width:1920px;height:1080px}
+    #s10-eyebrow{left:80px;top:330px;width:420px;font-weight:700;font-size:16px;line-height:20px;letter-spacing:.14em;text-transform:uppercase;color:#4d63ff;opacity:0}
+    .s10-cap{left:80px;top:362px;width:430px;font-weight:800;font-size:58px;line-height:60px;letter-spacing:-0.03em;color:#fff;opacity:0}
+    .s10-cap span{display:block;white-space:nowrap}
+    .s10-cap b{color:#00e8ff;font-weight:800}
+    #s10-body{left:540px;top:548px;width:1340px;height:464px;background:#030303;overflow:hidden}
+    #s10-tools{left:0;top:0;width:1340px;height:55px;border-bottom:1px solid #363636;background:#030303}
+    .s10-btn{position:absolute;top:9px;height:36px;border:1px solid #363636;background:#0d0d0d;color:#e3e3e3;font-weight:600;font-size:15px;line-height:34px;padding:0 16px;display:flex;align-items:center;gap:8px}
+    .s10-btn i{display:block;width:12px;height:12px;border:1.5px solid #919191;border-radius:50%}
+    #s10-filter{left:130px;width:262px;color:#919191;font-weight:500}
+    #s10-live{right:204px;background:#102070;border-color:#4d63ff;color:#cfd6ff}
+    #s10-flash{right:116px}
+    #s10-anat{right:12px}
+    #s10-tree{left:0;top:55px;width:1090px;height:409px;opacity:.4}
+    #s10-div{left:1090px;top:55px;width:3px;height:409px;background:#363636;opacity:.6}
+    #s10-side{left:1103px;top:78px;width:237px;font-weight:500;font-size:16px;color:#919191;opacity:.6;text-align:center}
+    .s10-row{position:absolute;left:0;height:27px;width:1090px;font-family:"Roboto Mono",monospace;font-size:15px;line-height:27px;color:#82aaff;white-space:nowrap}
+    .s10-row em{font-style:normal;color:#919191}
+    .s10-row svg{position:absolute;top:8px;width:10px;height:10px}
+    #s10-scrim{left:540px;top:128px;width:1340px;height:342px;background:rgba(3,3,8,.62);opacity:0}
+    .s10-card{left:660px;width:1100px;background:#121212;border:1px solid #363636;border-radius:10px;opacity:0;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+    #s10-c1{top:148px;height:152px}
+    #s10-c2{top:316px;height:134px}
+    .s10-lab{position:absolute;left:28px;top:20px;font-weight:700;font-size:13px;line-height:16px;letter-spacing:.14em;text-transform:uppercase;color:#919191}
+    #s10-code{position:absolute;left:28px;top:50px;font-family:"Roboto Mono",monospace;font-size:16px;line-height:24px;color:#e3e3e3;background:#0b0b12;border:1px solid #363636;border-radius:6px;padding:8px 16px;white-space:nowrap}
+    #s10-code span{color:#f4bf4f}
+    #s10-code u{text-decoration:none;color:#c3e88d}
+    #s10-ok{position:absolute;left:28px;top:108px;display:flex;align-items:center;gap:10px;font-weight:600;font-size:18px;line-height:24px;color:#e3e3e3}
+    #s10-ok svg{width:22px;height:22px}
+    #s10-tag{position:absolute;right:28px;top:108px;font-weight:500;font-size:14px;line-height:24px;color:#919191}
+    #s10-c2 .s10-lab{top:22px}
+    #s10-msg{position:absolute;left:28px;top:60px;width:1044px;font-weight:600;font-size:26px;line-height:34px;color:#e3e3e3;letter-spacing:-0.01em;white-space:nowrap}
+    #s10-msg b{color:#8a9bff;font-weight:600}
+    #s10-glow{left:546px;top:1015px;width:352px;height:22px;border:1px solid #00e8ff;border-radius:4px;background:rgba(0,232,255,.08);box-shadow:0 0 18px rgba(0,232,255,.55);opacity:0}
+  </style>
+  <div id="s10-trust" data-composition-id="s10-trust" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <div id="s10-rail" class="abs">
+      <div id="s10-eyebrow" class="abs">Private by design</div>
+      <div id="s10-capA" class="abs s10-cap"><span>CSP can't</span><span id="s10-capA2"><b>block it.</b></span></div>
+      <div id="s10-capB" class="abs s10-cap"><span>Collects</span><span><b>no data.</b></span></div>
+    </div>
+    <div id="s10-body" class="abs">
+      <div id="s10-tools" class="abs">
+        <div class="s10-btn" style="left:12px"><i></i>Pick</div>
+        <div class="s10-btn" id="s10-filter">Filter tags</div>
+        <div class="s10-btn" id="s10-live">Live</div>
+        <div class="s10-btn" id="s10-flash">Flash</div>
+        <div class="s10-btn" id="s10-anat">Anatomy</div>
+      </div>
+      <div id="s10-tree" class="abs"></div>
+      <div id="s10-div" class="abs"></div>
+      <div id="s10-side" class="abs">Select a component</div>
+    </div>
+    <div id="s10-scrim" class="abs"></div>
+    <div id="s10-c1" class="abs s10-card">
+      <div class="s10-lab">Response header</div>
+      <div id="s10-code">content-security-policy: <span>script-src 'self'</span></div>
+      <div id="s10-ok"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#1f7a45"/><path d="M6.5 12.5l3.8 3.8 7.2-8" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Lit Inspector still connected</div>
+      <div id="s10-tag">Reported in the panel footer below</div>
+    </div>
+    <div id="s10-c2" class="abs s10-card">
+      <div class="s10-lab">Nothing leaves your browser</div>
+      <div id="s10-msg">No accounts · no analytics · <b>only this site's own scripts and sourcemaps</b></div>
+    </div>
+    <div id="s10-glow" class="abs"></div>
+  </div>
+  <script>
+    (function () {
+      var rows = [[0,"fh-app",2],[1,"fh-header",2],[2,"fh-search",0],[2,"fh-cart-button",0],[1,"fh-product-card",1],[1,"fh-product-card",2],[2,"fh-reviews",0],[1,"fh-product-card",1],[1,"fh-newsletter",1],[1,"fh-footer",0]];
+      var h = "";
+      rows.forEach(function (r, i) {
+        var x = 14 + r[0] * 20;
+        var chev = r[2] === 1 ? '<svg style="left:' + (x - 4) + 'px" viewBox="0 0 10 10"><path d="M3 1.5L7 5L3 8.5" fill="none" stroke="#919191" stroke-width="1.3"/></svg>' : r[2] === 2 ? '<svg style="left:' + (x - 4) + 'px" viewBox="0 0 10 10"><path d="M1.5 3L5 7L8.5 3" fill="none" stroke="#919191" stroke-width="1.3"/></svg>' : "";
+        h += '<div class="s10-row" style="top:' + (8 + i * 27) + 'px;padding-left:' + (x + 14) + 'px">' + chev + '<em>&lt;</em>' + r[1] + '<em>&gt;</em></div>';
+      });
+      document.getElementById("s10-tree").innerHTML = h;
+
+      var tl = gsap.timeline({ paused: true });
+      var slam = function (sel, t) { tl.fromTo(sel, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: "power3.out" }, t); };
+      tl.fromTo("#s10-eyebrow", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power1.out" }, 0.08);
+      slam("#s10-capA", 0.30);
+      tl.fromTo("#s10-capA2", { opacity: 0 }, { opacity: 1, duration: 0.28, ease: "power3.out" }, 0.78);
+      tl.to("#s10-capA", { opacity: 0, duration: 0.12, ease: "power1.in" }, 1.78);
+      slam("#s10-capB", 1.92);
+
+      tl.fromTo("#s10-scrim", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power1.out" }, 0.3);
+      tl.fromTo("#s10-c1", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 0.48);
+      tl.fromTo("#s10-ok svg", { scale: 0.4 }, { scale: 1, duration: 0.35, ease: "back.out(2.5)", transformOrigin: "50% 50%" }, 0.96);
+      tl.fromTo("#s10-glow", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, 1.0);
+      tl.to("#s10-glow", { opacity: 0.45, duration: 0.45, ease: "sine.inOut" }, 1.5);
+      tl.to("#s10-glow", { opacity: 1, duration: 0.45, ease: "sine.inOut" }, 1.95);
+      tl.to("#s10-glow", { opacity: 0.55, duration: 0.5, ease: "sine.inOut" }, 2.5);
+      tl.fromTo("#s10-c2", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 1.92);
+
+      var out = 3.72;
+      tl.to(["#s10-capB", "#s10-eyebrow"], { opacity: 0, duration: 0.15, ease: "power1.in" }, out);
+      tl.to(["#s10-scrim", "#s10-c1", "#s10-c2", "#s10-glow"], { opacity: 0, duration: 0.15, ease: "power1.in" }, out);
+      window.__timelines["s10-trust"] = tl;
+    })();
+  </script>
+</template>
