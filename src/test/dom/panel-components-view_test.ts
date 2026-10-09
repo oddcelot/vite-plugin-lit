@@ -16,6 +16,7 @@ import {
 
 vi.mock('../../panel/client.js', () => import('./fakes/client.js'));
 import {resetHostInfo} from '../../panel/host.js';
+import {useElementRevealer} from '../../panel/element-revealer.js';
 import {useSourceOpener} from '../../panel/source-opener.js';
 vi.mock('../../panel/in-page.js', () => import('./fakes/in-page.js'));
 
@@ -1266,6 +1267,79 @@ test('a sourcemapped location opens in the host viewer, even with no editor', as
     expect(calls.some((c) => c.name === 'open-source')).toBe(false);
   } finally {
     useSourceOpener(undefined);
+  }
+});
+
+test('a file-only location opens in the host viewer where no editor can', async () => {
+  meta.capabilities.openInEditor = false;
+  const opened: unknown[] = [];
+  useSourceOpener((loc) => void opened.push(loc));
+  try {
+    const {el, root} = await mount(true);
+    const source = {file: '/app/src/b.ts', line: 4};
+    const callSite = {file: '/app/src/app.ts', line: 12, column: 7};
+    push('inspector-message', {type: 'pick', id: 2});
+    push('inspector-message', {
+      type: 'details',
+      details: {...detailsFor(), source, callSite},
+    });
+    await flush(el);
+    const defined = root.querySelector<HTMLElement>('button.src')!;
+    expect(defined.dataset['tip']).toBe('Open in Sources');
+    defined.click();
+    root.querySelector<HTMLElement>('button.call-site')!.click();
+    expect(opened).toEqual([source, callSite]);
+    expect(calls.some((c) => c.name === 'open-source')).toBe(false);
+  } finally {
+    useSourceOpener(undefined);
+  }
+});
+
+test('a file-only location stays in the editor where the host has one', async () => {
+  const opened: unknown[] = [];
+  useSourceOpener((loc) => void opened.push(loc));
+  try {
+    const {el, root} = await mount(true);
+    answers.set('open-source', {opened: true});
+    push('inspector-message', {type: 'pick', id: 2});
+    push('inspector-message', {
+      type: 'details',
+      details: {...detailsFor(), source: {file: 'src/b.ts', line: 4}},
+    });
+    await flush(el);
+    root.querySelector<HTMLElement>('button.src')!.click();
+    await flush(el);
+    expect(opened).toEqual([]);
+    expect(calls.some((c) => c.name === 'open-source')).toBe(true);
+  } finally {
+    useSourceOpener(undefined);
+  }
+});
+
+test('Reveal in Elements is absent without a host revealer', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {type: 'details', details: detailsFor()});
+  await flush(el);
+  expect(root.querySelector('[aria-label="Reveal in Elements"]')).toBeNull();
+});
+
+test('Reveal in Elements calls the host revealer with the element id', async () => {
+  const revealed: number[] = [];
+  useElementRevealer((id) => void revealed.push(id));
+  try {
+    const {el, root} = await mount(true);
+    push('inspector-message', {type: 'pick', id: 2});
+    push('inspector-message', {type: 'details', details: detailsFor()});
+    await flush(el);
+    const button = root.querySelector<HTMLElement>(
+      '[aria-label="Reveal in Elements"]'
+    )!;
+    expect(button.dataset['tip']).toBe('Reveal in the Elements panel');
+    button.click();
+    expect(revealed).toEqual([detailsFor().id]);
+  } finally {
+    useElementRevealer(undefined);
   }
 });
 

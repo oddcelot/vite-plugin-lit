@@ -35,6 +35,7 @@ import {ComponentsSession} from './components-session.js';
 import {LocationController} from './location-controller.js';
 import {PanelLocation} from './panel-location.js';
 import {openInEditor} from './open-in-editor.js';
+import {elementRevealer} from './element-revealer.js';
 import {sourceOpenerFor} from './source-opener.js';
 import {hostInfo, sendToPage, touchPageChannel} from './host.js';
 import {overrides} from './settings-override.js';
@@ -413,6 +414,9 @@ export class ComponentsView extends LitElement {
       }
       .details .head .reveal {
         margin-left: auto;
+      }
+      .details .head .reveal + .reveal {
+        margin-left: 0;
       }
       .status {
         display: inline-flex;
@@ -1221,7 +1225,7 @@ export class ComponentsView extends LitElement {
     const src = this._session.details?.source;
     if (src === undefined) return;
     // Resolved through the page's sourcemaps: DevTools has it, no editor does.
-    const opener = sourceOpenerFor(src);
+    const opener = sourceOpenerFor(src, this._canOpen);
     if (opener !== undefined) void opener(src);
     else void openInEditor(src.file, src.line);
   }
@@ -1229,7 +1233,9 @@ export class ComponentsView extends LitElement {
   private _openCallSite(): void {
     const site = this._session.details?.callSite;
     if (site === undefined) return;
-    void openInEditor(site.file, site.line, site.column);
+    const opener = sourceOpenerFor(site, this._canOpen);
+    if (opener !== undefined) void opener(site);
+    else void openInEditor(site.file, site.line, site.column);
   }
 
   // ---------------------------------------------------------------------------
@@ -1811,8 +1817,8 @@ export class ComponentsView extends LitElement {
 
   /**
    * A `file:line` that opens in the editor, or in the host's own viewer when
-   * it has one for the location's URL (`source-opener.ts`); plain text
-   * where neither can open it.
+   * it has one for the location (`source-opener.ts`); plain text where
+   * neither can open it.
    */
   private _renderLocation(
     loc: ElementSource,
@@ -1821,7 +1827,7 @@ export class ComponentsView extends LitElement {
     open: () => void
   ): TemplateResult {
     const text = `${loc.file}:${loc.line}`;
-    const inHost = sourceOpenerFor(loc) !== undefined;
+    const inHost = sourceOpenerFor(loc, this._canOpen) !== undefined;
     return this._canOpen || inHost
       ? html`<button
           class="link ${cls}"
@@ -1869,6 +1875,7 @@ export class ComponentsView extends LitElement {
         warnings.length >
         0 || anatomyHit;
     const rootLabel = describeRoot(d);
+    const revealer = elementRevealer();
     return html`
       <div class="head">
         <h2>&lt;${d.tagName}&gt;</h2>
@@ -1920,6 +1927,21 @@ export class ComponentsView extends LitElement {
                 @click=${this._reveal}
               >
                 <wa-icon name="target"></wa-icon>
+              </wa-button>`
+        }
+        ${
+          revealer === undefined || this._snapshot
+            ? nothing
+            : html`<wa-button
+                class="reveal"
+                data-action="reveal-in-elements"
+                appearance="plain"
+                size="small"
+                data-tip="Reveal in the Elements panel"
+                aria-label="Reveal in Elements"
+                @click=${() => void revealer(d.id)}
+              >
+                <wa-icon name="cursor-click"></wa-icon>
               </wa-button>`
         }
       </div>
