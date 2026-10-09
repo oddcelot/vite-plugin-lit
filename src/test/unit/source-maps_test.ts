@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'vite-plus/test';
-import MagicString from 'magic-string';
+import MagicString, {Bundle} from 'magic-string';
 import {
   createSourceMapResolver,
   decodeDataUrl,
@@ -214,6 +214,43 @@ describe('createSourceMapResolver', () => {
     expect((await resolver.resolve([at('lit')]))?.file).toBe(
       'node_modules/@lit/reactive-element/x.js'
     );
+  });
+
+  test('skips a helper the bundler emitted without mappings', async () => {
+    // As rolldown bundles decorators: the `__decorate` helper lands right
+    // after another module's last token with no segments of its own, so its
+    // frame maps loosely onto that module. The class's own module calls it.
+    const art = new MagicString('export const art = () => `<svg/>`;\n}');
+    const app = new MagicString(
+      "q([customElement('my-el')], MyEl);\nclass MyEl {}\n"
+    );
+    const b = new Bundle({separator: ''});
+    b.addSource({filename: '../src/art.ts', content: art});
+    b.append('function q(d,t){return d[0](t)}\n');
+    b.addSource({filename: '../src/my-el.ts', content: app});
+    const code = b.toString();
+    const map = b.generateMap({hires: true, includeContent: true});
+    const {fetch} = site({
+      'https://app.test/assets/a.js': {
+        body: `${code}\n//# sourceMappingURL=a.js.map\n`,
+      },
+      'https://app.test/assets/a.js.map': {body: map.toString()},
+    });
+    // 1-based line and column of `needle` in the generated script.
+    const at = (needle: string): GeneratedFrame => {
+      const before = code.slice(0, code.indexOf(needle)).split('\n');
+      return {
+        url: 'https://app.test/assets/a.js',
+        line: before.length,
+        column: before.at(-1)!.length + 1,
+      };
+    };
+
+    const source = await createSourceMapResolver({fetch}).resolve([
+      at('d[0](t)'),
+      at("q([customElement('my-el')]"),
+    ]);
+    expect(source).toMatchObject({file: 'src/my-el.ts', line: 1});
   });
 
   test('unmapped frames fall through to a mapped one', async () => {

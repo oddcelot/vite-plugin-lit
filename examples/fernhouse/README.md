@@ -84,8 +84,9 @@ npm run preview
 
 Open the preview with the extension installed, open DevTools and enable it
 for the site from the **Lit** tab. Its panel lists the same components, with
-their slots, parts, context and timeline; a production build of Lit sends no
-render events, so those layers stay empty. The dock above is dev-only; the
+their slots, parts, context and timeline, and the sourcemaps tell it where
+each is defined: `src/fh-product-card.ts:4` for a card. A production build of
+Lit sends no render events, so those layers stay empty. The dock above is dev-only; the
 extension is how you look at a build.
 
 ## In this repository

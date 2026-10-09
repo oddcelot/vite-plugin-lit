@@ -16,6 +16,14 @@
  * `node_modules` wins; failing that, the first outside Lit's own packages (a
  * component library's element); failing that, the first mapped frame.
  *
+ * Outside `node_modules`, a frame that lands exactly on a mapping segment
+ * goes first. Bundlers emit helpers such as `__decorate` with no mappings of
+ * their own, and a lookup inside one falls back to the last segment before
+ * it: the end of whatever module was bundled ahead of it. Real call sites
+ * sit on a segment of their own, so in a token-level map the helper's frame
+ * is passed over for the class's module; in a coarser map, where nothing is
+ * exact, the order above stands.
+ *
  * Anything going wrong (no map, a network error, a map that does not parse)
  * leaves the location unknown; nothing here throws.
  */
@@ -24,6 +32,7 @@ import {
   FlattenMap,
   isIgnored,
   originalPositionFor,
+  traceSegment,
   type TraceMap,
 } from '@jridgewell/trace-mapping';
 import type {ElementSource, GeneratedFrame} from '../../types/inspector.js';
@@ -110,6 +119,8 @@ interface Mapped {
   /** 0-based, as the map has it. */
   column: number;
   ignored: boolean;
+  /** The frame sits on a segment's start, not somewhere after one. */
+  exact: boolean;
 }
 
 export const createSourceMapResolver = (
@@ -157,10 +168,8 @@ export const createSourceMapResolver = (
     if (map === undefined) return undefined;
     try {
       // The browser prints 1-based columns; trace-mapping wants 0-based.
-      const pos = originalPositionFor(map, {
-        line: frame.line,
-        column: Math.max(0, frame.column - 1),
-      });
+      const column = Math.max(0, frame.column - 1);
+      const pos = originalPositionFor(map, {line: frame.line, column});
       if (pos.source === null) return undefined;
       return {
         frame,
@@ -168,6 +177,8 @@ export const createSourceMapResolver = (
         line: pos.line,
         column: pos.column,
         ignored: isIgnored(map, pos.source),
+        // traceSegment takes a 0-based line.
+        exact: traceSegment(map, frame.line - 1, column)?.[0] === column,
       };
     } catch {
       return undefined;
@@ -179,8 +190,10 @@ export const createSourceMapResolver = (
       const mapped = (await Promise.all(frames.map(mapFrame))).filter(
         (m): m is Mapped => m !== undefined
       );
+      const own = (m: Mapped) => !m.ignored && !NODE_MODULES_RE.test(m.source);
       const pick =
-        mapped.find((m) => !m.ignored && !NODE_MODULES_RE.test(m.source)) ??
+        mapped.find((m) => own(m) && m.exact) ??
+        mapped.find(own) ??
         mapped.find((m) => !LIT_PACKAGE_RE.test(m.source)) ??
         mapped[0];
       if (pick === undefined) return undefined;
