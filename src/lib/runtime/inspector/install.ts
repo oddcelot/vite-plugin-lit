@@ -117,6 +117,38 @@ if (typeof window !== 'undefined') {
 }
 
 if (typeof window !== 'undefined') {
+  /**
+   * Reads one of the page's own scripts for a host that cannot (the
+   * standalone server). Only http(s) URLs on this page's origin are fetched:
+   * all the host can make the page do is read its own files, with its own
+   * cookies, and the server never fetches a page's URL itself. Anything else,
+   * and any failure, answers `ok: false`.
+   */
+  const fetchText = async (url: string): Promise<InspectorMessage> => {
+    try {
+      const target = new URL(url, location.href);
+      if (
+        (target.protocol !== 'http:' && target.protocol !== 'https:') ||
+        target.origin !== location.origin
+      ) {
+        return {type: 'fetched-text', url, ok: false};
+      }
+      const res = await fetch(target.href);
+      if (!res.ok) return {type: 'fetched-text', url, ok: false};
+      const sourceMap =
+        res.headers.get('SourceMap') ?? res.headers.get('X-SourceMap');
+      return {
+        type: 'fetched-text',
+        url,
+        ok: true,
+        text: await res.text(),
+        ...(sourceMap === null ? {} : {sourceMap}),
+      };
+    } catch {
+      return {type: 'fetched-text', url, ok: false};
+    }
+  };
+
   const send = (msg: InspectorMessage): void => {
     try {
       pageChannel.send(INSPECT_DATA_CHANNEL, {...msg, pageId: PAGE_ID});
@@ -458,6 +490,10 @@ if (typeof window !== 'undefined') {
           if (known !== undefined) frames[id] = known;
         }
         send({type: 'define-frames', frames});
+        break;
+      }
+      case 'fetch-text': {
+        void fetchText(cmd.url).then(send);
         break;
       }
       case 'expand': {

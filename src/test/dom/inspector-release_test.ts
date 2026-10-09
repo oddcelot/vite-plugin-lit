@@ -301,3 +301,64 @@ test('answers a define-frames command, leaving out ids it never issued', async (
     String(id),
   ]);
 });
+
+const fetchedText = async (carrier: Carrier, url: string) => {
+  carrier.deliver(INSPECT_CMD_CHANNEL, {type: 'fetch-text', url});
+  const find = () =>
+    carrier.sent.find(
+      ([ch, m]) =>
+        ch === INSPECT_DATA_CHANNEL &&
+        (m as {type: string}).type === 'fetched-text'
+    );
+  await vi.waitFor(() => expect(find()).toBeDefined());
+  return find()![1];
+};
+
+test('fetch-text reads a script on the page origin, with its map header', async () => {
+  const {carrier} = await load();
+  const fetchStub = vi.fn(
+    async () => new Response('code', {headers: {'X-SourceMap': 'a.js.map'}})
+  );
+  vi.stubGlobal('fetch', fetchStub);
+  const url = `${location.origin}/a.js`;
+  expect(await fetchedText(carrier, url)).toMatchObject({
+    type: 'fetched-text',
+    url,
+    ok: true,
+    text: 'code',
+    sourceMap: 'a.js.map',
+  });
+  expect(fetchStub).toHaveBeenCalledWith(url);
+  vi.unstubAllGlobals();
+});
+
+test('fetch-text refuses another origin and non-http urls', async () => {
+  const {carrier} = await load();
+  const fetchStub = vi.fn(async () => new Response('x'));
+  vi.stubGlobal('fetch', fetchStub);
+  for (const url of ['https://cdn.example/a.js', 'data:text/plain,hi']) {
+    carrier.sent.length = 0;
+    expect(await fetchedText(carrier, url)).toMatchObject({ok: false, url});
+  }
+  expect(fetchStub).not.toHaveBeenCalled();
+  vi.unstubAllGlobals();
+});
+
+test('fetch-text answers ok: false when the fetch fails', async () => {
+  const {carrier} = await load();
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => {
+      throw new TypeError('offline');
+    })
+  );
+  const url = `${location.origin}/a.js`;
+  expect(await fetchedText(carrier, url)).toMatchObject({ok: false, url});
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => new Response('', {status: 404}))
+  );
+  carrier.sent.length = 0;
+  expect(await fetchedText(carrier, url)).toMatchObject({ok: false});
+  vi.unstubAllGlobals();
+});
