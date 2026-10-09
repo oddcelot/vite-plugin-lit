@@ -1,8 +1,10 @@
 name: Release
 
 # `git push origin main --follow-tags` is the whole release: a `v*` tag runs
-# the same gate as CI, publishes to npm, then mirrors the package to JSR and
-# creates the GitHub Release from that version's CHANGELOG.md section.
+# the same gate as CI, publishes to npm, then mirrors the package to JSR,
+# creates the GitHub Release from that version's CHANGELOG.md section, and
+# (once approved in the `stores` environment) submits Lit Inspector to the
+# Chrome Web Store.
 #
 # Publishing authenticates over OIDC on both registries, so there is no token
 # to expire. npm needs a one-time trusted publisher entry on npmjs.com for this
@@ -136,3 +138,56 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --verify-tag \
             --title "$GITHUB_REF_NAME" --notes-file notes.md "${prerelease[@]}" \
             dist/lit-inspector-*.zip
+
+  # Submits the new Lit Inspector version to the Chrome Web Store. The
+  # `stores` environment holds the store secrets and asks for approval before
+  # the job runs. The job ends once the store accepts the submission; the
+  # review runs on its own and publishes with the dashboard's visibility.
+  #
+  # Google sign-in is keyless: GitHub's OIDC token is exchanged through
+  # Workload Identity Federation (pool `github`, provider `vite-plugin-lit`,
+  # which only accepts this repository) for a one-hour token of the
+  # `cws-publisher` service account. The organisation blocks service-account
+  # keys, and there is no key to leak this way. The item takes only CRX
+  # uploads signed with CWS_CRX_KEY (verified CRX uploads).
+  #
+  # Prereleases skip it: Chrome versions can't carry a `-beta.1`.
+  chrome-web-store:
+    needs: publish
+    if: github.event_name == 'push' && !contains(github.ref_name, '-')
+    runs-on: ubuntu-latest
+    environment: stores
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: corepack enable
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+      # No dependency cache, as in `publish`.
+      - run: pnpm install --frozen-lockfile
+      - name: Package and sign the CRX
+        env:
+          CWS_CRX_KEY: ${{ secrets.CWS_CRX_KEY }}
+        run: pnpm run package:extension
+      - id: google
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ secrets.CWS_WIF_PROVIDER }}
+          service_account: ${{ secrets.CWS_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          access_token_lifetime: 900s
+          # The token goes to cws-publish.mjs only; no credentials file for
+          # later steps to pick up.
+          create_credentials_file: false
+      - name: Upload and submit for review
+        env:
+          CWS_ACCESS_TOKEN: ${{ steps.google.outputs.access_token }}
+          CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_ITEM_ID: ${{ secrets.CWS_ITEM_ID }}
+        run: node scripts/cws-publish.mjs "dist/lit-inspector-${GITHUB_REF_NAME#v}.crx"
