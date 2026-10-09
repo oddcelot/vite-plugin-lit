@@ -45,8 +45,9 @@ timeline recording is not saved.
 
 The extension does not:
 
-- send any data to the developer or to anyone else, and makes no network
-  requests of its own;
+- send any data to the developer or to anyone else, or make network
+  requests other than fetching an enabled site's own scripts and sourcemaps
+  from that site, to show where a component is defined;
 - collect personal information, browsing history, page content, form input,
   cookies or credentials;
 - run analytics, telemetry, crash reporting or advertising;
@@ -54,12 +55,12 @@ The extension does not:
 
 ## Permissions
 
-| Permission                                     | Why                                                                                                                                                                                                                      |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `scripting`                                    | Registers two content scripts on the sites you enabled: one in the page's main world that reads Lit component state for the panel, and one in the isolated world that relays it to the panel.                            |
-| `storage`                                      | Keeps the enabled sites and the panel settings listed above.                                                                                                                                                             |
-| `activeTab` (Firefox only)                     | Lets the toolbar popup read the address of the tab you opened it on, to name the site it would enable. Nothing else is read, and only after your click.                                                                  |
-| Host access (`<all_urls>`, optional, per site) | Not granted at install. When you click **Enable on this site**, the browser asks for that one site: the origin in Chrome, the host on any port in Firefox. The grant is used only to register the content scripts there. |
+| Permission                                     | Why                                                                                                                                                                                                                                                                    |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripting`                                    | Registers two content scripts on the sites you enabled: one in the page's main world that reads Lit component state for the panel, and one in the isolated world that relays it to the panel.                                                                          |
+| `storage`                                      | Keeps the enabled sites and the panel settings listed above.                                                                                                                                                                                                           |
+| `activeTab` (Firefox only)                     | Lets the toolbar popup read the address of the tab you opened it on, to name the site it would enable. Nothing else is read, and only after your click.                                                                                                                |
+| Host access (`<all_urls>`, optional, per site) | Not granted at install. When you click **Enable on this site**, the browser asks for that one site: the origin in Chrome, the host on any port in Firefox. The grant registers the content scripts there and lets the Lit tab fetch the site's scripts and sourcemaps. |
 
 ## Remove its data
 
