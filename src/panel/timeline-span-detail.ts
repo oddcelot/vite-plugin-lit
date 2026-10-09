@@ -185,6 +185,19 @@ export class TimelineSpanDetail extends LitElement {
       .error {
         color: var(--lit-devtools-error);
       }
+      .warning {
+        display: grid;
+        gap: var(--lit-devtools-space-1);
+        color: var(--lit-devtools-warning);
+      }
+      .warning .code {
+        font-family: var(--lit-devtools-font-mono);
+        font-size: var(--lit-devtools-text-2xs);
+        color: inherit;
+      }
+      .warning .note {
+        color: var(--lit-devtools-text-muted);
+      }
       pre {
         margin: 0;
         white-space: pre-wrap;
@@ -337,6 +350,45 @@ export class TimelineSpanDetail extends LitElement {
     >`;
   }
 
+  /** Reads the Lit warning off `data` defensively — it is `unknown` on the wire. */
+  private _warningOf(row: TimelineSpan) {
+    if (row.logType !== 'warning') return undefined;
+    const data = row.events[0]?.data;
+    if (data === null || typeof data !== 'object') return undefined;
+    const {code, message, replayed} = data as Record<string, unknown>;
+    return {
+      code: typeof code === 'string' ? code : '',
+      message: typeof message === 'string' ? message : '',
+      replayed: replayed === true,
+    };
+  }
+
+  private _renderWarning(w: {
+    code: string;
+    message: string;
+    replayed: boolean;
+  }): TemplateResult {
+    return html`<div class="warning">
+      ${
+        w.code === ''
+          ? nothing
+          : html`<a
+              class="code"
+              href=${`https://lit.dev/msg/${w.code}`}
+              target="_blank"
+              rel="noreferrer"
+              >${w.code}</a
+            >`
+      }
+      <span class="text">${w.message}</span>
+      ${
+        w.replayed
+          ? html`<span class="note">Issued before this recording started</span>`
+          : nothing
+      }
+    </div>`;
+  }
+
   private _renderValues(row: TimelineSpan): TemplateResult {
     return html`<div class="values">
       ${row.changedDetail!.map(
@@ -370,6 +422,7 @@ export class TimelineSpanDetail extends LitElement {
     // Raw rows carry exactly one event; a collapsed span carries its start and
     // (once it closes) its end, whose payloads are the same minus `changed`.
     const data = row.events[0]?.data;
+    const warning = this._warningOf(row);
     const id = meta?.elementId;
     const label =
       this.layers.find((l) => l.id === row.layerId)?.label ?? row.layerId;
@@ -493,6 +546,7 @@ export class TimelineSpanDetail extends LitElement {
               )
             : nothing
         }
+        ${warning ? this._fact('warning', this._renderWarning(warning)) : nothing}
         ${
           data != null
             ? this._fact(

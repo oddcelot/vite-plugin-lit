@@ -34,6 +34,11 @@ export interface CaptureController {
   // installers unbound.
   /** Routes one event to the consumers that want it. */
   readonly out: (event: TimelineEvent) => void;
+  /**
+   * Sends one event to the panel only, for a replay of events the Chrome
+   * tracks already have at the time they happened.
+   */
+  readonly panel: (event: TimelineEvent) => void;
   /** Whether any consumer wants events; the layers' recording gate. */
   readonly capturing: () => boolean;
   /** Per-layer flags, as the layer installers take them. */
@@ -45,6 +50,7 @@ export interface CaptureController {
     readonly mouse: () => boolean;
     readonly keyboard: () => boolean;
     readonly customEvents: () => boolean;
+    readonly warnings: () => boolean;
   };
   /** The panel started or stopped recording. */
   setRecording(recording: boolean): void;
@@ -67,6 +73,7 @@ export const createCaptureController = (
     mouseEventEnabled: false,
     keyboardEventEnabled: false,
     customEventsEnabled: false,
+    litWarningsEnabled: true,
   };
   let chromeTracks = false;
 
@@ -82,6 +89,9 @@ export const createCaptureController = (
       if (state.recordingState) sinks.emit(event);
       if (chromeTracks) sinks.chromeTracks.push(event);
     },
+    panel: (event) => {
+      if (state.recordingState) sinks.emit(event);
+    },
     capturing,
     enabled: {
       lifecycle: () => state.litLifecycleEnabled,
@@ -91,6 +101,7 @@ export const createCaptureController = (
       mouse: () => state.mouseEventEnabled,
       keyboard: () => state.keyboardEventEnabled,
       customEvents: () => state.customEventsEnabled,
+      warnings: () => state.litWarningsEnabled,
     },
     setRecording(recording) {
       // Re-zero on the rising edge so event times read as "ms since recording

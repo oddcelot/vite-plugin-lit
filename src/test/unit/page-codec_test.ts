@@ -257,6 +257,7 @@ describe('TimelineChannelCodec outbound', () => {
           mouseEventEnabled: DEFAULT_LAYERS_STATE.mouseEventEnabled,
           keyboardEventEnabled: DEFAULT_LAYERS_STATE.keyboardEventEnabled,
           customEventsEnabled: DEFAULT_LAYERS_STATE.customEventsEnabled,
+          litWarningsEnabled: DEFAULT_LAYERS_STATE.litWarningsEnabled,
         },
       ],
       [SETTINGS_OVERRIDE_CHANNEL, override],

@@ -16,6 +16,7 @@ import type {ViteHotLike} from '../page-channel.js';
 import {buildTree, collectDetails, expandPath} from './collect.js';
 import {anatomyById, clearAnatomy, focusAnatomy} from './anatomy-overlay.js';
 import {shadowOf} from './anatomy.js';
+import {onLitWarning} from '../timeline/lit-warnings.js';
 import {
   clearHighlight,
   highlightAll,
@@ -298,6 +299,12 @@ if (typeof window !== 'undefined') {
     lastTreeJson = json;
     send({type: 'tree', roots});
   };
+
+  // A warning lands after the element rendered, with no DOM change to tell
+  // the observer. A paused tree (Live off) stays a snapshot.
+  onLitWarning(() => {
+    if (observer !== null) setTimeout(pushTreeIfChanged, 0);
+  });
 
   /** Whether a subtree holds anything the tree (or observer) cares about. */
   const mayHoldComponents = (node: Node): node is Element => {

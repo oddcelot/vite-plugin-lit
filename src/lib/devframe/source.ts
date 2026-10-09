@@ -66,6 +66,7 @@ export const layersWireFormat = (layers: TimelineLayersState) => ({
   mouseEventEnabled: layers.mouseEventEnabled,
   keyboardEventEnabled: layers.keyboardEventEnabled,
   customEventsEnabled: layers.customEventsEnabled,
+  litWarningsEnabled: layers.litWarningsEnabled,
 });
 
 /**

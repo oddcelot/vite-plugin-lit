@@ -14,6 +14,8 @@ export interface TabItem {
   icon?: IconName;
   /** Optional count pill trailing the label. Hidden when absent or zero. */
   badge?: number;
+  /** Optional warning-count pill after `badge`. Hidden when absent or zero. */
+  warnings?: number;
 }
 
 export type SegTabSize = 'sm' | 'md';
@@ -130,6 +132,13 @@ export class SegmentedTabs extends LitElement {
                 item.badge
                   ? html`<wa-badge variant="danger" pill
                       >${item.badge}</wa-badge
+                    >`
+                  : nothing
+              }
+              ${
+                item.warnings
+                  ? html`<wa-badge variant="warning" pill
+                      >${item.warnings}</wa-badge
                     >`
                   : nothing
               }

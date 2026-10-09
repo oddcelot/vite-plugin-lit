@@ -45,6 +45,16 @@ describe('capture gate', () => {
     expect(log).toMatchObject({emitted: 0, pushed: 1});
   });
 
+  test('a panel-only event skips the Chrome tracks', () => {
+    const {capture, log} = setup();
+    capture.setChromeTracks(true);
+    capture.panel(event);
+    expect(log).toMatchObject({emitted: 0, pushed: 0});
+    capture.setRecording(true);
+    capture.panel(event);
+    expect(log).toMatchObject({emitted: 1, pushed: 0});
+  });
+
   test('both consumers each get the event', () => {
     const {capture, log} = setup();
     capture.setRecording(true);
@@ -79,7 +89,7 @@ describe('recording edge', () => {
 });
 
 describe('layer flags', () => {
-  test('default to lifecycle and render on, the rest off', () => {
+  test('default to lifecycle, render and warnings on, the rest off', () => {
     const {enabled} = setup().capture;
     expect([
       enabled.lifecycle(),
@@ -89,7 +99,8 @@ describe('layer flags', () => {
       enabled.mouse(),
       enabled.keyboard(),
       enabled.customEvents(),
-    ]).toEqual([true, true, false, false, false, false, false]);
+      enabled.warnings(),
+    ]).toEqual([true, true, false, false, false, false, false, true]);
   });
 
   test('follow the panel toggles', () => {
@@ -111,6 +122,14 @@ describe('custom events flag', () => {
     const {capture} = setup();
     capture.setLayers({customEventsEnabled: true});
     expect(capture.enabled.customEvents()).toBe(true);
+  });
+});
+
+describe('warnings flag', () => {
+  test('turns off from the panel', () => {
+    const {capture} = setup();
+    capture.setLayers({litWarningsEnabled: false});
+    expect(capture.enabled.warnings()).toBe(false);
   });
 });
 

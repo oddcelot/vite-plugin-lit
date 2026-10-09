@@ -145,6 +145,8 @@ export class LitDevtoolsPanel extends LitElement {
 
   /** Mirrors `ComponentsView.hmrIncompatibilityCount`; see `_onHmrCountChange`. */
   @state() private _hmrCount = 0;
+  /** Distinct warned components; see `_onWarningCountChange`. */
+  @state() private _warningCount = 0;
 
   /** The latest `page-changed` notice, until dismissed. */
   @state() private _pageChange: PageChangedEvent | null = null;
@@ -187,12 +189,15 @@ export class LitDevtoolsPanel extends LitElement {
 
   /**
    * Tab items for the strip, badging "Components" with the current
-   * HMR-incompatibility count when there is one.
+   * HMR-incompatibility count and the number of components Lit warned about,
+   * each when there is one.
    */
   private get _tabs(): readonly TabItem[] {
-    if (this._hmrCount === 0) return TABS;
+    if (this._hmrCount === 0 && this._warningCount === 0) return TABS;
     return TABS.map((t) =>
-      t.id === 'components' ? {...t, badge: this._hmrCount} : t
+      t.id === 'components'
+        ? {...t, badge: this._hmrCount, warnings: this._warningCount}
+        : t
     );
   }
 
@@ -235,6 +240,11 @@ export class LitDevtoolsPanel extends LitElement {
    */
   private _onHmrCountChange(e: CustomEvent<{count: number}>) {
     this._hmrCount = e.detail.count;
+  }
+
+  /** Lit warned about this many components: a passive badge, no tab switch. */
+  private _onWarningCountChange(e: CustomEvent<{count: number}>) {
+    this._warningCount = e.detail.count;
   }
 
   /** An "inspect" link in the timeline or Updates: open Components on it. */
@@ -298,6 +308,7 @@ export class LitDevtoolsPanel extends LitElement {
           ?hidden=${this._location.tab !== 'components'}
           .location=${this._location}
           @hmr-count-change=${this._onHmrCountChange}
+          @warning-count-change=${this._onWarningCountChange}
         ></components-view>
         <!-- Mounted lazily: the recording it derives from lives in the
              timeline store and keeps filling whether or not this view exists,
