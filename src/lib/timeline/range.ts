@@ -31,6 +31,30 @@ export const normalizeRange = (a: number, b: number): TimeRange | null => {
   return end - start < MIN_RANGE_MS ? null : {start, end};
 };
 
+/** One end of a {@link TimeRange}. */
+export type RangeEdge = 'start' | 'end';
+
+/**
+ * `range` with one edge moved to `ms`: kept inside `bounds` and at least
+ * `minWidth` from the other edge, so dragging or nudging an edge never
+ * flips the range or collapses it into a click (which would clear it).
+ */
+export const moveEdge = (
+  range: TimeRange,
+  edge: RangeEdge,
+  ms: number,
+  bounds: {min: number; max: number},
+  minWidth: number
+): TimeRange => {
+  if (!Number.isFinite(ms)) return range;
+  if (edge === 'start') {
+    const hi = Math.max(bounds.min, range.end - minWidth);
+    return {start: Math.min(Math.max(ms, bounds.min), hi), end: range.end};
+  }
+  const lo = Math.min(bounds.max, range.start + minWidth);
+  return {start: range.start, end: Math.max(Math.min(ms, bounds.max), lo)};
+};
+
 export const sameRange = (a: TimeRange | null, b: TimeRange | null): boolean =>
   a === b ||
   (a !== null && b !== null && a.start === b.start && a.end === b.end);

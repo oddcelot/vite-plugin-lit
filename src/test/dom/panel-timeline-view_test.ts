@@ -376,3 +376,49 @@ test("the range overlay stops short of the lanes' scrollbar", async () => {
   const overlay = root.querySelector<HTMLElement>('.overlay')!;
   expect(overlay.style.getPropertyValue('--scrollbar')).toBe('15px');
 });
+
+/** Gives the tracks a width to scale against: happy-dom has no layout. */
+const sized = async (
+  el: TimelineView,
+  tracks: Element & {requestUpdate(): void}
+) => {
+  (tracks as unknown as {_width: number})._width = 385;
+  tracks.requestUpdate();
+  await flush(el);
+};
+
+test('the range edges are sliders the arrow keys move', async () => {
+  const {el, tracks} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 2, end: 8});
+  await sized(el, tracks());
+  const handles = () => [
+    ...tracks().shadowRoot!.querySelectorAll<HTMLElement>('[role=slider]'),
+  ];
+  expect(handles().map((h) => h.getAttribute('aria-label'))).toEqual([
+    'Range start',
+    'Range end',
+  ]);
+  expect(handles()[0]!.getAttribute('aria-valuenow')).toBe('2');
+  expect(handles()[0]!.getAttribute('aria-valuemax')).toBe('8');
+  expect(handles()[1]!.getAttribute('aria-valuemin')).toBe('2');
+  const press = async (i: number, key: string, shiftKey = false) => {
+    handles()[i]!.dispatchEvent(
+      new KeyboardEvent('keydown', {key, shiftKey, bubbles: true})
+    );
+    await flush(el);
+  };
+  // One tick step (5ms at this zoom) per press.
+  await press(0, 'ArrowRight');
+  expect(tracks().range).toEqual({start: 7, end: 8});
+  await press(1, 'ArrowRight');
+  expect(tracks().range).toEqual({start: 7, end: 11}); // the recording's end
+  await press(0, 'ArrowLeft', true);
+  expect(tracks().range!.start).toBe(0); // five steps, held at the start
+  await press(1, 'Enter'); // not an adjustment
+  expect(tracks().range).toEqual({start: 0, end: 11});
+  window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
+  await flush(el);
+  expect(tracks().range).toBeNull();
+});

@@ -6,6 +6,7 @@ import {
   fitRange,
   formatMs,
   inRange,
+  moveEdge,
   normalizeRange,
   summarizeRange,
 } from '../../lib/timeline/range.js';
@@ -145,5 +146,41 @@ describe('range on the model', () => {
     m.setEvents([]);
     expect(m.range).toBeNull();
     expect(m.filter.range).toBeNull();
+  });
+});
+
+describe('moveEdge', () => {
+  const bounds = {min: 0, max: 100};
+  const range = {start: 20, end: 60};
+
+  test('moves one edge and leaves the other', () => {
+    expect(moveEdge(range, 'start', 30, bounds, 1)).toEqual({
+      start: 30,
+      end: 60,
+    });
+    expect(moveEdge(range, 'end', 70, bounds, 1)).toEqual({
+      start: 20,
+      end: 70,
+    });
+  });
+
+  test('stays inside the recording', () => {
+    expect(moveEdge(range, 'start', -5, bounds, 1).start).toBe(0);
+    expect(moveEdge(range, 'end', 500, bounds, 1).end).toBe(100);
+  });
+
+  test('never crosses the other edge or collapses to nothing', () => {
+    expect(moveEdge(range, 'start', 90, bounds, 2)).toEqual({
+      start: 58,
+      end: 60,
+    });
+    expect(moveEdge(range, 'end', 0, bounds, 2)).toEqual({
+      start: 20,
+      end: 22,
+    });
+  });
+
+  test('ignores a non-finite target', () => {
+    expect(moveEdge(range, 'end', NaN, bounds, 1)).toBe(range);
   });
 });

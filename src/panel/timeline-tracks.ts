@@ -6,10 +6,12 @@ import type {TimelineSpan} from '../lib/timeline/derive.js';
 import {
   describeRange,
   fitRange,
+  formatMs,
+  moveEdge,
   normalizeRange,
   summarizeRange,
 } from '../lib/timeline/range.js';
-import type {TimeRange} from '../lib/timeline/range.js';
+import type {RangeEdge, TimeRange} from '../lib/timeline/range.js';
 import {
   buildTracks,
   clampPan,
@@ -34,6 +36,8 @@ const ROW_PX = 14;
 const MIN_MARK_PX = 2;
 /** Rough spacing between axis labels. */
 const TICK_PX = 90;
+/** Shift+Arrow moves a range edge this many tick steps instead of one. */
+const BIG_STEP = 5;
 /** A pointer that moves less than this between down and up was a click. */
 const DRAG_SLOP_PX = 3;
 
@@ -152,12 +156,31 @@ export class TimelineTracks extends LitElement {
         background: var(--lit-devtools-accent-ring);
         opacity: 0.18;
       }
-      .range-edge {
+      .range-handle {
         position: absolute;
         top: 0;
         bottom: 0;
-        width: 0;
+        width: 9px;
+        margin-left: -4px;
+        cursor: ew-resize;
+        pointer-events: auto;
+        touch-action: none;
+      }
+      .range-handle::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 4px;
         border-left: 1px solid var(--lit-devtools-accent-ring);
+      }
+      .range-handle:hover::before,
+      .range-handle:focus-visible::before {
+        border-left-width: 3px;
+        left: 3px;
+      }
+      .range-handle:focus-visible {
+        outline: none;
       }
       .range-label {
         position: absolute;
@@ -288,6 +311,8 @@ export class TimelineTracks extends LitElement {
   @state() private _draft: {anchor: number; range: TimeRange | null} | null =
     null;
   private _summary: ReturnType<typeof summarizeRange> | undefined;
+  /** The range edge being dragged by its handle. */
+  private _edgeDrag: RangeEdge | null = null;
   /** Set when a drag ends, so the click the browser fires after it does
    *  not also select whatever mark the pointer happened to finish on. */
   private _suppressClick = false;
@@ -489,6 +514,63 @@ export class TimelineTracks extends LitElement {
     }
   }
 
+  /** Moves one edge of the range to `ms`, within the recording, and returns
+   *  where it ended up. */
+  private _moveEdge(edge: RangeEdge, ms: number): number {
+    const {range} = this;
+    if (range === null) return ms;
+    const {origin, extent} = this._bounds;
+    const next = moveEdge(
+      range,
+      edge,
+      ms,
+      {min: origin, max: origin + extent},
+      1 / this._scale().pxPerMs
+    );
+    if (next.start !== range.start || next.end !== range.end) {
+      this._emitRange(next);
+    }
+    return next[edge];
+  }
+
+  /** Pans just far enough to bring `ms` back on screen, so a handle moved
+   *  with the keys is never left behind the edge of the plot. */
+  private _reveal(ms: number) {
+    const scale = this._scale();
+    const x = scale.toX(ms);
+    if (x >= 0 && x <= this._width) return;
+    const over = x < 0 ? x : x - this._width;
+    this._setView(this._zoom, this._currentPan() + over / scale.pxPerMs);
+  }
+
+  /** Left and Right move the focused edge one tick step, Shift five. */
+  private _onHandleKey(e: KeyboardEvent, edge: RangeEdge) {
+    const {range} = this;
+    if (range === null || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) {
+      return;
+    }
+    e.preventDefault();
+    const step =
+      niceStep(TICK_PX / this._scale().pxPerMs) * (e.shiftKey ? BIG_STEP : 1);
+    const ms = range[edge] + (e.key === 'ArrowLeft' ? -step : step);
+    this._reveal(this._moveEdge(edge, ms));
+  }
+
+  private _onHandleDown(e: PointerEvent, edge: RangeEdge) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    (e.currentTarget as HTMLElement).focus();
+    this._edgeDrag = edge;
+  }
+
+  private _onHandleMove(e: PointerEvent) {
+    const plot = this._ticksRef.value;
+    if (this._edgeDrag === null || !plot) return;
+    const x = e.clientX - plot.getBoundingClientRect().left;
+    this._moveEdge(this._edgeDrag, this._scale().toMs(x));
+  }
+
   /** Fits the view to the range, leaving the live edge. */
   private _zoomToRange = () => {
     const {range} = this;
@@ -612,6 +694,36 @@ export class TimelineTracks extends LitElement {
     const left = Math.max(x0, 0);
     const width = Math.min(x1, this._width) - left;
     if (width < 0) return nothing;
+    const {origin, extent} = this._bounds;
+    // While drawing, the edges are just lines; afterwards they are handles.
+    const handle = (edge: RangeEdge, x: number) => {
+      if (x < 0 || x > this._width) return nothing;
+      if (this._draft) {
+        return html`<div class="range-handle" style="left:${x}px"></div>`;
+      }
+      const ms = range[edge];
+      // Each edge may travel from the recording's start to the other edge
+      // (and from it to the recording's end).
+      const [min, max] =
+        edge === 'start' ? [origin, range.end] : [range.start, origin + extent];
+      return html`<div
+        class="range-handle"
+        role="slider"
+        tabindex="0"
+        aria-label=${edge === 'start' ? 'Range start' : 'Range end'}
+        aria-orientation="horizontal"
+        aria-valuemin=${min}
+        aria-valuemax=${max}
+        aria-valuenow=${ms}
+        aria-valuetext=${formatMs(ms)}
+        style="left:${x}px"
+        @keydown=${(e: KeyboardEvent) => this._onHandleKey(e, edge)}
+        @pointerdown=${(e: PointerEvent) => this._onHandleDown(e, edge)}
+        @pointermove=${this._onHandleMove}
+        @pointerup=${() => (this._edgeDrag = null)}
+        @pointercancel=${() => (this._edgeDrag = null)}
+      ></div>`;
+    };
     return html`<div
       class="overlay"
       role="group"
@@ -619,12 +731,7 @@ export class TimelineTracks extends LitElement {
       style="--scrollbar:${this._scrollbar}px"
     >
       <div class="range" style="left:${left}px;width:${width}px"></div>
-      ${x0 >= 0 ? html`<div class="range-edge" style="left:${x0}px"></div>` : nothing}
-      ${
-        x1 <= this._width
-          ? html`<div class="range-edge" style="left:${x1}px"></div>`
-          : nothing
-      }
+      ${handle('start', x0)} ${handle('end', x1)}
       ${
         this._draft
           ? html`<div class="range-label" style="left:${left + 4}px">
