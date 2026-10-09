@@ -4,6 +4,7 @@
 [![npm](https://img.shields.io/npm/v/@oddsquad/vite-plugin-lit)](https://www.npmjs.com/package/@oddsquad/vite-plugin-lit)
 [![JSR](https://jsr.io/badges/@oddsquad/vite-plugin-lit)](https://jsr.io/@oddsquad/vite-plugin-lit)
 [![JSR score](https://jsr.io/badges/@oddsquad/vite-plugin-lit/score)](https://jsr.io/@oddsquad/vite-plugin-lit/score)
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/faojnglflincboehhgkjgehnapjgiieh?label=Chrome%20Web%20Store&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/lit-inspector/faojnglflincboehhgkjgehnapjgiieh)
 [![Mentioned in Awesome Lit](https://awesome.re/mentioned-badge.svg)](https://github.com/web-padawan/awesome-lit)
 [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/playground?startScript=stackblitz)
 
