@@ -32,6 +32,7 @@ import clock from '@phosphor-icons/core/assets/regular/clock.svg?raw';
 import crosshair from '@phosphor-icons/core/assets/regular/crosshair.svg?raw';
 import copy from '@phosphor-icons/core/assets/regular/copy.svg?raw';
 import cube from '@phosphor-icons/core/assets/regular/cube.svg?raw';
+import cursorClick from '@phosphor-icons/core/assets/regular/cursor-click.svg?raw';
 import equals from '@phosphor-icons/core/assets/regular/equals.svg?raw';
 import exportIcon from '@phosphor-icons/core/assets/regular/export.svg?raw';
 import eyeSlash from '@phosphor-icons/core/assets/regular/eye-slash.svg?raw';
@@ -59,6 +60,7 @@ const ICONS = {
   copy,
   crosshair,
   cube,
+  'cursor-click': cursorClick,
   equals,
   export: exportIcon,
   eye,

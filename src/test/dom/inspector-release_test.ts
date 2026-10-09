@@ -1,5 +1,6 @@
 import {afterEach, expect, test, vi} from 'vite-plus/test';
 import {
+  ELEMENT_BY_ID_KEY,
   INSPECT_CMD_CHANNEL,
   INSPECT_DATA_CHANNEL,
 } from '../../types/inspector.js';
@@ -117,6 +118,16 @@ test('disconnects the MutationObserver', async () => {
   spy.mockClear();
   fire('panel:disconnected', 'p1');
   expect(spy).toHaveBeenCalledTimes(1);
+});
+
+test('exposes the id lookup the extension evaluates in the page', async () => {
+  const {idOf} = await load();
+  const el = make();
+  const lookup = (globalThis as unknown as Record<symbol, unknown>)[
+    ELEMENT_BY_ID_KEY
+  ] as (id: number) => Element | undefined;
+  expect(lookup(idOf(el))).toBe(el);
+  expect(lookup(-1)).toBeUndefined();
 });
 
 test('removes the watch wrapper', async () => {

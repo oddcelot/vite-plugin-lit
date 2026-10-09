@@ -29,6 +29,7 @@ import {
 } from '../../../types/in-page.js';
 import {
   INSPECT_CMD_CHANNEL,
+  ELEMENT_BY_ID_KEY,
   INSPECT_DATA_CHANNEL,
   type InspectorCommand,
   type InspectorMessage,
@@ -62,6 +63,11 @@ let onPanelArrived: (() => void) | undefined;
 const panels = new Set<string>();
 
 if (typeof window !== 'undefined') {
+  // The browser extension's "Reveal in Elements": DevTools' `inspectedWindow
+  // .eval` runs in the page's main world and holds only the panel's numeric
+  // id, so it turns it back into the node through this to call `inspect()`.
+  (globalThis as unknown as Record<symbol, unknown>)[ELEMENT_BY_ID_KEY] =
+    elementById;
   const channel = createPageScriptChannel<LitInPageProtocol>({
     name: LIT_IN_PAGE_CHANNEL,
     functions: {},

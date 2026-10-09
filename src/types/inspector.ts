@@ -398,6 +398,16 @@ export type InspectorCommand =
    */
   | {type: 'pick'};
 
+/**
+ * The `globalThis` key under which the page runtime exposes `elementById`.
+ * DevTools' `inspectedWindow.eval` runs in the page's main world and can only
+ * pass the panel's numeric id as source text, so it reaches the node through
+ * this to hand it to `inspect()`.
+ */
+export const ELEMENT_BY_ID_KEY = Symbol.for(
+  '@oddsquad/vite-plugin-lit#element-by-id'
+);
+
 /** HMR channel the server uses to forward a panel command to the app runtime. */
 export const INSPECT_CMD_CHANNEL = 'lit:inspect:cmd';
 
