@@ -3,6 +3,7 @@
  *
  *     CWS_ACCESS_TOKEN=… CWS_PUBLISHER_ID=… CWS_ITEM_ID=… \
  *       node scripts/cws-publish.mjs dist/lit-inspector-<version>.crx
+ *     … node scripts/cws-publish.mjs --check   # read-only access check
  *
  * Used by the release workflow's `chrome-web-store` job, which gets the
  * access token keylessly (GitHub OIDC through Workload Identity Federation,
@@ -17,6 +18,10 @@
  * once the store accepts the submission. The review itself takes days and
  * runs on its own; the item is published with its dashboard visibility when
  * it passes.
+ *
+ * `--check` only reads the item's status, which proves the token, the
+ * service account's access and both IDs without changing anything; the
+ * `store-access` workflow runs it.
  */
 
 import {readFile} from 'node:fs/promises';
@@ -64,6 +69,12 @@ const call = async (method, url, body, contentType) => {
   }
   return text ? JSON.parse(text) : {};
 };
+
+if (file === '--check') {
+  const status = await call('GET', `${API}/v2/${itemPath}:fetchStatus`);
+  console.log(JSON.stringify(status, null, 2));
+  process.exit(0);
+}
 
 const upload = await call(
   'POST',
