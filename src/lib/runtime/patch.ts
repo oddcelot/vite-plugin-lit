@@ -209,6 +209,60 @@ const instrument = (
 };
 
 /**
+ * Runs a class's decorator initializers on a live instance and returns the
+ * contexts that new `@lit/context` providers announced while they ran: a
+ * `ContextProvider` dispatches a `context-provider` event from its host when
+ * it connects.
+ */
+const runInitializers = (
+  el: ReactiveElementLike,
+  initializers: ReadonlyArray<(element: unknown) => void>
+): unknown[] => {
+  const provided: unknown[] = [];
+  const announced = (ev: Event) => {
+    if (ev.target === el) provided.push((ev as {context?: unknown}).context);
+  };
+  el.addEventListener('context-provider', announced);
+  try {
+    for (const initialize of initializers) initialize(el);
+  } finally {
+    el.removeEventListener('context-provider', announced);
+  }
+  return provided;
+};
+
+/**
+ * Moves an instance's context consumers onto the providers its patch just
+ * created. Consumers stay subscribed to the provider of the previous
+ * evaluation, which the new class's accessor no longer updates, so they would
+ * keep the value they had at the patch.
+ *
+ * `@lit/context` already re-parents consumers when another provider of the
+ * same context appears: each provider answers a `context-provider` event
+ * whose source isn't its own host by asking its subscribers to request the
+ * context again. The request reaches every provider on the host, oldest
+ * first, and a consumer keeps the last one that answers: the newest. So one
+ * such event per context, on this host only and from a source that is not
+ * the host, does it, without importing the library.
+ */
+const reparentConsumers = (
+  el: ReactiveElementLike,
+  contexts: readonly unknown[]
+): void => {
+  for (const context of new Set(contexts)) {
+    const ev = Object.assign(new Event('context-provider'), {
+      context,
+      // Any source but the host; providers ignore their own host's events.
+      contextTarget: REPARENT_SOURCE,
+    });
+    el.dispatchEvent(ev);
+  }
+};
+
+/** Stands in for a child provider in {@link reparentConsumers}. */
+const REPARENT_SOURCE = {};
+
+/**
  * Detects standard-decorator (`accessor`) reactive properties on the new
  * class. Those close over per-class-evaluation private slots, so copied
  * accessors would brand-check-throw — in-place patching is impossible.
@@ -447,11 +501,9 @@ const hotPatch = (
       // (everything flows through the newest closures); that's bounded by
       // edit count and dev-only. Runs before the value restore so e.g. a
       // re-created ContextProvider exists when the restore pushes into it.
-      if (Array.isArray(initializers)) {
-        for (const initialize of initializers) {
-          initialize(el);
-        }
-      }
+      const provided = Array.isArray(initializers)
+        ? runInitializers(el, initializers)
+        : [];
       const values = snapshots.get(el);
       if (values !== undefined) {
         // Restore through the new accessors — only keys the new class
@@ -463,6 +515,9 @@ const hotPatch = (
           }
         }
       }
+      // After the restore, so the consumers it moves read the restored
+      // value from the new provider rather than its empty initial one.
+      reparentConsumers(el, provided);
       readoptStyles(el, oldSheets);
       state.generationOf.set(el, record.generation);
       el.requestUpdate?.();
