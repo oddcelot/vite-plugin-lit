@@ -3,6 +3,7 @@ import type {TimelineEvent} from '../../types/timeline.js';
 import {resetStore, setEvents} from './fakes/timeline-store.js';
 import {answers, calls, meta, resetClient} from './fakes/client.js';
 import {resetHostInfo} from '../../panel/host.js';
+import {useSourceOpener} from '../../panel/source-opener.js';
 
 vi.mock(
   '../../panel/timeline-store.js',
@@ -293,6 +294,34 @@ describe('rendered at', () => {
     expect(calls.find((c) => c.name === 'open-source')?.args).toEqual([
       {file: 'src/app.ts', line: 30, column: 5},
     ]);
+  });
+
+  test('a sourcemapped component source opens in the host viewer, with no editor', async () => {
+    meta.capabilities.openInEditor = false;
+    const seen: unknown[] = [];
+    useSourceOpener((loc) => void seen.push(loc));
+    try {
+      const source = {
+        file: 'src/counter.ts',
+        line: 3,
+        url: 'https://app.test/src/counter.ts',
+      };
+      const {root, settle} = await select(
+        tick(1, 'x-counter', 1, 0).map((e) => ({
+          ...e,
+          meta: {...e.meta, source},
+        })),
+        '<x-counter>'
+      );
+      const link = root.querySelector<HTMLElement>('wa-button.link')!;
+      expect(link.dataset['tip']).toBe('Open in Sources');
+      link.click();
+      await settle();
+      expect(seen).toEqual([source]);
+      expect(calls.some((c) => c.name === 'open-source')).toBe(false);
+    } finally {
+      useSourceOpener(undefined);
+    }
   });
 
   test('is plain text where the host has no editor', async () => {

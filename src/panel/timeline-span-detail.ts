@@ -8,6 +8,7 @@ import {tokens} from '../lib/tokens.js';
 import {formatMs} from '../lib/timeline/range.js';
 import type {TimelineSpan} from '../lib/timeline/derive.js';
 import {canOpenInEditor, openInEditor} from './open-in-editor.js';
+import {sourceOpenerFor} from './source-opener.js';
 import {layerColor} from './timeline-layers.js';
 import type {LayerState} from './timeline-layers.js';
 
@@ -320,24 +321,27 @@ export class TimelineSpanDetail extends LitElement {
   }
 
   private _fileLink(
-    file: {file: string; line: number; column?: number},
+    file: {file: string; line: number; column?: number; url?: string},
     tip: string,
     extraClass = ''
   ) {
     const text = `${file.file}:${file.line}`;
-    return this._canOpen
-      ? html`<wa-button
-          class="src-link ${extraClass}"
-          size="small"
-          appearance="plain"
-          data-tip=${tip}
-          @click=${() =>
-            file.column === undefined
-              ? openInEditor(file.file, file.line)
-              : openInEditor(file.file, file.line, file.column)}
-          >${text}</wa-button
-        >`
-      : text;
+    // Resolved through the page's sourcemaps: DevTools has it, no editor does.
+    const opener = sourceOpenerFor(file, this._canOpen);
+    if (opener === undefined && !this._canOpen) return text;
+    return html`<wa-button
+      class="src-link ${extraClass}"
+      size="small"
+      appearance="plain"
+      data-tip=${opener === undefined ? tip : 'Open in Sources'}
+      @click=${() => {
+        if (opener !== undefined) void opener(file);
+        else if (file.column === undefined) {
+          void openInEditor(file.file, file.line);
+        } else void openInEditor(file.file, file.line, file.column);
+      }}
+      >${text}</wa-button
+    >`;
   }
 
   private _action(text: string, tip: string, onClick: () => void) {
