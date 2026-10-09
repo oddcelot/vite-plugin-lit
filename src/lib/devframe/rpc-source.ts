@@ -22,6 +22,9 @@ import type {CreateLitDevframeOptions} from './definition.js';
 import {withDefineSources} from './define-sources.js';
 import type {DefineSourceResolver} from './define-sources.js';
 import {TimelineChannelCodec} from './page-codec.js';
+import {withPageFetch} from './page-fetch.js';
+import {createSourceMapResolver} from './source-maps.js';
+import type {TimelineSource} from './source.js';
 import {LIT_DEVFRAME_ID, RPC_PAGE_RECEIVE, RPC_PAGE_SEND} from './protocol.js';
 
 /**
@@ -60,6 +63,39 @@ export const rpcPageTransport = (ctx: DevframeNodeContext): PageTransport => {
 };
 
 /**
+ * `source` with define calls resolved through the sourcemaps of the page it is
+ * talking to, read by that page. A new document's scripts and maps may differ
+ * (a rebuild, another site), so what was fetched is forgotten when a
+ * different page becomes ready.
+ */
+const withPageSourceMaps = (source: TimelineSource): TimelineSource => {
+  const page = withPageFetch(source);
+  const resolver = createSourceMapResolver({fetch: page.fetch});
+  const resolving = withDefineSources(page.source, (frames) =>
+    resolver.resolve(frames)
+  );
+  let lastPage: string | undefined;
+  return {
+    ...resolving,
+    attach: (sink) =>
+      resolving.attach({
+        pushEvents: (...args) => sink.pushEvents(...args),
+        addLayer: (...args) => sink.addLayer(...args),
+        hmrIncompatible: (...args) => sink.hmrIncompatible(...args),
+        hmrPatched: (...args) => sink.hmrPatched(...args),
+        inspectorMessage: (...args) => sink.inspectorMessage(...args),
+        runtimeReady(pageId, tabId) {
+          if (pageId !== undefined && pageId !== lastPage) {
+            lastPage = pageId;
+            resolver.reset();
+          }
+          sink.runtimeReady(pageId, tabId);
+        },
+      }),
+  };
+};
+
+/**
  * The Lit devframe with a {@link TimelineChannelCodec} already connected to
  * its pages, for hosts with no Vite: `lit-devtools dev`, and the browser
  * extension's local host. Wraps `setup()` so the transport is built on the
@@ -80,19 +116,28 @@ export function createStandaloneLitDevframe(
      * came.
      */
     resolveDefineSource?: DefineSourceResolver;
+    /**
+     * Resolve defines through the page's own sourcemaps, which the page
+     * fetches for the host (see `page-fetch.ts`): `lit-devtools dev`, whose
+     * pages the plugin never built. Ignored when `resolveDefineSource` is
+     * given.
+     */
+    pageSourceMaps?: boolean;
   },
   transport: (ctx: DevframeNodeContext) => PageTransport = rpcPageTransport
 ): DevframeDefinition {
-  const {resolveDefineSource, ...rest} = options;
+  const {resolveDefineSource, pageSourceMaps, ...rest} = options;
   const source = new TimelineChannelCodec();
   // What either host can do (its own picker, no HMR or source locations)
   // is `host-profile.ts`'s to say.
   const definition = createLitDevframe({
     ...rest,
     source:
-      resolveDefineSource === undefined
-        ? source
-        : withDefineSources(source, resolveDefineSource),
+      resolveDefineSource !== undefined
+        ? withDefineSources(source, resolveDefineSource)
+        : pageSourceMaps === true
+          ? withPageSourceMaps(source)
+          : source,
   });
   const {setup} = definition;
 

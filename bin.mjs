@@ -174,6 +174,8 @@ const main = async () => {
           version: PACKAGE_VERSION,
           clientAssets: PANEL_DIST_DIR,
           nodeActions: createNodeActions(),
+          // Where components are defined, read off the page's own sourcemaps.
+          pageSourceMaps: true,
         }),
         {
           host: flags.host,
