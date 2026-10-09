@@ -12,7 +12,12 @@ import {layerColor} from './timeline-layers.js';
 import type {LayerState} from './timeline-layers.js';
 import {applyFilter, NO_FILTER, rawRow} from '../lib/timeline/model.js';
 import type {TimelineFilter} from '../lib/timeline/model.js';
-import {buildListRows, tickParentKey} from '../lib/timeline/tick-rows.js';
+import {
+  buildListRows,
+  tickAncestorKeys,
+  tickParentKey,
+  tickParentKeys,
+} from '../lib/timeline/tick-rows.js';
 import type {ListRow, TickAttention} from '../lib/timeline/tick-rows.js';
 import './timeline-span-detail.js';
 
@@ -162,8 +167,13 @@ export class TimelineEventList extends LitElement {
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      /* One twisty width (plus the row gap) per level: every row carries a
+         twisty or a placeholder, so titles at one depth line up. */
       .row.nested {
-        padding-left: calc(var(--lit-devtools-space-5) + 20px);
+        padding-left: calc(
+          var(--lit-devtools-space-5) + (14px + var(--lit-devtools-space-4)) *
+            var(--depth, 1)
+        );
       }
       .twisty {
         flex-shrink: 0;
@@ -275,9 +285,9 @@ export class TimelineEventList extends LitElement {
     let expanded = this._expanded;
     if (changed.has('selectedKey') && !this._raw && this.selectedKey !== null) {
       const span = this._rowsCache.find((row) => row.key === this.selectedKey);
-      const parent = span && tickParentKey(span, this._rowsCache);
-      if (parent !== undefined && !expanded.has(parent)) {
-        expanded = new Set(expanded).add(parent);
+      const ancestors = span ? tickAncestorKeys(span, this._rowsCache) : [];
+      if (ancestors.some((key) => !expanded.has(key))) {
+        expanded = new Set([...expanded, ...ancestors]);
         this._expanded = expanded;
       }
     }
@@ -374,7 +384,7 @@ export class TimelineEventList extends LitElement {
     this._expanded = next;
     if (!open && this.selectedKey !== null && this.selectedKey !== key) {
       const selected = this._rowsCache.find((s) => s.key === this.selectedKey);
-      if (selected && tickParentKey(selected, this._layered) === key) {
+      if (selected && tickAncestorKeys(selected, this._layered).includes(key)) {
         this._select(key);
       }
     }
@@ -383,9 +393,19 @@ export class TimelineEventList extends LitElement {
   private _toggleAll() {
     const ticks = this._visibleCache.filter((row) => row.tick);
     const allOpen = ticks.every((row) => row.tick!.expanded);
-    this._expanded = allOpen
-      ? new Set()
-      : new Set(ticks.map((row) => row.span.key));
+    if (allOpen) {
+      this._expanded = new Set();
+      return;
+    }
+    // Rows under a closed parent are not visible yet, so open every span
+    // that some span nests under.
+    this._expanded = new Set(tickParentKeys(this._layered).values());
+  }
+
+  /** Selects the row `span` nests under; nothing if it is not in the buffer. */
+  private _jumpToParent(span: TimelineSpan) {
+    const parent = tickParentKey(span, this._layered);
+    if (parent !== undefined) this._select(parent);
   }
 
   private _layerOn(row: TimelineSpan): boolean {
@@ -473,6 +493,7 @@ export class TimelineEventList extends LitElement {
           ? html`<timeline-span-detail
               filterable
               .span=${selected}
+              @span-jump=${() => this._jumpToParent(selected)}
             ></timeline-span-detail>`
           : nothing
       }
@@ -487,6 +508,7 @@ export class TimelineEventList extends LitElement {
         class="row ${this.selectedKey === row.key ? 'selected' : ''} ${
           item.depth > 0 ? 'nested' : ''
         }"
+        style=${item.depth > 0 ? `--depth: ${item.depth}` : nothing}
         @click=${() => this._select(row.key)}
       >
         ${
@@ -508,7 +530,7 @@ export class TimelineEventList extends LitElement {
                   this._toggle(item, e.key === 'ArrowRight');
                 }}
               ></button>`
-            : this._raw || item.depth > 0
+            : this._raw
               ? nothing
               : html`<span class="twisty" aria-hidden="true"></span>`
         }

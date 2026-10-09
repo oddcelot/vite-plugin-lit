@@ -180,3 +180,27 @@ test('has no rendered-at row for an element without a call site', async () => {
   const {value} = await mount({span});
   expect(value('rendered at')).toBeUndefined();
 });
+
+test('names the cause and jumps to it', async () => {
+  const {value, link, el} = await mount({
+    span: {...span, cause: {kind: 'update', groupId: '3:1'}},
+  });
+  expect(value('caused by')).toContain('update 3:1');
+  const jumps: unknown[] = [];
+  el.addEventListener('span-jump', (e) =>
+    jumps.push((e as CustomEvent).detail)
+  );
+  link('show')!.click();
+  expect(jumps).toEqual([{cause: {kind: 'update', groupId: '3:1'}}]);
+});
+
+test('names an event cause by layer and time', async () => {
+  const {value} = await mount({
+    span: {...span, cause: {kind: 'event', layerId: 'mouse', time: 5}},
+  });
+  expect(value('caused by')).toContain('mouse event at 5.000 ms');
+});
+
+test('has no caused by row without a cause', async () => {
+  expect((await mount({span})).value('caused by')).toBeUndefined();
+});

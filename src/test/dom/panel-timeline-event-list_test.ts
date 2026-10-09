@@ -293,3 +293,130 @@ test('Raw stays flat', async () => {
   expect(titles(el)).toHaveLength(tickEvents().length);
   expect(twisty(el)).toBeNull();
 });
+
+/** A tick of one element: performUpdate around update, as raw events. */
+const tick = (
+  elementId: number,
+  time: number,
+  cause?: TimelineEvent['cause']
+): TimelineEvent[] =>
+  (['performUpdate', 'update'] as const).flatMap((name, n) =>
+    (['start', 'end'] as const).map((edge, i): TimelineEvent => ({
+      id: `c${elementId}-${name}-${edge}`,
+      layerId: 'lit-lifecycle',
+      time: time + n * 0.2 + i * (name === 'update' ? 0.1 : 1),
+      data: {},
+      groupId: `${elementId}:1`,
+      title: `${name}:${edge}`,
+      meta: {elementId, tagName: `x-${elementId}`},
+      ...(cause && name === 'performUpdate' && edge === 'start' ? {cause} : {}),
+    }))
+  );
+
+const chainEvents = (): TimelineEvent[] => [
+  ...tick(1, 0),
+  ...tick(2, 0.5, {kind: 'update', groupId: '1:1'}),
+];
+const PARENT = 'lit-lifecycle:1:1:performUpdate';
+const CHILD = 'lit-lifecycle:2:1:performUpdate';
+const GRANDCHILD = 'lit-lifecycle:2:1:update';
+
+const mountChain = (props: Partial<TimelineEventList> = {}) =>
+  mount({
+    events: chainEvents(),
+    spans: toSpans(chainEvents()),
+    layers: [layer('lit-lifecycle'), layer('mouse')],
+    ...props,
+  });
+
+const rowOf = (el: TimelineEventList, title: string, nth = 0) =>
+  [...el.shadowRoot!.querySelectorAll<HTMLElement>('.row')].filter(
+    (r) => r.querySelector('.title')?.textContent === title
+  )[nth]!;
+
+test('a tick caused by another tick nests under it, one level deeper', async () => {
+  const {el} = await mountChain();
+  expect(titles(el)).toEqual(['performUpdate']);
+  twisty(el)!.click();
+  await el.updateComplete;
+  // The parent's own phase and the child tick, which is collapsed.
+  expect(titles(el)).toEqual(['performUpdate', 'update', 'performUpdate']);
+  const child = rowOf(el, 'performUpdate', 1);
+  expect(child.classList.contains('nested')).toBe(true);
+  expect(child.style.getPropertyValue('--depth')).toBe('1');
+  expect(
+    child.querySelector('button.twisty')?.getAttribute('aria-expanded')
+  ).toBe('false');
+  child.querySelector<HTMLButtonElement>('button.twisty')!.click();
+  await el.updateComplete;
+  expect(titles(el)).toEqual([
+    'performUpdate',
+    'update',
+    'performUpdate',
+    'update',
+  ]);
+  const phase = rowOf(el, 'update', 1);
+  expect(phase.classList.contains('nested')).toBe(true);
+  expect(phase.style.getPropertyValue('--depth')).toBe('2');
+});
+
+test('selecting a depth-2 row opens both ancestors', async () => {
+  const {el} = await mountChain();
+  el.selectedKey = GRANDCHILD;
+  await el.updateComplete;
+  expect(titles(el)).toHaveLength(4);
+  expect(
+    el.shadowRoot!.querySelector('.row.selected')?.getAttribute('style')
+  ).toContain('--depth: 2');
+});
+
+test('closing the parent while a grandchild is selected selects the parent', async () => {
+  const {el} = await mountChain();
+  const selected: Array<string | null> = [];
+  el.addEventListener('span-select', (e) =>
+    selected.push((e as CustomEvent<{key: string | null}>).detail.key)
+  );
+  el.selectedKey = GRANDCHILD;
+  await el.updateComplete;
+  twisty(el)!.click();
+  await el.updateComplete;
+  expect(titles(el)).toEqual(['performUpdate']);
+  expect(selected).toEqual([PARENT]);
+});
+
+test('Expand all opens rows that only appear once their parent is open', async () => {
+  const {el} = await mountChain();
+  el.shadowRoot!.querySelector<HTMLButtonElement>('.expand-all')!.click();
+  await el.updateComplete;
+  expect(titles(el)).toHaveLength(4);
+});
+
+test('an input row with a tick it caused gets a twisty', async () => {
+  const events = [
+    {...click, time: 5},
+    ...tick(1, 6, {kind: 'event', layerId: 'mouse', time: 5}),
+  ];
+  const {el} = await mount({
+    events,
+    spans: toSpans(events),
+    layers: [layer('lit-lifecycle'), layer('mouse')],
+  });
+  expect(titles(el)).toEqual(['click']);
+  const row = rowOf(el, 'click');
+  expect(row.querySelector('.nest')?.textContent).toBe('+1');
+  row.querySelector<HTMLButtonElement>('button.twisty')!.click();
+  await el.updateComplete;
+  expect(titles(el)).toEqual(['click', 'performUpdate']);
+});
+
+test("the detail pane's show link selects the parent row", async () => {
+  const {el, detail} = await mountChain({selectedKey: CHILD});
+  const selected: Array<string | null> = [];
+  el.addEventListener('span-select', (e) =>
+    selected.push((e as CustomEvent<{key: string | null}>).detail.key)
+  );
+  detail()!.dispatchEvent(
+    new CustomEvent('span-jump', {detail: {}, bubbles: true, composed: true})
+  );
+  expect(selected).toEqual([PARENT]);
+});

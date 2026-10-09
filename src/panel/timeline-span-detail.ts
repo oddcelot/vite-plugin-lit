@@ -87,6 +87,16 @@ export class TimelineSpanDetail extends LitElement {
     );
   }
 
+  private _jump(cause: NonNullable<TimelineSpan['cause']>) {
+    this.dispatchEvent(
+      new CustomEvent('span-jump', {
+        detail: {cause},
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
   override render() {
     const row = this.span;
     if (!row) return nothing;
@@ -112,6 +122,28 @@ export class TimelineSpanDetail extends LitElement {
             ? html`<tr>
                 <td class="key">duration</td>
                 <td class="val">${row.duration.toFixed(3)} ms</td>
+              </tr>`
+            : nothing
+        }
+        ${
+          row.cause
+            ? html`<tr>
+                <td class="key">caused by</td>
+                <td class="val">
+                  ${
+                    row.cause.kind === 'update'
+                      ? `update ${row.cause.groupId}`
+                      : `${row.cause.layerId} event at ${row.cause.time.toFixed(3)} ms`
+                  }
+                  <wa-button
+                    class="filter-link"
+                    size="small"
+                    appearance="plain"
+                    data-tip="Select the row that caused this update"
+                    @click=${() => this._jump(row.cause!)}
+                    >show</wa-button
+                  >
+                </td>
               </tr>`
             : nothing
         }
