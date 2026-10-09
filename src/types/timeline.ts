@@ -77,6 +77,18 @@ export interface TimelineEvent<TData = unknown> {
   };
 }
 
+/**
+ * What app code passes to `addTimelineEvent`: a {@link TimelineEvent} whose
+ * `time` is a `performance.now()` value, the only clock a page can read, or
+ * absent to mean "now". The runtime moves it onto the recording's clock.
+ */
+export type TimelineEventInput<TData = unknown> = Omit<
+  TimelineEvent<TData>,
+  'id' | 'time'
+> & {
+  time?: number;
+};
+
 /** One changed reactive property of an update, with before/after previews. */
 export interface ChangedValue {
   key: string;

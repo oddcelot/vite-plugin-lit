@@ -36,7 +36,10 @@ relaying them to whoever happens to be listening.
 ## Emit events
 
 `addTimelineEvent` takes the layer id, a time, and whatever you want the
-event's detail pane to show. `data` is serialized, so keep it to plain values.
+event's detail pane to show. The time is a `performance.now()` value, or leave
+it out to stamp the event as you add it; either way it lands on the Timeline
+next to the Lit updates that happened at the same moment. `data` is
+serialized, so keep it to plain values.
 
 Custom events have no start and end to pair, so each one is a row of its own
 in the [timeline](/vite-plugin-lit/guides/devtools/timeline/) list, with no
