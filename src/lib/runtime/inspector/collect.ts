@@ -20,6 +20,7 @@ import type {
   ValuePath,
 } from '../../../types/inspector.js';
 import {CALL_SITE_ATTR, SOURCE_META_KEY, readCallSite} from '../source-meta.js';
+import {defineFramesOf} from '../define-sites.js';
 
 interface LitSourceMeta {
   filePath: string;
@@ -251,12 +252,17 @@ export const collectDetails = (el: Element): InspectorDetails => {
     (el.constructor as {name?: string}).name
   ).map(({code, message}) => ({code, message}));
   const meta = metaOf(el);
+  const source = sourceOf(el);
+  // No stamp: the define call's stack, for a host that can map it.
+  const defineFrames =
+    source === undefined ? defineFramesOf(el.constructor) : undefined;
   return {
     id: idOf(el),
     tagName: el.tagName.toLowerCase(),
     componentName: meta?.componentName,
-    source: sourceOf(el),
+    source,
     callSite: callSiteOf(el),
+    ...(defineFrames !== undefined ? {defineFrames} : {}),
     ...(isUndefinedElement(el) ? {notDefined: true} : {}),
     attributes,
     properties,

@@ -15,12 +15,17 @@
  * scripts define anything.
  */
 
+import {installDefineSites} from '../../src/lib/runtime/define-sites.js';
 import {forgetOwnLit} from '../../src/lib/runtime/own-lit.js';
 import '../../src/lib/runtime/timeline/install.js';
 import '../../src/lib/runtime/inspector/install.js';
 import {initSourceOverlay} from '../../src/lib/runtime/source-overlay/overlay-element.js';
 import {attachWindowTransport} from '../../src/lib/runtime/window-transport.js';
 
+// Where each class is defined comes from the stack of its define call, so
+// this has to run before the page's scripts do (our own imports' defines
+// are not the page's and need no record).
+installDefineSites();
 // The picker's LitElement brought a Lit of our own: not the page's to count.
 forgetOwnLit();
 attachWindowTransport();

@@ -19,6 +19,24 @@ export interface ElementSource {
   line: number;
   /** 1-based column, when known (call sites carry one; declarations don't). */
   column?: number;
+  /**
+   * The original source's absolute URL as DevTools names it, when the
+   * location was resolved through a page's sourcemap (the extension, on a
+   * page without the plugin). Opens in the Sources panel, not an editor.
+   */
+  url?: string;
+  /** The generated script position the location was mapped from. */
+  generated?: GeneratedFrame;
+}
+
+/**
+ * One frame of a `customElements.define` call's stack, as the browser printed
+ * it: a script URL with a 1-based line and column in the generated code.
+ */
+export interface GeneratedFrame {
+  url: string;
+  line: number;
+  column: number;
 }
 
 /** A node in the component render tree (one inspectable Lit element). */
@@ -271,6 +289,14 @@ export interface InspectorDetails {
   source?: ElementSource;
   /** Where this instance was written in a template; see {@link InspectorTreeNode.callSite}. */
   callSite?: ElementSource;
+  /**
+   * The stack of the `customElements.define` call that registered this
+   * element's class, innermost first, when the plugin stamped no `source`
+   * and the runtime saw the call (the extension's, which installs before the
+   * page defines anything). A host with the page's sourcemaps resolves it
+   * into `source`.
+   */
+  defineFrames?: GeneratedFrame[];
   /** As {@link InspectorTreeNode.notDefined}. */
   notDefined?: true;
   attributes: Array<{name: string; value: string}>;

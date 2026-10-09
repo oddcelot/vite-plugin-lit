@@ -6,6 +6,7 @@ import {
   isInspectable,
   isUndefinedElement,
 } from '../../lib/runtime/inspector/collect.js';
+import {rememberDefineFrames} from '../../lib/runtime/define-sites.js';
 
 const SOURCE_META_KEY = Symbol.for('@oddsquad/vite-plugin-lit#source');
 
@@ -232,6 +233,21 @@ describe('collectDetails', () => {
       line: 3,
       column: 14,
     });
+  });
+
+  test('carries the define frames only for an unstamped class that has them', () => {
+    const frames = [{url: 'https://app.test/a.js', line: 3, column: 14}];
+    const bare = document.createElement(define());
+    expect(collectDetails(bare).defineFrames).toBeUndefined();
+    rememberDefineFrames(bare.constructor, frames);
+    expect(collectDetails(bare).defineFrames).toEqual(frames);
+
+    const stamped = document.createElement(
+      define({meta: {filePath: '/c.ts', lineNumber: 2, componentName: 'Cee'}})
+    );
+    rememberDefineFrames(stamped.constructor, frames);
+    expect(collectDetails(stamped).defineFrames).toBeUndefined();
+    expect(collectDetails(stamped).source).toEqual({file: '/c.ts', line: 2});
   });
 
   test('a missing or malformed call site is absent', () => {
