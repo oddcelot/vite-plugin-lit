@@ -10,7 +10,7 @@
 A Vite plugin for Lit projects with true HMR, CSS delivery helpers for shadow
 roots, and a DevTools timeline.
 
-https://github.com/user-attachments/assets/4e94a449-6c08-40db-8d78-37dc85ec6823
+https://github.com/user-attachments/assets/d396d3a8-ab26-46de-8c3f-71558db1a392
 
 **[Documentation →](https://oddcelot.github.io/vite-plugin-lit/)**
 
