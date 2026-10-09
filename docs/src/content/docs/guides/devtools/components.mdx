@@ -11,6 +11,8 @@ import {stripHeader} from '../../../../lib/fixture';
 import ThemedImage from '../../../../components/ThemedImage.astro';
 import devtoolsComponentsTreeLight from '../../../../assets/shots/devtools-components-tree.light.png';
 import devtoolsComponentsTreeDark from '../../../../assets/shots/devtools-components-tree.dark.png';
+import devtoolsComponentsPickLight from '../../../../assets/shots/devtools-components-pick.light.png';
+import devtoolsComponentsPickDark from '../../../../assets/shots/devtools-components-pick.dark.png';
 import devtoolsFlashLight from '../../../../assets/shots/devtools-flash.light.png';
 import devtoolsFlashDark from '../../../../assets/shots/devtools-flash.dark.png';
 
@@ -180,6 +182,12 @@ Press **⌖ Pick** in the toolbar, or **Meta+Shift+E** (**⌘⇧E** on a Mac),
 which is also in the DevTools command palette as _Pick Lit Element_. Move the
 pointer over the page and click the element you want. **↑** and **↓** step
 out to the element around the outlined one and back.
+
+<ThemedImage
+  light={devtoolsComponentsPickLight}
+  dark={devtoolsComponentsPickDark}
+  alt="The playground page dimmed while picking: the hovered hmr-counter card is outlined, and a tooltip names <hmr-counter> with its source file src/hmr-counter.ts:7 and rendered at index.html:120."
+/>
 
 This is the same picker the [source
 overlay](/vite-plugin-lit/guides/source-overlay/) uses, so it needs

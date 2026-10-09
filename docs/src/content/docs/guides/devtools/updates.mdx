@@ -38,14 +38,13 @@ The upper pane holds one row per component **tag**, slowest first.
   alt="The Updates tab table: one row per component with update counts and total time."
 />
 
-| Column    | Meaning                                                         |
-| --------- | --------------------------------------------------------------- |
-| Component | The tag, with `×n` when more than one instance of it updated.   |
-| Reasons   | The reactive properties that changed, most frequent first.      |
-| Updates   | How many update ticks were recorded.                            |
-| Skipped   | How many ticks `shouldUpdate` vetoed. Shown only when some did. |
-| Total     | Summed time in `performUpdate` across those ticks.              |
-| Max       | The slowest single update.                                      |
+| Column          | Meaning                                                                                                                                                                                                                                                                             |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Component · _n_ | The tag, with `×n` when more than one instance of it updated. The header counts the components listed.                                                                                                                                                                              |
+| _(unlabelled)_  | The reactive properties that changed, most frequent first, then a badge for each thing to look at: `n skipped` for ticks `shouldUpdate` vetoed, ≡ and a count for equal-value reassignments, ⚠ and a count for updates that threw. A badge only appears when its count is not zero. |
+| Updates         | How many update ticks were recorded, as `n×`.                                                                                                                                                                                                                                       |
+| Total           | Summed time in `performUpdate` across those ticks, with a bar scaled to the largest total in the table.                                                                                                                                                                             |
+| Slowest         | The slowest single update.                                                                                                                                                                                                                                                          |
 
 Rows group by tag rather than by instance on purpose. A list of 200 rows that
 each updated twice is one component's problem, not two hundred.
@@ -79,7 +78,7 @@ reacted to, not an inference.
 
 A row marked _skipped_ means the component's `shouldUpdate` returned false: the
 properties listed changed, but nothing re-rendered. Skipped ticks are counted
-under **Skipped** and not under **Updates** or **Total**, so those columns keep
+in the row's `skipped` badge and not under **Updates** or **Total**, so those columns keep
 meaning renders. `lit_update-summary` returns `skipped` per component and
 `skipped: true` per cycle.
 
@@ -123,7 +122,7 @@ The same data is in `lit_update-summary`: `changedDetail` on each cycle and
 
 In the playground fixture below, clicking the provider's button bumps the
 marked `counter`. Both the provider and its consumer show a tick, and both name
-`counter` under Reasons.
+`counter` among the changed properties.
 
 <Code
   code={stripHeader(context)}

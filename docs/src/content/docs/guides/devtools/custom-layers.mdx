@@ -38,9 +38,10 @@ relaying them to whoever happens to be listening.
 `addTimelineEvent` takes the layer id, a time, and whatever you want the
 event's detail pane to show. `data` is serialized, so keep it to plain values.
 
-Custom events have no start and end to pair, so they only appear under **Raw**
-in the [timeline](/vite-plugin-lit/guides/devtools/timeline/) filter bar. Their
-pill is always on: app code decides whether it emits at all.
+Custom events have no start and end to pair, so each one is a row of its own
+in the [timeline](/vite-plugin-lit/guides/devtools/timeline/) list, with no
+update to fold into, and a tick on its layer's track. Their pill is always on:
+app code decides whether it emits at all.
 
 <ThemedImage
   light={devtoolsCustomLayerLight}
