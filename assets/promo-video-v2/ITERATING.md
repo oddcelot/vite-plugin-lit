@@ -6,6 +6,8 @@ pans past a fixed cyan playhead, and each scene is a bar on a lane while the
 stage above shows the demo. Output: `renders/video.mp4`. v1 (20 s) is in
 `../promo-video/` and stays as it was.
 
+On YouTube: https://www.youtube.com/watch?v=eUg84347jyE. A new render needs a new upload.
+
 ## Where things are
 
 | File | What it holds |

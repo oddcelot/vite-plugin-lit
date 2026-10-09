@@ -67,6 +67,14 @@ Source code and issues: https://github.com/oddcelot/vite-plugin-lit
 | Small promo tile   | `promo-small-440x280.png`               | 440×280  |
 | Marquee promo tile | `promo-marquee-1400x560.png` (optional) | 1400×560 |
 
+**Promo video** (the field takes a YouTube URL)
+
+https://www.youtube.com/watch?v=3sPdpev0emU
+
+The 47 s Lit Inspector film from `assets/promo-video-extension/`. It shows only
+what the extension does; the plugin's own promo shows HMR and other
+Vite-only features, which the store treats as misleading here.
+
 Screenshot captions, if the dashboard asks for them:
 
 1. Component tree and inspector next to the page.
