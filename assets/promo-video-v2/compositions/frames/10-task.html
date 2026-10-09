@@ -1,0 +1,115 @@
+<template id="s10-task-template">
+  <div id="s10-task" data-composition-id="s10-task" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <style>
+      @font-face{font-family:"Manrope";font-weight:600;src:url("assets/manrope-semibold.woff2") format("woff2");}
+      @font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2");}
+      @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2");}
+      @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2");}
+      #s10-task,#s10-task *{box-sizing:border-box;}
+      #s10-task{font-family:"Manrope",sans-serif;color:#e3e3e3;overflow:hidden;}
+      #s10-wrap{position:absolute;left:0;top:0;width:1920px;height:1080px;}
+      #s10-eyebrow{position:absolute;left:96px;top:150px;font-weight:700;font-size:18px;letter-spacing:.14em;text-transform:uppercase;color:#99aeff;white-space:nowrap;}
+      .s10-h{position:absolute;left:96px;display:block;font-weight:800;font-size:68px;line-height:71px;letter-spacing:-.03em;color:#fff;white-space:nowrap;}
+      .s10-h b{color:#00e8ff;font-weight:800;}
+      #s10-fragbox{position:absolute;left:740px;top:150px;width:1100px;height:470px;transform-origin:50% 50%;}
+      #s10-frag{position:absolute;left:0;top:0;width:1100px;height:470px;background:#030303;border:1px solid #363636;overflow:hidden;}
+      #s10-in{position:absolute;left:-1px;top:-1px;width:1100px;height:470px;}
+      .s10-tb{position:absolute;left:0;top:0;width:1100px;height:66px;background:#0d0d0d;border-bottom:1px solid #363636;}
+      .s10-seg{position:absolute;left:16px;top:11px;height:44px;display:flex;border:1px solid #363636;}
+      .s10-seg span{display:block;padding:0 20px;line-height:42px;font-weight:600;font-size:20px;color:#919191;}
+      .s10-seg span.s10-on{background:#212121;color:#fff;font-weight:700;}
+      .s10-btns{position:absolute;right:16px;top:11px;height:44px;display:flex;gap:10px;}
+      .s10-btn{height:44px;padding:0 20px;border:1px solid #363636;line-height:42px;font-weight:600;font-size:19px;color:#e3e3e3;background:#0d0d0d;white-space:nowrap;}
+      .s10-btn.s10-stop{background:#7f1230;border-color:#8a1f2b;color:#ffb3bd;}
+      .s10-ruler{position:absolute;left:0;top:66px;width:1100px;height:36px;background:#030303;border-bottom:1px solid #363636;overflow:hidden;}
+      .s10-ruler .s10-gutbg{position:absolute;left:0;top:0;width:192px;height:36px;border-right:1px solid #363636;background:#030303;}
+      .s10-tick{position:absolute;width:1px;background:#474747;}
+      .s10-tl{position:absolute;top:0;line-height:36px;font-family:"Roboto Mono",monospace;font-size:16px;color:#919191;white-space:nowrap;}
+      .s10-lane{position:absolute;left:0;width:1100px;border-bottom:1px solid #1f1f1f;}
+      .s10-gut{position:absolute;left:0;top:0;width:192px;height:100%;border-right:1px solid #363636;background:#030303;font-family:"Roboto Mono",monospace;font-size:17px;color:#c7c7c7;padding:8px 0 0 14px;white-space:nowrap;z-index:3;line-height:22px;}
+      .s10-gut i{display:inline-block;width:12px;height:12px;margin-right:10px;vertical-align:-1px;}
+      .s10-mk{position:absolute;width:4px;opacity:.9;z-index:2;}
+      #s10-task-bar{position:absolute;left:417.7px;top:112px;height:30px;width:385.8px;background:#4d63ff;overflow:hidden;font-family:"Roboto Mono",monospace;font-size:17px;line-height:30px;color:#fff;padding-left:10px;white-space:nowrap;box-shadow:0 0 16px rgba(77,99,255,.5);}
+      .s10-rail{position:absolute;background:#20c997;z-index:1;}
+      .s10-node{position:absolute;width:18px;height:18px;border-radius:50%;border:3px solid #20c997;margin:-9px 0 0 -9px;background:transparent;z-index:4;}
+      #s10-warn-mk{box-shadow:0 0 14px 3px rgba(244,191,79,.8);background:#f4bf4f;}
+      #s10-skip-mk{box-shadow:0 0 12px 2px rgba(244,191,79,.7);background:#f4bf4f;}
+      #s10-callout{position:absolute;left:650.8px;top:422px;height:44px;padding:0 18px;background:#292929;border:1px solid #474747;font-family:"Roboto Mono",monospace;font-size:19px;line-height:42px;color:#e3e3e3;white-space:nowrap;}
+      #s10-callout i{display:inline-block;width:10px;height:10px;background:#f4bf4f;margin-right:12px;}
+      #s10-callout-line{position:absolute;left:690.8px;top:388px;width:1px;height:34px;background:#f4bf4f;opacity:.8;transform-origin:50% 0;}
+      #s10-pill{position:absolute;left:900.7px;top:159px;height:34px;padding:0 14px;background:#292929;border:1px solid #f4bf4f;font-family:"Roboto Mono",monospace;font-size:18px;line-height:32px;color:#e3e3e3;white-space:nowrap;}
+    </style>
+    <div id="s10-wrap">
+      <div id="s10-eyebrow">Timeline</div>
+      <span class="s10-h" id="s10-h1" style="top:186px">Click, fetch,</span>
+      <span class="s10-h" id="s10-h2" style="top:257px"><b>render.</b></span>
+      <span class="s10-h" id="s10-h3" style="top:328px">Nothing <b>hides.</b></span>
+      <div id="s10-fragbox"><div id="s10-frag"><div id="s10-in">
+        <div class="s10-tb"><div class="s10-seg"><span>List</span><span class="s10-on">Tracks</span></div><div class="s10-btns"><div class="s10-btn">Export snapshot</div><div class="s10-btn">Clear</div><div class="s10-btn s10-stop">Stop</div></div></div>
+        <div class="s10-ruler"><i class="s10-tick" style="left:243.2px;height:36px;top:0px"></i><span class="s10-tl" style="left:249.2px">1800ms</span><i class="s10-tick" style="left:307.1px;height:12px;top:24px"></i><i class="s10-tick" style="left:371.1px;height:36px;top:0px"></i><span class="s10-tl" style="left:377.1px">1900ms</span><i class="s10-tick" style="left:435px;height:12px;top:24px"></i><i class="s10-tick" style="left:499px;height:36px;top:0px"></i><span class="s10-tl" style="left:505px">2000ms</span><i class="s10-tick" style="left:562.9px;height:12px;top:24px"></i><i class="s10-tick" style="left:626.9px;height:36px;top:0px"></i><span class="s10-tl" style="left:632.9px">2100ms</span><i class="s10-tick" style="left:690.8px;height:12px;top:24px"></i><i class="s10-tick" style="left:754.8px;height:36px;top:0px"></i><span class="s10-tl" style="left:760.8px">2200ms</span><i class="s10-tick" style="left:818.7px;height:12px;top:24px"></i><i class="s10-tick" style="left:882.7px;height:36px;top:0px"></i><span class="s10-tl" style="left:888.7px">2300ms</span><i class="s10-tick" style="left:946.6px;height:12px;top:24px"></i><i class="s10-tick" style="left:1010.6px;height:36px;top:0px"></i><span class="s10-tl" style="left:1016.6px">2400ms</span><i class="s10-tick" style="left:1074.5px;height:12px;top:24px"></i><div class="s10-gutbg"></div></div>
+        <div class="s10-lane" id="s10-lane0" style="top:102px;height:112px"><div class="s10-gut"><i style="background:#4d63ff"></i>Lit Lifecycle</div></div><div class="s10-lane" id="s10-lane1" style="top:214px;height:64px"><div class="s10-gut"><i style="background:#325cff"></i>Lit Render</div></div><div class="s10-lane" id="s10-lane2" style="top:278px;height:64px"><div class="s10-gut"><i style="background:#a451af"></i>Mouse</div></div><div class="s10-lane" id="s10-lane3" style="top:342px;height:64px"><div class="s10-gut"><i style="background:#f4bf4f"></i>Lit warnings</div></div>
+        <!-- marks -->
+        <i class="s10-mk" id="s10-mouse" style="left:416.4px;top:296px;height:28px;background:#a451af"></i>
+        <i class="s10-mk" id="s10-lc1" style="left:416.4px;top:162px;height:28px;background:#4d63ff"></i>
+        <i class="s10-mk" id="s10-rd1" style="left:416.9px;top:232px;height:28px;background:#325cff"></i>
+        <div id="s10-task-bar">task &middot; 301.6ms</div>
+        <i class="s10-mk" id="s10-lc2" style="left:802.5px;top:162px;height:28px;background:#4d63ff"></i>
+        <i class="s10-mk" id="s10-rd2" style="left:802.1px;top:232px;height:28px;background:#325cff"></i>
+        <!-- teal rail: mark -> tick -> task -> render -->
+        <div class="s10-rail" id="s10-rA" style="left:419.4px;top:176px;width:2px;height:134px;transform-origin:50% 100%"></div>
+        <div class="s10-rail" id="s10-rB" style="left:419.4px;top:111px;width:2px;height:65px;transform-origin:50% 100%"></div>
+        <div class="s10-rail" id="s10-rC" style="left:417.4px;top:110px;width:386.1px;height:2px;transform-origin:0 50%"></div>
+        <div class="s10-rail" id="s10-rD" style="left:805.5px;top:110px;width:2px;height:136px;transform-origin:50% 0"></div>
+        <i class="s10-node" id="s10-n0" style="left:420.4px;top:310px"></i>
+        <i class="s10-node" id="s10-n1" style="left:420.4px;top:176px"></i>
+        <i class="s10-node" id="s10-n2" style="left:420.4px;top:111px"></i>
+        <i class="s10-node" id="s10-n3" style="left:806.5px;top:111px"></i>
+        <i class="s10-node" id="s10-n4" style="left:806.5px;top:246px"></i>
+        <!-- warning + skipped -->
+        <i class="s10-mk" id="s10-warn-mk" style="left:689.8px;top:361px;height:26px"></i>
+        <div id="s10-callout-line"></div>
+        <div id="s10-callout"><i></i>change-in-update &middot; &lt;hmr-warnings&gt;</div>
+        <i class="s10-mk" id="s10-skip-mk" style="left:881.7px;top:163px;height:26px"></i>
+        <div id="s10-pill">2 skipped</div>
+      </div></div></div>
+    </div>
+    <script>
+      (function () {
+        var tl = gsap.timeline({ paused: true });
+        var pop = function (id, t) { tl.fromTo(id, { scale: 0 }, { scale: 1, duration: 0.2, ease: "back.out(2.5)" }, t); };
+        var tick = function (id, t, h) { tl.fromTo(id, { scaleY: 0, opacity: 0 }, { scaleY: 1, opacity: 0.9, duration: 0.14, ease: "power3.out" }, t); };
+        tl.fromTo("#s10-eyebrow", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.25, ease: "power3.out" }, 0.1);
+        tl.fromTo("#s10-h1", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 0.1);
+        tl.fromTo("#s10-h2", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 0.48);
+        tl.fromTo("#s10-h3", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 2.4);
+        tl.fromTo("#s10-fragbox", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 0.1);
+        // mouse mark, lifecycle tick (teal rail climbs)
+        tick("#s10-mouse", 0.48); pop("#s10-n0", 0.48);
+        tl.fromTo("#s10-rA", { scaleY: 0 }, { scaleY: 1, duration: 0.24, ease: "none" }, 0.48);
+        tick("#s10-lc1", 0.72); pop("#s10-n1", 0.72);
+        tl.fromTo("#s10-rB", { scaleY: 0 }, { scaleY: 1, duration: 0.24, ease: "none" }, 0.72);
+        // task bar grows, rail runs along it
+        pop("#s10-n2", 0.96);
+        tick("#s10-rd1", 0.96);
+        tl.fromTo("#s10-task-bar", { width: 0 }, { width: 385.8, duration: 0.74, ease: "none" }, 0.96);
+        tl.fromTo("#s10-rC", { scaleX: 0 }, { scaleX: 1, duration: 0.74, ease: "none" }, 0.96);
+        // render ticks at its end
+        pop("#s10-n3", 1.7);
+        tick("#s10-lc2", 1.7);
+        tl.fromTo("#s10-rD", { scaleY: 0 }, { scaleY: 1, duration: 0.2, ease: "power2.out" }, 1.7);
+        tick("#s10-rd2", 1.88); pop("#s10-n4", 1.88);
+        // warning
+        tl.fromTo("#s10-warn-mk", { scaleY: 0, opacity: 0 }, { scaleY: 1, opacity: 1, duration: 0.2, ease: "back.out(3)" }, 1.92);
+        tl.fromTo("#s10-callout-line", { scaleY: 0 }, { scaleY: 1, duration: 0.2, ease: "power2.out" }, 2.0);
+        tl.fromTo("#s10-callout", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.25, ease: "power3.out" }, 2.1);
+        // skipped
+        tl.fromTo("#s10-skip-mk", { scaleY: 0, opacity: 0 }, { scaleY: 1, opacity: 1, duration: 0.2, ease: "back.out(3)" }, 2.4);
+        tl.fromTo("#s10-pill", { opacity: 0, scale: 0.8, transformOrigin: "0% 50%" }, { opacity: 1, scale: 1, duration: 0.25, ease: "back.out(2)" }, 2.46);
+        // snap shut
+        tl.set("#s10-wrap", { transformOrigin: "960px 664px" }, 0);
+        tl.to("#s10-wrap", { scaleY: 0, opacity: 0, duration: 0.18, ease: "power3.in" }, 3.51);
+        window.__timelines["s10-task"] = tl;
+      })();
+    </script>
+  </div>
+</template>

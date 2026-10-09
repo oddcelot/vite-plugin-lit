@@ -1,0 +1,81 @@
+<template id="s12-agents-template">
+  <style>
+    @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:500;src:url("assets/manrope-medium.woff2") format("woff2")}
+    @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2")}
+    #s12-agents{overflow:hidden;font-family:"Manrope",sans-serif}
+    #s12-agents *{box-sizing:border-box}
+    #s12-stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:960px 664px}
+    #s12-eyebrow{position:absolute;left:96px;top:150px;font-weight:700;font-size:18px;letter-spacing:.14em;text-transform:uppercase;color:#a451af;white-space:nowrap}
+    .s12-h{position:absolute;left:96px;font-weight:800;font-size:68px;line-height:70px;letter-spacing:-0.03em;color:#fff;white-space:nowrap}
+    .s12-h b{color:#00e8ff;font-weight:800}
+    #s12-h1{top:186px}#s12-h2{top:256px}
+    #s12-term{position:absolute;left:740px;top:150px;width:1100px;height:470px;background:#07070c;border:1px solid #363636;border-radius:8px;overflow:hidden;font-family:"Roboto Mono",monospace;font-size:21px;color:#e3e3e3}
+    #s12-bar{height:46px;background:#0d0d0d;border-bottom:1px solid #363636;position:relative}
+    .s12-dot{position:absolute;top:17px;width:12px;height:12px;border-radius:50%;background:#444}
+    #s12-title{position:absolute;left:0;right:0;top:0;line-height:46px;text-align:center;color:#919191;font-size:18px}
+    .s12-ln{position:absolute;left:32px;white-space:pre;line-height:34px;height:34px}
+    .s12-prompt{color:#00e8ff}
+    .s12-dim{color:#919191}
+    .s12-amber{color:#f4bf4f}
+    .s12-tag{color:#82aaff}
+    #s12-reply{position:absolute;left:32px;top:352px;width:1036px;font-family:"Manrope",sans-serif;font-weight:500;font-size:25px;line-height:36px;color:#e3e3e3;border-top:1px solid #1f1f1f;padding-top:22px}
+    #s12-reply code{font-family:"Roboto Mono",monospace;font-size:22px;color:#f4bf4f}
+    #s12-reply i{font-style:normal;font-family:"Roboto Mono",monospace;font-size:22px;color:#8a9bff}
+    #s12-caret{position:absolute;width:11px;height:24px;background:#00e8ff;top:62px;opacity:0}
+  </style>
+  <div id="s12-agents" data-composition-id="s12-agents" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <div id="s12-stage">
+      <div id="s12-eyebrow">MCP</div>
+      <div class="s12-h" id="s12-h1">Your agent</div>
+      <div class="s12-h" id="s12-h2"><b>reads it too.</b></div>
+      <div id="s12-term">
+        <div id="s12-bar"><i class="s12-dot" style="left:20px"></i><i class="s12-dot" style="left:40px"></i><i class="s12-dot" style="left:60px"></i><div id="s12-title">claude</div></div>
+        <div class="s12-ln" id="s12-cmd" style="top:58px"><span class="s12-prompt">› </span><span id="s12-typed"></span></div>
+        <div class="s12-ln s12-dim" id="s12-res" style="top:108px">  ⎿ 412 events · 4 layers · 3 components</div>
+        <div class="s12-ln" id="s12-r1" style="top:168px"><span class="s12-tag">&lt;hmr-utility-btn&gt;</span>   6 updates   <span class="s12-dim">1.2ms</span></div>
+        <div class="s12-ln" id="s12-r2" style="top:206px"><span class="s12-tag">&lt;hmr-slots&gt;</span>         3 updates   <span class="s12-dim">0.6ms</span></div>
+        <div class="s12-ln s12-amber" id="s12-r3" style="top:244px">&lt;hmr-not-defind&gt;    not defined</div>
+        <div id="s12-reply"><code>&lt;hmr-not-defind&gt;</code> is never registered: the tag is misspelled in <i>index.html:212</i>.</div>
+        <div id="s12-caret"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      var cmd = '{"start": 22630, "end": 26730}';
+      var full = 'lit_range-summary ' + cmd;
+      var typed = document.getElementById("s12-typed");
+      typed.innerHTML = "";
+      var spans = [];
+      for (var i = 0; i < full.length; i++) {
+        var s = document.createElement("span");
+        s.textContent = full[i];
+        s.style.opacity = 0;
+        typed.appendChild(s);
+        spans.push(s);
+      }
+      var n = full.length;
+      for (i = 0; i < n; i++) tl.set(spans[i], { opacity: 1 }, 0.24 + (0.86 * i) / (n - 1));
+      // caret follows typing, then hides
+      var cw = 12.6;
+      tl.fromTo("#s12-caret", { x: 32 + 2 * cw + 4 }, { x: 32 + 2 * cw + 4 + n * cw, duration: 0.86, ease: "none" }, 0.24);
+      tl.set("#s12-caret", { opacity: 1 }, 0.24);
+      tl.set("#s12-caret", { opacity: 0 }, 1.2);
+
+      tl.fromTo("#s12-eyebrow", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power3.out" }, 0.05);
+      tl.fromTo("#s12-h1", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 0.1);
+      tl.fromTo("#s12-h2", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 0.48);
+      tl.fromTo("#s12-term", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 0.0);
+      tl.fromTo("#s12-res", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.2, ease: "power3.out" }, 1.44);
+      tl.fromTo("#s12-r1", { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.25, ease: "power3.out" }, 1.68);
+      tl.fromTo("#s12-r2", { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.25, ease: "power3.out" }, 1.94);
+      tl.fromTo("#s12-r3", { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.25, ease: "power3.out" }, 2.2);
+      tl.fromTo("#s12-reply", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 2.64);
+      tl.fromTo("#s12-stage", { scaleY: 1, opacity: 1 }, { scaleY: 0, opacity: 0, duration: 0.18, ease: "power3.in" }, 3.69);
+      window.__timelines["s12-agents"] = tl;
+    })();
+  </script>
+</template>

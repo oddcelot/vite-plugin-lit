@@ -1,0 +1,55 @@
+<template id="s01-record-template">
+  <style>
+    @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2")}
+    @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2")}
+    #s01-record{position:absolute;inset:0;overflow:hidden;font-family:"Manrope",sans-serif}
+    #s01-record *{box-sizing:border-box}
+    #s01-stage{position:absolute;left:0;top:0;width:1920px;height:664px;transform-origin:50% 664px;clip-path:inset(100px 40px 0 40px)}
+    #s01-btnwrap{position:absolute;left:660px;top:334px;width:600px;height:96px;display:flex;align-items:center;justify-content:center}
+    .s01-btn{position:absolute;height:96px;padding:0 56px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:44px;white-space:nowrap;gap:18px}
+    #s01-rec{background:#0d0d0d;border:1px solid #363636;color:#e3e3e3}
+    #s01-rec i{width:22px;height:22px;border-radius:50%;background:#ff6b6b;display:block}
+    #s01-stop{background:#3a0d14;border:1px solid #8a1f2b;color:#ff6b6b;box-shadow:0 0 44px rgba(255,107,107,0.45);opacity:0}
+    #s01-stop i{width:20px;height:20px;background:#ff6b6b;display:block}
+    #s01-eyebrow{position:absolute;left:96px;top:148px;font-family:"Roboto Mono",monospace;font-size:22px;line-height:26px;color:#a1a1a1;white-space:nowrap}
+    .s01-hl{position:absolute;left:96px;font-weight:800;font-size:68px;line-height:71px;letter-spacing:-0.03em;color:#fff;white-space:nowrap}
+    .s01-hl b{color:#00e8ff;font-weight:800}
+    .s01-stat{position:absolute;left:760px;font-family:"Roboto Mono",monospace;font-size:22px;line-height:30px;color:#e3e3e3;white-space:nowrap;display:flex;align-items:center;gap:16px}
+    .s01-stat i{display:block;width:8px;height:8px;border-radius:50%;background:#4d63ff}
+    .s01-stat span{color:#a1a1a1}
+  </style>
+  <div id="s01-record" data-composition-id="s01-record" data-width="1920" data-height="1080">
+    <div id="s01-stage">
+      <div id="s01-btnwrap">
+        <div class="s01-btn" id="s01-rec"><i></i>Record</div>
+        <div class="s01-btn" id="s01-stop"><i></i>Stop</div>
+      </div>
+      <div id="s01-eyebrow">@oddsquad/vite-plugin-lit</div>
+      <div class="s01-hl" id="s01-hl1" style="top:186px">Your Lit app,</div>
+      <div class="s01-hl" id="s01-hl2" style="top:257px">on the <b>record.</b></div>
+      <div class="s01-stat" id="s01-st1" style="top:286px"><i></i>Lit 3 <span>&middot;</span> Vite 6&ndash;8</div>
+      <div class="s01-stat" id="s01-st2" style="top:336px"><i></i>HMR that keeps state</div>
+      <div class="s01-stat" id="s01-st3" style="top:386px"><i></i>DevTools in the dev server</div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      tl.fromTo("#s01-rec", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(1.8)" }, 0.6);
+      // press at 1.44: swap to Stop
+      tl.fromTo("#s01-btnwrap", { scale: 0.94 }, { scale: 1, duration: 0.3, ease: "back.out(2.5)" }, 1.44);
+      tl.set("#s01-rec", { opacity: 0 }, 1.44);
+      tl.set("#s01-stop", { opacity: 1 }, 1.44);
+      tl.to("#s01-btnwrap", { y: -30, opacity: 0, duration: 0.25, ease: "power2.in" }, 1.92);
+      tl.fromTo("#s01-eyebrow", { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.3, ease: "power3.out" }, 1.92);
+      tl.fromTo("#s01-hl1", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 2.16);
+      tl.fromTo("#s01-hl2", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 2.64);
+      tl.fromTo("#s01-st1", { opacity: 0, x: 20 }, { opacity: 1, x: 0, duration: 0.3, ease: "power3.out" }, 2.4);
+      tl.fromTo("#s01-st2", { opacity: 0, x: 20 }, { opacity: 1, x: 0, duration: 0.3, ease: "power3.out" }, 2.88);
+      tl.fromTo("#s01-st3", { opacity: 0, x: 20 }, { opacity: 1, x: 0, duration: 0.3, ease: "power3.out" }, 3.36);
+      tl.to("#s01-stage", { scaleY: 0, opacity: 0, duration: 0.18, ease: "power3.in" }, 3.56);
+      window.__timelines["s01-record"] = tl;
+    })();
+  </script>
+</template>

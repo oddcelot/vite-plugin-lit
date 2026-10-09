@@ -1,0 +1,43 @@
+<template id="s14-lockup-template">
+  <style>
+    @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2")}
+    @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2")}
+    #s14-lockup{overflow:hidden;font-family:"Manrope",sans-serif}
+    #s14-lockup *{box-sizing:border-box}
+    #s14-head{position:absolute;left:0;top:262px;width:1920px;height:84px;text-align:center;font-weight:800;font-size:76px;line-height:84px;letter-spacing:-0.03em;color:#fff;white-space:nowrap}
+    #s14-head b{color:#00e8ff;font-weight:800}
+    #s14-lock{position:absolute;left:0;top:0;width:1920px;height:1080px}
+    #s14-glow{position:absolute;left:560px;top:-20px;width:800px;height:800px;border-radius:50%;background:radial-gradient(circle,rgba(50,79,255,0.55) 0%,rgba(42,44,157,0.35) 38%,rgba(42,44,157,0) 70%);opacity:0}
+    #s14-flame{position:absolute;left:872px;top:270px;width:176px;height:220px;background:url("assets/flame.svg") center/contain no-repeat;opacity:0}
+    .s14-line{position:absolute;left:0;width:1920px;display:flex;justify-content:center;opacity:0}
+    #s14-title{top:548px;height:104px;font-weight:800;font-size:96px;line-height:104px;letter-spacing:-0.03em;color:#fff;white-space:nowrap}
+    #s14-title b{color:#4d63ff;font-weight:800}
+    #s14-codewrap{top:684px;height:72px}
+    #s14-code{background:#0b0b12;border:1px solid #363636;border-radius:10px;padding:0 32px;height:72px;display:flex;align-items:center;font-family:"Roboto Mono",monospace;font-size:30px;color:#e3e3e3;white-space:pre}
+    #s14-npm{top:792px;height:36px;font-family:"Roboto Mono",monospace;font-size:24px;line-height:36px;color:#a1a1a1;white-space:pre}
+  </style>
+  <div id="s14-lockup" data-composition-id="s14-lockup" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <div id="s14-head">Every update, <b>explained.</b></div>
+    <div id="s14-lock">
+      <div id="s14-glow"></div>
+      <div id="s14-flame"></div>
+      <div class="s14-line" id="s14-title">vite-plugin-<b>lit</b></div>
+      <div class="s14-line" id="s14-codewrap"><div id="s14-code"><span style="color:#89ddff">plugins</span><span style="color:#89ddff">: [</span><span style="color:#82aaff">litPlugin</span><span style="color:#89ddff">()]</span></div></div>
+      <div class="s14-line" id="s14-npm"><span style="color:#c792ea">npm</span> i -D <span style="color:#c3e88d">@oddsquad/vite-plugin-lit</span></div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      tl.fromTo("#s14-head", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 0.1);
+      tl.to("#s14-head", { opacity: 0, duration: 0.2, ease: "power1.in" }, 2.1);
+      tl.fromTo("#s14-flame", { scale: 0.6, opacity: 0, transformOrigin: "50% 50%" }, { scale: 1, opacity: 1, duration: 0.55, ease: "power3.out" }, 2.43);
+      tl.fromTo("#s14-glow", { scale: 0.6, opacity: 0, transformOrigin: "50% 50%" }, { scale: 1, opacity: 1, duration: 0.9, ease: "power2.out" }, 2.43);
+      tl.fromTo("#s14-title", { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 2.9);
+      tl.fromTo("#s14-codewrap", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 3.3);
+      tl.fromTo("#s14-npm", { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 3.6);
+      tl.fromTo("#s14-lock", { opacity: 1 }, { opacity: 0, duration: 0.52, ease: "power1.inOut" }, 4.43);
+      window.__timelines["s14-lockup"] = tl;
+    })();
+  </script>
+</template>

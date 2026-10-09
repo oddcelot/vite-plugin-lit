@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: #030308; }
+      .layer { position: absolute; inset: 0; z-index: 1; }
+      .scene { position: absolute; inset: 0; z-index: 2; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="54.92"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- Persistent panel chrome: window, header, timeline strip, playhead. -->
+      <div
+        id="el-chrome"
+        class="layer"
+        data-composition-id="chrome"
+        data-composition-src="compositions/chrome.html"
+        data-start="0"
+        data-duration="54.92"
+        data-track-index="1"
+      ></div>
+
+      <!-- Stage content, one scene per bar group of the music. -->
+      <div
+        id="el-s01-record"
+        class="scene"
+        data-composition-id="s01-record"
+        data-composition-src="compositions/frames/01-record.html"
+        data-start="0"
+        data-duration="3.89"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s02-hmr"
+        class="scene"
+        data-composition-id="s02-hmr"
+        data-composition-src="compositions/frames/02-hmr.html"
+        data-start="3.89"
+        data-duration="5.76"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s03-inspect"
+        class="scene"
+        data-composition-id="s03-inspect"
+        data-composition-src="compositions/frames/03-inspect.html"
+        data-start="9.65"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s04-sheet-setup"
+        class="scene"
+        data-composition-id="s04-sheet-setup"
+        data-composition-src="compositions/frames/04-sheet-setup.html"
+        data-start="13.49"
+        data-duration="1.92"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s05-sheet-drop"
+        class="scene"
+        data-composition-id="s05-sheet-drop"
+        data-composition-src="compositions/frames/05-sheet-drop.html"
+        data-start="15.41"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s06-instances"
+        class="scene"
+        data-composition-id="s06-instances"
+        data-composition-src="compositions/frames/06-instances.html"
+        data-start="19.25"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s07-anatomy"
+        class="scene"
+        data-composition-id="s07-anatomy"
+        data-composition-src="compositions/frames/07-anatomy.html"
+        data-start="23.09"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s08-range"
+        class="scene"
+        data-composition-id="s08-range"
+        data-composition-src="compositions/frames/08-range.html"
+        data-start="26.93"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s09-cause"
+        class="scene"
+        data-composition-id="s09-cause"
+        data-composition-src="compositions/frames/09-cause.html"
+        data-start="30.77"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s10-task"
+        class="scene"
+        data-composition-id="s10-task"
+        data-composition-src="compositions/frames/10-task.html"
+        data-start="34.61"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s11-source"
+        class="scene"
+        data-composition-id="s11-source"
+        data-composition-src="compositions/frames/11-source.html"
+        data-start="38.45"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s12-agents"
+        class="scene"
+        data-composition-id="s12-agents"
+        data-composition-src="compositions/frames/12-agents.html"
+        data-start="42.29"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s13-inspector"
+        class="scene"
+        data-composition-id="s13-inspector"
+        data-composition-src="compositions/frames/13-inspector.html"
+        data-start="46.13"
+        data-duration="3.84"
+        data-track-index="2"
+      ></div>
+
+      <div
+        id="el-s14-lockup"
+        class="scene"
+        data-composition-id="s14-lockup"
+        data-composition-src="compositions/frames/14-lockup.html"
+        data-start="49.97"
+        data-duration="4.95"
+        data-track-index="2"
+      ></div>
+
+      <!-- BGM -->
+      <audio
+        id="el-bgm"
+        src="assets/bgm/bounce-energique.m4a"
+        data-start="0"
+        data-duration="54.92"
+        data-track-index="11"
+        data-volume="0.9"
+      ></audio>
+    </div>
+    <script>
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>

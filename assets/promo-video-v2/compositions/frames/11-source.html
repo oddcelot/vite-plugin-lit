@@ -1,0 +1,164 @@
+<template id="s11-source-template">
+  <div id="s11-source" data-composition-id="s11-source" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <style>
+      @font-face{font-family:"Manrope";font-weight:600;src:url("assets/manrope-semibold.woff2") format("woff2");}
+      @font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2");}
+      @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2");}
+      @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2");}
+      #s11-source,#s11-source *{box-sizing:border-box;}
+      #s11-source{font-family:"Manrope",sans-serif;color:#e3e3e3;overflow:hidden;}
+      #s11-wrap{position:absolute;left:0;top:0;width:1920px;height:1080px;}
+      #s11-eyebrow{position:absolute;left:96px;top:150px;font-weight:700;font-size:18px;letter-spacing:.14em;text-transform:uppercase;color:#af7a51;white-space:nowrap;}
+      .s11-h{position:absolute;left:96px;display:block;font-weight:800;font-size:68px;line-height:71px;letter-spacing:-.03em;color:#fff;white-space:nowrap;}
+      .s11-h b{color:#00e8ff;font-weight:800;}
+      /* key caps */
+      #s11-keys{position:absolute;left:96px;top:410px;display:flex;gap:14px;}
+      .s11-key{height:68px;min-width:68px;padding:0 24px;display:flex;align-items:center;justify-content:center;background:#292929;border:1px solid #363636;border-bottom-width:4px;font-family:"Roboto Mono",monospace;font-size:26px;color:#919191;}
+      .s11-key svg{width:26px;height:26px;}
+      /* page mock */
+      #s11-card{position:absolute;left:760px;top:140px;width:540px;height:200px;background:#17171c;border:1px solid #2c2c33;border-radius:8px;}
+      #s11-title{position:absolute;left:28px;top:24px;font-weight:800;font-size:44px;line-height:54px;color:#fff;white-space:nowrap;letter-spacing:-.01em;}
+      #s11-btn{position:absolute;left:28px;top:108px;height:60px;padding:0 24px;border:1.5px solid #4d63ff;border-radius:6px;font-weight:700;font-size:30px;line-height:57px;color:#fff;white-space:nowrap;}
+      #s11-btn b{color:#00e8ff;font-weight:700;}
+      #s11-renders{position:absolute;left:226px;top:122px;font-family:"Roboto Mono",monospace;font-size:20px;line-height:32px;color:#a1a1a1;white-space:nowrap;}
+      /* overlay */
+      #s11-ov{position:absolute;left:752px;top:132px;width:556px;height:216px;border:1.5px dashed #4d63ff;background:rgba(77,99,255,.18);}
+      #s11-chip{position:absolute;left:752px;top:103px;height:29px;padding:0 12px;background:#4d63ff;color:#fff;font-family:"Roboto Mono",monospace;font-size:17px;line-height:29px;white-space:nowrap;}
+      /* tooltip */
+      #s11-tip{position:absolute;left:760px;top:372px;width:410px;background:#292929;border:1px solid #474747;box-shadow:0 12px 30px rgba(0,0,0,.5);transform-origin:0 0;}
+      .s11-trow{position:relative;display:flex;align-items:stretch;}
+      .s11-trow+.s11-trow{border-top:1px solid #363636;}
+      .s11-ic{width:60px;display:flex;align-items:center;justify-content:center;border-right:1px solid #363636;color:#c7c7c7;font-family:"Roboto Mono",monospace;font-size:18px;}
+      .s11-ic svg{width:24px;height:24px;}
+      .s11-tx{padding:10px 16px;font-family:"Roboto Mono",monospace;line-height:26px;white-space:nowrap;}
+      #s11-trow2 .s11-tx{padding:12px 16px;font-size:18px;color:#919191;}
+      #s11-trow2 .s11-tx span{color:#fff;}
+      #s11-arm{position:absolute;left:0;top:0;width:100%;height:100%;background:rgba(77,99,255,.28);opacity:0;}
+      #s11-trow1 .s11-tx b{display:block;font-weight:400;color:#fff;font-size:20px;}
+      #s11-trow1 .s11-tx i{display:block;font-style:normal;color:#c7c7c7;font-size:17px;}
+      /* editor */
+      #s11-ed{position:absolute;left:1180px;top:300px;width:660px;height:300px;background:#0a0a0f;border:1px solid #363636;border-radius:8px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.55);}
+      #s11-tabs{position:absolute;left:0;top:0;width:100%;height:52px;background:#0d0d0d;border-bottom:1px solid #363636;}
+      .s11-tab{position:absolute;top:0;height:52px;padding:0 22px;font-family:"Roboto Mono",monospace;font-size:18px;line-height:52px;white-space:nowrap;border-right:1px solid #363636;}
+      #s11-tab1{left:0;color:#e3e3e3;}
+      #s11-tab2{left:197px;color:#e3e3e3;opacity:0;}
+      .s11-ul{position:absolute;left:0;right:0;bottom:-1px;height:2px;background:#4d63ff;}
+      .s11-code{position:absolute;left:0;top:52px;width:100%;height:210px;}
+      .s11-ln{position:absolute;left:0;width:100%;height:48px;font-family:"Roboto Mono",monospace;font-size:21px;line-height:48px;white-space:pre;color:#e3e3e3;}
+      .s11-num{position:absolute;left:0;width:60px;text-align:right;color:#616161;}
+      .s11-cd{position:absolute;left:84px;}
+      .s11-hl{position:absolute;left:0;top:48px;width:100%;height:48px;background:rgba(77,99,255,.16);border-left:3px solid #4d63ff;transform-origin:0 50%;}
+      .s11-foot{position:absolute;left:0;bottom:0;width:100%;height:38px;background:#0d0d0d;border-top:1px solid #363636;font-family:"Roboto Mono",monospace;font-size:15px;line-height:37px;padding-left:20px;color:#616161;}
+      #s11-caret{position:absolute;left:640px;top:62px;width:2px;height:30px;background:#fff;}
+      .s11-kw{color:#c792ea}.s11-fn{color:#82aaff}.s11-st{color:#c3e88d}.s11-nm{color:#f78c6c}.s11-pn{color:#89ddff}.s11-cl{color:#ffcb6b}
+      #s11-site{position:absolute;left:1180px;top:614px;height:34px;padding:0 16px;border:1px solid #00e8ff;background:#030303;font-family:"Roboto Mono",monospace;font-size:18px;line-height:32px;color:#00e8ff;white-space:nowrap;}
+      /* cursor + ripples */
+      #s11-cursor{position:absolute;left:0;top:0;width:26px;height:36px;z-index:9;}
+      .s11-rip{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:3px solid #00e8ff;opacity:0;}
+    </style>
+    <div id="s11-wrap">
+      <div id="s11-eyebrow">Source</div>
+      <span class="s11-h" id="s11-h1" style="top:186px">Click.</span>
+      <span class="s11-h" id="s11-h2" style="top:257px"><b>Land in code.</b></span>
+      <div id="s11-keys">
+        <div class="s11-key" id="s11-k1">Ctrl</div>
+        <div class="s11-key" id="s11-k2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 3 L21 12 H16 V20 H8 V12 H3 Z"/></svg></div>
+        <div class="s11-key" id="s11-k3">S</div>
+      </div>
+
+      <div id="s11-card">
+        <div id="s11-title">Counter: edited live</div>
+        <div id="s11-btn">Count: <b>42</b></div>
+        <div id="s11-renders">renders: 2</div>
+      </div>
+      <div id="s11-ov"></div>
+      <div id="s11-chip">&lt;hmr-counter&gt;</div>
+
+      <div id="s11-tip">
+        <div class="s11-trow" id="s11-trow1"><div class="s11-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3 L20 7.5 V16.5 L12 21 L4 16.5 V7.5 Z M4 7.5 L12 12 L20 7.5 M12 12 V21"/></svg></div><div class="s11-tx"><b>&lt;hmr-counter&gt;</b><i>src/hmr-counter.ts:7</i></div></div>
+        <div class="s11-trow" id="s11-trow2"><div id="s11-arm"></div><div class="s11-ic">&lt;/&gt;</div><div class="s11-tx">rendered at <span>index.html:120</span></div></div>
+      </div>
+
+      <div id="s11-ed">
+        <div id="s11-tabs"><div class="s11-tab" id="s11-tab1">hmr-counter.ts<i class="s11-ul" id="s11-ul1"></i></div><div class="s11-tab" id="s11-tab2">index.html<i class="s11-ul" id="s11-ul2" style="opacity:0"></i></div></div>
+        <div class="s11-code" id="s11-ts">
+          <div class="s11-hl" id="s11-hl1"></div>
+          <div class="s11-ln" style="top:0"><span class="s11-num">6</span><span class="s11-cd"><span class="s11-fn">@customElement</span><span class="s11-pn">(</span><span class="s11-st">"hmr-counter"</span><span class="s11-pn">)</span></span></div>
+          <div class="s11-ln" style="top:48px"><span class="s11-num" style="color:#a1a1a1">7</span><span class="s11-cd"><span class="s11-kw">export class</span> <span class="s11-cl">HmrCounter</span> <span class="s11-kw">extends</span> <span class="s11-cl">LitElement</span> <span class="s11-pn">{</span></span></div>
+          <div class="s11-ln" style="top:96px"><span class="s11-num">8</span><span class="s11-cd">  <span class="s11-fn">@state</span><span class="s11-pn">()</span> count <span class="s11-pn">=</span> <span class="s11-nm">42</span><span class="s11-pn">;</span></span></div>
+          <div id="s11-caret"></div>
+        </div>
+        <div class="s11-code" id="s11-html" style="opacity:0">
+          <div class="s11-hl" id="s11-hl2"></div>
+          <div class="s11-ln" style="top:0"><span class="s11-num">119</span><span class="s11-cd"><span class="s11-pn">&lt;</span><span class="s11-fn">section</span> <span class="s11-kw">class</span><span class="s11-pn">=</span><span class="s11-st">"demo"</span><span class="s11-pn">&gt;</span></span></div>
+          <div class="s11-ln" style="top:48px"><span class="s11-num" style="color:#a1a1a1">120</span><span class="s11-cd">  <span class="s11-pn">&lt;</span><span class="s11-fn">hmr-counter</span> <span class="s11-kw">label</span><span class="s11-pn">=</span><span class="s11-st">"demo"</span><span class="s11-pn">&gt;&lt;/</span><span class="s11-fn">hmr-counter</span><span class="s11-pn">&gt;</span></span></div>
+          <div class="s11-ln" style="top:96px"><span class="s11-num">121</span><span class="s11-cd"><span class="s11-pn">&lt;/</span><span class="s11-fn">section</span><span class="s11-pn">&gt;</span></span></div>
+        </div>
+        <div class="s11-foot" id="s11-foot">src/hmr-counter.ts</div>
+      </div>
+      <div id="s11-site">the call site</div>
+
+      <div class="s11-rip" id="s11-rip1" style="left:1150px;top:270px"></div>
+      <div class="s11-rip" id="s11-rip2" style="left:1150px;top:270px"></div>
+      <div class="s11-rip" id="s11-rip3" style="left:880px;top:438px"></div>
+      <svg id="s11-cursor" viewBox="0 0 22 30"><path d="M1 1 L1 23 L7 18 L11 28 L15 26.5 L11 17 L19 17 Z" fill="#fff" stroke="#030308" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    </div>
+    <script>
+      (function () {
+        var tl = gsap.timeline({ paused: true });
+        var slam = function (id, t) { tl.fromTo(id, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, t); };
+        tl.fromTo("#s11-eyebrow", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.25, ease: "power3.out" }, 0.1);
+        slam("#s11-h1", 0.1);
+        slam("#s11-h2", 0.96);
+        // page-mock card is on stage from the start
+        tl.fromTo("#s11-card", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 0.1);
+        // key caps light up
+        tl.fromTo("#s11-keys", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.2, ease: "power3.out" }, 0.1);
+        [["#s11-k1", 0.24], ["#s11-k2", 0.32], ["#s11-k3", 0.4]].forEach(function (k) {
+          tl.to(k[0], { color: "#ffffff", borderColor: "#00e8ff", boxShadow: "0 0 18px rgba(0,232,255,.55)", duration: 0.1, ease: "power2.out" }, k[1]);
+        });
+        // source overlay hovers the card
+        tl.fromTo("#s11-ov", { opacity: 0 }, { opacity: 1, duration: 0.15, ease: "power2.out" }, 0.48);
+        tl.fromTo("#s11-chip", { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: 0.15, ease: "power2.out" }, 0.5);
+        // tooltip
+        tl.fromTo("#s11-tip", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.25, ease: "power3.out" }, 0.72);
+        // cursor travels to the card, clicks at 0.96
+        tl.set("#s11-cursor", { x: 1010, y: 560 }, 0);
+        tl.fromTo("#s11-cursor", { opacity: 0 }, { opacity: 1, duration: 0.1 }, 0.3);
+        tl.to("#s11-cursor", { x: 1150, y: 270, duration: 0.6, ease: "power3.out" }, 0.34);
+        tl.to("#s11-cursor", { scale: 0.85, transformOrigin: "0px 0px", duration: 0.06, yoyo: true, repeat: 1, ease: "power2.in" }, 0.96);
+        [["#s11-rip1", 0.96], ["#s11-rip2", 1.06], ["#s11-rip3", 1.92]].forEach(function (r) {
+          tl.fromTo(r[0], { opacity: 0.9, scale: 0.3 }, { opacity: 0, scale: 2.4, duration: 0.5, ease: "power2.out", immediateRender: false }, r[1]);
+        });
+        // click -> overlay solidifies, editor morphs out of the click point
+        tl.to("#s11-ov", { backgroundColor: "rgba(77,99,255,.3)", duration: 0.1 }, 0.96);
+        tl.fromTo("#s11-ed", { opacity: 0, scale: 0.15, transformOrigin: "-30px -30px" }, { opacity: 1, scale: 1, duration: 0.4, ease: "power3.out" }, 0.96);
+        // caret blinks (finite, deterministic)
+        for (var i = 0; i < 4; i++) {
+          tl.set("#s11-caret", { opacity: 0 }, 1.4 + i * 0.5);
+          tl.set("#s11-caret", { opacity: 1 }, 1.65 + i * 0.5);
+        }
+        // cursor to the tooltip row, second click at 1.92
+        tl.to("#s11-cursor", { x: 880, y: 438, duration: 0.42, ease: "power2.inOut" }, 1.46);
+        tl.to("#s11-cursor", { scale: 0.85, transformOrigin: "0px 0px", duration: 0.06, yoyo: true, repeat: 1, ease: "power2.in" }, 1.92);
+        tl.fromTo("#s11-arm", { opacity: 0 }, { opacity: 1, duration: 0.1 }, 1.92);
+        // index.html takes the front
+        tl.set("#s11-caret", { opacity: 0 }, 1.92);
+        tl.fromTo("#s11-tab2", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.2, ease: "power3.out" }, 1.92);
+        tl.to("#s11-ul1", { opacity: 0, duration: 0.1 }, 1.92);
+        tl.to("#s11-tab1", { color: "#919191", duration: 0.1 }, 1.92);
+        tl.fromTo("#s11-ul2", { opacity: 0 }, { opacity: 1, duration: 0.1 }, 1.96);
+        tl.to("#s11-ts", { opacity: 0, duration: 0.12 }, 1.92);
+        tl.to("#s11-html", { opacity: 1, duration: 0.12 }, 1.98);
+        tl.set("#s11-foot", { textContent: "index.html" }, 1.95);
+        tl.fromTo("#s11-hl2", { scaleX: 0 }, { scaleX: 1, duration: 0.25, ease: "power3.out" }, 2.0);
+        tl.fromTo("#s11-site", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.25, ease: "power3.out" }, 2.2);
+        tl.to("#s11-tip", { opacity: 0.55, duration: 0.2 }, 2.3);
+        // snap shut
+        tl.set("#s11-wrap", { transformOrigin: "960px 664px" }, 0);
+        tl.to("#s11-wrap", { scaleY: 0, opacity: 0, duration: 0.18, ease: "power3.in" }, 3.51);
+        window.__timelines["s11-source"] = tl;
+      })();
+    </script>
+  </div>
+</template>

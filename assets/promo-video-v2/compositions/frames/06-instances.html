@@ -1,0 +1,128 @@
+<template id="s06-instances-template">
+  <style>
+    @font-face { font-family: "Manrope"; font-weight: 500; src: url("assets/manrope-medium.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 600; src: url("assets/manrope-semibold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 700; src: url("assets/manrope-bold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 800; src: url("assets/manrope-extrabold.woff2") format("woff2"); }
+    @font-face { font-family: "Roboto Mono"; font-weight: 400; src: url("assets/RobotoMono-Latin-400.woff2") format("woff2"); }
+    #s06-instances, #s06-instances * { box-sizing: border-box; }
+    #s06-instances { position: absolute; inset: 0; font-family: "Manrope", sans-serif; }
+    #s06-instances .a6-stage { position: absolute; inset: 0; transform-origin: 960px 664px; }
+    .a6-eyebrow { position: absolute; left: 96px; top: 150px; font-weight: 700; font-size: 18px; letter-spacing: .14em; text-transform: uppercase; color: #6b7bff; line-height: 24px; opacity: 0; white-space: nowrap; }
+    .a6-hl { position: absolute; left: 96px; font-weight: 800; font-size: 68px; line-height: 71px; letter-spacing: -0.03em; color: #fff; white-space: nowrap; opacity: 0; }
+    .a6-cy { color: #00e8ff; }
+    .a6-key { position: absolute; left: 96px; top: 396px; height: 64px; padding: 0 24px 0 18px; display: flex; align-items: center; gap: 12px; background: #17171c; border: 1px solid #363636; box-shadow: 0 5px 0 #000; font-weight: 700; font-size: 24px; color: #a1a1a1; opacity: 0; }
+    .a6-key svg { width: 22px; height: 26px; }
+    .a6-tree { position: absolute; left: 740px; top: 124px; width: 380px; height: 516px; background: #030303; border: 1px solid #363636; opacity: 0; }
+    .a6-tb { position: absolute; left: 0; top: 0; width: 100%; height: 66px; background: #0d0d0d; border-bottom: 1px solid #363636; }
+    .a6-pick { position: absolute; left: 12px; top: 13px; width: 92px; height: 40px; border: 1px solid #363636; color: #e3e3e3; font-weight: 600; font-size: 21px; line-height: 38px; text-align: center; }
+    .a6-filt { position: absolute; left: 116px; top: 13px; width: 250px; height: 40px; border: 1px solid #363636; color: #616161; font-family: "Roboto Mono", monospace; font-size: 19px; line-height: 38px; padding-left: 14px; }
+    .a6-row { position: absolute; left: 0; width: 100%; height: 35px; line-height: 35px; padding-left: 28px; font-family: "Roboto Mono", monospace; font-size: 20px; color: #e3e3e3; white-space: nowrap; }
+    .a6-row .a6-br { color: #919191; }
+    .a6-sel { position: absolute; inset: 0; background: rgb(24,29,61); border-left: 2px solid #4d63ff; opacity: 0; }
+    .a6-row .a6-t { position: relative; }
+    .a6-chev { position: absolute; left: 8px; top: 0; width: 14px; height: 35px; display: block; }
+    .a6-chev i { position: absolute; left: 3px; top: 10px; width: 9px; height: 9px; border-right: 2px solid #919191; border-bottom: 2px solid #919191; }
+    .a6-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #f4bf4f; margin: 0 8px 0 14px; position: relative; top: 0; }
+    .a6-chip { display: inline-block; height: 24px; line-height: 24px; padding: 0 7px; background: #292929; color: #f4bf4f; font-family: "Roboto Mono", monospace; font-size: 14px; vertical-align: middle; position: relative; top: -1px; }
+    .a6-detail { position: absolute; left: 0; bottom: 0; width: 100%; height: 88px; border-top: 1px solid #363636; background: #0d0d0d; padding: 12px 16px; font-family: "Roboto Mono", monospace; font-size: 17px; line-height: 25px; color: #919191; opacity: 0; }
+    .a6-warn { opacity: 0; }
+    .a6-detail b { font-weight: 400; color: #f4bf4f; }
+    .a6-page { position: absolute; left: 1150px; top: 124px; width: 690px; height: 478px; }
+    .a6-card { position: absolute; width: 220px; height: 150px; background: #17171c; border: 1px solid #2c2c33; border-radius: 8px; opacity: 0; }
+    .a6-inst { position: absolute; left: 16px; top: 46px; }
+    .a6-btn { display: block; height: 40px; line-height: 40px; padding: 0 16px; border-radius: 6px; color: #fff; font-weight: 700; font-size: 18px; white-space: nowrap; }
+    .a6-box { position: absolute; left: -6px; top: -6px; right: -6px; bottom: -6px; border: 2px dashed #4d63ff; background: rgba(77,99,255,.12); opacity: 0; }
+    .a6-tag { position: absolute; left: -6px; top: -33px; height: 24px; line-height: 24px; padding: 0 8px; background: #4d63ff; color: #fff; font-family: "Roboto Mono", monospace; font-size: 15px; white-space: nowrap; opacity: 0; }
+    .a6-txt { position: absolute; left: 16px; right: 16px; top: 100px; font-weight: 600; font-size: 15px; line-height: 20px; color: #8b8b94; }
+    .a6-ct { position: absolute; left: 16px; top: 16px; font-weight: 800; font-size: 20px; line-height: 26px; color: #e3e3e3; white-space: nowrap; }
+    .a6-sk { position: absolute; left: 16px; height: 8px; background: #2a2a32; }
+    .a6-bad { background: #2c2c31; border-color: #4a4a52; }
+    .a6-bad .a6-ct { font-family: Arial, Helvetica, sans-serif; font-weight: 400; font-size: 17px; color: #cfcfcf; top: 54px; }
+    .a6-bad .a6-ct2 { position: absolute; left: 16px; top: 88px; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: #9a9aa2; }
+    .a6-ring { position: absolute; inset: -4px; border: 3px solid #f4bf4f; box-shadow: 0 0 22px rgba(244,191,79,.7), inset 0 0 18px rgba(244,191,79,.25); border-radius: 10px; opacity: 0; }
+    .a6-cur { position: absolute; left: 0; top: 0; width: 30px; height: 40px; opacity: 0; filter: drop-shadow(0 2px 3px rgba(0,0,0,.7)); }
+  </style>
+
+  <div id="s06-instances" data-composition-id="s06-instances" data-width="1920" data-height="1080">
+    <div class="a6-stage">
+      <div class="a6-eyebrow">Components</div>
+      <div class="a6-hl" style="top:186px">Every <span class="a6-cy">instance.</span></div>
+      <div class="a6-hl a6-h2" style="top:257px">Every <span class="a6-cy">typo.</span></div>
+      <div class="a6-key"><svg viewBox="0 0 22 26"><path d="M11 3 L20 13 H14.5 V22 H7.5 V13 H2 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Shift</span></div>
+
+      <div class="a6-tree">
+        <div class="a6-tb"><div class="a6-pick">Pick</div><div class="a6-filt">Filter tags</div></div>
+        <div class="a6-row" style="top:74px"><span class="a6-br">&lt;</span>hmr-counter<span class="a6-br">&gt;</span></div>
+        <div class="a6-row" style="top:109px"><span class="a6-br">&lt;</span>hmr-task<span class="a6-br">&gt;</span></div>
+        <div class="a6-row" style="top:144px"><div class="a6-sel"></div><span class="a6-t"><span class="a6-br">&lt;</span>hmr-utility-btn<span class="a6-br">&gt;</span></span></div>
+        <div class="a6-row" style="top:179px"><div class="a6-sel"></div><span class="a6-t"><span class="a6-br">&lt;</span>hmr-utility-btn<span class="a6-br">&gt;</span></span></div>
+        <div class="a6-row" style="top:214px"><span class="a6-br">&lt;</span>hmr-utility-badge<span class="a6-br">&gt;</span></div>
+        <div class="a6-row" style="top:249px"><span class="a6-br">&lt;</span>hmr-slots<span class="a6-br">&gt;</span></div>
+        <div class="a6-row" style="top:284px"><span class="a6-br">&lt;</span>hmr-warnings<span class="a6-br">&gt;</span> <span class="a6-chip a6-warn" style="margin-left:6px">1 warning</span></div>
+        <div class="a6-row" style="top:319px"><span class="a6-chev"><i class="a6-chevi"></i></span><span class="a6-br">&lt;</span>hmr-undefined<span class="a6-br">&gt;</span></div>
+        <div class="a6-row a6-newrow" style="top:354px; padding-left:40px; opacity:0"><span class="a6-br">&lt;</span>hmr-not-defind<span class="a6-br">&gt;</span><span class="a6-dot" style="margin:0 6px 0 10px"></span><span class="a6-chip">not defined</span></div>
+        <div class="a6-detail"><span class="a6-br" style="color:#e3e3e3">&lt;hmr-not-defind&gt;</span> is never defined — rendered at <b>index.html:212</b></div>
+      </div>
+
+      <div class="a6-page">
+        <div class="a6-card" style="left:0;top:0"><div class="a6-inst"><div class="a6-btn" style="background:#3b82f6">Click me</div><div class="a6-box"></div><div class="a6-tag">&lt;hmr-utility-btn&gt;</div></div><div class="a6-txt">Utility-class button</div></div>
+        <div class="a6-card" style="left:235px;top:0"><div class="a6-inst"><div class="a6-btn" style="background:#e03131">Delete</div><div class="a6-box"></div><div class="a6-tag">&lt;hmr-utility-btn&gt;</div></div><div class="a6-txt">Second button, variant-specific class</div></div>
+        <div class="a6-card" style="left:470px;top:0"><div class="a6-inst"><div class="a6-btn" style="background:#2f9e44">Badge</div><div class="a6-box"></div><div class="a6-tag">&lt;hmr-utility-btn&gt;</div></div><div class="a6-txt">Utility-class badge</div></div>
+        <div class="a6-card" style="left:0;top:164px"><div class="a6-inst"><div class="a6-btn" style="background:#3b5bdb;width:48px;padding:0;text-align:center">A</div><div class="a6-box"></div><div class="a6-tag">&lt;hmr-utility-btn&gt;</div></div><div class="a6-txt">?css-sheet consumer A</div></div>
+        <div class="a6-card" style="left:235px;top:164px"><div class="a6-inst"><div class="a6-btn" style="background:#3b5bdb;width:48px;padding:0;text-align:center">B</div><div class="a6-box"></div><div class="a6-tag">&lt;hmr-utility-btn&gt;</div></div><div class="a6-txt">?css-sheet consumer B</div></div>
+        <div class="a6-card" style="left:470px;top:164px"><div class="a6-ct">Counter</div><div class="a6-txt" style="top:50px;color:#e3e3e3;font-size:18px">Count: 42</div><div class="a6-sk" style="top:98px;width:150px"></div><div class="a6-sk" style="top:116px;width:110px"></div></div>
+        <div class="a6-card" style="left:0;top:328px"><div class="a6-ct">Probe</div><div class="a6-txt" style="top:50px;color:#e3e3e3;font-size:18px">observed target</div><div class="a6-sk" style="top:98px;width:160px"></div><div class="a6-sk" style="top:116px;width:90px"></div></div>
+        <div class="a6-card" style="left:235px;top:328px"><div class="a6-ct">Slots and parts</div><div class="a6-txt" style="top:50px;color:#e3e3e3;font-size:18px">Default slot content.</div><div class="a6-sk" style="top:98px;width:140px"></div><div class="a6-sk" style="top:116px;width:120px"></div></div>
+        <div class="a6-card a6-bad" style="left:470px;top:328px"><div class="a6-ring"></div><div class="a6-ct" style="left:16px;top:16px;font-family:Manrope,sans-serif;font-weight:800;font-size:20px;color:#e3e3e3">Undefined</div><div class="a6-ct" style="top:56px">hmr-not-defind</div><div class="a6-ct2">no styles applied</div></div>
+      </div>
+
+      <svg class="a6-cur" viewBox="0 0 30 40"><path d="M2 2 L2 31 L9 25 L14.5 37 L19.5 34.8 L14 23 L23 23 Z" fill="#fff" stroke="#000" stroke-width="2" stroke-linejoin="round"/></svg>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var R = document.getElementById("s06-instances");
+      var q = function (s) { return R.querySelector(s); };
+      var qa = function (s) { return R.querySelectorAll(s); };
+      var tl = gsap.timeline({ paused: true });
+      var slam = function (el, t) { tl.fromTo(el, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, t); };
+
+      tl.fromTo(q(".a6-eyebrow"), { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 0);
+      slam(qa(".a6-hl")[0], 0.1);
+      tl.fromTo(q(".a6-tree"), { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, 0.1);
+      tl.fromTo(qa(".a6-card"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out", stagger: 0.04 }, 0.14);
+      tl.fromTo(q(".a6-key"), { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 0.24);
+
+      /* 0.48 cursor + shift key */
+      tl.fromTo(q(".a6-cur"), { x: 1020, y: 470, opacity: 0 }, { x: 880, y: 287, opacity: 1, duration: 0.46, ease: "power3.out" }, 0.48);
+      tl.to(q(".a6-key"), { backgroundColor: "#4d63ff", color: "#ffffff", borderColor: "#8a9bff", boxShadow: "0 2px 0 #000, 0 0 26px rgba(77,99,255,.7)", y: 3, duration: 0.12, ease: "power2.out" }, 0.48);
+
+      /* 0.96 HIT: instances */
+      qa(".a6-box").forEach(function (b, i) {
+        var t = 0.96 + i * 0.05;
+        tl.fromTo(b, { opacity: 0, scale: 1.2 }, { opacity: 1, scale: 1, duration: 0.2, ease: "power3.out" }, t);
+        tl.fromTo(b.nextElementSibling, { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: 0.2, ease: "power3.out" }, t + 0.04);
+      });
+      qa(".a6-sel").forEach(function (s, i) { tl.fromTo(s, { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power2.out" }, 0.96 + i * 0.05); });
+
+      /* 1.92 HIT: typo */
+      slam(q(".a6-h2"), 1.92);
+      tl.fromTo(q(".a6-chevi"), { rotation: -45 }, { rotation: 45, duration: 0.2, ease: "power3.out" }, 1.92);
+      tl.fromTo(q(".a6-newrow"), { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.25, ease: "power3.out" }, 1.92);
+      tl.fromTo(q(".a6-ring"), { opacity: 0 }, { opacity: 1, duration: 0.24, repeat: 4, yoyo: true, ease: "sine.inOut" }, 1.92);
+      tl.to(q(".a6-cur"), { x: 930, y: 506, duration: 0.3, ease: "power2.inOut" }, 2.1);
+      tl.to(qa(".a6-warn"), { opacity: 1, duration: 0.2, ease: "power3.out" }, 2.4);
+      tl.fromTo(qa(".a6-warn"), { scale: 0.7 }, { scale: 1, duration: 0.25, ease: "back.out(2)" }, 2.4);
+
+      /* 2.88 detail line */
+      tl.fromTo(q(".a6-detail"), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 2.88);
+
+      /* snap shut */
+      tl.fromTo(q(".a6-stage"), { scaleY: 1, opacity: 1 }, { scaleY: 0, opacity: 0, duration: 0.18, ease: "power3.in" }, 3.51);
+
+      window.__timelines["s06-instances"] = tl;
+    })();
+  </script>
+</template>

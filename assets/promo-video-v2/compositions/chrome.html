@@ -1,0 +1,411 @@
+<template id="chrome-template">
+  <style>
+    @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:600;src:url("assets/manrope-semibold.woff2") format("woff2")}
+    @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2")}
+    #chrome{position:absolute;inset:0;overflow:hidden;font-family:"Manrope",sans-serif;color:#e3e3e3}
+    #chrome *{box-sizing:border-box}
+    #chrome-ground{position:absolute;left:0;top:0;width:1920px;height:1080px;background:radial-gradient(circle 1000px at 960px 380px,rgba(42,44,157,0.35),rgba(42,44,157,0) 100%),#030308}
+    #chrome-black{position:absolute;left:0;top:0;width:1920px;height:1080px;background:#000;opacity:0}
+    #chrome-wingrp{position:absolute;left:0;top:0;width:1920px;height:1080px}
+    #chrome-winbg{position:absolute;left:592px;top:335.2px;width:736px;height:409.6px;background:#030303;border-radius:12px;box-shadow:0 30px 80px rgba(0,0,0,0.6),0 0 0 1px #363636;opacity:0}
+    #chrome-content{position:absolute;left:0;top:0;width:1920px;height:1080px;clip-path:inset(28px 40px 28px 40px round 12px)}
+    #chrome-hdr{position:absolute;left:40px;top:28px;width:1840px;height:72px;background:#0d0d0d;border-bottom:1px solid #363636;opacity:0}
+    #chrome-flame{position:absolute;left:68px;top:49px;height:30px;width:24px;display:block;opacity:0}
+    #chrome-title{position:absolute;left:108px;top:28px;height:72px;line-height:72px;font-weight:800;font-size:19px;letter-spacing:0.08em;color:#e3e3e3;white-space:nowrap;opacity:0}
+    .chrome-tab{position:absolute;top:28px;height:72px;display:flex;align-items:center;gap:10px;padding:0 22px;font-weight:600;font-size:21px;color:#a1a1a1;white-space:nowrap;opacity:0}
+    .chrome-tab svg{display:block;width:18px;height:18px;flex:none}
+    #chrome-ul{position:absolute;top:97px;height:3px;background:#324fff;opacity:0}
+    #chrome-rec{position:absolute;right:64px;top:42px;width:0;height:44px;opacity:0}
+    .chrome-btn{position:absolute;right:0;top:0;height:44px;padding:0 18px;display:flex;align-items:center;gap:9px;font-weight:600;font-size:19px;white-space:nowrap}
+    #chrome-btn-rec{background:#0d0d0d;border:1px solid #363636;color:#e3e3e3}
+    #chrome-btn-rec i{display:block;width:11px;height:11px;border-radius:50%;background:#ff6b6b}
+    #chrome-btn-stop{background:#3a0d14;border:1px solid #8a1f2b;color:#ff6b6b;opacity:0}
+    #chrome-btn-stop i{display:block;width:10px;height:10px;background:#ff6b6b}
+    /* strip: --o = screen x of timeline t=0, --k = px per second */
+    #chrome-strip{position:absolute;left:0;top:0;width:1920px;height:1080px;--o:760;--k:100}
+    #chrome-rulerwrap{position:absolute;left:0;top:0;width:1920px;height:1080px;clip-path:inset(0px 1880px 0px 40px)}
+    #chrome-rulerbg{position:absolute;left:40px;top:664px;width:1840px;height:36px;background:#0d0d0d;border-top:1px solid #363636;border-bottom:1px solid #363636}
+    .chrome-clipr{position:absolute;left:280px;width:1600px;overflow:hidden}
+    .chrome-cv{position:absolute;left:-280px;width:1920px;height:1080px}
+    .chrome-tick{position:absolute;top:690px;width:1px;height:10px;background:#363636;left:calc((var(--o) + var(--k) * var(--t)) * 1px)}
+    .chrome-rl{position:absolute;top:670px;height:20px;line-height:20px;font-family:"Roboto Mono",monospace;font-size:15px;color:#919191;white-space:nowrap;left:calc((var(--o) + var(--k) * var(--t)) * 1px + 6px)}
+    #chrome-gutter{position:absolute;left:40px;top:700px;width:240px;height:352px;background:#030303;border-right:1px solid #363636}
+    .chrome-lline{position:absolute;left:40px;width:1840px;height:1px;background:#1f1f1f;transform-origin:0 50%}
+    .chrome-lab{position:absolute;left:64px;height:70px;display:flex;align-items:center;opacity:0}
+    .chrome-sw{position:relative;display:block;width:12px;height:12px;flex:none}
+    .chrome-sw i,.chrome-sw b{position:absolute;left:0;top:0;width:12px;height:12px;display:block}
+    .chrome-sw b{opacity:0}
+    .chrome-ltxt{margin-left:10px;font-family:"Roboto Mono",monospace;font-size:19px;color:#c8c8c8;white-space:nowrap}
+    .chrome-ltxt span{opacity:0}
+    #chrome-marks{position:absolute;left:0;top:0;width:1920px;height:1080px;opacity:0}
+    .chrome-mark{position:absolute;width:2px;height:22px;opacity:0;left:calc((var(--o) + var(--k) * var(--t)) * 1px - 1px)}
+    .chrome-bar{position:absolute;height:30px;left:calc((var(--o) + var(--k) * var(--t)) * 1px);width:calc(var(--k) * var(--w) * 1px)}
+    .chrome-bar .g,.chrome-bar .f{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0}
+    .chrome-bar .d{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0.55;overflow:hidden;clip-path:inset(0px 100% 0px 0px)}
+    .chrome-bar .ol{position:absolute;left:0;top:0;width:100%;height:100%;border:1.5px solid currentColor}
+    .chrome-bar .lw{position:absolute;left:0;top:0;width:100%;height:100%;padding-left:8px;line-height:30px;font-family:"Roboto Mono",monospace;font-size:15px;white-space:nowrap;overflow:hidden}
+    .chrome-con{position:absolute;left:759px;top:664px;width:2px;transform-origin:50% 100%;opacity:0}
+    #chrome-range{position:absolute;left:330px;top:664px;width:0;height:386px;background:rgba(36,48,140,0.32);border-left:1px solid #4d63ff;border-right:1px solid #4d63ff;opacity:0}
+    .chrome-rlab{position:absolute;top:670px;height:22px;line-height:22px;padding:0 5px;font-family:"Roboto Mono",monospace;font-size:14px;color:#fff;background:#324fff;white-space:nowrap;opacity:0}
+    #chrome-rlab-a{left:246px;width:80px;text-align:right}
+    #chrome-rlab-b{left:246px;width:80px;text-align:right}
+    #chrome-rails{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:visible;filter:drop-shadow(0 0 6px rgba(0,232,255,0.6))}
+    #chrome-ph{position:absolute;left:759px;top:664px;width:2px;height:386px;background:#00e8ff;box-shadow:0 0 12px rgba(0,232,255,0.6);opacity:0}
+    #chrome-phcap{position:absolute;left:753px;top:666px;width:14px;height:14px;opacity:0}
+    #chrome-phcap svg{display:block;width:14px;height:14px}
+    #chrome-cursor{position:absolute;left:330px;top:860px;width:24px;height:24px;opacity:0}
+    #chrome-cursor svg{position:absolute;left:0;top:0;width:24px;height:24px;overflow:visible}
+    #chrome-key{position:absolute;left:22px;top:26px;width:28px;height:28px;background:#292929;border:1px solid #363636;font-family:"Roboto Mono",monospace;font-size:16px;line-height:26px;text-align:center;color:#e3e3e3}
+  </style>
+
+  <div id="chrome" data-composition-id="chrome" data-width="1920" data-height="1080">
+    <div id="chrome-ground"></div>
+    <div id="chrome-wingrp">
+      <div id="chrome-winbg"></div>
+      <div id="chrome-content">
+        <div id="chrome-hdr"></div>
+        <img id="chrome-flame" src="assets/flame.svg" alt="" />
+        <div id="chrome-title">LIT DEVTOOLS</div>
+        <div id="chrome-tabs"></div>
+        <div id="chrome-ul"></div>
+        <div id="chrome-rec">
+          <div class="chrome-btn" id="chrome-btn-rec"><i></i>Record</div>
+          <div class="chrome-btn" id="chrome-btn-stop"><i></i>Stop</div>
+        </div>
+        <div id="chrome-strip">
+          <div id="chrome-rulerwrap">
+            <div id="chrome-rulerbg"></div>
+            <div class="chrome-clipr" style="top:664px;height:36px"><div class="chrome-cv" id="chrome-ticks" style="top:-664px"></div></div>
+          </div>
+          <div id="chrome-gutter"></div>
+          <div id="chrome-lanes"></div>
+          <div class="chrome-clipr" style="top:700px;height:350px">
+            <div class="chrome-cv" style="top:-700px">
+              <div id="chrome-marks"></div>
+              <div id="chrome-bars"></div>
+            </div>
+          </div>
+          <div id="chrome-range"></div>
+          <div class="chrome-rlab" id="chrome-rlab-a">22630ms</div>
+          <div class="chrome-rlab" id="chrome-rlab-b"><span id="chrome-rnum">22630</span>ms</div>
+          <div id="chrome-ph"></div>
+          <div id="chrome-cons"></div>
+          <div id="chrome-phcap"><svg viewBox="0 0 14 14"><path d="M0 0H14L7 14Z" fill="#00e8ff"/></svg></div>
+          <svg id="chrome-rails" viewBox="0 0 1920 1080"></svg>
+          <div id="chrome-cursor">
+            <svg viewBox="0 0 24 24"><path d="M1 1 L1 19 L6 14.5 L9.5 22 L12.5 20.6 L9.2 13.4 L15.5 13.4 Z" fill="#ffffff" stroke="#030303" stroke-width="1.4" stroke-linejoin="round"/></svg>
+            <div id="chrome-key">&#8679;</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="chrome-black"></div>
+  </div>
+
+  <script>
+    (function () {
+      var NS = "http://www.w3.org/2000/svg";
+      var root = document.getElementById("chrome");
+      var $ = function (id) { return document.getElementById(id); };
+
+      // ---------- time model ----------
+      var BREAK_A = 26.93, BREAK_B = 30.77, HOLD = BREAK_B - BREAK_A; // 3.84
+      var D_END = 49.97 - HOLD; // 46.13
+      function tgOf(t) { return t <= BREAK_A ? t : t + HOLD; }
+
+      var LANES = [
+        { name: "HMR", c: "#4d63ff" },
+        { name: "Components", c: "#6b7bff" },
+        { name: "Timeline", c: "#99aeff" },
+        { name: "Source", c: "#af7a51" },
+        { name: "Agents", c: "#a451af" }
+      ];
+      var BARS = [
+        [3.99, 9.55, 0, "hmr update"],
+        [9.75, 13.39, 1, "inspect"],
+        [13.59, 19.15, 0, "?css-sheet"],
+        [19.35, 22.99, 1, "every instance"],
+        [23.19, 26.83, 1, "anatomy"],
+        [27.03, 30.67, 2, "cause"],
+        [30.87, 34.51, 2, "task chain"],
+        [34.71, 38.35, 3, "open in editor"],
+        [38.55, 42.19, 4, "lit_range-summary"],
+        [42.39, 46.03, 1, "lit inspector"]
+      ];
+      var TABS = ["Components", "Updates", "Timeline", "Settings"];
+
+      // ---------- tab icons ----------
+      function gearPath() {
+        var pts = [], n = 32;
+        for (var j = 0; j < n; j++) {
+          var a = (j / n) * Math.PI * 2 - Math.PI / 2 + Math.PI / 32;
+          var r = (j % 4 < 2) ? 7.6 : 5.9;
+          pts.push((9 + r * Math.cos(a)).toFixed(2) + " " + (9 + r * Math.sin(a)).toFixed(2));
+        }
+        return "M" + pts.join(" L") + " Z";
+      }
+      var ICONS = [
+        '<path d="M9 1.6 15.8 5.4v7.2L9 16.4 2.2 12.6V5.4Z M2.2 5.4 9 9.2l6.8-3.8 M9 9.2v7.2"/>',
+        '<path d="M8 3H3v12h12v-5 M11 2.5h4.5V7 M15.5 2.5 8.5 9.5"/>',
+        '<circle cx="9" cy="9" r="7"/><path d="M9 5v4l2.8 1.8"/>',
+        '<path d="' + gearPath() + '"/><circle cx="9" cy="9" r="2.4"/>'
+      ];
+
+      var tabsEl = $("chrome-tabs");
+      var tabEls = TABS.map(function (name, i) {
+        var d = document.createElement("div");
+        d.className = "chrome-tab";
+        d.innerHTML = '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' + ICONS[i] + "</svg><span>" + name + "</span>";
+        tabsEl.appendChild(d);
+        return d;
+      });
+
+      // ---------- ruler ----------
+      var ticks = $("chrome-ticks"), nf = [];
+      for (var h = 0; h <= 116; h++) {
+        var t = h / 2;
+        var tk = document.createElement("div");
+        tk.className = "chrome-tick";
+        tk.style.setProperty("--t", t);
+        ticks.appendChild(tk);
+        if (h % 2 === 0) {
+          var lb = document.createElement("div");
+          lb.className = "chrome-rl";
+          lb.style.setProperty("--t", t);
+          lb.textContent = (t * 1000) + "ms";
+          ticks.appendChild(lb);
+          if (t % 5 !== 0 || t > 44) nf.push(lb);
+        }
+      }
+
+      // ---------- lanes ----------
+      var lanesEl = $("chrome-lanes"), laneLines = [], laneLabs = [], laneChars = [], laneGlow = [], laneTxt = [];
+      LANES.forEach(function (L, i) {
+        var ln = document.createElement("div");
+        ln.className = "chrome-lline";
+        ln.style.top = (700 + 70 * i + 69) + "px";
+        lanesEl.appendChild(ln);
+        laneLines.push(ln);
+        var lab = document.createElement("div");
+        lab.className = "chrome-lab";
+        lab.style.top = (700 + 70 * i) + "px";
+        var chars = L.name.split("").map(function (ch) { return "<span>" + ch + "</span>"; }).join("");
+        lab.innerHTML = '<span class="chrome-sw"><b style="background:' + L.c + ";box-shadow:0 0 10px " + L.c + ",0 0 4px " + L.c + '"></b><i style="background:' + L.c + '"></i></span><span class="chrome-ltxt">' + chars + "</span>";
+        lanesEl.appendChild(lab);
+        laneLabs.push(lab);
+        laneChars.push(lab.querySelectorAll(".chrome-ltxt span"));
+        laneGlow.push(lab.querySelector(".chrome-sw b"));
+        laneTxt.push(lab.querySelector(".chrome-ltxt"));
+      });
+
+      // ---------- ambient marks ----------
+      var marksEl = $("chrome-marks"), marks = [];
+      LANES.forEach(function (L, i) {
+        for (var n = 0; ; n++) {
+          var t = 0.053 + 0.48 * n;
+          if (t > D_END + 1e-6) break;
+          if ((7 * n + 3 * i) % 5 !== 0) continue;
+          var m = document.createElement("div");
+          m.className = "chrome-mark";
+          m.style.setProperty("--t", t.toFixed(3));
+          m.style.top = (700 + 70 * i + 24) + "px";
+          m.style.background = L.c;
+          marksEl.appendChild(m);
+          marks.push({ el: m, tg: tgOf(t) });
+        }
+      });
+
+      // ---------- bars + connectors ----------
+      var barsEl = $("chrome-bars"), consEl = $("chrome-cons"), bars = [];
+      BARS.forEach(function (B) {
+        var L = LANES[B[2]];
+        var b = document.createElement("div");
+        b.className = "chrome-bar";
+        b.style.setProperty("--t", B[0]);
+        b.style.setProperty("--w", (B[1] - B[0]).toFixed(2));
+        b.style.top = (720 + 70 * B[2]) + "px";
+        b.style.color = L.c;
+        b.innerHTML = '<div class="g" style="background:' + L.c + ";box-shadow:0 0 18px " + L.c + '"></div><div class="f" style="background:' + L.c + '"></div><div class="d"><div class="ol"></div><div class="lw"><span class="lb">' + B[3] + "</span></div></div>";
+        barsEl.appendChild(b);
+        var con = document.createElement("div");
+        con.className = "chrome-con";
+        con.style.height = (56 + 70 * B[2]) + "px";
+        con.style.background = L.c;
+        con.style.boxShadow = "0 0 8px " + L.c;
+        consEl.appendChild(con);
+        bars.push({
+          el: b, g: b.querySelector(".g"), f: b.querySelector(".f"), d: b.querySelector(".d"),
+          ol: b.querySelector(".ol"), lw: b.querySelector(".lw"), lb: b.querySelector(".lb"),
+          con: con, lane: B[2], c: L.c, t0: B[0], t1: B[1]
+        });
+      });
+
+      // ---------- outro rails (final zoom geometry x = 290 + 34 t) ----------
+      var rails = $("chrome-rails"), links = [];
+      function zx(t) { return 290 + 34 * t; }
+      function ly(i) { return 735 + 70 * i; }
+      for (var k = 0; k < BARS.length - 1; k++) {
+        var A = BARS[k], Bn = BARS[k + 1];
+        var x1 = zx(A[1]), y1 = ly(A[2]), x2 = zx(Bn[0]), y2 = ly(Bn[2]);
+        var len = 6 + Math.abs(y2 - y1) + Math.abs(x2 - (x1 + 6));
+        var p = document.createElementNS(NS, "path");
+        p.setAttribute("d", "M" + x1.toFixed(2) + " " + y1 + " H" + (x1 + 6).toFixed(2) + " V" + y2 + " H" + x2.toFixed(2));
+        p.setAttribute("fill", "none");
+        p.setAttribute("stroke", "#00e8ff");
+        p.setAttribute("stroke-width", "2");
+        p.setAttribute("stroke-dasharray", len.toFixed(2));
+        p.setAttribute("stroke-dashoffset", len.toFixed(2));
+        rails.appendChild(p);
+        var dA = document.createElementNS(NS, "circle"), dB = document.createElementNS(NS, "circle");
+        [[dA, x1, y1], [dB, x2, y2]].forEach(function (q) {
+          q[0].setAttribute("cx", q[1].toFixed(2));
+          q[0].setAttribute("cy", q[2]);
+          q[0].setAttribute("r", "3");
+          q[0].setAttribute("fill", "#00e8ff");
+          q[0].setAttribute("opacity", "0");
+          rails.appendChild(q[0]);
+        });
+        links.push({ p: p, len: len, a: dA, b: dB });
+      }
+
+      function build() {
+        // tab geometry from measured label widths
+        var cv = document.createElement("canvas").getContext("2d");
+        cv.font = '600 21px "Manrope"';
+        var x = 290, boxes = [];
+        tabEls.forEach(function (el, i) {
+          var w = Math.round(22 + 18 + 10 + cv.measureText(TABS[i]).width + 22);
+          el.style.left = x + "px";
+          el.style.width = w + "px";
+          boxes.push({ x: x, w: w });
+          x += w;
+        });
+        var ul = $("chrome-ul");
+        ul.style.left = boxes[2].x + "px";
+        ul.style.width = boxes[2].w + "px";
+
+        var tl = gsap.timeline({ paused: true });
+        var IR = { immediateRender: false };
+        function F(el, from, to, pos) { return tl.fromTo(el, from, Object.assign({}, IR, to), pos); }
+        function G(el, from, to, pos) { return tl.fromTo(el, from, to, pos); }
+
+        // ---------- cold open ----------
+        G($("chrome-winbg"), { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power1.out" }, 0);
+        G($("chrome-winbg"), { left: 592, top: 335.2, width: 736, height: 409.6 },
+          { left: 40, top: 28, width: 1840, height: 1024, duration: 0.55, ease: "power3.out" }, 0.05);
+        G($("chrome-hdr"), { opacity: 0 }, { opacity: 1, duration: 0.25 }, 0.3);
+        G([$("chrome-flame"), $("chrome-title")], { opacity: 0, x: -8 }, { opacity: 1, x: 0, duration: 0.3, ease: "power3.out" }, 0.35);
+        G(tabEls, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out", stagger: 0.06 }, 0.4);
+        tl.set(tabEls[2], { color: "#4d63ff" }, 0.4);
+        G(ul, { opacity: 0, scaleX: 0 }, { opacity: 1, scaleX: 1, duration: 0.25, ease: "power3.out" }, 0.55);
+        G($("chrome-rec"), { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.25, ease: "back.out(2)", transformOrigin: "100% 50%" }, 0.6);
+        G($("chrome-rulerwrap"), { clipPath: "inset(0px 1880px 0px 40px)" }, { clipPath: "inset(0px 40px 0px 40px)", duration: 0.3, ease: "power2.inOut" }, 0.6);
+        G(laneLines, { scaleX: 0 }, { scaleX: 1, duration: 0.35, ease: "power3.out", stagger: 0.08 }, 0.7);
+        G(laneLabs, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.25, ease: "power3.out", stagger: 0.08 }, 0.7);
+        laneChars.forEach(function (ch, i) {
+          G(ch, { opacity: 0 }, { opacity: 1, duration: 0.01, stagger: 0.03 }, 0.72 + 0.08 * i);
+        });
+        G($("chrome-gutter"), { opacity: 0 }, { opacity: 1, duration: 0.25 }, 0.6);
+        G(marksEl, { opacity: 0 }, { opacity: 1, duration: 0.2 }, 0.7);
+        G(bars.map(function (b) { return b.d; }), { clipPath: "inset(0px 100% 0px 0px)" },
+          { clipPath: "inset(0px 0% 0px 0px)", duration: 0.35, ease: "power2.out", stagger: 0.025 }, 1.0);
+
+        // ---------- Record / Stop ----------
+        F($("chrome-btn-stop"), { opacity: 0 }, { opacity: 1, duration: 0.12 }, 1.6);
+        F($("chrome-btn-rec"), { opacity: 1 }, { opacity: 0, duration: 0.12 }, 1.6);
+        F($("chrome-btn-stop"), { opacity: 1 }, { opacity: 0, duration: 0.12 }, 52.2);
+        F($("chrome-btn-rec"), { opacity: 0 }, { opacity: 1, duration: 0.12 }, 52.2);
+
+        // ---------- playhead ----------
+        var ph = [$("chrome-ph"), $("chrome-phcap")];
+        F(ph, { opacity: 0 }, { opacity: 1, duration: 0.2 }, 1.6);
+        F(ph, { opacity: 1 }, { opacity: 0, duration: 0.2 }, 52.2);
+
+        // ---------- tabs per scene ----------
+        function tabSwitch(from, to, at) {
+          F(tabEls[from], { color: "#4d63ff" }, { color: "#a1a1a1", duration: 0.25 }, at);
+          F(tabEls[to], { color: "#a1a1a1" }, { color: "#4d63ff", duration: 0.25 }, at);
+          F(ul, { left: boxes[from].x, width: boxes[from].w }, { left: boxes[to].x, width: boxes[to].w, duration: 0.25, ease: "power3.out" }, at);
+        }
+        tabSwitch(2, 0, 3.89);
+        tabSwitch(0, 2, 26.93);
+        tabSwitch(2, 0, 38.45);
+        tabSwitch(0, 2, 42.29);
+
+        // ---------- pan: x = --o + --k * t ----------
+        var strip = $("chrome-strip");
+        F(strip, { "--o": 760 }, { "--o": 760 - 100 * BREAK_A, duration: BREAK_A, ease: "none" }, 0);
+        F(strip, { "--o": 760 - 100 * BREAK_A }, { "--o": 760 - 100 * D_END, duration: 49.97 - BREAK_B, ease: "none" }, BREAK_B);
+
+        // ---------- marks appear as the playhead crosses ----------
+        marks.forEach(function (m) {
+          F(m.el, { opacity: 0 }, { opacity: 0.75, duration: 0.06 }, m.tg);
+        });
+
+        // ---------- bar states, connectors, lane labels ----------
+        bars.forEach(function (b) {
+          var ta = tgOf(b.t0), tp = tgOf(b.t1);
+          F(b.g, { opacity: 0 }, { opacity: 1, duration: 0.15 }, ta);
+          F(b.d, { opacity: 0.55 }, { opacity: 1, duration: 0.15 }, ta);
+          F(b.ol, { opacity: 1 }, { opacity: 0, duration: 0.15 }, ta);
+          F(b.lw, { color: b.c }, { color: "#ffffff", duration: 0.15 }, ta);
+          F(b.con, { opacity: 1, scaleY: 0 }, { opacity: 1, scaleY: 1, duration: 0.2, ease: "power2.out" }, ta);
+          F(b.con, { opacity: 1 }, { opacity: 0, duration: 0.15 }, tp);
+          F(laneTxt[b.lane], { color: "#c8c8c8" }, { color: "#ffffff", duration: 0.15 }, ta);
+          F(laneGlow[b.lane], { opacity: 0 }, { opacity: 1, duration: 0.15 }, ta);
+          F(laneTxt[b.lane], { color: "#ffffff" }, { color: "#c8c8c8", duration: 0.15 }, tp);
+          F(laneGlow[b.lane], { opacity: 1 }, { opacity: 0, duration: 0.15 }, tp);
+          F(b.g, { opacity: 1 }, { opacity: 0, duration: 0.25 }, tp);
+          F(b.f, { opacity: 0 }, { opacity: 0.55, duration: 0.25 }, tp);
+          F(b.lw, { color: "#ffffff", opacity: 1 }, { color: "#e3e3e3", opacity: 0.7, duration: 0.25 }, tp);
+        });
+
+        // ---------- break: Shift-drag range ----------
+        var cur = $("chrome-cursor"), rng = $("chrome-range");
+        F(cur, { opacity: 0 }, { opacity: 1, duration: 0.2 }, 27.2);
+        F(cur, { x: 0 }, { x: 410, duration: 0.88, ease: "power2.inOut" }, 27.44);
+        F(rng, { opacity: 0 }, { opacity: 1, duration: 0.1 }, 27.44);
+        F(rng, { width: 0 }, { width: 410, duration: 0.88, ease: "power2.inOut" }, 27.44);
+        F($("chrome-rlab-a"), { opacity: 0 }, { opacity: 1, duration: 0.15 }, 27.44);
+        F($("chrome-rlab-b"), { x: 0 }, { x: 410, duration: 0.88, ease: "power2.inOut" }, 27.44);
+        F($("chrome-rnum"), { innerText: 22630 }, { innerText: 26730, snap: { innerText: 10 }, duration: 0.88, ease: "power2.inOut" }, 27.44);
+        F($("chrome-rlab-b"), { opacity: 0 }, { opacity: 1, duration: 0.15 }, 27.8);
+        F(cur, { opacity: 1 }, { opacity: 0, duration: 0.25 }, 28.6);
+        F([rng, $("chrome-rlab-a"), $("chrome-rlab-b")], { opacity: 1 }, { opacity: 0, duration: 0.25 }, 30.45);
+
+        // ---------- outro zoom ----------
+        var Z0 = 49.97;
+        F(strip, { "--o": 760 - 100 * D_END, "--k": 100 }, { "--o": 290, "--k": 34, duration: 1, ease: "power3.inOut" }, Z0);
+        F(bars.map(function (b) { return b.lb; }), { opacity: 1 }, { opacity: 0, duration: 0.2 }, Z0);
+        F(nf, { opacity: 1 }, { opacity: 0, duration: 0.25 }, Z0);
+        F(ph, { x: 0 }, { x: zx(D_END) - 760, duration: 1, ease: "power3.inOut" }, Z0);
+
+        // ---------- cause rails ----------
+        var step = (52.05 - 50.97) / links.length;
+        links.forEach(function (L, i) {
+          var s = 50.97 + step * i;
+          F(L.a, { opacity: 0 }, { opacity: 1, duration: 0.04 }, s);
+          F(L.p, { strokeDashoffset: L.len }, { strokeDashoffset: 0, duration: step, ease: "none" }, s);
+          F(L.b, { opacity: 0 }, { opacity: 1, duration: 0.04 }, s + step - 0.02);
+        });
+
+        // ---------- collapse + fade to black ----------
+        F($("chrome-wingrp"), { scale: 1, opacity: 1 }, { scale: 0.92, opacity: 0, duration: 0.7, ease: "power3.in", transformOrigin: "960px 540px" }, 52.4);
+        F($("chrome-black"), { opacity: 0 }, { opacity: 1, duration: 0.52, ease: "none" }, 54.4);
+
+        window.__timelines["chrome"] = tl;
+        if (window.__hfForceTimelineRebind) window.__hfForceTimelineRebind();
+      }
+
+      var fontsReady = (document.fonts && document.fonts.load)
+        ? Promise.all([
+            document.fonts.load('600 21px "Manrope"'),
+            document.fonts.load('800 19px "Manrope"'),
+            document.fonts.load('15px "Roboto Mono"')
+          ]).catch(function () {})
+        : Promise.resolve();
+      fontsReady.then(build);
+    })();
+  </script>
+</template>
