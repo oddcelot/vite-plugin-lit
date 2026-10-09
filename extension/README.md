@@ -28,6 +28,23 @@ source maps left out. It needs the `zip` command. The listing copy, the store
 icon, the screenshots and the promo tiles are in `store/`; see
 `store/listing.md`.
 
+The Web Store item has opted in to verified CRX uploads, so it only accepts
+a CRX signed with the publisher's key; a plain zip upload is refused. Give
+the script that key and it also writes `dist/lit-inspector-<version>.crx`,
+which is the file to upload:
+
+```sh
+pnpm run package:extension --key ~/.config/lit-inspector/crx.pem
+CWS_CRX_KEY="$(cat crx.pem)" pnpm run package:extension   # how CI passes it
+```
+
+The key is an RSA private key in PEM. It lives in the publisher's password
+manager and in the `CWS_CRX_KEY` secret of the GitHub `stores` environment,
+never in the repo; its public half is what the dashboard holds under
+**Package › Verified CRX Uploads**. Replacing it goes through that dashboard
+and takes up to a week, so a lost key blocks uploads until then. The script
+reads the CRX back and checks its signature before reporting it.
+
 ## Version
 
 `manifest.json` here has no `version`. The build writes

@@ -3,6 +3,7 @@
  *
  *     pnpm run package:extension            # dist/lit-inspector-<version>.zip
  *     pnpm run package:extension --firefox  # dist/lit-inspector-<version>-firefox.zip
+ *     pnpm run package:extension --key ~/.config/lit-inspector/crx.pem
  *
  * The zip holds what `dist/extension/` (or `dist/extension-firefox/`) holds,
  * with `manifest.json` at its root, minus the source maps: the build keeps
@@ -18,17 +19,38 @@
  * how the reviewers get that source, it only builds the zip. The build steps
  * to paste next to it are in `extension/store/listing-firefox.md`.
  *
+ * For Chrome it also writes `dist/lit-inspector-<version>.crx`, the zip signed
+ * with the CRX key, when it has one: the PEM file `--key` names, or the PEM
+ * text in `CWS_CRX_KEY` (how the release workflow passes it). The Web Store
+ * accepts only that signed file since the item opted in to verified CRX
+ * uploads. Without a key it writes the zip alone, as before. The CRX is read
+ * back and checked before the script reports it, with the extension id the
+ * key gives it.
+ *
  * Uses the `zip` command (preinstalled on macOS and on GitHub's Ubuntu
  * runners); Node has no zip writer of its own.
  */
 
 import {execFileSync} from 'node:child_process';
-import {readFile, rm} from 'node:fs/promises';
+import {readFile, rm, writeFile} from 'node:fs/promises';
 import * as path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {packCrx3, readCrx3} from './crx3.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const firefox = process.argv.includes('--firefox');
+const keyArg = process.argv.indexOf('--key');
+const keyFile = keyArg === -1 ? undefined : process.argv[keyArg + 1];
+if (keyArg !== -1 && !keyFile) {
+  console.error('--key needs the path of the CRX private key (PEM)');
+  process.exit(1);
+}
+// Read before the build, so a wrong path fails fast.
+const crxKey = firefox
+  ? undefined
+  : keyFile
+    ? await readFile(keyFile, 'utf8')
+    : process.env.CWS_CRX_KEY || undefined;
 
 let inGit = true;
 try {
@@ -83,6 +105,16 @@ execFileSync('zip', ['-r', '-X', '-q', zip, '.', '-x', '*.map'], {
 });
 execFileSync('unzip', ['-l', zip], {stdio: 'inherit'});
 console.log(`\n${path.relative(ROOT, zip)}`);
+
+if (crxKey) {
+  const crxPath = zip.replace(/\.zip$/, '.crx');
+  const {crx} = packCrx3(await readFile(zip), crxKey);
+  await writeFile(crxPath, crx);
+  const {id} = readCrx3(await readFile(crxPath));
+  console.log(`${path.relative(ROOT, crxPath)} (signed, extension id ${id})`);
+} else if (!firefox) {
+  console.log('No CRX key (--key or CWS_CRX_KEY): zip only, no signed .crx.');
+}
 
 if (withSource) {
   const source = path.join(ROOT, 'dist', `amo-source-${version}.zip`);
