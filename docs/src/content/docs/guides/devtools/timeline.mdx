@@ -43,15 +43,16 @@ old clock would sit in the list on a different time origin.
 A strip of coloured pills under the toolbar turns each layer on or off. A layer
 is one category of recorded timeline events, with its own colour and toggle.
 
-| Layer                | What it captures                                                                                                                                                                                                                                                                                  | Default |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| Lit Lifecycle        | `connectedCallback`, `performUpdate`, `willUpdate`, `update`, `updated`, `firstUpdated`, `disconnectedCallback`, with per-phase durations and changed-property keys, an `update skipped` point event when `shouldUpdate` returns false, and a `warning` point event for each Lit dev-mode warning | on      |
-| Lit Render           | `begin render` and `end render`, from Lit's built-in `lit-debug` events                                                                                                                                                                                                                           | on      |
-| Lit Render (verbose) | Per-binding `lit-debug` events (`template updating`, `set part`, `commit text`/`node`/`attribute`/`property`/…) — one per part on _every_ render, so it's high volume                                                                                                                             | off     |
-| Changed values       | Adds the old and new value of each changed property to the update events. No events of its own, so it has no track; see [Updates](/vite-plugin-lit/guides/devtools/updates/)                                                                                                                      | off     |
-| Mouse                | `mousedown`, `mouseup`, `click`, `dblclick`                                                                                                                                                                                                                                                       | off     |
-| Keyboard             | `keydown`, `keyup`                                                                                                                                                                                                                                                                                | off     |
-| Custom events        | Events a component dispatches with `this.dispatchEvent(...)`: the type, `bubbles`/`composed`/`cancelable` and a short preview of `detail`                                                                                                                                                         | off     |
+| Layer                | What it captures                                                                                                                                                                                                                           | Default |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| Lit Lifecycle        | `connectedCallback`, `performUpdate`, `willUpdate`, `update`, `updated`, `firstUpdated`, `disconnectedCallback`, with per-phase durations and changed-property keys, and an `update skipped` point event when `shouldUpdate` returns false | on      |
+| Lit Render           | `begin render` and `end render`, from Lit's built-in `lit-debug` events                                                                                                                                                                    | on      |
+| Lit Render (verbose) | Per-binding `lit-debug` events (`template updating`, `set part`, `commit text`/`node`/`attribute`/`property`/…) — one per part on _every_ render, so it's high volume                                                                      | off     |
+| Changed values       | Adds the old and new value of each changed property to the update events. No events of its own, so it has no track; see [Updates](/vite-plugin-lit/guides/devtools/updates/)                                                               | off     |
+| Mouse                | `mousedown`, `mouseup`, `click`, `dblclick`                                                                                                                                                                                                | off     |
+| Keyboard             | `keydown`, `keyup`                                                                                                                                                                                                                         | off     |
+| Lit warnings         | A `warning:<code>` point event for each warning Lit's development build issues                                                                                                                                                             | on      |
+| Custom events        | Events a component dispatches with `this.dispatchEvent(...)`: the type, `bubbles`/`composed`/`cancelable` and a short preview of `detail`                                                                                                  | off     |
 
 Your toggles are remembered between sessions in `localStorage`.
 
@@ -69,9 +70,12 @@ carries the property keys that were vetoed.
 A `warning:<code>` event, such as `warning:change-in-update`, is a warning
 Lit's development build issued, with its code and message in the event's data.
 It is attributed to the element that was updating when Lit issued it, else to
-the tag the message names. Lit warns once per message, and a warning issued
-before you started recording is added when you start, marked `replayed`. A
-production build of Lit issues none.
+the tag the message names; one issued during an update shares that update's
+group. Lit warns once per message, so a warning issued before you started
+recording, or while the Lit warnings layer was off, is added when you start or
+turn the layer on, marked `replayed`. Warning rows are amber with a `!` mark,
+and selecting one shows the message, the code linked to its explanation on
+lit.dev, and whether it was replayed. A production build of Lit issues none.
 
 A phase only reports if the component lets the base class run. The playground
 fixture below overrides every hook and calls `super` on the marked lines, so
@@ -237,7 +241,7 @@ in Chrome as usual.
 
 The recording gets a **Lit** track group with a **Lifecycle** and a
 **Render** track, plus **Render (verbose)** and **Input** when those layers
-are on. Chrome lists it among the tracks as **Lit — Custom**, below
+are on. Lit warnings appear as markers on the **Lifecycle** track. Chrome lists it among the tracks as **Lit — Custom**, below
 **Interactions** and above **Main**, and starts it collapsed: click its
 arrow to open it. Each update tick is one entry named after its element, such
 as `<hmr-counter> performUpdate`, with `willUpdate`, `update`, `updated` and
