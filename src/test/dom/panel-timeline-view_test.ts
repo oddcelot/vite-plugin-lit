@@ -360,21 +360,24 @@ test('Esc that something else handled keeps the range', async () => {
   expect(tracks().range).not.toBeNull();
 });
 
-test("the range overlay stops short of the lanes' scrollbar", async () => {
+test('the ruler and the overlay leave room for the lanes and plot scrollbars', async () => {
   const {el, tracks} = await mount();
   setEvents(events);
   await flush(el);
   await drawRange(el, tracks(), {start: 0, end: 20});
   const root = tracks().shadowRoot!;
   const lanes = root.querySelector<HTMLElement>('.lanes')!;
-  // No layout here: give the lanes a 15px vertical scrollbar and the ruler a width.
+  const plot = root.querySelector<HTMLElement>('.plot')!;
+  // No layout here: a 15px scrollbar on the lanes and a 10px one on the plot.
   Object.defineProperty(lanes, 'offsetWidth', {value: 400});
   Object.defineProperty(lanes, 'clientWidth', {value: 385});
-  (tracks() as unknown as {_width: number})._width = 385;
+  Object.defineProperty(plot, 'offsetWidth', {value: 265});
+  Object.defineProperty(plot, 'clientWidth', {value: 255});
+  (tracks() as unknown as {_width: number})._width = 255;
   tracks().requestUpdate();
   await flush(el);
-  const overlay = root.querySelector<HTMLElement>('.overlay')!;
-  expect(overlay.style.getPropertyValue('--scrollbar')).toBe('15px');
+  const stage = root.querySelector<HTMLElement>('.stage')!;
+  expect(stage.style.getPropertyValue('--inset')).toBe('25px');
 });
 
 /** Gives the tracks a width to scale against: happy-dom has no layout. */
@@ -500,4 +503,26 @@ test('a link with a range and an event shows both', async () => {
   await flush(el);
   expect(tracks().range).toEqual({start: 9, end: 20});
   expect(tracks().selectedKey).toBe('lit-lifecycle:2:1:update');
+});
+
+test('a click on a range handle that did not move it selects the mark beneath', async () => {
+  const {el, tracks} = await mount();
+  setEvents(events);
+  await flush(el);
+  await drawRange(el, tracks(), {start: 2, end: 8});
+  await sized(el, tracks());
+  const root = tracks().shadowRoot!;
+  const mark = root.querySelector<HTMLElement>('.mark')!;
+  const handle = root.querySelector<HTMLElement>('[role=slider]')!;
+  // No layout here: say the mark is what lies under the handle.
+  root.elementsFromPoint = () => [handle, mark];
+  const selected = vi.fn();
+  tracks().addEventListener('span-select', selected);
+  const pointer = (type: string, x: number) =>
+    handle.dispatchEvent(
+      new PointerEvent(type, {button: 0, clientX: x, bubbles: true})
+    );
+  pointer('pointerdown', 10);
+  pointer('pointerup', 10);
+  expect(selected).toHaveBeenCalledTimes(1);
 });
