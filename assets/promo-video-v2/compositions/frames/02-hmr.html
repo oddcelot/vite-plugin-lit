@@ -1,0 +1,99 @@
+<template id="s02-hmr-template">
+  <style>
+    @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:600;src:url("assets/manrope-semibold.woff2") format("woff2")}
+    @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2")}
+    #s02-hmr{position:absolute;inset:0;overflow:hidden;font-family:"Manrope",sans-serif}
+    #s02-hmr *{box-sizing:border-box}
+    #s02-stage{position:absolute;left:0;top:0;width:1920px;height:664px;transform-origin:50% 664px;clip-path:inset(100px 40px 0 40px)}
+    #s02-eyebrow{position:absolute;left:96px;top:150px;font-weight:700;font-size:18px;line-height:22px;letter-spacing:0.14em;text-transform:uppercase;color:#4d63ff}
+    .s02-hl{position:absolute;left:96px;font-weight:800;font-size:68px;line-height:71px;letter-spacing:-0.03em;color:#fff;white-space:nowrap}
+    .s02-hl b{color:#00e8ff;font-weight:800}
+    #s02-comp{position:absolute;left:760px;top:130px;width:1060px;height:200px;background:#17171c;border:1px solid #2c2c33;border-radius:8px}
+    #s02-flash{position:absolute;left:-3px;top:-3px;right:-3px;bottom:-3px;border:2px solid #4d63ff;border-radius:10px;box-shadow:0 0 30px rgba(77,99,255,0.7);opacity:0}
+    .s02-title{position:absolute;left:32px;top:24px;font-weight:800;font-size:44px;line-height:52px;letter-spacing:-0.02em;color:#fff;white-space:nowrap}
+    #s02-btn{position:absolute;left:32px;top:100px;height:64px;padding:0 26px;border:1.5px solid #4d63ff;border-radius:6px;display:flex;align-items:center;font-weight:700;font-size:30px;color:#e3e3e3;white-space:nowrap}
+    #s02-num{position:relative;display:inline-block;color:#00e8ff;margin-left:10px}
+    #s02-ring{position:absolute;left:-8px;right:-8px;top:-6px;bottom:-6px;border:2px solid #00e8ff;border-radius:6px;opacity:0;box-shadow:0 0 14px rgba(0,232,255,0.7)}
+    #s02-rend{position:absolute;left:260px;top:118px;width:200px;height:28px;font-family:"Roboto Mono",monospace;font-size:20px;line-height:28px;color:#a1a1a1}
+    #s02-rend span{position:absolute;left:0;top:0;white-space:nowrap}
+    #s02-toast{position:absolute;left:1396px;top:146px;height:48px;padding:0 20px;background:#0d0d0d;border:1px solid #2f9e44;display:flex;align-items:center;gap:12px;font-weight:600;font-size:18px;color:#e3e3e3;white-space:nowrap;box-shadow:0 10px 30px rgba(0,0,0,0.5)}
+    #s02-toast i{font-style:normal;color:#51cf66;font-weight:800}
+    #s02-code{position:absolute;left:760px;top:366px;width:1060px;height:234px;background:#0a0a0f;border:1px solid #363636;border-radius:8px;overflow:hidden}
+    #s02-tab{position:absolute;left:0;top:0;right:0;height:42px;background:#0d0d0d;border-bottom:1px solid #363636;font-family:"Roboto Mono",monospace;font-size:17px;line-height:42px;color:#a1a1a1;padding-left:20px}
+    #s02-lines{position:absolute;left:28px;top:60px;font-family:"Roboto Mono",monospace;font-size:24px;line-height:38px;color:#e3e3e3;white-space:pre}
+    .s02-tag{color:#82aaff}.s02-pu{color:#89ddff}.s02-str{color:#c3e88d}.s02-kw{color:#c792ea}.s02-call{color:#82aaff}.s02-prop{color:#b2ccd6}
+    #s02-caret{display:inline-block;width:3px;height:26px;background:#e3e3e3;vertical-align:-5px;margin-left:1px;opacity:0}
+    #s02-chip{position:absolute;left:1560px;top:334px;height:26px;padding:0 12px;background:#292929;border:1px solid #363636;display:flex;align-items:center;gap:8px;font-family:"Roboto Mono",monospace;font-size:16px;color:#e3e3e3;white-space:nowrap;opacity:0}
+    #s02-chip i{display:block;width:8px;height:8px;border-radius:50%;background:#00e8ff;box-shadow:0 0 8px rgba(0,232,255,0.8)}
+  </style>
+  <div id="s02-hmr" data-composition-id="s02-hmr" data-width="1920" data-height="1080">
+    <div id="s02-stage">
+      <div id="s02-eyebrow">HMR</div>
+      <div class="s02-hl" id="s02-hl1" style="top:186px">Edit.</div>
+      <div class="s02-hl" id="s02-hl2" style="top:257px">Save.</div>
+      <div class="s02-hl" id="s02-hl3" style="top:328px">Still <b>42.</b></div>
+      <div id="s02-comp">
+        <div id="s02-flash"></div>
+        <div class="s02-title" id="s02-t1">Counter</div>
+        <div class="s02-title" id="s02-t2" style="opacity:0">Counter: edited live</div>
+        <div id="s02-btn">Count:<span id="s02-num">42<i id="s02-ring"></i></span></div>
+        <div id="s02-rend"><span id="s02-r1">renders: 1</span><span id="s02-r2" style="opacity:0">renders: 2</span></div>
+      </div>
+      <div id="s02-toast"><i>&#10003;</i>HMR landed &middot; hmr-counter.ts</div>
+      <div id="s02-code">
+        <div id="s02-tab">hmr-counter.ts</div>
+<div id="s02-lines"><span><span class="s02-call">render</span><span class="s02-pu">() {</span></span>
+<span>  <span class="s02-kw">return</span> <span class="s02-call">html</span><span class="s02-str">`</span><span class="s02-pu">&lt;</span><span class="s02-tag">h2</span><span class="s02-pu">&gt;</span><span class="s02-str" id="s02-codeh">Counter</span><i id="s02-caret"></i></span>
+<span>    <span class="s02-pu">&lt;</span><span class="s02-tag">button</span><span class="s02-pu">&gt;</span><span class="s02-str">Count: </span><span class="s02-kw">${</span><span class="s02-kw">this</span><span class="s02-prop">.count</span><span class="s02-kw">}</span><span class="s02-pu">&lt;/</span><span class="s02-tag">button</span><span class="s02-pu">&gt;</span><span class="s02-str">`</span>;</span>
+<span class="s02-pu">}</span></div>
+      </div>
+      <div id="s02-chip"><i></i>hmr update &middot; 0.8ms</div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      tl.fromTo("#s02-eyebrow", { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.3, ease: "power3.out" }, 0.1);
+      tl.fromTo("#s02-comp", { opacity: 0, scale: 0.94, y: 20 }, { opacity: 1, scale: 1, y: 0, duration: 0.5, ease: "back.out(1.4)" }, 0.24);
+      tl.fromTo("#s02-code", { opacity: 0, scale: 0.96, y: 24 }, { opacity: 1, scale: 1, y: 0, duration: 0.5, ease: "back.out(1.4)" }, 0.36);
+      tl.fromTo("#s02-hl1", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 0.96);
+      tl.fromTo("#s02-hl2", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 2.4);
+      tl.fromTo("#s02-hl3", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 3.36);
+      // save hit 2.88
+      tl.to("#s02-code", { borderColor: "#4d63ff", duration: 0.08, ease: "none" }, 2.88);
+      tl.to("#s02-code", { borderColor: "#363636", duration: 0.6, ease: "power2.out" }, 2.96);
+      tl.fromTo("#s02-chip", { opacity: 0, scale: 0.5, y: 8 }, { opacity: 1, scale: 1, y: 0, duration: 0.28, ease: "back.out(2.2)" }, 2.88);
+      tl.set("#s02-flash", { opacity: 1 }, 2.88);
+      tl.to("#s02-flash", { opacity: 0, duration: 0.6, ease: "power2.out" }, 2.92);
+      tl.set("#s02-t1", { opacity: 0 }, 2.88);
+      tl.fromTo("#s02-t2", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.18, ease: "power2.out" }, 2.88);
+      tl.fromTo("#s02-ring", { opacity: 0.95, scale: 1 }, { opacity: 0, scale: 1.45, duration: 0.6, ease: "power2.out", immediateRender: false }, 2.88);
+      tl.set("#s02-r1", { opacity: 0 }, 2.88);
+      tl.set("#s02-r2", { opacity: 1 }, 2.88);
+      // toast 3.84 -> held to 5.4
+      tl.fromTo("#s02-toast", { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.35, ease: "power3.out" }, 3.84);
+      tl.to("#s02-toast", { opacity: 0, duration: 0.2, ease: "power2.in" }, 5.4);
+      // snap shut by 5.61
+      tl.to("#s02-stage", { scaleY: 0, opacity: 0, duration: 0.18, ease: "power3.in" }, 5.43);
+
+      var codeH = document.getElementById("s02-codeh");
+      var caret = document.getElementById("s02-caret");
+      var APPEND = ": edited live";
+      var T0 = 1.2, T1 = 2.1;
+      function render(t) {
+        var p = Math.max(0, Math.min(1, (t - T0) / (T1 - T0)));
+        var n = Math.round(p * APPEND.length);
+        codeH.textContent = "Counter" + APPEND.slice(0, n);
+        var c = 0;
+        if (t >= 1.0 && t < 2.88) c = (t >= T0 && t < T1) ? 1 : (Math.floor((t - 1.0) / 0.24) % 2 === 0 ? 1 : 0);
+        caret.style.opacity = String(c);
+      }
+      var drv = { t: 0 };
+      render(0);
+      tl.to(drv, { t: 6, duration: 6, ease: "none", onUpdate: function () { render(drv.t); } }, 0);
+      window.__timelines["s02-hmr"] = tl;
+    })();
+  </script>
+</template>

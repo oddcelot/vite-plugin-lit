@@ -1,0 +1,92 @@
+<template id="s13-inspector-template">
+  <style>
+    @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2")}
+    @font-face{font-family:"Manrope";font-weight:600;src:url("assets/manrope-semibold.woff2") format("woff2")}
+    @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2")}
+    #s13-inspector{overflow:hidden;font-family:"Manrope",sans-serif}
+    #s13-inspector *{box-sizing:border-box}
+    #s13-stage{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:960px 664px}
+    #s13-eyebrow{position:absolute;left:96px;top:150px;font-weight:700;font-size:18px;letter-spacing:.14em;text-transform:uppercase;color:#6b7bff;white-space:nowrap}
+    .s13-h{position:absolute;left:96px;font-weight:800;font-size:68px;line-height:70px;letter-spacing:-0.03em;color:#fff;white-space:nowrap}
+    .s13-h b{color:#00e8ff;font-weight:800}
+    #s13-h1{top:186px}#s13-h2{top:256px}
+    .s13-card{position:absolute;background:#0d0d12;border:1px solid #363636;border-radius:8px;box-shadow:0 0 0 0 rgba(77,99,255,0)}
+    #s13-chrome{left:740px;top:124px;width:538px;height:190px}
+    #s13-ff{left:1302px;top:124px;width:538px;height:190px}
+    .s13-store{position:absolute;left:24px;top:20px;font-weight:600;font-size:18px;color:#919191;letter-spacing:.02em}
+    .s13-flame{position:absolute;left:24px;top:54px;width:44px;height:55px;background:url("assets/flame.svg") center/contain no-repeat}
+    .s13-name{position:absolute;left:84px;top:56px;font-weight:800;font-size:30px;color:#fff;letter-spacing:-0.01em;white-space:nowrap}
+    .s13-sub{position:absolute;left:84px;top:96px;font-weight:600;font-size:17px;color:#919191;white-space:nowrap}
+    .s13-btn{position:absolute;left:24px;bottom:16px;height:38px;padding:0 22px;border-radius:4px;color:#fff;font-weight:600;font-size:18px;line-height:38px;white-space:nowrap}
+    #s13-perf{left:740px;top:336px;width:1100px;height:264px;overflow:hidden}
+    #s13-phead{position:absolute;left:0;top:0;right:0;height:42px;background:#0d0d0d;border-bottom:1px solid #363636;font-family:"Roboto Mono",monospace;font-size:17px;color:#919191;line-height:42px;padding-left:20px;white-space:nowrap}
+    #s13-phead span{color:#e3e3e3;margin-right:28px}
+    #s13-phead span.on{color:#8a9bff}
+    .s13-row{position:absolute;left:0;right:0;height:30px;border-bottom:1px solid #1f1f1f}
+    .s13-lab{position:absolute;left:20px;top:0;width:110px;line-height:30px;font-family:"Roboto Mono",monospace;font-size:17px;color:#a1a1a1}
+    .s13-grp{color:#e3e3e3}
+    .s13-b{position:absolute;top:5px;height:20px;font-family:"Roboto Mono",monospace;font-size:13px;line-height:20px;padding-left:6px;color:#0a0a0a;white-space:nowrap;overflow:hidden}
+    .s13-g{background:#3d3d44;color:#d0d0d0}
+    #s13-cap{position:absolute;right:20px;bottom:10px;font-weight:700;font-size:16px;letter-spacing:.12em;text-transform:uppercase;color:#99aeff}
+    #s13-line{position:absolute;left:740px;top:618px;font-family:"Roboto Mono",monospace;font-size:18px;color:#a1a1a1;white-space:nowrap}
+  </style>
+  <div id="s13-inspector" data-composition-id="s13-inspector" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <div id="s13-stage">
+      <div id="s13-eyebrow">Lit Inspector</div>
+      <div class="s13-h" id="s13-h1">Any Lit site.</div>
+      <div class="s13-h" id="s13-h2"><b>No Vite needed.</b></div>
+
+      <div class="s13-card" id="s13-chrome">
+        <div class="s13-store">Chrome Web Store</div>
+        <div class="s13-flame"></div>
+        <div class="s13-name">Lit Inspector</div>
+        <div class="s13-sub">Developer tools</div>
+        <div class="s13-btn" style="background:#1a73e8">Add to Chrome</div>
+      </div>
+      <div class="s13-card" id="s13-ff">
+        <div class="s13-store">Firefox Add-ons</div>
+        <div class="s13-flame"></div>
+        <div class="s13-name">Lit Inspector</div>
+        <div class="s13-sub">Developer tools</div>
+        <div class="s13-btn" style="background:#0060df">Add to Firefox</div>
+      </div>
+
+      <div class="s13-card" id="s13-perf">
+        <div id="s13-phead"><span>Elements</span><span>Console</span><span class="on">Performance</span><span>Network</span></div>
+        <div class="s13-row" style="top:42px"><div class="s13-lab">Main</div>
+          <div class="s13-b s13-g" style="left:140px;width:300px">Task</div><div class="s13-b s13-g" style="left:460px;width:180px">Task</div><div class="s13-b s13-g" style="left:700px;width:360px">Task</div></div>
+        <div class="s13-row" style="top:72px"><div class="s13-lab"></div>
+          <div class="s13-b s13-g" style="left:150px;width:220px;opacity:.8">Run microtasks</div><div class="s13-b s13-g" style="left:470px;width:120px;opacity:.8">Layout</div><div class="s13-b s13-g" style="left:710px;width:240px;opacity:.8">Recalculate style</div></div>
+        <div class="s13-row" style="top:102px"><div class="s13-lab"></div>
+          <div class="s13-b s13-g" style="left:160px;width:120px;opacity:.6"></div><div class="s13-b s13-g" style="left:720px;width:140px;opacity:.6"></div></div>
+        <div class="s13-row" style="top:132px;background:#10101c"><div class="s13-lab s13-grp">▾ Lit</div></div>
+        <div class="s13-row" style="top:162px"><div class="s13-lab">Lifecycle</div>
+          <div class="s13-b" style="left:160px;width:200px;background:#4d63ff;color:#fff">updated</div><div class="s13-b" style="left:480px;width:110px;background:#4d63ff;color:#fff">updated</div><div class="s13-b" style="left:720px;width:230px;background:#4d63ff;color:#fff">willUpdate</div></div>
+        <div class="s13-row" style="top:192px"><div class="s13-lab">Render</div>
+          <div class="s13-b" style="left:170px;width:150px;background:#325cff;color:#fff">render</div><div class="s13-b" style="left:488px;width:80px;background:#325cff;color:#fff">render</div><div class="s13-b" style="left:730px;width:170px;background:#325cff;color:#fff">render</div></div>
+        <div id="s13-cap">Performance tracks</div>
+      </div>
+      <div id="s13-line">Chrome · Firefox · Performance panel</div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      var rim0 = "0 0 0 0 rgba(77,99,255,0)", rim1 = "0 0 0 3px #4d63ff, 0 0 36px rgba(77,99,255,.55)";
+      tl.fromTo("#s13-eyebrow", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power3.out" }, 0.05);
+      tl.fromTo("#s13-h1", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 0.1);
+      tl.fromTo("#s13-h2", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 0.96);
+      tl.fromTo("#s13-chrome", { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 0.24);
+      tl.fromTo("#s13-ff", { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" }, 0.48);
+      tl.fromTo("#s13-perf", { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 0.96);
+      ["#s13-chrome", "#s13-ff", "#s13-perf"].forEach(function (id) {
+        tl.fromTo(id, { boxShadow: rim0 }, { boxShadow: rim1, duration: 0.2, ease: "power2.out", immediateRender: false }, 1.92);
+        tl.to(id, { boxShadow: rim0, duration: 0.4, ease: "power2.in" }, 2.12);
+      });
+      tl.fromTo("#s13-line", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 2.4);
+      tl.fromTo("#s13-stage", { scaleY: 1, opacity: 1 }, { scaleY: 0, opacity: 0, duration: 0.18, ease: "power3.in" }, 3.69);
+      window.__timelines["s13-inspector"] = tl;
+    })();
+  </script>
+</template>

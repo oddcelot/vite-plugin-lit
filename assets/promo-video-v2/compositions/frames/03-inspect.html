@@ -1,0 +1,215 @@
+<template id="s03-inspect-template">
+  <style>
+    @font-face { font-family: "Manrope"; font-weight: 600; src: url("assets/manrope-semibold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 700; src: url("assets/manrope-bold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 800; src: url("assets/manrope-extrabold.woff2") format("woff2"); }
+    @font-face { font-family: "Roboto Mono"; font-weight: 400; src: url("assets/RobotoMono-Latin-400.woff2") format("woff2"); }
+
+    #s03-inspect { overflow: hidden; background: transparent; font-family: "Manrope", sans-serif; }
+    #s03-inspect * { box-sizing: border-box; }
+    /* stage clip: x 40-1880, y 100-664 */
+    #s03-inspect-clip { position: absolute; inset: 0; clip-path: inset(100px 40px 416px 40px); }
+    #s03-inspect-stage { position: absolute; inset: 0; transform-origin: 50% 664px; }
+
+    .s03-eyebrow { position: absolute; left: 96px; top: 150px; font-weight: 700; font-size: 18px; letter-spacing: .14em; text-transform: uppercase; color: #6b7bff; line-height: 24px; white-space: nowrap; }
+    .s03-line { position: absolute; left: 96px; font-weight: 800; font-size: 68px; letter-spacing: -0.03em; line-height: 71px; color: #fff; white-space: nowrap; }
+    .s03-line em { font-style: normal; color: #00e8ff; }
+
+    /* changed-values note under the headline */
+    #s03-inspect-note { position: absolute; left: 96px; top: 384px; width: 420px; }
+    .s03-note-h { font-weight: 700; font-size: 15px; letter-spacing: .14em; color: #6b7bff; margin-bottom: 14px; opacity: 0; }
+    .s03-note-row { display: flex; align-items: center; gap: 18px; height: 44px; padding-left: 16px; border-left: 2px solid #4d63ff; margin-bottom: 8px; font-family: "Roboto Mono", monospace; font-size: 24px; color: #c7c7c7; opacity: 0; }
+    .s03-note-row .k { width: 110px; color: #919191; }
+    .s03-note-row .o { color: #919191; }
+    .s03-note-row .ar { color: #4d63ff; }
+    .s03-note-row .n { color: #00e8ff; }
+
+    /* panel */
+    #s03-inspect-panel { position: absolute; left: 740px; top: 124px; width: 1100px; height: 516px; background: #030303; border: 1px solid #363636; overflow: hidden; font-family: "Roboto Mono", monospace; }
+    #s03-inspect-toolbar { position: absolute; left: 0; top: 0; width: 100%; height: 66px; background: #0d0d0d; border-bottom: 1px solid #363636; }
+    .s03-btn { position: absolute; top: 10px; height: 45px; display: flex; align-items: center; gap: 10px; padding: 0 16px; border: 1px solid #545868; color: #9194a2; font-family: "Manrope", sans-serif; font-weight: 600; font-size: 21px; white-space: nowrap; }
+    .s03-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+    .s03-btn.on { background: #1a2366; border-color: #1a2366; color: #8a9bff; }
+    #s03-inspect-filter { position: absolute; left: 150px; top: 10px; width: 320px; height: 45px; border: 1px solid #363636; background: #030303; display: flex; align-items: center; padding: 0 14px; gap: 12px; font-size: 20px; color: #e3e3e3; }
+    #s03-inspect-filter svg { width: 19px; height: 19px; fill: none; stroke: #919191; stroke-width: 1.7; flex: none; }
+    #s03-inspect-ph { position: absolute; left: 46px; color: #919191; }
+    #s03-inspect-typed { position: relative; margin-left: 32px; white-space: pre; letter-spacing: .02em; }
+    #s03-inspect-typed span { opacity: 0; }
+    #s03-inspect-count { position: absolute; right: 14px; font-size: 17px; color: #919191; opacity: 0; }
+
+    #s03-inspect-tree { position: absolute; left: 0; top: 66px; width: 484px; height: 449px; border-right: 1px solid #363636; padding-top: 6px; }
+    .s03-row { position: relative; height: 35px; overflow: hidden; }
+    .s03-row-in { position: absolute; left: 0; top: 0; right: 0; height: 35px; display: flex; align-items: center; padding-left: 38px; font-size: 20px; color: #e3e3e3; white-space: nowrap; }
+    .s03-row .tw { position: absolute; left: 14px; top: 0; line-height: 35px; color: #919191; font-size: 19px; }
+    .s03-row .br { color: #919191; }
+    .s03-row .m { background: rgba(244,191,79,0); }
+    .s03-selbg { position: absolute; inset: 0; background: rgb(24,29,61); opacity: 0; }
+    .s03-selbar { position: absolute; left: 0; top: 0; width: 2px; height: 35px; background: #4d63ff; opacity: 0; }
+    .s03-row-in > span:not(.s03-selbg):not(.s03-selbar):not(.tw) { position: relative; }
+
+    #s03-inspect-details { position: absolute; left: 485px; top: 66px; width: 614px; height: 449px; }
+    #s03-inspect-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: "Manrope", sans-serif; font-weight: 500; font-size: 21px; color: #919191; }
+    #s03-inspect-content { position: absolute; left: 24px; top: 12px; right: 24px; font-size: 19px; line-height: 25px; color: #e3e3e3; }
+    .s03-blk { opacity: 0; }
+    .s03-dh { height: 32px; font-size: 24px; font-weight: 700; color: #fff; line-height: 32px; }
+    .s03-dh .br { color: #919191; font-weight: 400; }
+    .s03-meta { display: flex; height: 23px; line-height: 23px; font-size: 18px; }
+    .s03-meta .l { width: 132px; color: #919191; }
+    .s03-meta .link { color: #8a9bff; }
+    #s03-inspect-frows { height: 32px; margin: 6px 0 8px; border: 1px solid #363636; padding: 0 12px; display: flex; align-items: center; color: #919191; font-size: 17px; }
+    .s03-sec { border-top: 1px solid #363636; padding-top: 0; margin-top: 0; }
+    .s03-sh { height: 24px; line-height: 24px; font-family: "Manrope", sans-serif; font-weight: 600; font-size: 14px; letter-spacing: .08em; color: #919191; }
+    .s03-sh b { font-weight: 600; margin-left: 6px; }
+    .s03-ent { position: relative; display: flex; align-items: center; height: 25px; white-space: nowrap; }
+    .s03-ent .nm { width: 120px; color: #e3e3e3; flex: none; }
+    .s03-ent .str { color: #c3e88d; }
+    .s03-ent .num { color: #f78c6c; }
+    .s03-ent .chip { margin-left: 8px; font-size: 14px; line-height: 19px; padding: 0 6px; background: rgba(255,255,255,.08); color: #919191; }
+    .s03-ent .chip.hit { background: #292929; border: 1px solid #363636; font-size: 15px; line-height: 20px; color: #c7c7c7; opacity: 0; }
+    .s03-flash { position: absolute; left: -8px; right: -8px; top: 0; bottom: 0; background: rgba(77,99,255,.35); opacity: 0; }
+    .s03-ent > *:not(.s03-flash) { position: relative; }
+    .s03-swap { display: inline-grid; }
+    .s03-swap > span { grid-area: 1 / 1; display: inline-block; }
+    #s03-inspect-kids { height: 0; overflow: hidden; }
+    .s03-kid { padding-left: 40px; }
+    .s03-kid .ix { width: 40px; color: #919191; flex: none; }
+    #s03-inspect-caret { display: inline-block; margin: 0 8px 0 12px; color: #919191; width: 14px; text-align: center; }
+    .s03-sec.last { }
+  </style>
+
+  <div id="s03-inspect" data-composition-id="s03-inspect" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <div id="s03-inspect-clip">
+      <div id="s03-inspect-stage">
+        <div class="s03-eyebrow" id="s03-inspect-eyebrow">Components</div>
+        <div class="s03-line" id="s03-inspect-l1" style="top:186px">Inspect</div>
+        <div class="s03-line" id="s03-inspect-l2" style="top:257px"><em>every</em> value.</div>
+
+        <div id="s03-inspect-note">
+          <div class="s03-note-h">CHANGED VALUES</div>
+          <div class="s03-note-row"><span class="k">factor</span><span class="o">2</span><span class="ar">→</span><span class="n">4</span></div>
+          <div class="s03-note-row"><span class="k">renders</span><span class="o">3</span><span class="ar">→</span><span class="n">4</span></div>
+        </div>
+
+        <div id="s03-inspect-panel">
+          <div id="s03-inspect-toolbar">
+            <div class="s03-btn" style="left:19px"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="5.5"/><circle cx="10" cy="10" r="1.5"/></svg>Pick</div>
+            <div id="s03-inspect-filter" style="left:150px">
+              <svg viewBox="0 0 20 20" style="position:absolute;left:14px"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4.5 4.5"/></svg>
+              <span id="s03-inspect-ph">Filter tags</span>
+              <span id="s03-inspect-typed"><span>p</span><span>r</span><span>o</span><span>p</span></span>
+              <span id="s03-inspect-count">3</span>
+            </div>
+            <div class="s03-btn on" style="right:313px"><svg viewBox="0 0 20 20"><path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z"/><circle cx="10" cy="10" r="2.3"/></svg>Live</div>
+            <div class="s03-btn on" style="right:170px"><svg viewBox="0 0 20 20"><path d="M11 2L4 11h5l-1 7 8-10h-5z"/></svg>Flash</div>
+            <div class="s03-btn" style="right:19px"><svg viewBox="0 0 20 20"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/></svg>Anatomy</div>
+          </div>
+
+          <div id="s03-inspect-tree"></div>
+
+          <div id="s03-inspect-details">
+            <div id="s03-inspect-hint">Select a component to inspect.</div>
+            <div id="s03-inspect-content">
+              <div class="s03-blk s03-dh"><span class="br">&lt;</span>hmr-properties<span class="br">&gt;</span></div>
+              <div class="s03-blk s03-meta"><span class="l">defined</span><span class="link">src/hmr-properties.ts:10 ↗</span></div>
+              <div class="s03-blk s03-meta"><span class="l">rendered</span><span class="link">index.html:173 ↗</span></div>
+              <div class="s03-blk s03-meta"><span class="l">root</span><span>shadow, open</span></div>
+              <div class="s03-blk" id="s03-inspect-frows">Filter rows</div>
+
+              <div class="s03-blk s03-sec">
+                <div class="s03-sh">⌄ PROPERTIES<b>2</b></div>
+                <div class="s03-ent"><span class="nm">label</span><span class="str">"initial"</span><span class="chip">label</span></div>
+                <div class="s03-ent" id="s03-inspect-factor"><span class="s03-flash"></span><span class="nm">factor</span><span class="s03-swap"><span class="num" id="s03-inspect-f-old">2</span><span class="num" id="s03-inspect-f-new" style="opacity:0;color:#fff">4</span></span><span class="chip hit" id="s03-inspect-b1">hasChanged</span><span class="chip hit" id="s03-inspect-b2">attribute: false</span></div>
+              </div>
+              <div class="s03-blk s03-sec" style="margin-top:8px">
+                <div class="s03-sh">⌄ STATE<b>2</b></div>
+                <div class="s03-ent"><span class="nm" style="width:70px">items</span><span class="chip" style="margin:0">Array(2)</span><span id="s03-inspect-caret">›</span><span><span style="color:#89ddff">[</span><span class="str">"item1"</span>, <span class="str">"item2"</span><span style="color:#89ddff">]</span></span></div>
+                <div id="s03-inspect-kids">
+                  <div class="s03-ent s03-kid"><span class="ix">0</span><span class="str">"item1"</span></div>
+                  <div class="s03-ent s03-kid"><span class="ix">1</span><span class="str">"item2"</span></div>
+                </div>
+                <div class="s03-ent"><span class="nm" style="width:70px">config</span><span style="margin-left:100px"><span style="color:#89ddff">{</span>colorScheme: <span class="str">"auto"</span><span style="color:#89ddff">}</span></span></div>
+              </div>
+              <div class="s03-blk s03-sec" style="margin-top:8px">
+                <div class="s03-sh">⌄ INSTANCE<b>1</b></div>
+                <div class="s03-ent" id="s03-inspect-renders"><span class="s03-flash"></span><span class="nm">renders</span><span class="s03-swap"><span class="num" id="s03-inspect-r-old">3</span><span class="num" id="s03-inspect-r-new" style="opacity:0;color:#fff">4</span></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var tags = ["hmr-counter","hmr-lifecycle","hmr-parent","hmr-properties","hmr-static-props","hmr-signal-counter","hmr-ctx-provider","hmr-task","hmr-slots","hmr-property-options"];
+        var twisty = { "hmr-lifecycle": 1, "hmr-parent": 1, "hmr-ctx-provider": 1 };
+        var tree = document.getElementById("s03-inspect-tree");
+        var html = "";
+        tags.forEach(function (t, i) {
+          var name = t.replace("prop", '<span class="m">prop</span>');
+          var sel = t === "hmr-properties";
+          html += '<div class="s03-row" data-tag="' + t + '"><div class="s03-row-in">' +
+            (sel ? '<span class="s03-selbg"></span><span class="s03-selbar"></span>' : '') +
+            (twisty[t] ? '<span class="tw">›</span>' : '') +
+            '<span><span class="br">&lt;</span>' + name + '<span class="br">&gt;</span></span></div></div>';
+        });
+        tree.innerHTML = html;
+
+        var Q = function (s) { return document.querySelector(s); };
+        var QA = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
+        var rows = QA("#s03-inspect-tree .s03-row");
+        var match = rows.filter(function (r) { return /prop/.test(r.getAttribute("data-tag")); });
+        var nonmatch = rows.filter(function (r) { return !/prop/.test(r.getAttribute("data-tag")); });
+
+        var tl = gsap.timeline({ paused: true });
+        var slam = function (sel, at) { tl.fromTo(sel, { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, at); };
+
+        // headline + eyebrow
+        tl.fromTo("#s03-inspect-eyebrow", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power2.out" }, 0);
+        slam("#s03-inspect-l1", 0.10);
+        slam("#s03-inspect-l2", 0.48);
+
+        // panel appears 0 -> 0.30
+        tl.fromTo("#s03-inspect-panel", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 0);
+        tl.fromTo(rows, { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.16, ease: "power2.out", stagger: 0.015 }, 0.02);
+
+        // typing "prop" 0.48 -> 0.90
+        tl.set("#s03-inspect-ph", { opacity: 0 }, 0.48);
+        ["p","r","o","p"].forEach(function (c, i) {
+          tl.set("#s03-inspect-typed span:nth-child(" + (i + 1) + ")", { opacity: 1 }, 0.48 + i * 0.12);
+        });
+        // tree narrows
+        tl.to(nonmatch.map(function (r) { return r; }), { height: 0, opacity: 0, duration: 0.2, ease: "power3.in", stagger: 0.02 }, 0.62);
+        tl.to("#s03-inspect-count", { opacity: 1, duration: 0.12 }, 0.84);
+        tl.to("#s03-inspect-tree .m", { backgroundColor: "rgba(244,191,79,0.32)", duration: 0.12 }, 0.84);
+
+        // select hmr-properties at 0.96
+        tl.set("#s03-inspect-tree .s03-selbg, #s03-inspect-tree .s03-selbar", { opacity: 1 }, 0.96);
+        tl.set("#s03-inspect-hint", { opacity: 0 }, 0.96);
+        tl.fromTo("#s03-inspect-content .s03-blk", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.22, ease: "power2.out", stagger: 0.06 }, 0.96);
+
+        // 1.92 items opens
+        tl.fromTo("#s03-inspect-caret", { rotation: 0 }, { rotation: 90, duration: 0.15, ease: "power2.out" }, 1.92);
+        tl.fromTo("#s03-inspect-kids", { height: 0 }, { height: 50, duration: 0.22, ease: "power3.out" }, 1.92);
+        tl.fromTo("#s03-inspect-kids .s03-kid", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.2, ease: "power2.out", stagger: 0.08 }, 1.96);
+
+        // 2.40 changed values
+        tl.set("#s03-inspect-f-old, #s03-inspect-r-old", { opacity: 0 }, 2.40);
+        tl.set("#s03-inspect-f-new, #s03-inspect-r-new", { opacity: 1 }, 2.40);
+        tl.fromTo("#s03-inspect-f-new, #s03-inspect-r-new", { scale: 1.7 }, { scale: 1, duration: 0.25, ease: "power3.out" }, 2.40);
+        tl.to("#s03-inspect-f-new, #s03-inspect-r-new", { color: "#f78c6c", duration: 0.8, ease: "power2.out" }, 2.40);
+        tl.fromTo("#s03-inspect-factor .s03-flash, #s03-inspect-renders .s03-flash", { opacity: 1 }, { opacity: 0, duration: 0.8, ease: "power2.out" }, 2.40);
+        tl.fromTo(".s03-note-h", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 2.40);
+        tl.fromTo(".s03-note-row", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out", stagger: 0.1 }, 2.40);
+
+        // 2.88 option badges
+        tl.fromTo("#s03-inspect-b1, #s03-inspect-b2", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.25, ease: "back.out(2.4)", stagger: 0.1 }, 2.88);
+
+        // snap shut 3.51 -> 3.69
+        tl.to("#s03-inspect-stage", { scaleY: 0, opacity: 0, duration: 0.18, ease: "power3.in" }, 3.51);
+
+        window.__timelines["s03-inspect"] = tl;
+      })();
+    </script>
+  </div>
+</template>

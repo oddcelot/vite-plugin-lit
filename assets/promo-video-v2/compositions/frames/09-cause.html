@@ -1,0 +1,125 @@
+<template id="s09-cause-template">
+  <div id="s09-cause" data-composition-id="s09-cause" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <style>
+      @font-face{font-family:"Manrope";font-weight:600;src:url("assets/manrope-semibold.woff2") format("woff2");}
+      @font-face{font-family:"Manrope";font-weight:700;src:url("assets/manrope-bold.woff2") format("woff2");}
+      @font-face{font-family:"Manrope";font-weight:800;src:url("assets/manrope-extrabold.woff2") format("woff2");}
+      @font-face{font-family:"Roboto Mono";font-weight:400;src:url("assets/RobotoMono-Latin-400.woff2") format("woff2");}
+      #s09-cause,#s09-cause *{box-sizing:border-box;}
+      #s09-cause{font-family:"Manrope",sans-serif;color:#e3e3e3;overflow:hidden;}
+      #s09-wrap{position:absolute;left:0;top:0;width:1920px;height:1080px;}
+      #s09-flash{position:absolute;left:40px;top:100px;width:1840px;height:564px;background:radial-gradient(circle 700px at 1290px 360px,rgba(77,99,255,.42),rgba(77,99,255,0) 100%);opacity:0;}
+      #s09-eyebrow{position:absolute;left:96px;top:150px;font-weight:700;font-size:18px;letter-spacing:.14em;text-transform:uppercase;color:#99aeff;white-space:nowrap;}
+      .s09-h{position:absolute;left:96px;display:block;font-weight:800;font-size:68px;line-height:71px;letter-spacing:-.03em;color:#fff;white-space:nowrap;}
+      .s09-h b{color:#00e8ff;font-weight:800;}
+      #s09-frag{position:absolute;left:740px;top:150px;width:1100px;height:426px;background:#030303;border:1px solid #363636;overflow:hidden;transform-origin:50% 50%;}
+      #s09-frag>.s09-in{position:absolute;left:-1px;top:-1px;width:1100px;height:426px;}
+      #s09-fragbox{position:absolute;left:740px;top:150px;width:1100px;height:426px;transform-origin:50% 50%;}
+      .s09-tb{position:absolute;left:0;top:0;width:1100px;height:66px;background:#0d0d0d;border-bottom:1px solid #363636;}
+      .s09-seg{position:absolute;left:16px;top:11px;height:44px;display:flex;border:1px solid #363636;}
+      .s09-seg span{display:block;padding:0 20px;line-height:42px;font-weight:600;font-size:20px;color:#919191;}
+      .s09-seg span.s09-on{background:#212121;color:#fff;font-weight:700;}
+      .s09-btns{position:absolute;right:16px;top:11px;height:44px;display:flex;gap:10px;}
+      .s09-btn{height:44px;padding:0 20px;border:1px solid #363636;line-height:42px;font-weight:600;font-size:19px;color:#e3e3e3;background:#0d0d0d;white-space:nowrap;}
+      .s09-btn.s09-stop{background:#7f1230;border-color:#8a1f2b;color:#ffb3bd;}
+      .s09-bar{position:absolute;left:0;top:66px;width:1100px;height:36px;background:#0d0d0d;border-bottom:1px solid #1f1f1f;}
+      .s09-sw1{position:absolute;left:16px;top:8px;width:38px;height:20px;border:1px solid #474747;background:#212121;}
+      .s09-sw1::after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;background:#919191;}
+      .s09-raw{position:absolute;left:64px;top:0;line-height:36px;font-weight:600;font-size:17px;color:#e3e3e3;}
+      .s09-exp{position:absolute;left:122px;top:0;line-height:38px;font-weight:600;font-size:16px;color:#c7c7c7;text-decoration:underline;}
+      .s09-cnt{position:absolute;right:16px;top:0;line-height:36px;font-family:"Roboto Mono",monospace;font-size:16px;color:#919191;}
+      .s09-row{position:absolute;left:0;width:1100px;height:36px;border-bottom:1px solid #121212;font-family:"Roboto Mono",monospace;font-size:19px;line-height:35px;}
+      .s09-d{opacity:.55;}
+      .s09-hl{position:absolute;left:0;top:0;width:1100px;height:35px;background:rgba(255,255,255,.07);opacity:0;}
+      .s09-tw{position:absolute;left:80px;top:12px;width:0;height:0;border-left:9px solid #919191;border-top:5px solid transparent;border-bottom:5px solid transparent;}
+      .s09-time{position:absolute;left:100px;width:108px;text-align:right;color:#919191;}
+      .s09-sw{position:absolute;left:222px;top:11px;width:14px;height:14px;}
+      .s09-title{position:absolute;left:250px;color:#e3e3e3;white-space:nowrap;}
+      .s09-tag{position:absolute;right:140px;color:#919191;white-space:nowrap;}
+      .s09-tag em{font-style:normal;color:#919191;margin-right:6px;}
+      .s09-dur{position:absolute;right:24px;color:#fff;}
+      .s09-rail{position:absolute;width:2px;transform-origin:50% 0;opacity:1;}
+      .s09-node{position:absolute;width:16px;height:16px;border-radius:50%;border:3px solid #030303;margin:-8px 0 0 -8px;}
+      #s09-chip{position:absolute;left:470px;top:391px;height:34px;padding:0 14px;background:#292929;border:1px solid #474747;font-family:"Roboto Mono",monospace;font-size:18px;line-height:32px;color:#e3e3e3;white-space:nowrap;}
+      #s09-chip i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#20c997;margin-right:10px;}
+      #s09-arrow{position:absolute;left:0;top:0;width:1100px;height:426px;overflow:visible;}
+    </style>
+    <div id="s09-wrap">
+      <div id="s09-flash"></div>
+      <div id="s09-eyebrow">Timeline</div>
+      <span class="s09-h" id="s09-h1" style="top:186px">Every update</span>
+      <span class="s09-h" id="s09-h2" style="top:257px">knows <b>why.</b></span>
+      <div id="s09-fragbox">
+        <div id="s09-frag-inner" style="position:absolute;left:0;top:0;width:1100px;height:426px;background:#030303;border:1px solid #363636;overflow:hidden;">
+      <div style="position:absolute;left:-1px;top:-1px;width:1100px;height:426px;">
+      <div class="s09-tb"><div class="s09-seg"><span class="s09-on">List</span><span>Tracks</span></div><div class="s09-btns"><div class="s09-btn">Export snapshot</div><div class="s09-btn">Clear</div><div class="s09-btn s09-stop">Stop</div></div></div>
+      <div class="s09-bar"><i class="s09-sw1"></i><span class="s09-raw">Raw</span><span class="s09-exp">Expand all</span><span class="s09-cnt">554 / 554</span></div>
+      <div class="s09-row s09-c1" id="s09-row0" style="top:102px"><i class="s09-hl" id="s09-hl0"></i><span class="s09-tw"></span><span class="s09-time">1936.2ms</span><i class="s09-sw" style="background:#a451af"></i><span class="s09-title">click</span><span class="s09-tag">(385, 540)</span><span class="s09-dur"></span></div>
+      <div class="s09-row s09-c1" id="s09-row1" style="top:138px"><i class="s09-hl" id="s09-hl1"></i><span class="s09-tw"></span><span class="s09-time">1936.3ms</span><i class="s09-sw" style="background:#4d63ff"></i><span class="s09-title">performUpdate</span><span class="s09-tag"><em>+2</em> hmr-task</span><span class="s09-dur">0.50ms</span></div>
+      <div class="s09-row s09-c1" id="s09-row2" style="top:174px"><i class="s09-hl" id="s09-hl2"></i><span class="s09-tw"></span><span class="s09-time">1936.5ms</span><i class="s09-sw" style="background:#4d63ff"></i><span class="s09-title">task</span><span class="s09-tag">hmr-task</span><span class="s09-dur">301.6ms</span></div>
+      <div class="s09-row s09-d" id="s09-row3" style="top:210px"><i class="s09-hl" id="s09-hl3"></i><span class="s09-tw"></span><span class="s09-time">1936.6ms</span><i class="s09-sw" style="background:#99aeff"></i><span class="s09-title">set part</span><span class="s09-tag">hmr-task</span><span class="s09-dur"></span></div>
+      <div class="s09-row s09-d" id="s09-row4" style="top:246px"><i class="s09-hl" id="s09-hl4"></i><span class="s09-tw"></span><span class="s09-time">1936.7ms</span><i class="s09-sw" style="background:#99aeff"></i><span class="s09-title">commit text</span><span class="s09-tag">hmr-task</span><span class="s09-dur"></span></div>
+      <div class="s09-row s09-c2" id="s09-row5" style="top:282px"><i class="s09-hl" id="s09-hl5"></i><span class="s09-tw"></span><span class="s09-time">2101.0ms</span><i class="s09-sw" style="background:#4d63ff"></i><span class="s09-title">performUpdate</span><span class="s09-tag"><em>+1</em> hmr-parent</span><span class="s09-dur">0.30ms</span></div>
+      <div class="s09-row s09-c2" id="s09-row6" style="top:318px"><i class="s09-hl" id="s09-hl6"></i><span class="s09-tw"></span><span class="s09-time">2101.2ms</span><i class="s09-sw" style="background:#4d63ff"></i><span class="s09-title">performUpdate</span><span class="s09-tag">hmr-child</span><span class="s09-dur">0.10ms</span></div>
+      <div class="s09-row s09-d" id="s09-row7" style="top:354px"><i class="s09-hl" id="s09-hl7"></i><span class="s09-tw"></span><span class="s09-time">2101.3ms</span><i class="s09-sw" style="background:#99aeff"></i><span class="s09-title">set part</span><span class="s09-tag">hmr-child</span><span class="s09-dur"></span></div>
+      <div class="s09-row s09-c1" id="s09-row8" style="top:390px"><i class="s09-hl" id="s09-hl8"></i><span class="s09-tw"></span><span class="s09-time">2237.7ms</span><i class="s09-sw" style="background:#4d63ff"></i><span class="s09-title">performUpdate</span><span class="s09-tag"><em>+2</em> hmr-task</span><span class="s09-dur">0.20ms</span></div>
+
+      <!-- chain 1 rails (teal) -->
+      <div class="s09-rail" id="s09-c1a" style="left:31px;top:120px;height:36px;background:#20c997"></div>
+      <div class="s09-rail" id="s09-c1b" style="left:31px;top:156px;height:36px;background:#20c997"></div>
+      <div class="s09-rail" id="s09-c1c" style="left:31px;top:192px;height:216px;background:#20c997"></div>
+      <i class="s09-node" id="s09-n0" style="left:32px;top:120px;background:#20c997"></i>
+      <i class="s09-node" id="s09-n1" style="left:32px;top:156px;background:#20c997"></i>
+      <i class="s09-node" id="s09-n2" style="left:32px;top:192px;background:#20c997"></i>
+      <i class="s09-node" id="s09-n3" style="left:32px;top:408px;background:#20c997"></i>
+      <!-- chain 2 rails (orange) -->
+      <div class="s09-rail" id="s09-c2a" style="left:63px;top:300px;height:36px;background:#fd7e14"></div>
+      <i class="s09-node" id="s09-m0" style="left:64px;top:300px;background:#fd7e14"></i>
+      <i class="s09-node" id="s09-m1" style="left:64px;top:336px;background:#fd7e14"></i>
+      <!-- cause arrow -->
+      <svg id="s09-arrow" viewBox="0 0 1100 426"><path id="s09-apath" d="M 485 391 L 485 120 L 330 120" fill="none" stroke="#20c997" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="440" stroke-dashoffset="440"/><polygon id="s09-ahead" points="316,120 332,112 332,128" fill="#20c997" opacity="0"/></svg>
+      <div id="s09-chip"><i></i>after click (385, 540)</div>
+      </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      (function () {
+        var tl = gsap.timeline({ paused: true });
+        var q = function (s) { return document.querySelector(s); };
+        // downbeat hit: flash + headline slam + fragment punch-in
+        tl.fromTo("#s09-flash", { opacity: 1 }, { opacity: 0, duration: 0.5, ease: "power2.out" }, 0);
+        tl.fromTo("#s09-eyebrow", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.25, ease: "power3.out" }, 0);
+        tl.fromTo("#s09-h1", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 0);
+        tl.fromTo("#s09-h2", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, 0);
+        tl.fromTo("#s09-fragbox", { opacity: 0, scale: 1.04 }, { opacity: 1, scale: 1, duration: 0.3, ease: "power3.out" }, 0);
+        // chain 1 (teal) draws on beats
+        var pop = function (id, t) { tl.fromTo(id, { scale: 0 }, { scale: 1, duration: 0.2, ease: "back.out(2.5)" }, t); };
+        pop("#s09-n0", 0.24);
+        tl.fromTo("#s09-c1a", { scaleY: 0 }, { scaleY: 1, duration: 0.24, ease: "none" }, 0.24);
+        pop("#s09-n1", 0.48);
+        tl.fromTo("#s09-c1b", { scaleY: 0 }, { scaleY: 1, duration: 0.24, ease: "none" }, 0.48);
+        pop("#s09-n2", 0.72);
+        tl.fromTo("#s09-c1c", { scaleY: 0 }, { scaleY: 1, duration: 0.24, ease: "power2.in" }, 0.72);
+        pop("#s09-n3", 0.96);
+        // chain 2 (orange)
+        pop("#s09-m0", 1.92);
+        tl.fromTo("#s09-c2a", { scaleY: 0 }, { scaleY: 1, duration: 0.24, ease: "none" }, 1.92);
+        pop("#s09-m1", 2.16);
+        // hover chain 1: highlight its rows, dim the rest
+        [0, 1, 2, 8].forEach(function (i) { tl.fromTo("#s09-hl" + i, { opacity: 0 }, { opacity: 1, duration: 0.2 }, 2.4); });
+        [5, 6].forEach(function (i) { tl.to("#s09-row" + i, { opacity: 0.3, duration: 0.2 }, 2.4); });
+        [3, 4, 7].forEach(function (i) { tl.to("#s09-row" + i, { opacity: 0.25, duration: 0.2 }, 2.4); });
+        tl.to(["#s09-c2a", "#s09-m0", "#s09-m1"], { opacity: 0.3, duration: 0.2 }, 2.4);
+        // cause chip + arrow back to the click row
+        tl.fromTo("#s09-chip", { opacity: 0, scale: 0.9, transformOrigin: "0% 50%" }, { opacity: 1, scale: 1, duration: 0.2, ease: "back.out(2)" }, 2.88);
+        tl.fromTo("#s09-apath", { strokeDashoffset: 440 }, { strokeDashoffset: 0, duration: 0.4, ease: "power2.inOut" }, 2.96);
+        tl.fromTo("#s09-ahead", { opacity: 0 }, { opacity: 1, duration: 0.1 }, 3.32);
+        // snap shut toward the strip
+        tl.set("#s09-wrap", { transformOrigin: "960px 664px" }, 0);
+        tl.to("#s09-wrap", { scaleY: 0, opacity: 0, duration: 0.18, ease: "power3.in" }, 3.51);
+        window.__timelines["s09-cause"] = tl;
+      })();
+    </script>
+  </div>
+</template>

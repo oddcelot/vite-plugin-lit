@@ -1,0 +1,115 @@
+<template id="s05-sheet-drop-template">
+  <!-- SHARED GEOMETRY with frames 04/05: keep the CSS block and constants below identical in both files. -->
+  <style>
+    @font-face { font-family: "Manrope"; font-weight: 600; src: url("assets/manrope-semibold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 700; src: url("assets/manrope-bold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 800; src: url("assets/manrope-extrabold.woff2") format("woff2"); }
+    @font-face { font-family: "Roboto Mono"; font-weight: 400; src: url("assets/RobotoMono-Latin-400.woff2") format("woff2"); }
+
+    #s05-sheet-drop { overflow: hidden; background: transparent; font-family: "Manrope", sans-serif; }
+    #s05-sheet-drop * { box-sizing: border-box; }
+    #s05-sheet-drop-clip { position: absolute; inset: 0; clip-path: inset(100px 40px 416px 40px); }
+    #s05-sheet-drop-stage { position: absolute; inset: 0; transform-origin: 50% 664px; }
+
+    .sx-eyebrow { position: absolute; left: 96px; top: 150px; font-weight: 700; font-size: 18px; letter-spacing: .14em; text-transform: uppercase; color: #4d63ff; line-height: 24px; white-space: nowrap; }
+    .sx-line { position: absolute; left: 96px; font-weight: 800; font-size: 68px; letter-spacing: -0.03em; line-height: 71px; color: #fff; white-space: nowrap; }
+    .sx-line em { font-style: normal; color: #00e8ff; }
+
+    /* code card: x 96, y 200 */
+    .sx-card { position: absolute; left: 96px; top: 200px; width: 520px; height: 118px; background: #0a0a0f; border: 1px solid #363636; border-radius: 8px; padding: 16px 20px; font-family: "Roboto Mono", monospace; font-size: 26px; line-height: 40px; color: #e3e3e3; overflow: hidden; }
+    .sx-ln { display: block; height: 40px; }
+    .sx-ln > span { display: inline-block; white-space: pre; }
+    .sx-kw { color: #c792ea; } .sx-id { color: #b2ccd6; } .sx-str { color: #c3e88d; } .sx-pu { color: #89ddff; }
+    .sx-str { border-radius: 3px; }
+
+    /* tile grid: 40 x 20, 20px tiles, 7px gap, top-left (760,140); clipped to y<=610 */
+    .sx-grid { position: absolute; left: 760px; top: 140px; width: 1073px; height: 470px; transform-origin: 50% 50%; }
+    .sx-gclip { position: absolute; inset: 0; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 432px, transparent 470px); mask-image: linear-gradient(to bottom, #000 0, #000 432px, transparent 470px); }
+    .sx-tiles { position: absolute; left: 0; top: 0; width: 1073px; height: 533px; --tile: rgba(50,79,255,0.6); --r: 4px; --ps: 1; }
+    .sx-tile { position: absolute; width: 20px; height: 20px; background: var(--tile); border-radius: var(--r); scale: var(--ps); }
+    .sx-shine { position: absolute; top: -20px; left: 0; width: 260px; height: 520px; background: linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.55) 50%, rgba(255,255,255,0) 100%); mix-blend-mode: overlay; opacity: 0; }
+    .sx-count { position: absolute; left: 760px; top: 616px; font-family: "Roboto Mono", monospace; font-size: 20px; line-height: 28px; color: #a1a1a1; white-space: nowrap; }
+    .sx-count b { font-weight: 400; color: #fff; }
+    .s05-bloom { position: absolute; left: 1296px; top: 372px; width: 1000px; height: 1000px; margin: -500px 0 0 -500px; border-radius: 50%; opacity: 0; pointer-events: none; }
+    #s05-sheet-drop-bloom { background: radial-gradient(circle, rgba(0,232,255,.55) 0%, rgba(0,232,255,.22) 35%, rgba(0,232,255,0) 68%); }
+    #s05-sheet-drop-bloom2 { background: radial-gradient(circle, rgba(244,191,79,.45) 0%, rgba(244,191,79,.16) 35%, rgba(244,191,79,0) 68%); }
+    #s05-sheet-drop-bloom3 { background: radial-gradient(circle, rgba(77,99,255,.4) 0%, rgba(77,99,255,.14) 35%, rgba(77,99,255,0) 68%); }
+    #s05-sheet-drop-ring { position: absolute; left: 1296px; top: 372px; width: 600px; height: 400px; margin: -200px 0 0 -300px; border: 5px solid #00e8ff; border-radius: 50%; opacity: 0; }
+    #s05-sheet-drop-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+    #s05-sheet-drop-chip { position: absolute; left: 1010px; top: 614px; height: 32px; padding: 0 14px 0 12px; display: flex; align-items: center; gap: 9px; background: #292929; border: 1px solid #363636; font-family: "Roboto Mono", monospace; font-size: 18px; color: #e3e3e3; opacity: 0; white-space: nowrap; }
+    #s05-sheet-drop-chip i { width: 9px; height: 9px; border-radius: 50%; background: #51cf66; }
+  </style>
+
+  <div id="s05-sheet-drop" data-composition-id="s05-sheet-drop" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <div id="s05-sheet-drop-clip">
+      <div id="s05-sheet-drop-stage">
+        <div class="s05-bloom" id="s05-sheet-drop-bloom"></div><div class="s05-bloom" id="s05-sheet-drop-bloom2"></div><div class="s05-bloom" id="s05-sheet-drop-bloom3"></div>
+        <div class="sx-eyebrow" id="s05-sheet-drop-eyebrow">CSS Sheet</div>
+        <div class="sx-card" id="s05-sheet-drop-card">
+          <span class="sx-ln" id="s05-sheet-drop-ln1"><span><span class="sx-kw">import</span> <span class="sx-id">sheet</span> <span class="sx-kw">from</span></span></span>
+          <span class="sx-ln" id="s05-sheet-drop-ln2"><span>  <span class="sx-str" id="s05-sheet-drop-str">'./theme.css?css-sheet'</span><span class="sx-pu">;</span></span></span>
+        </div>
+        <div class="sx-line" id="s05-sheet-drop-l1" style="top:340px">One sheet.</div>
+        <div class="sx-line" id="s05-sheet-drop-l2" style="top:411px"><em>1,000 roots.</em></div>
+        <div class="sx-line" id="s05-sheet-drop-l3" style="top:482px;opacity:0"><em>Hot-swapped.</em></div>
+        <div class="sx-grid" id="s05-sheet-drop-grid"><div class="sx-gclip"><div class="sx-tiles" id="s05-sheet-drop-tiles"></div><div class="sx-shine" id="s05-sheet-drop-shine"></div></div></div>
+        <div class="sx-count" id="s05-sheet-drop-count"><b id="s05-sheet-drop-num">1,000</b> shadow roots</div>
+        <div id="s05-sheet-drop-ring"></div>
+        <div id="s05-sheet-drop-chip"><i></i>0 re-renders</div>
+        <div id="s05-sheet-drop-flash"></div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        // ---- shared constants (identical in 04 and 05) ----
+        var COLS = 40, ROWS = 20, PITCH = 27;
+        var BLUE = "rgba(50,79,255,0.6)";
+        var Q = function (s) { return document.querySelector(s); };
+        var tilesEl = Q("#s05-sheet-drop-tiles");
+        var h = "";
+        for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) h += '<div class="sx-tile" style="left:' + (c * PITCH) + 'px;top:' + (r * PITCH) + 'px"></div>';
+        tilesEl.innerHTML = h;
+        var tiles = Array.prototype.slice.call(tilesEl.children);
+        var tl = gsap.timeline({ paused: true });
+        var slam = function (sel, at) { tl.fromTo(sel, { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, at); };
+
+        var NUM = Q("#s05-sheet-drop-num");
+        var G = "#s05-sheet-drop-grid", T = "#s05-sheet-drop-tiles", ST = "#s05-sheet-drop-stage";
+        // handoff_in: frame 04's end state (all values are the 04 defaults: blue 60%, radius 4, scale 1, 1,000 roots)
+        tl.set(T, { "--tile": BLUE, "--r": "4px", "--ps": 1 }, 0);
+
+        var hit = function (at, white, color, r, bloomSel, bloomPeak, punch, flashA) {
+          tl.set(T, { "--tile": white, "--r": r }, at);
+          tl.set(T, { "--tile": color }, at + 0.06);
+          tl.fromTo(bloomSel, { scale: 0.35, opacity: 1 }, { scale: bloomPeak, opacity: 0, duration: 0.75, ease: "power2.out" }, at);
+          tl.fromTo(G, { scale: 1 }, { scale: punch, duration: 0.07, ease: "power2.out", immediateRender: false }, at);
+          tl.to(G, { scale: 1, duration: 0.43, ease: "power3.out" }, at + 0.07);
+          tl.fromTo("#s05-sheet-drop-flash", { opacity: flashA }, { opacity: 0, duration: 0.3, ease: "power2.out", immediateRender: false }, at);
+        };
+
+        // 0.00 DROP HIT
+        hit(0, "rgb(255,255,255)", "#00e8ff", "9px", "#s05-sheet-drop-bloom", 1.9, 1.035, 0.16);
+        tl.fromTo("#s05-sheet-drop-ring", { scale: 0.2, opacity: 0.9 }, { scale: 2.4, opacity: 0, duration: 0.6, ease: "power3.out" }, 0);
+        tl.fromTo("#s05-sheet-drop-card", { borderColor: "#00e8ff" }, { borderColor: "#363636", duration: 0.6, ease: "power2.out" }, 0);
+        tl.fromTo("#s05-sheet-drop-str", { backgroundColor: "rgba(0,232,255,0.45)", color: "#ffffff" }, { backgroundColor: "rgba(0,232,255,0)", color: "#c3e88d", duration: 0.7, ease: "power2.out" }, 0);
+        slam("#s05-sheet-drop-l2", 0);
+        tl.fromTo("#s05-sheet-drop-shine", { x: -300, opacity: 0.9 }, { x: 1100, opacity: 0.9, duration: 0.9, ease: "power1.inOut" }, 0.48);
+        tl.set("#s05-sheet-drop-shine", { opacity: 0 }, 1.40);
+        // 0.48 chip
+        tl.fromTo("#s05-sheet-drop-chip", { opacity: 0, scale: 0.7, y: 8 }, { opacity: 1, scale: 1, y: 0, duration: 0.3, ease: "back.out(2.2)" }, 0.48);
+        // 1.92 SECOND HIT
+        hit(1.92, "rgb(255,246,214)", "#f4bf4f", "9px", "#s05-sheet-drop-bloom2", 1.4, 1.022, 0.14);
+        slam("#s05-sheet-drop-l3", 1.92);
+        tl.fromTo("#s05-sheet-drop-shine", { x: -300, opacity: 0.8 }, { x: 1100, opacity: 0.8, duration: 0.8, ease: "power1.inOut", immediateRender: false }, 2.0);
+        tl.set("#s05-sheet-drop-shine", { opacity: 0 }, 2.85);
+        // 2.88 THIRD, softer hit
+        hit(2.88, "rgb(190,200,255)", "#4d63ff", "9px", "#s05-sheet-drop-bloom3", 1.15, 1.014, 0.06);
+        // snap shut 3.51 -> 3.69
+        tl.to(ST, { scaleY: 0, opacity: 0, duration: 0.18, ease: "power3.in" }, 3.51);
+
+        window.__timelines["s05-sheet-drop"] = tl;
+      })();
+    </script>
+  </div>
+</template>

@@ -1,0 +1,91 @@
+<template id="s04-sheet-setup-template">
+  <!-- SHARED GEOMETRY with frames 04/05: keep the CSS block and constants below identical in both files. -->
+  <style>
+    @font-face { font-family: "Manrope"; font-weight: 600; src: url("assets/manrope-semibold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 700; src: url("assets/manrope-bold.woff2") format("woff2"); }
+    @font-face { font-family: "Manrope"; font-weight: 800; src: url("assets/manrope-extrabold.woff2") format("woff2"); }
+    @font-face { font-family: "Roboto Mono"; font-weight: 400; src: url("assets/RobotoMono-Latin-400.woff2") format("woff2"); }
+
+    #s04-sheet-setup { overflow: hidden; background: transparent; font-family: "Manrope", sans-serif; }
+    #s04-sheet-setup * { box-sizing: border-box; }
+    #s04-sheet-setup-clip { position: absolute; inset: 0; clip-path: inset(100px 40px 416px 40px); }
+    #s04-sheet-setup-stage { position: absolute; inset: 0; transform-origin: 50% 664px; }
+
+    .sx-eyebrow { position: absolute; left: 96px; top: 150px; font-weight: 700; font-size: 18px; letter-spacing: .14em; text-transform: uppercase; color: #4d63ff; line-height: 24px; white-space: nowrap; }
+    .sx-line { position: absolute; left: 96px; font-weight: 800; font-size: 68px; letter-spacing: -0.03em; line-height: 71px; color: #fff; white-space: nowrap; }
+    .sx-line em { font-style: normal; color: #00e8ff; }
+
+    /* code card: x 96, y 200 */
+    .sx-card { position: absolute; left: 96px; top: 200px; width: 520px; height: 118px; background: #0a0a0f; border: 1px solid #363636; border-radius: 8px; padding: 16px 20px; font-family: "Roboto Mono", monospace; font-size: 26px; line-height: 40px; color: #e3e3e3; overflow: hidden; }
+    .sx-ln { display: block; height: 40px; }
+    .sx-ln > span { display: inline-block; white-space: pre; }
+    .sx-kw { color: #c792ea; } .sx-id { color: #b2ccd6; } .sx-str { color: #c3e88d; } .sx-pu { color: #89ddff; }
+    .sx-str { border-radius: 3px; }
+
+    /* tile grid: 40 x 20, 20px tiles, 7px gap, top-left (760,140); clipped to y<=610 */
+    .sx-grid { position: absolute; left: 760px; top: 140px; width: 1073px; height: 470px; transform-origin: 50% 50%; }
+    .sx-gclip { position: absolute; inset: 0; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 432px, transparent 470px); mask-image: linear-gradient(to bottom, #000 0, #000 432px, transparent 470px); }
+    .sx-tiles { position: absolute; left: 0; top: 0; width: 1073px; height: 533px; --tile: rgba(50,79,255,0.6); --r: 4px; --ps: 1; }
+    .sx-tile { position: absolute; width: 20px; height: 20px; background: var(--tile); border-radius: var(--r); scale: var(--ps); }
+    .sx-shine { position: absolute; top: -20px; left: 0; width: 260px; height: 520px; background: linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.55) 50%, rgba(255,255,255,0) 100%); mix-blend-mode: overlay; opacity: 0; }
+    .sx-count { position: absolute; left: 760px; top: 616px; font-family: "Roboto Mono", monospace; font-size: 20px; line-height: 28px; color: #a1a1a1; white-space: nowrap; }
+    .sx-count b { font-weight: 400; color: #fff; }
+
+  </style>
+
+  <div id="s04-sheet-setup" data-composition-id="s04-sheet-setup" data-width="1920" data-height="1080" style="position:absolute;inset:0">
+    <div id="s04-sheet-setup-clip">
+      <div id="s04-sheet-setup-stage">
+
+        <div class="sx-eyebrow" id="s04-sheet-setup-eyebrow">CSS Sheet</div>
+        <div class="sx-card" id="s04-sheet-setup-card">
+          <span class="sx-ln" id="s04-sheet-setup-ln1"><span><span class="sx-kw">import</span> <span class="sx-id">sheet</span> <span class="sx-kw">from</span></span></span>
+          <span class="sx-ln" id="s04-sheet-setup-ln2"><span>  <span class="sx-str" id="s04-sheet-setup-str">'./theme.css?css-sheet'</span><span class="sx-pu">;</span></span></span>
+        </div>
+        <div class="sx-line" id="s04-sheet-setup-l1" style="top:340px">One sheet.</div>
+
+        <div class="sx-grid" id="s04-sheet-setup-grid"><div class="sx-gclip"><div class="sx-tiles" id="s04-sheet-setup-tiles"></div><div class="sx-shine" id="s04-sheet-setup-shine"></div></div></div>
+        <div class="sx-count" id="s04-sheet-setup-count"><b id="s04-sheet-setup-num">1,000</b> shadow roots</div>
+
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        // ---- shared constants (identical in 04 and 05) ----
+        var COLS = 40, ROWS = 20, PITCH = 27;
+        var BLUE = "rgba(50,79,255,0.6)";
+        var Q = function (s) { return document.querySelector(s); };
+        var tilesEl = Q("#s04-sheet-setup-tiles");
+        var h = "";
+        for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) h += '<div class="sx-tile" style="left:' + (c * PITCH) + 'px;top:' + (r * PITCH) + 'px"></div>';
+        tilesEl.innerHTML = h;
+        var tiles = Array.prototype.slice.call(tilesEl.children);
+        var tl = gsap.timeline({ paused: true });
+        var slam = function (sel, at) { tl.fromTo(sel, { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, at); };
+
+        var N = {v: 0};
+        var num = Q("#s04-sheet-setup-num");
+        // eyebrow + code card typing 0 -> 0.60
+        tl.fromTo("#s04-sheet-setup-eyebrow", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power2.out" }, 0);
+        tl.fromTo("#s04-sheet-setup-ln1", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.28, ease: "steps(17)" }, 0);
+        tl.fromTo("#s04-sheet-setup-ln2", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.32, ease: "steps(26)" }, 0.28);
+        slam("#s04-sheet-setup-l1", 0.48);
+        // grid fills centre-outward 0.20 -> 1.20
+        tl.fromTo(tiles, { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: 0.25, ease: "power2.out", stagger: { amount: 0.75, from: "center", grid: [ROWS, COLS], ease: "none" } }, 0.20);
+        tl.fromTo("#s04-sheet-setup-count", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 0.20);
+        tl.fromTo(N, { v: 0 }, { v: 1000, duration: 1.0, ease: "none", onUpdate: function () { num.textContent = Math.round(N.v).toLocaleString("en-US"); } }, 0.20);
+        // riser 1.44 -> 1.92 (ends exactly on the handoff state)
+        var pulse = function (at, d) {
+          tl.fromTo("#s04-sheet-setup-tiles", { "--ps": 1 }, { "--ps": 0.9, duration: d, ease: "power2.in", immediateRender: false }, at);
+          tl.to("#s04-sheet-setup-tiles", { "--ps": 1, duration: d, ease: "power2.out" }, at + d);
+          tl.fromTo("#s04-sheet-setup-grid", { filter: "brightness(1)" }, { filter: "brightness(1.35)", duration: d, ease: "power2.in", immediateRender: false }, at);
+          tl.to("#s04-sheet-setup-grid", { filter: "brightness(1)", duration: d, ease: "power2.out" }, at + d);
+        };
+        pulse(1.44, 0.10); pulse(1.68, 0.06); pulse(1.80, 0.06);
+
+        window.__timelines["s04-sheet-setup"] = tl;
+      })();
+    </script>
+  </div>
+</template>
