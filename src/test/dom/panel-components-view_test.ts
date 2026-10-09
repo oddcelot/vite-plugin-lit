@@ -1540,3 +1540,39 @@ test('explains an undefined element in the details pane', async () => {
   );
   expect(sections(root)).toEqual([]);
 });
+
+test('marks a custom element another library defined in its row', async () => {
+  const {rows} = await mount(false, [
+    {id: 1, tagName: 'x-app', children: []},
+    {id: 2, tagName: 'x-plain', notLit: true, children: []},
+  ]);
+  const [app, plain] = rows();
+  expect(app!.querySelector('.status.not-lit')).toBeNull();
+  expect(plain!.querySelector('.status.not-lit')?.textContent).toBe('not Lit');
+});
+
+test('explains a non-Lit element in the details pane', async () => {
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      tagName: 'x-plain',
+      notLit: true,
+      attributes: [{name: 'variant', value: 'brand'}],
+      properties: [],
+      flags: {hasUpdated: false, isUpdatePending: false, hasShadowRoot: true},
+    },
+  });
+  await flush(el);
+  expect(
+    root.querySelector('.details .head .status.not-lit')?.textContent
+  ).toBe('not Lit');
+  // It never runs a Lit update, so "not rendered" would be wrong.
+  expect(root.querySelector('.details .head .status:not(.not-lit)')).toBeNull();
+  expect(root.querySelector('.not-defined-note')?.textContent).toContain(
+    'not as a Lit component'
+  );
+  expect(sections(root)).toEqual(['Attributes 1 open']);
+});
