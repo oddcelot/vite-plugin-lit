@@ -109,10 +109,27 @@ do this, so the maps must be reachable from the page. It only sees components
 defined after it injects, which on an enabled site is before the page's first
 script runs.
 
+## Open in the browser's own panels
+
+A button and two links hand off to DevTools' own panels:
+
+- The details pane's **Reveal in Elements** button, beside the scroll-into-view
+  button, selects the element in the **Elements** panel. It works in Chrome and
+  in Firefox, wherever DevTools offers `inspect()`.
+- The **defined** link and, on a page built with the Vite plugin, the
+  **rendered** link open in the **Sources** panel at that line. A source the
+  plugin stamped is a file path, so the extension looks up the URL the page
+  loaded for that file and opens it. If the page didn't load the file, nothing
+  opens. If you've connected a Chrome DevTools workspace to the project folder,
+  Chrome maps the file to your disk and you can edit it there.
+
+Opening in **Sources** needs Chrome: Firefox has no way for an extension to
+open it, so there the links stay plain text.
+
 ## What the extension can't do
 
-The extension has no dev server behind it. **Rendered at** links, open in
-editor, hot patching, snapshot export and the MCP tools need the Vite plugin.
+The extension has no dev server behind it. Open in editor, **Rendered at** links
+on a page without the plugin, hot patching, snapshot export and the MCP tools need the Vite plugin.
 Render events on the timeline need Lit's development build. It sees the top
 frame of `http:` and `https:` pages only.
 
