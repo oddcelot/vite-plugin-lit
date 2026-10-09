@@ -85,7 +85,24 @@ export class DevtoolsSettings extends LitElement {
         align-items: center;
         gap: var(--lit-devtools-space-4);
         margin: 0;
-        font-size: var(--lit-devtools-text-xs);
+        font-size: var(--lit-devtools-text-2xs);
+        font-weight: var(--lit-devtools-weight-semibold);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--lit-devtools-text-secondary);
+      }
+      /* Section status: a soft tint, not a solid fill, so it never outshouts
+         the controls below it. */
+      .pill {
+        text-transform: none;
+        letter-spacing: 0;
+        border: 0;
+        background: var(--lit-devtools-surface-container);
+        color: var(--lit-devtools-text-muted);
+      }
+      .pill.on {
+        background: var(--lit-devtools-success-soft);
+        color: var(--lit-devtools-success);
       }
       .reset {
         display: block;
@@ -95,9 +112,12 @@ export class DevtoolsSettings extends LitElement {
       table {
         width: 100%;
         border-collapse: collapse;
+        /* One fixed label column, so every section's values line up. */
+        table-layout: fixed;
       }
       td {
-        padding: var(--lit-devtools-space-3) var(--lit-devtools-space-5);
+        height: var(--lit-devtools-control-height);
+        padding: var(--lit-devtools-space-2) var(--lit-devtools-space-5);
         vertical-align: middle;
       }
       tr:not(:last-child) td {
@@ -106,12 +126,16 @@ export class DevtoolsSettings extends LitElement {
       .key {
         color: var(--lit-devtools-text-muted);
         white-space: nowrap;
-        width: 1%;
+        width: 11em;
       }
       .key[data-tip] {
         cursor: help;
-        text-decoration: underline dotted;
         text-underline-offset: 3px;
+      }
+      /* The tooltip affordance shows on demand; always-on it reads as a link. */
+      .key[data-tip]:hover,
+      .key[data-tip]:focus-visible {
+        text-decoration: underline dotted;
       }
       .opt-src {
         opacity: 0.7;
@@ -129,6 +153,16 @@ export class DevtoolsSettings extends LitElement {
       wa-badge.env {
         font-family: var(--lit-devtools-font-mono);
         vertical-align: middle;
+      }
+      /* An origin tag, "(option)" or "(env)": muted text, not a button. */
+      wa-badge.env:not(.ovr) {
+        border: 0;
+        background: var(--lit-devtools-surface-container);
+        color: var(--lit-devtools-text-muted);
+        font-size: var(--lit-devtools-text-2xs);
+        font-weight: var(--lit-devtools-weight-regular);
+        text-transform: none;
+        letter-spacing: 0;
       }
       .src {
         margin-left: var(--lit-devtools-space-3);
@@ -155,6 +189,13 @@ export class DevtoolsSettings extends LitElement {
         display: inline-block;
         min-width: 9em;
         font-family: var(--lit-devtools-font-mono);
+      }
+      wa-select::part(combobox) {
+        min-height: var(--lit-devtools-control-height);
+        height: var(--lit-devtools-control-height);
+      }
+      wa-switch::part(base) {
+        align-items: center;
       }
       .row-disabled {
         opacity: 0.5;
@@ -441,7 +482,7 @@ export class DevtoolsSettings extends LitElement {
     const row = this._rowOf(key);
     return html`
       <tr class=${row.disabled ? 'row-disabled' : ''}>
-        <td class="key" data-tip=${row.tip}>${row.label}</td>
+        <td class="key" tabindex="0" data-tip=${row.tip}>${row.label}</td>
         <td class="val">
           ${this._control(row)} ${this._badge(row)}
           ${
@@ -527,7 +568,7 @@ export class DevtoolsSettings extends LitElement {
     const row = this._rowOf('sourceOverlayEditor');
     return html`
       <tr>
-        <td class="key" data-tip=${row.tip}>${row.label}</td>
+        <td class="key" tabindex="0" data-tip=${row.tip}>${row.label}</td>
         <td class="val">
           <wa-select size="small" disabled .value=${'custom'}>
             <wa-option value="custom" disabled>Custom</wa-option>
