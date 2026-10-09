@@ -2,11 +2,18 @@
 /**
  * One button per store Lit Inspector is listed in. A store without a `url` in
  * src/lib/stores.ts renders as a dimmed "Coming soon" badge that is not a link.
+ * Links carry UTM parameters naming the page they are on (`home` for the
+ * landing page), so the store's analytics show which page sent a visit.
  */
 import Logo from './Logo.astro';
-import {stores, type Store} from '../lib/stores';
+import {stores, trackedUrl, type Store} from '../lib/stores';
 
 const order: Store[] = ['chrome', 'firefox'];
+const page =
+  Astro.url.pathname
+    .replace(import.meta.env.BASE_URL, '')
+    .replace(/^\/+|\/+$/g, '')
+    .replaceAll('/', '-') || 'home';
 ---
 
 <div class="store-buttons not-content">
@@ -23,7 +30,7 @@ const order: Store[] = ['chrome', 'firefox'];
         </>
       );
       return url ? (
-        <a class="store-button" href={url} rel="noopener">
+        <a class="store-button" href={trackedUrl(url, page)} rel="noopener">
           {body}
         </a>
       ) : (

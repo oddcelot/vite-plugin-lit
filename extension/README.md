@@ -5,7 +5,9 @@ production builds, sites you don't serve, pages whose CSP would refuse the
 `<script>` tag `lit-devtools dev` prints. The browser injects the runtime
 itself, so the page's `script-src` doesn't apply.
 
-Work in progress. It isn't published, and it isn't part of the npm package.
+Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/lit-inspector/faojnglflincboehhgkjgehnapjgiieh?utm_source=github&utm_medium=readme&utm_campaign=extension-readme).
+The Firefox version isn't on addons.mozilla.org yet; see
+[Firefox](#firefox). The extension isn't part of the npm package.
 It is an independent tool, not affiliated with Google, Mozilla or the Lit
 project.
 Its privacy policy is on the docs site:
@@ -56,8 +58,8 @@ takes one to four dot-separated integers, so a prerelease version such as
 ## Install from a release
 
 Every [GitHub release](https://github.com/oddcelot/vite-plugin-lit/releases)
-carries a `lit-inspector-<version>.zip`. Until the extension is on the Chrome
-Web Store, that's the way to install it without building from source:
+carries a `lit-inspector-<version>.zip`, for running a build the Chrome Web
+Store doesn't have yet without building from source:
 
 1. Download the zip and unzip it into a folder you'll keep: Chrome loads the
    extension from that folder every time it starts.

@@ -28,30 +28,36 @@ Lit Inspector is the same panel the Vite plugin serves, running inside a
 browser extension with no server behind it. The browser injects the runtime
 itself, so a page's Content Security Policy can't block it.
 
-## Install from a release
-
-The extension is not in the stores yet. Every [GitHub
-release](https://github.com/oddcelot/vite-plugin-lit/releases) carries a zip
-for each browser, which you load by hand.
+## Install
 
 ### Chrome
 
+Install Lit Inspector from the [Chrome Web
+Store](https://chromewebstore.google.com/detail/lit-inspector/faojnglflincboehhgkjgehnapjgiieh?utm_source=docs&utm_medium=install-section&utm_campaign=guides-devtools-browser-extension)
+with **Add to Chrome**. Chrome keeps it up to date.
+
+To run a build that isn't in the store yet, every [GitHub
+release](https://github.com/oddcelot/vite-plugin-lit/releases) also carries
+`lit-inspector-<version>.zip`, which you load by hand:
+
 <Steps>
 
-1. Download `lit-inspector-<version>.zip` and unzip it into a folder you keep.
-   Chrome loads the extension from that folder every time it starts.
+1. Unzip it into a folder you keep. Chrome loads the extension from that
+   folder every time it starts.
 
 2. Open `chrome://extensions` and turn on **Developer mode**, top right.
 
 3. Click **Load unpacked** and pick the folder with `manifest.json` in it.
-   **Lit Inspector** appears in the list of extensions.
 
 </Steps>
 
-An unpacked extension doesn't update itself. For a new release, replace the
-folder's contents and press the extension's reload button.
+An unpacked extension doesn't update itself, and it sits next to the store
+version as a second **Lit Inspector**; turn one of them off.
 
 ### Firefox
+
+Lit Inspector isn't on addons.mozilla.org yet. Load the zip from a [GitHub
+release](https://github.com/oddcelot/vite-plugin-lit/releases) by hand:
 
 <Steps>
 
