@@ -54,7 +54,9 @@ is one category of recorded timeline events, with its own colour and toggle.
 | Lit warnings         | A `warning:<code>` point event for each warning Lit's development build issues                                                                                                                                                             | on      |
 | Custom events        | Events a component dispatches with `this.dispatchEvent(...)`: the type, `bubbles`/`composed`/`cancelable` and a short preview of `detail`                                                                                                  | off     |
 
-Your toggles are remembered between sessions in `localStorage`.
+Your toggles last as long as the session: they go back to these defaults
+when the dev server restarts, or in the browser extension when DevTools
+closes.
 
 A custom event row is attributed to the component that dispatched it, so it
 links to that component like any other row. Only an element's own
