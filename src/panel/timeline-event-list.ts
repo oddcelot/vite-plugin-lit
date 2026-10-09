@@ -8,7 +8,11 @@ import {tokens} from '../lib/tokens.js';
 import {waSquare} from './wa-square.js';
 import type {TimelineEvent} from '../types/timeline.js';
 import type {TimelineSpan} from '../lib/timeline/derive.js';
-import {layerColor} from './timeline-layers.js';
+import {
+  emptyStateStyles,
+  layerColor,
+  renderEmptyState,
+} from './timeline-layers.js';
 import type {LayerState} from './timeline-layers.js';
 import {applyFilter, NO_FILTER, rawRow} from '../lib/timeline/model.js';
 import type {TimelineFilter} from '../lib/timeline/model.js';
@@ -95,6 +99,7 @@ export class TimelineEventList extends LitElement {
   static override styles = [
     tokens,
     waSquare,
+    emptyStateStyles,
     css`
       :host {
         /* One hue per cause chain; mid lightness so each reads on both the
@@ -129,20 +134,6 @@ export class TimelineEventList extends LitElement {
         flex: 1;
         overflow-y: auto;
         padding: var(--lit-devtools-space-2) 0;
-      }
-      .empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        gap: var(--lit-devtools-space-4);
-        color: var(--lit-devtools-text-muted);
-        font-size: var(--lit-devtools-text-xs);
-      }
-      .hint {
-        font-size: var(--lit-devtools-text-2xs);
-        color: var(--lit-devtools-text-muted);
       }
       .row {
         /* The virtualizer positions rows absolutely; stretch them back. That
@@ -322,6 +313,13 @@ export class TimelineEventList extends LitElement {
   /** `toSpans(events)`, derived once by `timeline-view` for both views. */
   @property({type: Array}) spans: TimelineSpan[] = [];
   @property({type: Array}) layers: LayerState[] = [];
+  /** Offer a Record button in the empty state. */
+  @property({type: Boolean}) canRecord = false;
+
+  private readonly _requestRecord = () =>
+    this.dispatchEvent(
+      new CustomEvent('record-request', {bubbles: true, composed: true})
+    );
   /** Key of the selected row. Keys survive re-derivation; the row objects
    *  themselves are rebuilt whenever the event buffer changes. */
   @property({attribute: false}) selectedKey: string | null = null;
@@ -600,12 +598,15 @@ export class TimelineEventList extends LitElement {
         visible.length === 0
           ? html`
               <div class="scroll">
-                <div class="empty">
-                  <span>No events recorded.</span>
-                  <span class="hint"
-                    >Press Record then interact with the page.</span
-                  >
-                </div>
+                ${
+                  this.events.length === 0
+                    ? renderEmptyState(
+                        this.canRecord ? this._requestRecord : undefined
+                      )
+                    : html`<div class="empty">
+                        <span>No events match the filters.</span>
+                      </div>`
+                }
               </div>
             `
           : html`

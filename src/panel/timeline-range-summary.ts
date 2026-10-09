@@ -32,7 +32,7 @@ export class TimelineRangeSummary extends LitElement {
         display: block;
         border-top: 1px solid var(--lit-devtools-border);
         background: var(--lit-devtools-surface-low);
-        padding: var(--lit-devtools-space-5);
+        padding: var(--lit-devtools-space-4) var(--lit-devtools-space-5);
         font-size: var(--lit-devtools-text-2xs);
         font-family: var(--lit-devtools-font-mono);
         color: var(--lit-devtools-text-secondary);
@@ -67,22 +67,43 @@ export class TimelineRangeSummary extends LitElement {
         height: 8px;
         margin-right: var(--lit-devtools-space-2);
       }
+      header wa-button::part(base) {
+        height: var(--lit-devtools-control-height, 28px);
+        min-height: 0;
+      }
+      /* The component rows read like the span detail's grid: a ~140px name
+         column, then compact numbers, then the links in the link colour. */
       table {
         border-collapse: collapse;
-        width: 100%;
+        width: max-content;
       }
       th {
         text-align: left;
         font-weight: normal;
         color: var(--lit-devtools-text-muted);
       }
+      th:first-child,
+      td:first-child {
+        width: 140px;
+      }
       th,
       td {
-        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-4)
+        padding: var(--lit-devtools-space-1) var(--lit-devtools-space-6)
           var(--lit-devtools-space-1) 0;
+        line-height: 1.5;
+        vertical-align: baseline;
       }
-      td.num {
+      td wa-button::part(base) {
+        height: auto;
+        min-height: 0;
+        padding: 0 var(--lit-devtools-space-2);
+        font: inherit;
+        line-height: 1.5;
+        color: var(--lit-devtools-accent);
+      }
+      .num {
         text-align: right;
+        white-space: nowrap;
       }
       .val {
         color: var(--lit-devtools-text);

@@ -24,7 +24,11 @@ import {
   zoomAt,
 } from '../lib/timeline/tracks.js';
 import type {TimeScale, Track} from '../lib/timeline/tracks.js';
-import {layerColor} from './timeline-layers.js';
+import {
+  emptyStateStyles,
+  layerColor,
+  renderEmptyState,
+} from './timeline-layers.js';
 import type {LayerState} from './timeline-layers.js';
 import './timeline-span-detail.js';
 import './timeline-range-summary.js';
@@ -84,6 +88,7 @@ const describe = (span: TimelineSpan): string => {
 export class TimelineTracks extends LitElement {
   static override styles = [
     tokens,
+    emptyStateStyles,
     css`
       :host {
         display: flex;
@@ -100,7 +105,7 @@ export class TimelineTracks extends LitElement {
       }
       .axis {
         flex-shrink: 0;
-        height: 20px;
+        height: var(--lit-devtools-row-height, 22px);
         border-bottom: 1px solid var(--lit-devtools-border);
         color: var(--lit-devtools-text-muted);
       }
@@ -206,6 +211,7 @@ export class TimelineTracks extends LitElement {
         border-bottom: 1px solid var(--lit-devtools-border);
       }
       .lane .gutter {
+        min-height: var(--lit-devtools-row-height, 22px);
         color: var(--lit-devtools-text-secondary);
         cursor: default;
       }
@@ -262,17 +268,6 @@ export class TimelineTracks extends LitElement {
         outline: 2px solid var(--lit-devtools-accent-ring);
         z-index: 1;
       }
-      .empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        flex: 1;
-        gap: var(--lit-devtools-space-4);
-        color: var(--lit-devtools-text-muted);
-        font-family: var(--lit-devtools-font-sans);
-        font-size: var(--lit-devtools-text-xs);
-      }
     `,
   ];
 
@@ -288,6 +283,10 @@ export class TimelineTracks extends LitElement {
   @property({type: Array}) visibleTracks: string[] = [];
   /** Follow the live edge while this is set and the user has not panned away. */
   @property({type: Boolean}) recording = false;
+  /** Events exist but the filters leave none; says so instead of "no events". */
+  @property({type: Boolean}) filtered = false;
+  /** Offer a Record button in the empty state. */
+  @property({type: Boolean}) canRecord = false;
   /** The drawn time range, kept by the view; null for none. */
   @property({attribute: false}) range: TimeRange | null = null;
 
@@ -642,6 +641,11 @@ export class TimelineTracks extends LitElement {
     this._follow = true;
   }
 
+  private readonly _requestRecord = () =>
+    this.dispatchEvent(
+      new CustomEvent('record-request', {bubbles: true, composed: true})
+    );
+
   private _select(key: string) {
     if (this._suppressClick) return;
     this.dispatchEvent(
@@ -668,14 +672,18 @@ export class TimelineTracks extends LitElement {
           @range-clear=${() => this._emitRange(null)}
         ></timeline-range-summary>`;
     if (this._tracks.length === 0) {
-      return html`<div class="empty">
-          ${
-            this.visibleTracks.length === 0
-              ? 'No tracks shown. Pick some above.'
-              : 'No events recorded.'
-          }
-        </div>
-        ${detail}`;
+      return html`${
+        this.visibleTracks.length === 0
+          ? html`<div class="empty">
+              <span>No tracks shown. Pick some above.</span>
+            </div>`
+          : this.filtered
+            ? html`<div class="empty">
+                <span>No events match the filters.</span>
+              </div>`
+            : renderEmptyState(this.canRecord ? this._requestRecord : undefined)
+      }
+      ${detail}`;
     }
     const scale = this._scale();
     return html`

@@ -12,7 +12,7 @@ const mount = async (props: {layers: LayerState[]; caption?: string}) => {
   Object.assign(el, props);
   document.body.append(el);
   await el.updateComplete;
-  return {el, buttons: [...el.shadowRoot!.querySelectorAll('wa-button')]};
+  return {el, buttons: [...el.shadowRoot!.querySelectorAll('button')]};
 };
 
 afterEach(() => {
@@ -48,4 +48,12 @@ test('the caption labels the strip only when set', async () => {
   expect(tracks.el.shadowRoot!.querySelector('.caption')?.textContent).toBe(
     'Tracks'
   );
+});
+
+test('each chip exposes its state as aria-pressed', async () => {
+  const {buttons} = await mount({layers});
+  expect(buttons.map((b) => b.getAttribute('aria-pressed'))).toEqual([
+    'true',
+    'false',
+  ]);
 });
