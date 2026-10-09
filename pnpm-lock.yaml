@@ -118,6 +118,7 @@ overrides:
   vite@*: npm:@voidzero-dev/vite-plus-core@1.0.0
   vite-plugin-lit-flame-example>vite: ^8.3.2
   vite-plugin-lit-web-awesome-example>vite: ^8.3.2
+  vite-plugin-lit-fernhouse-example>vite: ^8.3.2
   fflate@<0.7.5: ^0.7.5
   vite-plugin-inspect>@vitejs/devtools-kit: ^0.7.6
   '@emnapi/core': ^1.11.3
@@ -254,6 +255,28 @@ importers:
       vite:
         specifier: 'catalog:'
         version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.6.3)(@vitejs/devtools@0.7.6)(esbuild@0.28.2)(typescript@7.0.2)(yaml@2.9.1)'
+
+  examples/fernhouse:
+    dependencies:
+      '@lit/context':
+        specifier: ^1.1.6
+        version: 1.1.6
+      '@lit/task':
+        specifier: ^1.0.3
+        version: 1.0.3
+      lit:
+        specifier: ^3.3.3
+        version: 3.3.3
+    devDependencies:
+      '@oddsquad/vite-plugin-lit':
+        specifier: '*'
+        version: link:../..
+      '@vitejs/devtools':
+        specifier: ^0.7.6
+        version: 0.7.6(@devframes/json-render@1.1.0(@devframes/hub@1.1.0(@devframes/agentic@1.1.0)(crossws@0.4.12(srvx@1.0.5))(devframe@1.1.0))(devframe@1.1.0))(crossws@0.4.12(srvx@1.0.5))(srvx@1.0.5)(vite@8.3.2)
+      vite:
+        specifier: ^8.3.2
+        version: 8.3.2(@types/node@26.6.3)(@vitejs/devtools@0.7.6)(esbuild@0.28.2)(yaml@2.9.1)
 
   examples/flame:
     dependencies:

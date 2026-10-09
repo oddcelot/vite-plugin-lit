@@ -5,6 +5,7 @@
 /panel/
 /standalone/
 /dist/
+/examples/*/dist/
 *.tsbuildinfo
 
 # Tooling caches
