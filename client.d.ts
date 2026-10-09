@@ -42,10 +42,22 @@ declare module 'virtual:lit-plugin/timeline' {
   }
 
   /**
+   * What `addTimelineEvent` takes: a `TimelineEvent` whose `time` is a
+   * `performance.now()` value, or absent to stamp the event as it is added.
+   * The runtime moves it onto the recording's clock.
+   */
+  export type TimelineEventInput<TData = unknown> = Omit<
+    TimelineEvent<TData>,
+    'time'
+  > & {
+    time?: number;
+  };
+
+  /**
    * Emit a custom timeline event from app code. No-ops in production or
    * when the `timeline` option is disabled.
    */
-  export function addTimelineEvent(event: TimelineEvent): void;
+  export function addTimelineEvent(event: TimelineEventInput): void;
 
   /**
    * Register a custom timeline layer and announce it to the panel.

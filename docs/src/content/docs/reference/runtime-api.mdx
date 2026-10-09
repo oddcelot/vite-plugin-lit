@@ -112,12 +112,12 @@ Duplicate ids are ignored, so calling it on every module evaluation is safe.
 ## addTimelineEvent()
 
 ```ts
-function addTimelineEvent(event: TimelineEvent): void;
+function addTimelineEvent(event: TimelineEventInput): void;
 
-interface TimelineEvent<TData = unknown> {
+interface TimelineEventInput<TData = unknown> {
   layerId: string;
-  /** Milliseconds since the current recording started. */
-  time: number;
+  /** A `performance.now()` value. Leave it out to stamp the event now. */
+  time?: number;
   data: TData;
   title?: string;
   subtitle?: string;
@@ -154,9 +154,10 @@ export const recordFetch = (url: string, ms: number): void => {
 
 `color` is a number, not a CSS string. `data` is serialized before it reaches
 the panel, so keep it to plain values. `meta` is filled in by the plugin's own
-capture layers and custom events have no reason to set it. Built-in layers
-timestamp with a recording-relative clock; a custom event carries whatever clock
-you pass it.
+capture layers and custom events have no reason to set it. The panel shows
+every event on the recording's clock, milliseconds since **Record**; the
+plugin moves a custom event's `performance.now()` time onto it, so the event
+lines up with the Lit updates around it.
 
 The virtual module resolves to a no-op stub in any `vite build`, including a
 build with `timeline` enabled, because the events only ever travel over the dev

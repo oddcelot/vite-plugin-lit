@@ -9,14 +9,20 @@
 
 import {pageChannel} from '../page-channel.js';
 import {PAGE_ID} from '../page-id.js';
+import {fromPerfTime, now} from './clock.js';
 import {emit, setHotClientCallback} from './transport.js';
 import {CHANNEL_CUSTOM_LAYER} from '../../../types/timeline.js';
-import type {TimelineEvent, TimelineLayer} from '../../../types/timeline.js';
+import type {
+  TimelineEvent,
+  TimelineEventInput,
+  TimelineLayer,
+} from '../../../types/timeline.js';
 
-export type {TimelineEvent, TimelineLayer};
+export type {TimelineEvent, TimelineEventInput, TimelineLayer};
 
 /**
- * Emit a custom timeline event from app code.
+ * Emit a custom timeline event from app code. `time` is a
+ * `performance.now()` value; leave it out to stamp the event as it is added.
  *
  * The event is forwarded to the Timeline panel when recording is active.
  * Use a custom `layerId` registered with `addTimelineLayer`, or one of the
@@ -27,8 +33,11 @@ export type {TimelineEvent, TimelineLayer};
  * No-ops in production (the HMR channel is absent; events are dropped in the
  * transport queue).
  */
-export const addTimelineEvent = (event: TimelineEvent): void => {
-  emit(event);
+export const addTimelineEvent = (event: TimelineEventInput): void => {
+  // `time` arrives on the page's clock (`performance.now()`), or not at all;
+  // the panel lays events out on the recording's.
+  const {time, ...rest} = event;
+  emit({...rest, time: time === undefined ? now() : fromPerfTime(time)});
 };
 
 const announcedLayers: TimelineLayer[] = [];

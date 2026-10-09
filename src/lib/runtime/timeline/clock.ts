@@ -24,3 +24,9 @@ export const now = (): number => performance.now() - epoch;
  * Chrome DevTools' `console.timeStamp` expects that timebase.
  */
 export const toPerfTime = (t: number): number => t + epoch;
+
+/**
+ * The inverse of {@link toPerfTime}: a `performance.now()` value, the clock
+ * app code can read, on the recording's clock. Custom events go through it.
+ */
+export const fromPerfTime = (t: number): number => t - epoch;

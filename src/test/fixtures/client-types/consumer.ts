@@ -14,10 +14,12 @@ import {
   addTimelineEvent,
   addTimelineLayer,
   type TimelineEvent,
+  type TimelineEventInput,
   type TimelineLayer,
 } from 'virtual:lit-plugin/timeline';
 import type {
   TimelineEvent as RuntimeTimelineEvent,
+  TimelineEventInput as RuntimeTimelineEventInput,
   TimelineLayer as RuntimeTimelineLayer,
 } from '../../../types/timeline.js';
 
@@ -36,8 +38,9 @@ const event: TimelineEvent<{ok: boolean}> = {
 };
 addTimelineEvent(event);
 
-// The minimum a custom event needs.
-addTimelineEvent({layerId: 'demo', time: 0, data: {ok: true}});
+// The minimum a custom event needs; the time defaults to now.
+addTimelineEvent({layerId: 'demo', data: {ok: true}});
+addTimelineEvent({layerId: 'demo', time: performance.now(), data: {ok: true}});
 
 /**
  * Drift guard. `client.d.ts` is hand-authored and can't import from `src/`,
@@ -57,4 +60,9 @@ const eventsAgree: Identical<
   RuntimeTimelineEvent<{ok: boolean}>
 > = true;
 
-export {layersAgree, eventsAgree};
+const inputsAgree: Identical<
+  TimelineEventInput<{ok: boolean}>,
+  RuntimeTimelineEventInput<{ok: boolean}>
+> = true;
+
+export {layersAgree, eventsAgree, inputsAgree};
