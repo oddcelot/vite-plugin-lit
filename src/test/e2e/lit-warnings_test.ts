@@ -137,8 +137,8 @@ test('a warning issued while recording is attributed to the updating element', a
       data: {code: 'change-in-update', message: expect.any(String)},
       meta: {tagName: 'e2e-churn-live', elementId: expect.any(Number)},
     });
-  const live = events.find((e) => e.subtitle === 'e2e-churn-live');
-  expect((live?.data as {replayed?: boolean}).replayed).toBeUndefined();
+  const live = events.find((e) => e.subtitle === 'e2e-churn-live')!;
+  expect((live.data as {replayed?: boolean}).replayed).toBeUndefined();
 });
 
 test('turning the layer on mid-recording replays what it missed', async () => {
