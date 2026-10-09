@@ -3,6 +3,84 @@
 Notable changes per release. Versions before 0.3.0 predate this file; see the
 git history for those.
 
+## 0.16.0 — 2026-10-09
+
+Lit Inspector and the browser's own DevTools now hand off to each other:
+sourcemaps tell the extension where components are defined, the Elements and
+Sources panels link to and from the Lit tab, and custom elements from other
+libraries keep their place in the tree. The dev server can connect your
+project to Chrome's Sources panel for editing, the panel got a calmer, more
+readable look, and a Fernhouse shop example gives the DevTools something to
+explore. Editing a `@provide` component no longer leaves its consumers stale.
+Nothing needs action to upgrade.
+
+### Added
+
+- **Custom elements from other libraries show up in the Components tree.** A
+  defined element that isn't a Lit component is listed where it sits, marked
+  "not Lit", instead of being flattened away, so the tree keeps the page's
+  real structure. Selecting one shows its attributes and slots with a note on
+  why it has no properties, the browser's Elements panel selects its own row,
+  and the Anatomy tables link to it. Agents see it in the list-components
+  tool too.
+- **The extension finds component sources through the page's sourcemaps.** On
+  pages without the plugin that ship sourcemaps, Lit Inspector shows where
+  each component is defined in the details pane, the Updates view and the
+  Timeline's span details.
+- **Lit Inspector and the browser's DevTools hand off to each other.** The
+  details pane's Reveal in Elements button selects the element in the
+  Elements panel, picking a node in the Elements panel selects its component
+  (or the nearest Lit element around it), and in Chrome the defined and
+  Rendered at links open the file in Sources at that line, also on pages
+  built with the Vite plugin.
+- **Edit components in Chrome's Sources panel and save to disk.** The dev
+  server now answers Chrome DevTools' workspace request, so DevTools offers to
+  connect your project folder. Turn it off with `devtoolsWorkspace: false` or
+  point it at another folder with a path.
+- **Lit warnings get their own Timeline layer and stand out.** Toggle them
+  apart from the Lifecycle layer; a warning issued during an update folds
+  under it, and turning the layer on mid-recording brings in earlier warnings.
+  Warning rows are tinted, selecting one shows its message and a link to the
+  explanation on lit.dev, and components Lit warned about carry a chip in the
+  tree, counted in the Components tab.
+- **Source locations in lit-devtools dev.** On pages that ship sourcemaps, the
+  standalone panel shows where each component is defined, in the details
+  pane, the Updates view and the Timeline's span details. Load
+  lit-devtools.js in `<head>` so it sees the app's defines.
+- **A Fernhouse shop example to explore the DevTools on.** A small Lit plant
+  shop with context, slots and parts, a task and custom events, runnable
+  locally or on StackBlitz, with a production build for Lit Inspector.
+
+### Changed
+
+- **A calmer component tree with keyboard navigation.** Tags read as plain
+  text with the selection clearly marked, the inspector's values line up
+  across sections, and arrow keys move through and fold the tree.
+- **A clearer Timeline.** An empty timeline says what to do and offers
+  Record, layer chips show plainly whether they're on, and the lane filter in
+  Tracks no longer looks like a second set of layers.
+- **Updates reads as a table.** Counts and times sit under named columns, and
+  a bar under each total shows which components cost the most.
+- **A tidier Settings tab.** Status pills and origin tags no longer shout or
+  look clickable, and values line up from section to section.
+
+### Fixed
+
+- **Context consumers keep updating after you edit their provider.** Editing
+  a component that uses `@provide` no longer leaves its `@consume` children
+  stuck on the value they had before the edit.
+- **Lit Inspector names the right file for decorated components.** On
+  bundled production builds, the defined link no longer points every
+  component at the same unrelated module.
+- **Flash on update skips components that didn't re-render.** A component
+  whose `shouldUpdate` returned false no longer flashes, since nothing on the
+  page changed.
+- **Quiet text in the panel is readable.** Timestamps, labels and counts in
+  muted grey, and links in the dark theme, now meet WCAG AA contrast.
+- **Bundled Phosphor icons carry their licence.** The npm package, the JSR
+  package and the Lit Inspector extension now ship THIRD_PARTY_NOTICES.md
+  with the full MIT notice for the Phosphor icons they include.
+
 ## 0.15.0 — 2026-10-09
 
 Lit Inspector is on the Chrome Web Store, and the Timeline now explains itself:
