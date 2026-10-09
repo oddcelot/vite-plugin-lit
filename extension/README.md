@@ -47,6 +47,13 @@ never in the repo; its public half is what the dashboard holds under
 and takes up to a week, so a lost key blocks uploads until then. The script
 reads the CRX back and checks its signature before reporting it.
 
+A release doesn't need any of this by hand: the release workflow's
+`chrome-web-store` job signs the CRX, uploads it and submits it for review
+(`scripts/cws-publish.mjs`) after you approve the run in the `stores`
+environment. It signs in to Google without a stored key, through Workload
+Identity Federation; the workflow's comment has the details. The review
+takes days and publishes on its own when it passes.
+
 ## Version
 
 `manifest.json` here has no `version`. The build writes
