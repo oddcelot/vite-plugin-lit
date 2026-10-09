@@ -64,6 +64,8 @@ export const causeParents = (
   rows: readonly ListRow[]
 ): Map<TimelineSpan, TimelineSpan> => {
   const roots = new Map<string, TimelineSpan>();
+  // Point spans by layer and time, and by layer, time and name: input rows
+  // can share one coarsened `time`, so a cause that carries the title wins.
   const points = new Map<string, TimelineSpan>();
   const order = new Map<TimelineSpan, number>();
   rows.forEach((row, index) => {
@@ -72,18 +74,24 @@ export const causeParents = (
     order.set(span, index);
     if (isTickRoot(span)) roots.set(String(span.groupId), span);
     else if (span.groupId === undefined) {
-      const id = `${span.layerId}\0${span.start}`;
-      if (!points.has(id)) points.set(id, span);
+      const loose = `${span.layerId}\0${span.start}`;
+      if (!points.has(loose)) points.set(loose, span);
+      const exact = `${loose}\0${span.name}`;
+      if (!points.has(exact)) points.set(exact, span);
     }
   });
   const parents = new Map<TimelineSpan, TimelineSpan>();
   for (const [span, index] of order) {
     const {cause} = span;
     if (cause === undefined || !isTickRoot(span)) continue;
+    const loose =
+      cause.kind === 'event' ? `${cause.layerId}\0${cause.time}` : '';
     const parent =
       cause.kind === 'update'
         ? roots.get(cause.groupId)
-        : points.get(`${cause.layerId}\0${cause.time}`);
+        : ((cause.title === undefined
+            ? undefined
+            : points.get(`${loose}\0${cause.title}`)) ?? points.get(loose));
     if (parent === undefined || parent === span) continue;
     // Effects follow causes; a parent placed later is a stale cause.
     if ((order.get(parent) ?? Infinity) >= index) continue;

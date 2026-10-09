@@ -145,10 +145,10 @@ export class TimelineEventList extends LitElement {
         color: var(--lit-devtools-text-muted);
       }
       .row {
-        /* The virtualizer positions rows absolutely; stretch them back. */
+        /* The virtualizer positions rows absolutely; stretch them back. That
+           absolute position also anchors the rail column inside the row. */
         box-sizing: border-box;
         width: 100%;
-        position: relative;
         display: flex;
         align-items: baseline;
         gap: var(--lit-devtools-space-4);
@@ -396,7 +396,10 @@ export class TimelineEventList extends LitElement {
   private _buildRails() {
     this._railsCache = new Map();
     this._laneCount = 0;
-    if (this._raw) return;
+    if (this._raw) {
+      this.style.removeProperty('--lane-count');
+      return;
+    }
     const rails = buildRails(this._visibleCache);
     const laneChain: number[] = [];
     let lanes = 0;
@@ -418,6 +421,11 @@ export class TimelineEventList extends LitElement {
       this._railsCache.set(this._visibleCache[i]!, {rail, chains});
     });
     this._laneCount = lanes;
+    // On the host, not as a `style` binding on the scroller: the virtualizer
+    // owns that element's inline style (position, size) and a Lit attribute
+    // binding would rewrite the whole attribute under it.
+    if (lanes > 0) this.style.setProperty('--lane-count', String(lanes));
+    else this.style.removeProperty('--lane-count');
   }
 
   override updated(changed: Map<string, unknown>) {
@@ -583,11 +591,6 @@ export class TimelineEventList extends LitElement {
           : html`
               <div
                 class="scroll"
-                style=${
-                  this._laneCount > 0
-                    ? `--lane-count: ${this._laneCount}`
-                    : nothing
-                }
                 ${ref(this._scrollRef)}
                 @mouseleave=${() => {
                   this._hoverChain = null;

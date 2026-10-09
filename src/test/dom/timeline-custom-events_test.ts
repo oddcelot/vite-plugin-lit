@@ -237,6 +237,7 @@ describe('custom events as update causes', () => {
       kind: 'event',
       layerId: 'custom-events',
       time: row!.time,
+      title: 'picked',
     });
   });
 
@@ -262,6 +263,7 @@ describe('custom events as update causes', () => {
       kind: 'event',
       layerId: 'custom-events',
       time: row!.time,
+      title: 'picked',
     });
 
     // Once the dispatch is over, the tick is the cause again.

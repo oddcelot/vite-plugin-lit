@@ -47,7 +47,7 @@ const mouseHandler =
     const time = now();
     // Handlers that run after this capture listener find the row again
     // through `window.event`, so an update they request names this click.
-    markEventCause(e, {layerId: 'mouse', time});
+    markEventCause(e, {layerId: 'mouse', time, title: e.type});
     emit({
       layerId: 'mouse',
       time,
@@ -74,7 +74,7 @@ const keyHandler =
       modifiers,
     };
     const time = now();
-    markEventCause(e, {layerId: 'keyboard', time});
+    markEventCause(e, {layerId: 'keyboard', time, title: ke.key});
     emit({
       layerId: 'keyboard',
       time,

@@ -138,11 +138,18 @@ export const causeParentKey = (
       (s) => isTickRoot(s) && String(s.groupId) === cause.groupId
     )?.key;
   }
-  return spans.find(
+  // Input rows can share one coarsened `time` (mouseup and click), so a
+  // cause that names the title picks that row; without one, the first.
+  const atTime = spans.filter(
     (s) =>
       s.groupId === undefined &&
       s.layerId === cause.layerId &&
       s.start === cause.time
+  );
+  return (
+    (cause.title === undefined
+      ? undefined
+      : atTime.find((s) => s.name === cause.title)) ?? atTime[0]
   )?.key;
 };
 

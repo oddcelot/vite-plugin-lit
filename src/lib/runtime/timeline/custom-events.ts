@@ -97,7 +97,7 @@ export const wrapDispatchEvent = (proto: Proto): void => {
     }
     // Marked before the dispatch, so an update a listener requests points
     // back at this row.
-    markEventCause(event, {layerId: 'custom-events', time});
+    markEventCause(event, {layerId: 'custom-events', time, title: event.type});
     dispatching.add(event);
     try {
       return orig.apply(this, args);

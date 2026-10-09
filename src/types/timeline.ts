@@ -20,7 +20,12 @@ export interface TimelineLayer {
  */
 export type TimelineCause =
   | {kind: 'update'; groupId: string}
-  | {kind: 'event'; layerId: string; time: number};
+  /**
+   * `title` is the event row's title (its type, or the key for keyboard
+   * rows): two input events can share one coarsened `time`, and the title
+   * tells them apart.
+   */
+  | {kind: 'event'; layerId: string; time: number; title?: string};
 
 export interface TimelineEvent<TData = unknown> {
   /**

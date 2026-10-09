@@ -23,6 +23,8 @@ import type {TimelineCause} from '../../../types/timeline.js';
 export interface EventCause {
   layerId: string;
   time: number;
+  /** The row's title, so same-`time` rows (mouseup and click) stay apart. */
+  title?: string;
 }
 
 /** A context that may be the cause, with when it began. */
@@ -64,7 +66,12 @@ export const markEventCause = (event: Event, cause: EventCause): void => {
   prune();
   inFlight.push({
     event,
-    cause: {kind: 'event', layerId: cause.layerId, time: cause.time},
+    cause: {
+      kind: 'event',
+      layerId: cause.layerId,
+      time: cause.time,
+      ...(cause.title === undefined ? {} : {title: cause.title}),
+    },
     seq: nextCauseSeq(),
   });
 };

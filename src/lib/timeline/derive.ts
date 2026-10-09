@@ -535,10 +535,14 @@ export const attributeInput = (
   const byKey = new Map(cycles.map((cycle) => [cycle.key, cycle]));
   // Recorded event causes name an event by layer and time; index once rather
   // than scanning the buffer per cycle.
+  // Input rows can share one coarsened `time`, so index by title as well and
+  // prefer that match when the cause carries one.
   const byLayerTime = new Map<string, TimelineEvent>();
   for (const event of events) {
     const id = `${event.layerId}\0${event.time}`;
     if (!byLayerTime.has(id)) byLayerTime.set(id, event);
+    const exact = `${id}\0${event.title ?? event.layerId}`;
+    if (!byLayerTime.has(exact)) byLayerTime.set(exact, event);
   }
 
   // Both sides are sorted by time, so one forward pass suffices.
@@ -546,7 +550,12 @@ export const attributeInput = (
   return cycles.map((cycle) => {
     const recorded = cycle.phases.find((p) => p.name === ROOT_PHASE)?.cause;
     if (recorded?.kind === 'event') {
-      const hit = byLayerTime.get(`${recorded.layerId}\0${recorded.time}`);
+      const loose = `${recorded.layerId}\0${recorded.time}`;
+      const hit =
+        (recorded.title === undefined
+          ? undefined
+          : byLayerTime.get(`${loose}\0${recorded.title}`)) ??
+        byLayerTime.get(loose);
       if (hit !== undefined) {
         return {
           ...cycle,

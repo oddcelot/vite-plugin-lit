@@ -133,7 +133,7 @@ export class TimelineSpanDetail extends LitElement {
                   ${
                     row.cause.kind === 'update'
                       ? `update ${row.cause.groupId}`
-                      : `${row.cause.layerId} event at ${row.cause.time.toFixed(3)} ms`
+                      : `${row.cause.title ?? `${row.cause.layerId} event`} at ${row.cause.time.toFixed(3)} ms`
                   }
                   <wa-button
                     class="filter-link"

@@ -219,6 +219,7 @@ describe('input events as update causes', () => {
       kind: 'event',
       layerId: 'mouse',
       time: row!.time,
+      title: 'click',
     });
   });
 });
