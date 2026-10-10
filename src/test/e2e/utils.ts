@@ -1,3 +1,4 @@
+import type {ChildProcess} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {
   cp,
@@ -12,6 +13,9 @@ import * as path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createServer, type ViteDevServer} from 'vite';
 import {chromium, type Browser, type Page} from 'playwright-core';
+import {TimelineChannelCodec} from '../../lib/devframe/page-codec.js';
+import {fromViteHot} from '../../lib/runtime/page-transport.js';
+import type {TimelineEvent} from '../../types/timeline.js';
 import {litPlugin, type LitPluginOptions} from '../../index.js';
 import {litCssQueries, litTimelineVirtual} from '../../lib/plugin.js';
 import {canarySettings} from '../canary.js';
@@ -422,3 +426,61 @@ export const joinPath = path.join;
  */
 export const tmpRoot = (prefix: string): string =>
   path.join(PACKAGE_ROOT, '.e2e-tmp', `${prefix}-${randomUUID().slice(0, 8)}`);
+
+/**
+ * Attaches a `TimelineChannelCodec` to the fixture's HMR channel, the way the
+ * panel's `TimelineSource` does, and reloads the page so its runtime connects
+ * to it. Returns the codec and the events it has received so far (the array
+ * keeps filling).
+ *
+ * `connect()` must happen before the page (re)connects its HMR client, or the
+ * page's `push-event` messages have no listener. The fixture already loaded
+ * the page once in `startFixture`, hence the reload here.
+ */
+export const connectTimelineSource = async (
+  fixture: Fixture,
+  page: Page
+): Promise<{source: TimelineChannelCodec; events: TimelineEvent[]}> => {
+  const source = new TimelineChannelCodec();
+  source.connect(fromViteHot(fixture.server.hot));
+  const events: TimelineEvent[] = [];
+  source.attach({
+    pushEvents: (batch) => events.push(...batch),
+    addLayer: () => {},
+    inspectorMessage: () => {},
+    hmrIncompatible: () => {},
+    hmrPatched: () => {},
+    runtimeReady: () => {},
+  });
+  await page.reload();
+  await page.waitForFunction(
+    () => (window as {__hmr?: unknown}).__hmr !== undefined
+  );
+  return {source, events};
+};
+
+/**
+ * Waits for a spawned `lit-devtools` CLI to print its script tag and returns
+ * the origin of the server it started.
+ */
+export const readScriptOrigin = (child: ChildProcess): Promise<string> =>
+  new Promise((resolve, reject) => {
+    let output = '';
+    const timer = setTimeout(
+      () => reject(new Error(`no script tag from the CLI:\n${output}`)),
+      15_000
+    );
+    const onData = (chunk: Buffer) => {
+      output += chunk.toString();
+      const match = /<script src="(http:\/\/[^"]+)\/lit-devtools\.js">/.exec(
+        output
+      );
+      if (match !== null) {
+        clearTimeout(timer);
+        resolve(match[1]);
+      }
+    };
+    child.stdout!.on('data', onData);
+    child.stderr!.on('data', onData);
+    child.on('exit', () => reject(new Error(`CLI exited:\n${output}`)));
+  });

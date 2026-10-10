@@ -24,6 +24,7 @@ import {fileURLToPath} from 'node:url';
 import {build} from 'vite';
 import {chromium, type Browser, type Page} from 'playwright-core';
 import {afterAll, beforeAll, expect, test} from 'vite-plus/test';
+import {readScriptOrigin} from './utils.js';
 
 const PACKAGE_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 
@@ -36,29 +37,6 @@ let workDir: string;
 let cliHome: string;
 let devOrigin: string;
 let appOrigin: string;
-
-/** Waits for the CLI to print the script tag and returns the server origin. */
-const readScriptOrigin = (child: ChildProcess): Promise<string> =>
-  new Promise((resolve, reject) => {
-    let output = '';
-    const timer = setTimeout(
-      () => reject(new Error(`no script tag from the CLI:\n${output}`)),
-      15_000
-    );
-    const onData = (chunk: Buffer) => {
-      output += chunk.toString();
-      const match = /<script src="(http:\/\/[^"]+)\/lit-devtools\.js">/.exec(
-        output
-      );
-      if (match !== null) {
-        clearTimeout(timer);
-        resolve(match[1]);
-      }
-    };
-    child.stdout!.on('data', onData);
-    child.stderr!.on('data', onData);
-    child.on('exit', () => reject(new Error(`CLI exited:\n${output}`)));
-  });
 
 beforeAll(async () => {
   workDir = path.join(
