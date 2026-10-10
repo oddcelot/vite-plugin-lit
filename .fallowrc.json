@@ -1,10 +1,27 @@
 {
   // This file is JSONC: fallow reads these comments; generic JSON tools may not.
   "$schema": "./node_modules/fallow/schema.json",
-  "entry": ["src/index.{ts,tsx,js,jsx}", "src/main.{ts,tsx,js,jsx}"],
+  "entry": [
+    "src/index.{ts,tsx,js,jsx}",
+    "src/main.{ts,tsx,js,jsx}",
+    // Run by .github/workflows/release.yaml, not by a package.json script.
+    "scripts/amo-metadata.mjs",
+    // Run by hand when new docs screenshots land.
+    "docs/scripts/place-shots.mjs"
+  ],
   // lit/ is the upstream Lit submodule (canary builds only); assets/ holds the
-  // HyperFrames promo-video projects.
-  "ignorePatterns": ["lit/**", "assets/**"],
+  // HyperFrames promo-video projects; examples/tutorial/ is a set of files
+  // copied over a `npm create vite` scaffold, not a project of its own.
+  "ignorePatterns": ["lit/**", "assets/**", "examples/tutorial/**"],
+  "ignoreDependencies": [
+    // CI calls ./node_modules/.bin/jsr for the publish dry run.
+    "jsr",
+    // Pinned so StackBlitz finds the wasm binding; see pnpm-workspace.yaml.
+    "rolldown"
+  ],
+  // Chrome DevTools frontend modules, imported inside the trace viewer page
+  // by scripts/docs-shots.mjs.
+  "ignoreUnresolvedImports": ["/devtools/**"],
   "workspaces": {
     "patterns": [
       "docs",

@@ -8,7 +8,7 @@
 // loading the Starlight integration.
 export const base = '/vite-plugin-lit';
 
-export const moved = {
+const moved = {
   '/getting-started/installation': '/start/installation/',
   '/getting-started/quick-start': '/start/first-component/',
   '/getting-started/how-it-works': '/concepts/how-hmr-works/',
