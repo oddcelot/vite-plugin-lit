@@ -19,7 +19,8 @@ type OpenRequest =
 
 /** Validate a request and work out what to open; confines `file` to the roots. */
 const parseOpenRequest = (
-  req: {url: string; method?: string; headers?: TrustHeaders},
+  req: {method?: string; headers?: TrustHeaders},
+  url: string,
   locator: SourceLocator
 ): OpenRequest => {
   if (req.method !== undefined && req.method !== 'GET') {
@@ -28,9 +29,7 @@ const parseOpenRequest = (
   if (!isTrustedRequest(req.headers ?? {})) {
     return {status: 403, message: 'forbidden'};
   }
-  const query = req.url.includes('?')
-    ? req.url.slice(req.url.indexOf('?') + 1)
-    : '';
+  const query = url.includes('?') ? url.slice(url.indexOf('?') + 1) : '';
   const params = new URLSearchParams(query);
   const file = params.get('file');
   if (file === null) {
@@ -110,7 +109,8 @@ export const createOpenInEditorMiddleware = (
       next();
       return;
     }
-    const parsed = parseOpenRequest({...req, url: req.url}, locator);
+    // The request itself, not a copy: Node serves `headers` from a getter.
+    const parsed = parseOpenRequest(req, req.url, locator);
     if ('status' in parsed) {
       res.statusCode = parsed.status;
       res.end(parsed.message);
