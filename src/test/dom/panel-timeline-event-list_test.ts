@@ -212,6 +212,16 @@ test('a tick is one collapsed row with a nested count and a skip flag', async ()
   expect(twisty(el)?.getAttribute('aria-expanded')).toBe('false');
 });
 
+test('a collapsed tick shows the properties its update changed', async () => {
+  const events = tickEvents().map((e) =>
+    e.id === 't-update-start' ? {...e, data: {changed: ['count']}} : e
+  );
+  const {el} = await mountTicks({events, spans: toSpans(events)});
+  const root = el.shadowRoot!.querySelector('.row')!;
+  expect(root.querySelector('.title')?.textContent).toBe('performUpdate');
+  expect(root.querySelector('.changed')?.textContent).toBe('count');
+});
+
 test('the disclosure opens and closes the tick without selecting it', async () => {
   const {el} = await mountTicks();
   const selected: Array<string | null> = [];
