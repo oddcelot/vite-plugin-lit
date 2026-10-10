@@ -28,16 +28,7 @@
       }
     },
     "src/lib/call-sites.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_critical": {
-        "count": 1
-      },
-      "crap_high": {
+      "crap_moderate": {
         "count": 1
       }
     },
@@ -81,10 +72,7 @@
       }
     },
     "src/lib/plugins/private-fields.ts": {
-      "complexity_critical": {
-        "count": 2
-      },
-      "crap_critical": {
+      "crap_moderate": {
         "count": 2
       }
     },
@@ -136,13 +124,7 @@
       }
     },
     "src/lib/runtime/inspector/extras.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
       "complexity_high": {
-        "count": 2
-      },
-      "crap_critical": {
         "count": 1
       },
       "crap_high": {
@@ -166,10 +148,7 @@
       }
     },
     "src/lib/runtime/inspector/serialize.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "crap_critical": {
+      "crap_moderate": {
         "count": 1
       }
     },
@@ -211,17 +190,8 @@
       }
     },
     "src/lib/runtime/timeline/lifecycle.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "complexity_moderate": {
-        "count": 1
-      },
-      "crap_critical": {
-        "count": 1
-      },
       "crap_moderate": {
-        "count": 4
+        "count": 5
       }
     },
     "src/lib/runtime/timeline/render.ts": {
@@ -243,11 +213,8 @@
       }
     },
     "src/lib/source-meta.ts": {
-      "complexity_critical": {
-        "count": 2
-      },
-      "crap_critical": {
-        "count": 2
+      "crap_moderate": {
+        "count": 1
       }
     },
     "src/lib/timeline/cause-rails.ts": {
@@ -262,22 +229,11 @@
       }
     },
     "src/lib/timeline/derive.ts": {
-      "complexity_critical": {
-        "count": 2
-      },
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_critical": {
+      "crap_high": {
         "count": 2
       },
       "crap_moderate": {
-        "count": 2
-      }
-    },
-    "src/lib/timeline/tick-rows.ts": {
-      "complexity_high": {
-        "count": 1
+        "count": 3
       }
     },
     "src/lib/transform.ts": {
@@ -291,9 +247,6 @@
       }
     },
     "src/panel/components-view.ts": {
-      "complexity_critical": {
-        "count": 2
-      },
       "complexity_moderate": {
         "count": 1
       },
@@ -323,13 +276,7 @@
       }
     },
     "src/panel/timeline-event-list.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
       "complexity_high": {
-        "count": 1
-      },
-      "complexity_moderate": {
         "count": 1
       },
       "crap_critical": {
@@ -343,25 +290,16 @@
       }
     },
     "src/panel/timeline-span-detail.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
       "crap_critical": {
         "count": 1
       }
     },
     "src/panel/timeline-tracks.ts": {
-      "complexity_high": {
-        "count": 1
-      },
       "crap_high": {
         "count": 1
       }
     },
     "src/panel/timeline-view.ts": {
-      "complexity_high": {
-        "count": 1
-      },
       "crap_high": {
         "count": 1
       }
@@ -393,16 +331,10 @@
   },
   "runtime_coverage_findings": [],
   "target_keys": [
-    "src/lib/runtime/inspector/serialize.ts:high impact",
     "src/lib/runtime/inspector/extras.ts:high impact",
+    "src/lib/runtime/inspector/serialize.ts:high impact",
     "src/lib/devframe/define-sources.ts:high impact",
-    "src/lib/timeline/tick-rows.ts:complexity",
     "src/lib/runtime/inspector/inspect-value.ts:high impact",
-    "src/lib/runtime/timeline/lifecycle.ts:complexity",
-    "src/lib/timeline/derive.ts:complexity",
-    "src/lib/plugins/private-fields.ts:complexity",
-    "src/lib/source-meta.ts:complexity",
-    "src/lib/call-sites.ts:complexity",
     "src/panel/value-format.ts:untested risk",
     "src/lib/runtime/patch.ts:complexity"
   ]
