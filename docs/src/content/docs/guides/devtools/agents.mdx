@@ -34,13 +34,14 @@ The command needs two optional peers, `cac` and `@devframes/agentic`. See the
 [CLI reference](/vite-plugin-lit/reference/cli/) for the message it prints when
 one is missing.
 
-## The nine tools
+## The ten tools
 
 | Tool                        | Answers                                                                                                                                                                                                                                                          |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lit_get-meta`              | Plugin version, available timeline layers, resolved settings.                                                                                                                                                                                                    |
 | `lit_list-components`       | The live element tree, read from the page on each call, with each component's source file and line. A tag no custom element defines appears with `notDefined: true`, and a custom element another library defines with `notLit: true`. Bound it with `maxDepth`. |
 | `lit_component-details`     | Reactive properties, attributes, update flags and Lit dev-mode warnings for one element id, or for every element of a tag name, read from the page on each call.                                                                                                 |
+| `lit_component-docs`        | The documented API of a tag (descriptions, events, slots, CSS parts and custom properties) from the Custom Elements Manifests your project and its dependencies ship.                                                                                            |
 | `lit_update-summary`        | Which components updated, how often, how long for, and what changed.                                                                                                                                                                                             |
 | `lit_recent-events`         | Recent lifecycle, Lit warning, render and input events, filterable by tag name, element or layer.                                                                                                                                                                |
 | `lit_range-summary`         | What happened between two instants: spans per layer and which components updated, for a `start` and `end` taken from `lit_recent-events` times.                                                                                                                  |
@@ -48,13 +49,13 @@ one is missing.
 | `lit_hmr-incompatibilities` | Components the plugin could not hot-patch in place, and why.                                                                                                                                                                                                     |
 | `lit_set-recording`         | Starts or stops timeline recording. The only tool that changes state.                                                                                                                                                                                            |
 
-Eight of the nine only read. `lit_set-recording` exists because
+Nine of the ten only read. `lit_set-recording` exists because
 `lit_recent-events` is a dead end while recording is off, and an agent that can
 read the timeline but not start it just hands the question back to you.
 Recording is a shared toggle, so an agent turning it on also changes what you
 see in an open panel. The layer toggles and the element picker stay panel-only.
 
-All nine answer only while a dev server with DevTools is running. Nothing is
+All ten answer only while a dev server with DevTools is running. Nothing is
 stored, so with the server down an agent gets a connection error rather than an
 empty answer.
 

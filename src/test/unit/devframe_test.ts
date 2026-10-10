@@ -329,6 +329,7 @@ describe('lit devframe definition', () => {
     expect(exposed).toContain('lit:range-summary');
     expect(exposed).toContain('lit:hmr-history');
     expect(exposed).toContain('lit:hmr-incompatibilities');
+    expect(exposed).toContain('lit:component-docs');
     expect(exposed).not.toContain('lit:inspect');
     expect(exposed).not.toContain('lit:toggle-layer');
 
