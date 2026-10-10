@@ -53,6 +53,7 @@ test('assumes nothing it would have to offer when get-meta fails', async () => {
     pluginSettings: false,
     hmr: true,
     sourceLocations: false,
+    componentDocs: false,
   });
 });
 

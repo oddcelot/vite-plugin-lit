@@ -64,6 +64,7 @@ export const hostProfile = (host: HostKind, facts: HostFacts): HostProfile => {
           pluginSettings,
           hmr: true,
           sourceLocations: true,
+          componentDocs: nodeActions,
         },
       };
     case 'standalone':
@@ -79,6 +80,9 @@ export const hostProfile = (host: HostKind, facts: HostFacts): HostProfile => {
           pluginSettings,
           hmr: false,
           sourceLocations: false,
+          // `lit-devtools dev` reads manifests under its working directory;
+          // the extension has no disk to read.
+          componentDocs: nodeActions,
         },
       };
     case 'snapshot':
@@ -92,6 +96,8 @@ export const hostProfile = (host: HostKind, facts: HostFacts): HostProfile => {
           // plugin, the only host that could export one then.
           hmr: facts.recorded?.hmr ?? true,
           sourceLocations: facts.recorded?.sourceLocations ?? true,
+          // A snapshot doesn't carry manifests.
+          componentDocs: false,
         },
       };
     case 'none':
@@ -103,6 +109,7 @@ export const hostProfile = (host: HostKind, facts: HostFacts): HostProfile => {
           pluginSettings,
           hmr: false,
           sourceLocations: false,
+          componentDocs: false,
         },
       };
   }

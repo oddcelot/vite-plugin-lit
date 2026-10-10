@@ -35,6 +35,7 @@ const UNKNOWN: Omit<HostInfo, 'snapshot'> = {
   pluginSettings: false,
   hmr: true,
   sourceLocations: false,
+  componentDocs: false,
 };
 
 let info: Promise<HostInfo> | undefined;

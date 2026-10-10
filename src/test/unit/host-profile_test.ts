@@ -16,6 +16,7 @@ describe('a live session', () => {
         exportSnapshot: true,
         hmr: true,
         sourceLocations: true,
+        componentDocs: true,
       },
     ],
     [
@@ -25,6 +26,7 @@ describe('a live session', () => {
         exportSnapshot: true,
         hmr: false,
         sourceLocations: false,
+        componentDocs: true,
       },
     ],
   ])('on %s', (host, capabilities) => {
@@ -40,6 +42,7 @@ describe('a live session', () => {
         pluginSettings: false,
         hmr: false,
         sourceLocations: false,
+        componentDocs: false,
       },
     });
   });
@@ -63,6 +66,15 @@ describe('a live session', () => {
       false
     );
   });
+});
+
+test('manifests are read only where a Node host can reach the disk', () => {
+  for (const host of ['vite', 'standalone'] as const) {
+    expect(
+      hostProfile(host, {live: true, nodeActions: false}).capabilities
+        .componentDocs
+    ).toBe(false);
+  }
 });
 
 test('nothing but a live session opens files or writes a snapshot', () => {
@@ -91,6 +103,7 @@ describe('a snapshot', () => {
         pluginSettings: false,
         hmr: false,
         sourceLocations: false,
+        componentDocs: false,
       },
     });
   });
@@ -111,6 +124,7 @@ test('the bare definition claims nothing a page would bring', () => {
       pluginSettings: false,
       hmr: false,
       sourceLocations: false,
+      componentDocs: false,
     },
   });
 });

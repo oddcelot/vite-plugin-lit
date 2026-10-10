@@ -1,6 +1,7 @@
 /**
  * The devframe actions that need a Node host: opening a source file in the
- * developer's editor, and writing a snapshot of the session to disk. Only
+ * developer's editor, writing a snapshot of the session to disk, and reading
+ * the Custom Elements Manifests the project and its dependencies ship. Only
  * Node hosts (the Vite plugin, `lit-devtools dev`) create these and hand
  * them to the definition, which stays loadable in a browser; a host without
  * them reports neither capability.
@@ -13,8 +14,11 @@ import type {OpenServiceApi} from '@devframes/service-open';
 import type {FeatureSettings, SettingsOverride} from '../../types/timeline.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
 import type {SourceLocator} from '../source-locator.js';
+import type {ComponentDocsIndex} from '../component-docs/load.js';
 import {resolveLaunchEditor} from './launch-editor.js';
 import type {
+  ComponentDocsArgs,
+  ComponentDocsResult,
   ExportSnapshotArgs,
   ExportSnapshotResult,
   OpenSourceArgs,
@@ -54,57 +58,75 @@ export interface NodeActions {
     snapshot: SessionSnapshot,
     build: {features: FeatureSettings | null; clientAssets?: string}
   ): Promise<ExportSnapshotResult>;
+  componentDocs(args: ComponentDocsArgs): Promise<ComponentDocsResult>;
 }
 
 export const createNodeActions = (
   options: NodeActionsOptions = {}
-): NodeActions => ({
-  // Resolving here rather than in the panel is the whole point of the hop:
-  // `file` is relative to the Vite root, while the open service resolves
-  // relative paths against the host's `workspaceRoot` -- in a monorepo (or
-  // any setup where the served app isn't the workspace) those are different
-  // directories, and `launchEditor` silently does nothing for a path that
-  // doesn't exist.
-  async openSource(args, {service, override}) {
-    if (service === undefined) return {opened: false};
-    // Confined like `/__lit-open-in-editor`: whatever can reach this RPC
-    // could otherwise have the editor open any file on disk.
-    const {createSourceLocator} = await import('../source-locator.js');
-    let locator = options.sourceLocator?.();
-    if (locator === undefined || locator.roots.length === 0) {
-      locator = createSourceLocator([process.cwd()]);
-    }
-    const confined = locator.resolve(args.file);
-    if ('failure' in confined) return {opened: false};
-    await service.openInEditor({
-      path: confined.path,
-      line: args.line,
-      column: args.column,
-      editor: resolveLaunchEditor(options.configuredEditor?.(), override),
-    });
-    return {opened: true};
-  },
+): NodeActions => {
+  // Built on first use, then kept: it caches parsed manifests by mtime.
+  let docsIndex: Promise<ComponentDocsIndex> | undefined;
+  return {
+    // Resolving here rather than in the panel is the whole point of the hop:
+    // `file` is relative to the Vite root, while the open service resolves
+    // relative paths against the host's `workspaceRoot` -- in a monorepo (or
+    // any setup where the served app isn't the workspace) those are different
+    // directories, and `launchEditor` silently does nothing for a path that
+    // doesn't exist.
+    async openSource(args, {service, override}) {
+      if (service === undefined) return {opened: false};
+      // Confined like `/__lit-open-in-editor`: whatever can reach this RPC
+      // could otherwise have the editor open any file on disk.
+      const {createSourceLocator} = await import('../source-locator.js');
+      let locator = options.sourceLocator?.();
+      if (locator === undefined || locator.roots.length === 0) {
+        locator = createSourceLocator([process.cwd()]);
+      }
+      const confined = locator.resolve(args.file);
+      if ('failure' in confined) return {opened: false};
+      await service.openInEditor({
+        path: confined.path,
+        line: args.line,
+        column: args.column,
+        editor: resolveLaunchEditor(options.configuredEditor?.(), override),
+      });
+      return {opened: true};
+    },
 
-  async exportSnapshot(args, snapshot, build) {
-    // The build adapter reaches straight for `node:fs`; load it only when a
-    // snapshot is actually written.
-    const {buildSnapshot} = await import('../snapshot.js');
-    // `outDir` comes from the client and the build deletes it before
-    // writing, so it has to land strictly beneath the working directory --
-    // never the directory itself, and never elsewhere on disk (symlinks
-    // included). It usually does not exist yet.
-    const {confineToRoots} = await import('../confine.js');
-    const cwd = process.cwd();
-    const confined = confineToRoots(
-      [cwd],
-      args.outDir ?? 'lit-devtools-snapshot',
-      {mustExist: false, allowRoot: false}
-    );
-    if ('failure' in confined) {
-      throw new Error(
-        `[lit-devtools] export-snapshot: outDir must be inside ${cwd}`
+    async exportSnapshot(args, snapshot, build) {
+      // The build adapter reaches straight for `node:fs`; load it only when a
+      // snapshot is actually written.
+      const {buildSnapshot} = await import('../snapshot.js');
+      // `outDir` comes from the client and the build deletes it before
+      // writing, so it has to land strictly beneath the working directory --
+      // never the directory itself, and never elsewhere on disk (symlinks
+      // included). It usually does not exist yet.
+      const {confineToRoots} = await import('../confine.js');
+      const cwd = process.cwd();
+      const confined = confineToRoots(
+        [cwd],
+        args.outDir ?? 'lit-devtools-snapshot',
+        {mustExist: false, allowRoot: false}
       );
-    }
-    return buildSnapshot(snapshot, {outDir: confined.path, ...build});
-  },
-});
+      if ('failure' in confined) {
+        throw new Error(
+          `[lit-devtools] export-snapshot: outDir must be inside ${cwd}`
+        );
+      }
+      return buildSnapshot(snapshot, {outDir: confined.path, ...build});
+    },
+
+    async componentDocs({tagName}) {
+      docsIndex ??= import('../component-docs/load.js').then(
+        ({createComponentDocsIndex, nodeDocsFs}) =>
+          createComponentDocsIndex({
+            // The Vite root, which the locator lists first; `lit-devtools dev`
+            // has no locator and serves from its working directory.
+            root: () => options.sourceLocator?.()?.roots[0] ?? process.cwd(),
+            fs: nodeDocsFs,
+          })
+      );
+      return {docs: await (await docsIndex).get(tagName)};
+    },
+  };
+};
