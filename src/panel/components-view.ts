@@ -654,9 +654,14 @@ export class ComponentsView extends LitElement {
         padding-top: var(--lit-devtools-space-4);
         border-top: 1px solid var(--lit-devtools-border);
       }
-      /* The section's rows are its grid items; the fold's content box is not. */
+      /* The section's rows are its grid items; the fold's content box is not.
+         Without that box the browser has nothing to hide when the section
+         closes, so the rows hide themselves. */
       .section::details-content {
         display: contents;
+      }
+      .section:not([open]) > :not(summary) {
+        display: none;
       }
       .section > summary {
         grid-column: 1 / -1;
