@@ -1,0 +1,6 @@
+/* This card's own rules, inlined into the JS chunk. Edit and save. */
+.sample {
+  padding: var(--space);
+  border: 2px dashed var(--brand);
+  border-radius: var(--radius);
+}

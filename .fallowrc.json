@@ -31,7 +31,8 @@
       "playground",
       "examples/flame",
       "examples/web-awesome",
-      "examples/fernhouse"
+      "examples/fernhouse",
+      "examples/css"
     ]
   },
   "duplicates": {

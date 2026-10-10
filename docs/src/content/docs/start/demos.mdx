@@ -1,6 +1,6 @@
 ---
 title: Demos
-description: Try the plugin in the browser. StackBlitz embeds of the Lit flame, Web Awesome and Fernhouse examples and the playground, each running the latest release.
+description: Try the plugin in the browser. StackBlitz embeds of the Lit flame, Web Awesome, Fernhouse and CSS examples and the playground, each running the latest release.
 sidebar:
   order: 3
 ---
@@ -62,6 +62,20 @@ the `add-to-cart` event to the cart button's. See the
   path="examples/fernhouse"
   file="src/fh-product-card.ts"
   title="The Fernhouse example running on StackBlitz"
+/>
+
+## CSS
+
+One card per way of delivering CSS to a shadow root, with real UnoCSS
+utilities shared as one adopted sheet. Each card counts its renders. Change
+`--brand` in `src/tokens.css` and every card recolours with no badge moving;
+edit a card's own `.css` file and only that card re-renders. See the
+[example's README](https://github.com/oddcelot/vite-plugin-lit/tree/main/examples/css).
+
+<StackBlitzEmbed
+  path="examples/css"
+  file="src/tokens.css"
+  title="The CSS example running on StackBlitz"
 />
 
 ## Playground
