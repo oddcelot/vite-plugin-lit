@@ -62,45 +62,46 @@ const prev = (raw: Raw[], i: number): Raw | undefined => {
   return undefined;
 };
 
+/** The lexer reads a bare `…` (a truncation marker) as a string. */
+const isMarker = (r: Raw | undefined): boolean =>
+  r?.text.startsWith('…') ?? false;
+
+/** Kind of a word-like token, from its neighbours. */
+const wordKind = (
+  {type, text}: Raw,
+  before: string | undefined,
+  after: string | undefined
+): ValueTokenKind => {
+  if (after === ':' && before !== '?') return 'key';
+  if (before === '[' && after === ']' && PLACEHOLDERS.has(text)) return 'muted';
+  if (text === 'ƒ') return 'muted';
+  if (before === 'ƒ') return 'callee';
+  if (before === '<') return 'tag';
+  return type === 'class' ? 'type' : 'text';
+};
+
+const kindOf = (raw: Raw[], i: number): ValueTokenKind => {
+  const token = raw[i]!;
+  const {type, text} = token;
+  if (type === 'space') return 'text';
+  if (type === 'string') return isMarker(token) ? 'muted' : 'string';
+  if (type === 'keyword') return 'keyword';
+  // `…+3` is one marker: keep its `+` with the ellipsis.
+  if (type === 'sign') {
+    return text === '+' && isMarker(raw[i - 1]) ? 'muted' : 'punct';
+  }
+  const before = prev(raw, i)?.text;
+  if (NUMBER.test(text)) {
+    // `…+3` again: the count after the marker is not a value.
+    return before === '+' && isMarker(raw[i - 2]) ? 'muted' : 'number';
+  }
+  return wordKind(token, before, next(raw, i)?.text);
+};
+
 /** Split a preview into coloured tokens, spaces kept as `text`. */
 export const tokenizeValue = (value: string): ValueToken[] => {
   const raw = lex(value);
-  return raw.map(({type, text}, i): ValueToken => {
-    const after = next(raw, i)?.text;
-    const before = prev(raw, i)?.text;
-    if (type === 'space') return {kind: 'text', text};
-    if (type === 'string') {
-      // The lexer reads a bare `…` (a truncation marker) as a string.
-      return {kind: text.startsWith('…') ? 'muted' : 'string', text};
-    }
-    if (type === 'keyword') return {kind: 'keyword', text};
-    if (type === 'sign') {
-      // `…+3` is one marker: keep its `+` with the ellipsis.
-      if (text === '+' && raw[i - 1]?.text.startsWith('…')) {
-        return {kind: 'muted', text};
-      }
-      return {kind: 'punct', text};
-    }
-    if (NUMBER.test(text)) {
-      // `…+3` again: the count after the marker is not a value.
-      return {
-        kind:
-          before === '+' && raw[i - 2]?.text.startsWith('…')
-            ? 'muted'
-            : 'number',
-        text,
-      };
-    }
-    if (after === ':' && before !== '?') return {kind: 'key', text};
-    if (before === '[' && after === ']' && PLACEHOLDERS.has(text)) {
-      return {kind: 'muted', text};
-    }
-    if (text === 'ƒ') return {kind: 'muted', text};
-    if (before === 'ƒ') return {kind: 'callee', text};
-    if (before === '<') return {kind: 'tag', text};
-    if (type === 'class') return {kind: 'type', text};
-    return {kind: 'text', text};
-  });
+  return raw.map(({text}, i): ValueToken => ({kind: kindOf(raw, i), text}));
 };
 
 // ---------------------------------------------------------------------------
@@ -129,6 +130,12 @@ const flatWidth = (n: Node): number =>
       Math.max(0, n.items.length - 1) * 2
     : n.text.length;
 
+const isPunct = (t: ValueToken, ...texts: string[]): boolean =>
+  t.kind === 'punct' && texts.includes(t.text);
+
+const isSpace = (t: ValueToken): boolean =>
+  t.kind === 'text' && t.text.trim() === '';
+
 /**
  * Nest bracket groups. Returns undefined when brackets do not balance, so a
  * preview the parser misreads is shown as it came.
@@ -141,21 +148,17 @@ const parseGroups = (tokens: ValueToken[]): Node[] | undefined => {
     return frame === undefined ? top : frame.items.at(-1)!;
   };
   for (const t of tokens) {
-    if (t.kind === 'punct' && OPEN[t.text] !== undefined) {
+    if (isPunct(t, '{', '[')) {
       stack.push({open: t, items: [[]]});
-    } else if (t.kind === 'punct' && (t.text === '}' || t.text === ']')) {
+    } else if (isPunct(t, '}', ']')) {
       const frame = stack.pop();
       if (frame === undefined || OPEN[frame.open.text] !== t.text)
         return undefined;
       const items = frame.items.filter((item) => item.length > 0);
       current().push({open: frame.open, items, close: t});
-    } else if (t.kind === 'punct' && t.text === ',' && stack.length > 0) {
+    } else if (isPunct(t, ',') && stack.length > 0) {
       stack.at(-1)!.items.push([]);
-    } else if (
-      t.kind === 'text' &&
-      t.text.trim() === '' &&
-      current().length === 0
-    ) {
+    } else if (isSpace(t) && current().length === 0) {
       // Space right after `{`, `[` or `,`: re-flow writes its own.
     } else {
       current().push(t);
