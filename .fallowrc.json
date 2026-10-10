@@ -51,6 +51,15 @@
       "examples/**",
       "*.config.ts",
       "extension/vite.config.ts"
+    ],
+    "thresholdOverrides": [
+      {
+        "files": ["src/panel/**"],
+        "functions": ["render", "_renderDetails", "_renderNode", "_renderRow"],
+        "maxCyclomatic": 30,
+        "maxCognitive": 30,
+        "reason": "Lit render methods: each `cond ? html`…` : nothing` in a template counts as a branch, so a readable template scores like tangled logic. Logic that isn't markup still belongs in a helper."
+      }
     ]
   },
   // Complexity that predates fallow is recorded here; `fallow audit` and the
