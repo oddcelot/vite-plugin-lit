@@ -233,19 +233,17 @@ const pick = <T>(
   source: sourceOf(option, env),
 });
 
-/**
- * Merge explicit options over env vars over defaults (in that precedence) into
- * the flat shape the plugin hooks consume.
- */
-export const resolveOptions = (
+type EnvOf = (key: SourcedKey) => string | undefined;
+
+/** The `hmr` group: master toggle and the settings nested under `hmr: {...}`. */
+const resolveHmr = (
   options: LitPluginOptions,
-  env: Record<string, string>
-): ResolvedOptions => {
-  // The env var a Setting is read from is named once, on its definition.
-  const envOf = (key: SourcedKey) => env[SETTINGS[key].env!];
+  env: Record<string, string>,
+  envOf: EnvOf
+) => {
   const hmr = options.hmr;
   const hmrObj = typeof hmr === 'object' ? hmr : undefined;
-  const hmrEnabled = pick(
+  const enabled = pick(
     typeof hmr === 'boolean' ? hmr : hmrObj?.enabled,
     envBool(envOf('hmr')),
     SETTINGS.hmr.default
@@ -278,33 +276,81 @@ export const resolveOptions = (
     ),
     SETTINGS.hmrChildState.default
   );
+  return {
+    hmrObj,
+    enabled,
+    reconnect,
+    privateFields,
+    onIncompatible,
+    childState,
+  };
+};
 
+/** The HMR indicator: `false`, or `{count}`; it follows the master toggle. */
+const resolveIndicator = (
+  hmrObj: ReturnType<typeof resolveHmr>['hmrObj'],
+  hmrEnabled: boolean,
+  envOf: EnvOf
+) => {
   const ind = hmrObj?.indicator;
   const indObj = typeof ind === 'object' ? ind : undefined;
-  const indEnabled = pick(
+  const enabled = pick(
     typeof ind === 'boolean' ? ind : indObj?.enabled,
     envBool(envOf('hmrIndicatorVisible')),
     SETTINGS.hmrIndicatorVisible.default
   );
-  const indCount = pick(
+  const count = pick(
     indObj?.count,
     envBool(envOf('hmrIndicatorCount')),
     SETTINGS.hmrIndicatorCount.default
   );
   // The indicator is meaningless without HMR, so it follows the master toggle.
-  const indicator =
-    hmrEnabled.value && indEnabled.value ? {count: indCount.value} : false;
+  const value: false | {count: boolean} =
+    hmrEnabled && enabled.value ? {count: count.value} : false;
+  return {value, enabled, count};
+};
 
-  const sources: SettingSources = {
-    hmr: hmrEnabled.source,
-    hmrReconnect: reconnect.source,
-    hmrOnIncompatible: onIncompatible.source,
-    hmrChildState: childState.source,
-    hmrIndicatorVisible: indEnabled.source,
-    hmrIndicatorCount: indCount.source,
-  };
+/**
+ * Fill the overlay's key/editor/throttle from env where the option leaves them
+ * unset, recording which layer supplied each.
+ */
+const fillOverlayFromEnv = (
+  so: LitPluginOptions['sourceOverlay'],
+  envOf: EnvOf,
+  sources: SettingSources
+): SourceOverlayOptions => {
+  const base: SourceOverlayOptions = typeof so === 'object' ? {...so} : {};
+  // Defaults for these are applied later (toFeatureSettings / the runtime),
+  // so only option-vs-env is decided here; neither set means 'default'.
+  const envKey = envOf('sourceOverlayKey') || undefined;
+  const envThrottle = envNum(envOf('sourceOverlayThrottleMs'));
+  // Only read (and warn about) the env editor when no option supplies one.
+  const envEditor =
+    base.editor === undefined
+      ? envEnum(
+          envOf('sourceOverlayEditor'),
+          EDITOR_KEYS,
+          SETTINGS.sourceOverlayEditor.env!
+        )
+      : undefined;
+  sources.sourceOverlayKey = sourceOf(base.key, envKey);
+  sources.sourceOverlayEditor = sourceOf(base.editor, envEditor);
+  sources.sourceOverlayThrottleMs = sourceOf(base.throttleMs, envThrottle);
+  base.key ??= envKey;
+  base.editor ??= envEditor;
+  base.throttleMs ??= envThrottle;
+  return base;
+};
 
-  const so = options.sourceOverlay;
+/**
+ * The source overlay: `false`, or its options with env values filled in.
+ * Records the per-key sources (key/editor/throttle only when enabled).
+ */
+const resolveSourceOverlay = (
+  so: LitPluginOptions['sourceOverlay'],
+  envOf: EnvOf,
+  sources: SettingSources
+): false | SourceOverlayOptions => {
   const soExplicit =
     typeof so === 'boolean' ? so : so === undefined ? undefined : true;
   const soEnabled = pick(
@@ -313,30 +359,36 @@ export const resolveOptions = (
     SETTINGS.sourceOverlay.default
   );
   sources.sourceOverlay = soEnabled.source;
-  let sourceOverlay: false | SourceOverlayOptions = false;
-  if (soEnabled.value) {
-    const base: SourceOverlayOptions = typeof so === 'object' ? {...so} : {};
-    // Defaults for these are applied later (toFeatureSettings / the runtime),
-    // so only option-vs-env is decided here; neither set means 'default'.
-    const envKey = envOf('sourceOverlayKey') || undefined;
-    const envThrottle = envNum(envOf('sourceOverlayThrottleMs'));
-    // Only read (and warn about) the env editor when no option supplies one.
-    const envEditor =
-      base.editor === undefined
-        ? envEnum(
-            envOf('sourceOverlayEditor'),
-            EDITOR_KEYS,
-            SETTINGS.sourceOverlayEditor.env!
-          )
-        : undefined;
-    sources.sourceOverlayKey = sourceOf(base.key, envKey);
-    sources.sourceOverlayEditor = sourceOf(base.editor, envEditor);
-    sources.sourceOverlayThrottleMs = sourceOf(base.throttleMs, envThrottle);
-    base.key ??= envKey;
-    base.editor ??= envEditor;
-    base.throttleMs ??= envThrottle;
-    sourceOverlay = base;
-  }
+  return soEnabled.value ? fillOverlayFromEnv(so, envOf, sources) : false;
+};
+
+/**
+ * Merge explicit options over env vars over defaults (in that precedence) into
+ * the flat shape the plugin hooks consume.
+ */
+export const resolveOptions = (
+  options: LitPluginOptions,
+  env: Record<string, string>
+): ResolvedOptions => {
+  // The env var a Setting is read from is named once, on its definition.
+  const envOf: EnvOf = (key) => env[SETTINGS[key].env!];
+  const hmr = resolveHmr(options, env, envOf);
+  const ind = resolveIndicator(hmr.hmrObj, hmr.enabled.value, envOf);
+
+  const sources: SettingSources = {
+    hmr: hmr.enabled.source,
+    hmrReconnect: hmr.reconnect.source,
+    hmrOnIncompatible: hmr.onIncompatible.source,
+    hmrChildState: hmr.childState.source,
+    hmrIndicatorVisible: ind.enabled.source,
+    hmrIndicatorCount: ind.count.source,
+  };
+
+  const sourceOverlay = resolveSourceOverlay(
+    options.sourceOverlay,
+    envOf,
+    sources
+  );
 
   const timeline = pick(
     options.timeline,
@@ -360,12 +412,12 @@ export const resolveOptions = (
     options.devtoolsWorkspace ?? envBool(envWorkspace) ?? envWorkspace ?? true;
 
   return {
-    hmrEnabled: hmrEnabled.value,
-    reconnect: reconnect.value,
-    privateFields: privateFields.value,
-    onIncompatible: onIncompatible.value,
-    childState: childState.value,
-    indicator,
+    hmrEnabled: hmr.enabled.value,
+    reconnect: hmr.reconnect.value,
+    privateFields: hmr.privateFields.value,
+    onIncompatible: hmr.onIncompatible.value,
+    childState: hmr.childState.value,
+    indicator: ind.value,
     sourceOverlay,
     timeline: timeline.value,
     cssSheetBuild,
