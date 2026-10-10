@@ -117,6 +117,18 @@ do this, so the maps must be reachable from the page. It only sees components
 defined after it injects, which on an enabled site is before the page's first
 script runs.
 
+## Read component documentation
+
+When a page links its
+[Custom Elements Manifests](https://github.com/webcomponents/custom-elements-manifest)
+with `<link rel="custom-elements-manifest" href="…">`, the details pane shows
+what they say about the selected component: its description, events, CSS
+custom properties, and descriptions on the property, attribute, slot and part
+rows. See
+[Read a component's documentation](/vite-plugin-lit/guides/devtools/components/#read-a-components-documentation).
+The extension resolves each link against the page's base URL and fetches only
+manifests on the enabled site; one on a CDN or another origin is skipped.
+
 ## Open in the browser's own panels
 
 The Lit panel and DevTools' own panels hand off to each other:
@@ -146,8 +158,8 @@ Render events on the timeline need Lit's development build. It sees the top
 frame of `http:` and `https:` pages only.
 
 The extension collects no data. Its only network requests fetch an enabled
-site's own scripts and sourcemaps, from that site, to find where components
-are defined. It stores the sites you enabled and your panel settings in your
+site's own scripts, sourcemaps and Custom Elements Manifests, from that site,
+to find where components are defined and what their documentation says. It stores the sites you enabled and your panel settings in your
 browser.
 
 ## Related

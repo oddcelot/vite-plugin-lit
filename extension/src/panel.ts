@@ -68,6 +68,10 @@ import {
   patternsKeepPort,
 } from './registry.js';
 import {createSourceMapResolver} from '../../src/lib/devframe/source-maps.js';
+import {
+  createLinkedDocsSource,
+  MANIFEST_LINK_REL,
+} from '../../src/lib/component-docs/linked.js';
 import {createChromeStorage} from './storage.js';
 
 const $ = <T extends HTMLElement>(id: string) =>
@@ -182,6 +186,36 @@ const showPageStatus = (connected: boolean): void => {
 // when the page navigates.
 const sourceMaps = createSourceMapResolver({
   fetch: (url) => fetch(url),
+  allows: (url) => origin !== undefined && site(url) === origin,
+});
+
+/**
+ * The page's `<link rel="custom-elements-manifest">` URLs. `href` reads back
+ * absolute, resolved against the document's base URL. None outside DevTools.
+ */
+const manifestLinks = (): Promise<string[]> =>
+  new Promise((resolve) => {
+    if (devtools === undefined) {
+      resolve([]);
+      return;
+    }
+    devtools.inspectedWindow.eval<string[]>(
+      `[...document.querySelectorAll('link[rel~=${JSON.stringify(
+        MANIFEST_LINK_REL
+      )}]')].map((l) => l.href)`,
+      (urls, exception) =>
+        resolve(!exception && Array.isArray(urls) ? urls : [])
+    );
+  });
+
+// Component docs from the manifests the page links to, under the same rule
+// as sourcemaps: fetched from here, and only from the enabled site.
+const manifestDocs = createLinkedDocsSource({
+  links: manifestLinks,
+  fetchText: async (url) => {
+    const response = await fetch(url);
+    return response.ok ? response.text() : undefined;
+  },
   allows: (url) => origin !== undefined && site(url) === origin,
 });
 
@@ -319,6 +353,7 @@ const boot = async (): Promise<void> => {
     version,
     storage: createChromeStorage(chrome.storage.local),
     resolveDefineSource: (frames) => sourceMaps.resolve(frames),
+    docsSource: (args) => manifestDocs.componentDocs(args),
   });
   useLocalClient(client);
   // Outside DevTools (the e2e's plain tab) there is no Sources panel, and a
@@ -411,6 +446,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 devtools?.network.onNavigated.addListener((url) => {
   // The new document's scripts may differ under the same URLs.
   sourceMaps.reset();
+  manifestDocs.reset();
   if (site(url) !== origin) void refresh();
 });
 void refresh();

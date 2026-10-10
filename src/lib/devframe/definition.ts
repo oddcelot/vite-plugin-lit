@@ -115,6 +115,12 @@ export interface CreateLitDevframeOptions {
    */
   nodeActions?: NodeActions;
   /**
+   * Answers `component-docs` on a host without Node actions: the extension
+   * reads the manifests the page links to (`component-docs/linked.ts`).
+   * Node actions win when a host has both.
+   */
+  docsSource?: (args: ComponentDocsArgs) => Promise<ComponentDocsResult>;
+  /**
    * Boot from a recorded session instead of a live one. Set only by the
    * static-snapshot build (see `lib/snapshot.ts`): the caches below start
    * populated, so the frozen panel has a timeline and a component tree to
@@ -139,7 +145,8 @@ const DEFAULT_INSPECTOR_TIMEOUT_MS = 500;
 export function createLitDevframe(
   options: CreateLitDevframeOptions
 ): DevframeDefinition {
-  const {source, version, features, replay, host, nodeActions} = options;
+  const {source, version, features, replay, host, nodeActions, docsSource} =
+    options;
 
   return defineDevframe({
     id: LIT_DEVFRAME_ID,
@@ -203,6 +210,7 @@ export function createLitDevframe(
           live,
           features: features ? features() : undefined,
           nodeActions: nodeActions !== undefined,
+          docs: nodeActions !== undefined || docsSource !== undefined,
           recorded: replay?.capabilities,
         });
       // The agent's component queries ask the page, falling back to what the
@@ -456,8 +464,9 @@ export function createLitDevframe(
           handler: async (
             args: ComponentDocsArgs
           ): Promise<ComponentDocsResult> => {
-            if (nodeActions === undefined) return {docs: null};
-            return nodeActions.componentDocs(args);
+            if (nodeActions !== undefined)
+              return nodeActions.componentDocs(args);
+            return docsSource?.(args) ?? {docs: null};
           },
         })
       );

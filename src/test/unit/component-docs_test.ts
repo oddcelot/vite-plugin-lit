@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vite-plus/test';
 import {
   createComponentDocsIndex,
+  findManifests,
   type DocsFs,
 } from '../../lib/component-docs/load.js';
 import {docsFromManifest} from '../../lib/component-docs/manifest.js';
@@ -391,5 +392,25 @@ describe('createComponentDocsIndex', () => {
     expect(
       (await indexOver(fs, 'C:\\proj').get('win-el'))?.origin.package
     ).toBe('dep');
+  });
+});
+
+describe('findManifests', () => {
+  it('lists the manifests that exist, the project first', () => {
+    const {fs} = memoryFs({
+      '/p/package.json': JSON.stringify({
+        dependencies: {ui: '1', bare: '1'},
+      }),
+      '/p/node_modules/ui/package.json': JSON.stringify({
+        name: 'ui',
+        customElements: 'cem.json',
+      }),
+      '/p/node_modules/ui/cem.json': manifestJson('ui-card'),
+      '/p/node_modules/bare/package.json': '{}',
+    });
+    // The project's own fallback is not there yet, so it is left out.
+    expect(findManifests(fs, '/p').map((m) => m.path)).toEqual([
+      '/p/node_modules/ui/cem.json',
+    ]);
   });
 });

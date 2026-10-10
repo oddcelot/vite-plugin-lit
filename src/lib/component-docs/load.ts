@@ -138,7 +138,7 @@ const DEPENDENCY_FIELDS = [
   'optionalDependencies',
 ];
 
-interface ManifestSource {
+export interface ManifestSource {
   /** Absolute path to the manifest file. */
   path: string;
   /** Relative to the package, for `origin.manifest`. */
@@ -237,6 +237,18 @@ const discover = (fs: DocsFs, packageJsonPath: string): ManifestSource[] => {
   for (const name of dependencyNames(packageJson))
     sources.push(dependencySource(fs, projectDir, name));
   return sources.filter((source) => source !== undefined);
+};
+
+/**
+ * The manifests visible from `root` that exist right now, the project's
+ * first. Uncached: for the dev server's page links, read once per page.
+ */
+export const findManifests = (fs: DocsFs, root: string): ManifestSource[] => {
+  const packageJsonPath = findProjectPackage(fs, normalize(root));
+  if (packageJsonPath === undefined) return [];
+  return discover(fs, packageJsonPath).filter(
+    (source) => fs.mtime(source.path) !== undefined
+  );
 };
 
 // --- index -----------------------------------------------------------------
