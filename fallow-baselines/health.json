@@ -47,14 +47,6 @@
         "count": 1
       }
     },
-    "src/lib/options.ts": {
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 1
-      }
-    },
     "src/lib/plugins/css-literals.ts": {
       "crap_high": {
         "count": 1
@@ -64,9 +56,6 @@
       }
     },
     "src/lib/plugins/open-in-editor.ts": {
-      "complexity_high": {
-        "count": 1
-      },
       "crap_high": {
         "count": 1
       }
@@ -96,67 +85,18 @@
         "count": 1
       }
     },
-    "src/lib/runtime/inspector/anatomy-overlay.ts": {
-      "complexity_high": {
-        "count": 1
-      },
-      "complexity_moderate": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "src/lib/runtime/inspector/anatomy.ts": {
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 1
-      }
-    },
     "src/lib/runtime/inspector/collect.ts": {
-      "complexity_high": {
-        "count": 1
-      },
       "crap_moderate": {
         "count": 1
       }
     },
     "src/lib/runtime/inspector/extras.ts": {
-      "complexity_high": {
-        "count": 1
-      },
       "crap_high": {
-        "count": 3
-      }
-    },
-    "src/lib/runtime/inspector/inspect-value.ts": {
-      "complexity_moderate": {
         "count": 2
-      }
-    },
-    "src/lib/runtime/inspector/install.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "complexity_moderate": {
-        "count": 1
-      },
-      "crap_critical": {
-        "count": 1
       }
     },
     "src/lib/runtime/inspector/serialize.ts": {
       "crap_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/runtime/patch.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "crap_critical": {
         "count": 1
       }
     },
@@ -168,24 +108,8 @@
         "count": 1
       }
     },
-    "src/lib/runtime/source-overlay/source-host.ts": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
-    "src/lib/runtime/timeline/changed-values.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "crap_critical": {
-        "count": 1
-      }
-    },
     "src/lib/runtime/timeline/chrome-tracks.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "crap_critical": {
+      "crap_moderate": {
         "count": 1
       }
     },
@@ -195,10 +119,7 @@
       }
     },
     "src/lib/runtime/timeline/render.ts": {
-      "complexity_critical": {
-        "count": 2
-      },
-      "crap_critical": {
+      "crap_moderate": {
         "count": 2
       }
     },
@@ -218,13 +139,7 @@
       }
     },
     "src/lib/timeline/cause-rails.ts": {
-      "complexity_high": {
-        "count": 1
-      },
-      "complexity_moderate": {
-        "count": 1
-      },
-      "crap_high": {
+      "crap_moderate": {
         "count": 1
       }
     },
@@ -236,20 +151,12 @@
         "count": 3
       }
     },
-    "src/lib/transform.ts": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
     "src/panel/components-session.ts": {
       "crap_high": {
         "count": 1
       }
     },
     "src/panel/components-view.ts": {
-      "complexity_moderate": {
-        "count": 1
-      },
       "crap_critical": {
         "count": 2
       },
@@ -258,10 +165,7 @@
       }
     },
     "src/panel/deep-link.ts": {
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_high": {
+      "crap_moderate": {
         "count": 1
       }
     },
@@ -270,23 +174,15 @@
         "count": 1
       }
     },
-    "src/panel/setting-rows.ts": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
     "src/panel/timeline-event-list.ts": {
-      "complexity_high": {
-        "count": 1
-      },
       "crap_critical": {
         "count": 1
       },
       "crap_high": {
-        "count": 2
+        "count": 1
       },
       "crap_moderate": {
-        "count": 1
+        "count": 2
       }
     },
     "src/panel/timeline-span-detail.ts": {
@@ -310,17 +206,8 @@
       }
     },
     "src/panel/value-format.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_critical": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 1
+      "crap_moderate": {
+        "count": 3
       }
     },
     "src/test/unit/timeline-derive_test.ts": {
@@ -331,11 +218,10 @@
   },
   "runtime_coverage_findings": [],
   "target_keys": [
-    "src/lib/runtime/inspector/extras.ts:high impact",
     "src/lib/runtime/inspector/serialize.ts:high impact",
     "src/lib/devframe/define-sources.ts:high impact",
+    "src/lib/runtime/inspector/extras.ts:high impact",
     "src/lib/runtime/inspector/inspect-value.ts:high impact",
-    "src/panel/value-format.ts:untested risk",
-    "src/lib/runtime/patch.ts:complexity"
+    "src/panel/value-format.ts:untested risk"
   ]
 }
