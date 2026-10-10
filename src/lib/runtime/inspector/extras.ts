@@ -225,6 +225,24 @@ const providersOn = (el: Element, context: unknown): Dict[] =>
     (c) => isProvider(c as Dict) && dataProp(c, 'context')?.value === context
   ) as Dict[];
 
+type Subscriptions = Map<unknown, {consumerHost?: unknown}>;
+
+/** The element one step up from `el`, crossing shadow boundaries. */
+const parentElementOf = (el: Node): Node | null => {
+  const parent: Node | null =
+    el.parentNode ?? (el instanceof ShadowRoot ? el.host : null);
+  return parent instanceof ShadowRoot ? parent.host : parent;
+};
+
+/** Whether `host` sits in the subscriptions of the provider `p`. */
+const hasSubscriber = (p: Dict, host: Element): boolean => {
+  const subs = dataProp(p, 'subscriptions')?.value as Subscriptions;
+  for (const {consumerHost} of subs.values()) {
+    if (consumerHost === host) return true;
+  }
+  return false;
+};
+
 /**
  * The provider that answers a consumer, by what `ContextProvider` does with
  * the request: it bubbles (composed) from the consumer's host and the first
@@ -239,18 +257,10 @@ const providerOf = (consumer: Dict): Element | undefined => {
   let nearest: Element | undefined;
   let el: Node | null = host;
   for (let i = 0; el !== null && i < MAX_DEPTH; i++) {
-    const parent: Node | null =
-      el.parentNode ?? (el instanceof ShadowRoot ? el.host : null);
-    el = parent instanceof ShadowRoot ? parent.host : parent;
+    el = parentElementOf(el);
     if (!(el instanceof Element)) continue;
     for (const p of providersOn(el, context)) {
-      const subs = dataProp(p, 'subscriptions')?.value as Map<
-        unknown,
-        {consumerHost?: unknown}
-      >;
-      for (const {consumerHost} of subs.values()) {
-        if (consumerHost === host) return el;
-      }
+      if (hasSubscriber(p, host)) return el;
       nearest ??= el;
     }
   }
@@ -258,6 +268,20 @@ const providerOf = (consumer: Dict): Element | undefined => {
   return subscribed && dataProp(consumer, 'unsubscribe')?.value !== undefined
     ? undefined
     : nearest;
+};
+
+/** Fill in the consumers a provider serves, capped at {@link MAX_CONSUMERS}. */
+const describeConsumers = (info: InspectorContext, v: Dict): void => {
+  const subs = dataProp(v, 'subscriptions')?.value as Subscriptions;
+  const hosts = new Set<Element>();
+  for (const {consumerHost} of subs.values()) {
+    if (consumerHost instanceof Element) hosts.add(consumerHost);
+  }
+  const all = [...hosts];
+  if (all.length > 0) info.consumers = all.slice(0, MAX_CONSUMERS).map(refOf);
+  if (all.length > MAX_CONSUMERS) {
+    info.moreConsumers = all.length - MAX_CONSUMERS;
+  }
 };
 
 /** Context details for a provider or consumer controller; `undefined` for neither. */
@@ -273,19 +297,7 @@ const classifyContext = (
     key,
   };
   if (provider) {
-    const subs = dataProp(v, 'subscriptions')?.value as Map<
-      unknown,
-      {consumerHost?: unknown}
-    >;
-    const hosts = new Set<Element>();
-    for (const {consumerHost} of subs.values()) {
-      if (consumerHost instanceof Element) hosts.add(consumerHost);
-    }
-    const all = [...hosts];
-    if (all.length > 0) info.consumers = all.slice(0, MAX_CONSUMERS).map(refOf);
-    if (all.length > MAX_CONSUMERS) {
-      info.moreConsumers = all.length - MAX_CONSUMERS;
-    }
+    describeConsumers(info, v);
   } else {
     const found = providerOf(v);
     if (found !== undefined) info.provider = refOf(found);
@@ -393,25 +405,57 @@ export const extraValue = (
   }
 };
 
+/** Own data fields (no accessors), in definition order. */
+const ownFields = (host: Dict): Array<[string, unknown]> => {
+  const fields: Array<[string, unknown]> = [];
+  for (const key of Object.keys(host)) {
+    const desc = Object.getOwnPropertyDescriptor(host, key);
+    if (desc !== undefined && 'value' in desc) fields.push([key, desc.value]);
+  }
+  return fields;
+};
+
+/** A controller or signal stored in a field takes the field's name. */
+const fieldNames = (fields: Array<[string, unknown]>): Map<object, string> => {
+  const names = new Map<object, string>();
+  for (const [key, value] of fields) {
+    if (isObject(value) && !names.has(value)) names.set(value, clip(key));
+  }
+  return names;
+};
+
+/** Whether a field is Lit's own, declared, a function or already listed. */
+const isSkippedField = (
+  key: string,
+  value: unknown,
+  declared: Map<PropertyKey, unknown> | undefined,
+  listed: Set<object>
+): boolean =>
+  key.startsWith('__') ||
+  key.startsWith('_$') ||
+  LIT_FIELDS.has(key) ||
+  declared?.has(key) === true ||
+  typeof value === 'function' ||
+  (isObject(value) && (listed.has(value) || value instanceof Node));
+
+const fieldEntry = (key: string, value: unknown): ExtraEntry => ({
+  extra: {
+    kind: 'field',
+    name: clip(key),
+    value: serialize(value),
+    type: typeTag(value),
+    ...(isExpandable(value) ? {expandable: true} : {}),
+  },
+  raw: () => value,
+});
+
 const collectEntries = (el: Element): ExtraEntry[] => {
   try {
-    const host = el as unknown as Dict;
     const declared = (
       el.constructor as {elementProperties?: Map<PropertyKey, unknown>}
     ).elementProperties;
-
-    // Own data fields (no accessors), in definition order.
-    const fields: Array<[string, unknown]> = [];
-    for (const key of Object.keys(host)) {
-      const desc = Object.getOwnPropertyDescriptor(host, key);
-      if (desc !== undefined && 'value' in desc) fields.push([key, desc.value]);
-    }
-
-    // A controller or signal stored in a field takes the field's name.
-    const names = new Map<object, string>();
-    for (const [key, value] of fields) {
-      if (isObject(value) && !names.has(value)) names.set(value, clip(key));
-    }
+    const fields = ownFields(el as unknown as Dict);
+    const names = fieldNames(fields);
 
     const out: ExtraEntry[] = [];
     const listed = new Set<object>();
@@ -430,34 +474,15 @@ const collectEntries = (el: Element): ExtraEntry[] => {
         continue;
       }
       const entry = classify(value, clip(key), false);
-      if (entry !== undefined) {
-        listed.add(value);
-        out.push(entry);
-      }
+      if (entry === undefined) continue;
+      listed.add(value);
+      out.push(entry);
     }
 
     for (const [key, value] of fields) {
       if (full()) break;
-      if (
-        key.startsWith('__') ||
-        key.startsWith('_$') ||
-        LIT_FIELDS.has(key) ||
-        declared?.has(key) === true ||
-        typeof value === 'function' ||
-        (isObject(value) && (listed.has(value) || value instanceof Node))
-      ) {
-        continue;
-      }
-      out.push({
-        extra: {
-          kind: 'field',
-          name: clip(key),
-          value: serialize(value),
-          type: typeTag(value),
-          ...(isExpandable(value) ? {expandable: true} : {}),
-        },
-        raw: () => value,
-      });
+      if (isSkippedField(key, value, declared, listed)) continue;
+      out.push(fieldEntry(key, value));
     }
     return out;
   } catch {
