@@ -38,6 +38,11 @@ old clock would sit in the list on a different time origin.
 
 **Clear** empties the list without stopping the recording.
 
+The dev server keeps the latest 512 events of the recording. A panel that
+reloads, or one you open while recording is under way, lists those and carries
+on from there, so a long session comes back without its oldest events. The
+panel you recorded in keeps up to 5000 events until you reload it.
+
 ## Choose layers
 
 A strip of coloured pills under the toolbar turns each layer on or off. A layer
@@ -323,8 +328,8 @@ Two limits matter when you record something to report.
 - Only components you actually opened have their details baked in. Details are
   read from live DOM, so a component nobody inspected has nothing to freeze.
   Click through the ones that matter before exporting.
-- The timeline keeps its most recent 512 events, not all of them. A long
-  session exports its tail.
+- The export holds the dev server's latest 512 events, not the whole
+  session: a long one exports its tail, as a reloaded panel shows it.
 
 `lit-devtools build` does not produce one of these. A fresh CLI process has no
 session to freeze, so export from the running server that recorded it.
