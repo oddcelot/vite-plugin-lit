@@ -533,6 +533,9 @@ if (typeof window !== 'undefined') {
 
   pageChannel.on(INSPECT_CMD_CHANNEL, (data) => {
     const cmd = data as InspectorCommand;
+    // Own keys only: a `type` such as `constructor` must not reach
+    // Object.prototype and get called.
+    if (!Object.hasOwn(commandHandlers, cmd.type)) return;
     const handler = commandHandlers[cmd.type] as
       | ((c: InspectorCommand) => void)
       | undefined;
