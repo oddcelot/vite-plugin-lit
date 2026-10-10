@@ -11,6 +11,7 @@
 # Tooling caches
 /.e2e-tmp/
 /.vite/
+/.fallow/
 docs/dist/
 docs/.astro/
 

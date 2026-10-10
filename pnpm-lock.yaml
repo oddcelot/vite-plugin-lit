@@ -185,6 +185,9 @@ importers:
       cac:
         specifier: 7.0.0
         version: 7.0.0
+      fallow:
+        specifier: ^3.32.0
+        version: 3.32.0
       git-cliff:
         specifier: ^2.14.2
         version: 2.14.2
@@ -861,6 +864,46 @@ packages:
 
   '@expressive-code/plugin-text-markers@0.44.2':
     resolution: {integrity: sha512-SNI7EgUSiADqbqUzzMbj1ZeC/r2pa5eg3KyFOGAd3a7EsIA4qzjXQLp+ODWQtHVDKFCdGs4J3ovSJUqvKIK96g==}
+
+  '@fallow-cli/darwin-arm64@3.32.0':
+    resolution: {integrity: sha512-+h1q0byIelDXRUBFZvTaNNbFg6uGvXyv3G55drCxIHA4/FUk01QZjEb/N9qoj2ZcQiQ1NwJuz9U+YkJPYSXghw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@fallow-cli/darwin-x64@3.32.0':
+    resolution: {integrity: sha512-WZvKyrCc1FwsYWxYyhCCQs/tLIgRhlh70Se2BPwQuYc0slXOPwc6/oiAcdKc4lg0e3tDTQA6/nvQvVYVGYqObg==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@fallow-cli/linux-arm64-gnu@3.32.0':
+    resolution: {integrity: sha512-hUvjjWxHSYocd/84Kk8CPe6Gf7WeD0+Zo/6/HUkTdKGknZk8H/zOqhiJGnJYwk0IRViaJci91qxhna5RejwP4w==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@fallow-cli/linux-arm64-musl@3.32.0':
+    resolution: {integrity: sha512-BQvTFPL6FYNGjmRSJEnrqZn+V7D3CtDYjmO8jbUwzui80bUUPSKNkdPBVZ804JoyQo69mCi8Mmjtd4wHKIPtdA==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@fallow-cli/linux-x64-gnu@3.32.0':
+    resolution: {integrity: sha512-h8ZdgCeo8eDKfexQNFTMykEFyCQLukPl4SRm73QpuDo18RYTjGtMYxtv50DgFiuhSxnHUkeV8voly7QfcJS8uw==}
+    cpu: [x64]
+    os: [linux]
+
+  '@fallow-cli/linux-x64-musl@3.32.0':
+    resolution: {integrity: sha512-WRzZKv2rgGGgq6rvY94qgjiDlCKiDQliWoL0DmmVpXAoVt3E82Kv2SMlJn+T/pBcreifWrkqakC10aj+y3Y8qw==}
+    cpu: [x64]
+    os: [linux]
+
+  '@fallow-cli/win32-arm64-msvc@3.32.0':
+    resolution: {integrity: sha512-6n9bzCcHVwpfniyscUs1NH014akO8YL4lTIEwT8XtGI3aYisGb/BF09nYY/eTMZMFRFDf+60WlNLzVjqdAdJmg==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@fallow-cli/win32-x64-msvc@3.32.0':
+    resolution: {integrity: sha512-IK123RccF6liIbWCs3fUyzdlMWi9AQdc7zivewpjtVQFqVZ+1g44hTkiOzKOL7GR0bRcIGh+56QlXTmmeDI6pQ==}
+    cpu: [x64]
+    os: [win32]
 
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
@@ -2523,6 +2566,16 @@ packages:
 
   extend@3.0.2:
     resolution: {integrity: sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==}
+
+  fallow-type-aware@3.32.0:
+    resolution: {integrity: sha512-p1jFVESH7Y9DHlvgEn1xOeugiVgU1LbPnsTAYsXG9iykimYuof+r95eF5IqpBeR7Z42N527FNyU3OO/GHfXwVw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  fallow@3.32.0:
+    resolution: {integrity: sha512-bBIykYqWClscRllE/g89qVYQjvOOSFz1z0hqJ/HT+zZoaaBLAKjtn2U23E90EvsXKMteTgyk54Vcy+juABxZuQ==}
+    engines: {node: '>=22'}
+    hasBin: true
 
   fast-string-truncated-width@3.0.3:
     resolution: {integrity: sha512-0jjjIEL6+0jag3l2XWWizO64/aZVtpiGE3t0Zgqxv0DPuxiMjvB3M24fCyhZUO4KomJQPj3LTSUnDP3GpdwC0g==}
@@ -4433,6 +4486,30 @@ snapshots:
     dependencies:
       '@expressive-code/core': 0.44.2
 
+  '@fallow-cli/darwin-arm64@3.32.0':
+    optional: true
+
+  '@fallow-cli/darwin-x64@3.32.0':
+    optional: true
+
+  '@fallow-cli/linux-arm64-gnu@3.32.0':
+    optional: true
+
+  '@fallow-cli/linux-arm64-musl@3.32.0':
+    optional: true
+
+  '@fallow-cli/linux-x64-gnu@3.32.0':
+    optional: true
+
+  '@fallow-cli/linux-x64-musl@3.32.0':
+    optional: true
+
+  '@fallow-cli/win32-arm64-msvc@3.32.0':
+    optional: true
+
+  '@fallow-cli/win32-x64-msvc@3.32.0':
+    optional: true
+
   '@floating-ui/core@1.8.0':
     dependencies:
       '@floating-ui/utils': 0.2.12
@@ -5809,6 +5886,25 @@ snapshots:
   exsolve@1.1.1: {}
 
   extend@3.0.2: {}
+
+  fallow-type-aware@3.32.0:
+    dependencies:
+      typescript: 7.0.2
+    optional: true
+
+  fallow@3.32.0:
+    dependencies:
+      detect-libc: 2.1.2
+    optionalDependencies:
+      '@fallow-cli/darwin-arm64': 3.32.0
+      '@fallow-cli/darwin-x64': 3.32.0
+      '@fallow-cli/linux-arm64-gnu': 3.32.0
+      '@fallow-cli/linux-arm64-musl': 3.32.0
+      '@fallow-cli/linux-x64-gnu': 3.32.0
+      '@fallow-cli/linux-x64-musl': 3.32.0
+      '@fallow-cli/win32-arm64-msvc': 3.32.0
+      '@fallow-cli/win32-x64-msvc': 3.32.0
+      fallow-type-aware: 3.32.0
 
   fast-string-truncated-width@3.0.3: {}
 
