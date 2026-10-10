@@ -1623,11 +1623,15 @@ test("shows the manifest's docs for the selected tag", async () => {
   expect(
     [...details.querySelectorAll('.label')].map((l) => l.textContent)
   ).toEqual(['About', 'Properties', 'Events', 'CSS properties']);
-  expect(details.querySelector('.about')!.textContent).toBe(
+  expect(details.querySelector('.about p')!.textContent).toBe(
     'A button.\n\nFires x-press when pressed.'
   );
-  expect(details.querySelector('.about-origin')!.textContent).toContain(
-    '@x/ui'
+  // The source is a quiet icon in the heading, its origin in the tooltip;
+  // the section has no count.
+  const about = details.querySelector('[data-section="About"] summary')!;
+  expect(about.querySelector('.count')).toBeNull();
+  expect(about.querySelector('.origin')!.getAttribute('data-tip')).toBe(
+    'From @x/ui, custom-elements.json'
   );
   // A documented property carries its description as the tooltip.
   expect(details.querySelector('.described')!.getAttribute('data-tip')).toBe(
@@ -1656,12 +1660,9 @@ test('names the source module for docs read from source', async () => {
   }));
   const {el, root} = await mount(true);
   await pickButton(el);
-  expect(
-    root
-      .querySelector('.details .about-origin')!
-      .textContent!.replace(/\s+/g, ' ')
-      .trim()
-  ).toBe('From src/x-button.ts');
+  const origin = root.querySelector('.details summary .origin')!;
+  expect(origin.getAttribute('data-tip')).toBe('From src/x-button.ts');
+  expect(origin.getAttribute('name')).toBe('file-code');
 });
 
 test('asks for no docs where the host cannot read manifests', async () => {
@@ -1731,4 +1732,20 @@ test('slots and parts take their manifest descriptions as tooltips', async () =>
     ['default', 'The label'],
     ['base control', 'The wrapper'],
   ]);
+});
+
+test('long About text starts clamped and opens with more', async () => {
+  answers.set('component-docs', () => ({
+    docs: {...buttonDocs, summary: undefined, description: 'x'.repeat(400)},
+  }));
+  const {el, root} = await mount(true);
+  await pickButton(el);
+  const text = () => root.querySelector('.details .about p')!;
+  const more = () =>
+    root.querySelector<HTMLButtonElement>('.details .about .more')!;
+  expect(text().classList.contains('clamped')).toBe(true);
+  more().click();
+  await flush(el);
+  expect(text().classList.contains('clamped')).toBe(false);
+  expect(more().textContent!.trim()).toBe('less');
 });

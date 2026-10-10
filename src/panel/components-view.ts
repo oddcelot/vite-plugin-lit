@@ -73,6 +73,8 @@ const readAnatomy = (): boolean => {
 
 /** localStorage key listing the details sections the user folded. */
 const COLLAPSED_LS_KEY = 'lit-devtools-components-collapsed';
+/** About text longer than this starts clamped to a few lines. */
+const ABOUT_CLAMP_CHARS = 240;
 
 const readCollapsed = (): ReadonlySet<string> => {
   try {
@@ -578,20 +580,54 @@ export class ComponentsView extends LitElement {
         color: var(--lit-devtools-text-muted);
         font-size: var(--lit-devtools-text-xs);
       }
+      /* Prose, so the sans face, one block across both columns. */
       .about {
-        margin: var(--lit-devtools-space-2) 0;
+        grid-column: 1 / -1;
+        margin-bottom: var(--lit-devtools-space-2);
+        font-family: var(--lit-devtools-font-sans);
+        color: var(--lit-devtools-text-secondary);
+        line-height: var(--lit-devtools-leading-normal);
+      }
+      .about p {
+        margin: 0;
         white-space: pre-line;
       }
-      .about-origin {
-        margin: 0 0 var(--lit-devtools-space-2);
+      .about p.clamped {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 4;
+        overflow: hidden;
+      }
+      .about .more {
+        margin-top: var(--lit-devtools-space-1);
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--lit-devtools-accent);
+        font: inherit;
+        cursor: pointer;
+      }
+      /* Where the docs came from: a quiet mark at the heading's end. */
+      summary .origin {
+        margin-left: auto;
         color: var(--lit-devtools-text-muted);
-        font-size: var(--lit-devtools-text-xs);
+        cursor: help;
       }
+      summary .origin:hover {
+        color: var(--lit-devtools-text-secondary);
+      }
+      /* Documented names hint, faintly, that hovering explains them. */
       .described {
-        text-decoration: underline dotted;
-        text-underline-offset: 2px;
+        text-decoration: underline dotted
+          color-mix(in srgb, var(--lit-devtools-text-muted) 60%, transparent);
+        text-underline-offset: 3px;
+        cursor: help;
       }
-      .val.doc {
+      .described:hover {
+        text-decoration-color: var(--lit-devtools-text-secondary);
+      }
+      .entry > .val.doc {
+        font-family: var(--lit-devtools-font-sans);
         color: var(--lit-devtools-text-muted);
         white-space: pre-line;
       }
@@ -1003,6 +1039,8 @@ export class ComponentsView extends LitElement {
   @state() private _canOpen = false;
   /** The host reads Custom Elements Manifests (`component-docs`). */
   @state() private _canReadDocs = false;
+  /** The tag whose long About text is shown in full; reset by another tag. */
+  @state() private _aboutOpenFor: string | null = null;
   private readonly _docs = new ComponentDocsSource(() => this.requestUpdate());
   /** A frozen snapshot: no page to reveal elements in or explain. */
   @state() private _snapshot = false;
@@ -1673,26 +1711,45 @@ export class ComponentsView extends LitElement {
   }
 
   /** The source module the dev server read, or the manifest and its package. */
-  private _renderOrigin(origin: DocsOrigin): TemplateResult {
-    if (origin.source === true) return html`<code>${origin.module}</code>`;
-    return html`${
-        origin.package === undefined
-          ? "the project's"
-          : html`<code>${origin.package}</code>`
-      } <code>${origin.manifest}</code>`;
+  private _originText(origin: DocsOrigin): string {
+    if (origin.source === true) return `From ${origin.module}`;
+    return `From ${origin.package ?? 'this project'}, ${origin.manifest}`;
   }
 
   /** The manifest's summary and description, and where they came from. */
   private _renderAbout(view: DocsView): TemplateResult | typeof nothing {
     const {docs, about} = view;
     if (docs === null || about === undefined) return nothing;
-    const {origin} = docs;
+    const long = about.length > ABOUT_CLAMP_CHARS;
+    const clamped = long && this._aboutOpenFor !== docs.tagName;
     return this._renderSection(
       'About',
       view.aboutShown ? 1 : 0,
       1,
-      html`<p class="about">${this._mark(about)}</p>
-        <p class="about-origin">From ${this._renderOrigin(origin)}</p>`
+      html`<div class="about">
+        <p class=${clamped ? 'clamped' : ''}>${this._mark(about)}</p>
+        ${
+          long
+            ? html`<button
+                class="more"
+                @click=${() =>
+                  (this._aboutOpenFor = clamped ? docs.tagName : null)}
+              >
+                ${clamped ? 'more' : 'less'}
+              </button>`
+            : nothing
+        }
+      </div>`,
+      {
+        count: false,
+        aside: html`<wa-icon
+          class="origin"
+          name=${docs.origin.source === true ? 'file-code' : 'package'}
+          data-tip=${this._originText(docs.origin)}
+          aria-label=${this._originText(docs.origin)}
+          @click=${(e: Event) => e.preventDefault()}
+        ></wa-icon>`,
+      }
     );
   }
 
@@ -2065,7 +2122,12 @@ export class ComponentsView extends LitElement {
     label: string,
     shown: number,
     total: number,
-    body: TemplateResult
+    body: TemplateResult,
+    /**
+     * `count: false` leaves the count out, for a section that is one block
+     * rather than rows; `aside` sits at the heading's far end.
+     */
+    opts: {count?: boolean; aside?: TemplateResult} = {}
   ): TemplateResult | typeof nothing {
     const filtering = this._filtering;
     if (total === 0 || (filtering && shown === 0)) return nothing;
@@ -2083,7 +2145,14 @@ export class ComponentsView extends LitElement {
       <summary>
         <wa-icon name=${open ? 'caret-down' : 'caret-right'}></wa-icon>
         <span class="label">${label}</span>
-        <span class="count">${filtering ? `${shown}/${total}` : total}</span>
+        ${
+          opts.count === false
+            ? nothing
+            : html`<span class="count"
+                >${filtering ? `${shown}/${total}` : total}</span
+              >`
+        }
+        ${opts.aside ?? nothing}
       </summary>
       ${body}
     </details>`;
