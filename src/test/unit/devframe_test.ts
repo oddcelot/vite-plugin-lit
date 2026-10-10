@@ -597,6 +597,7 @@ describe('lit devframe definition', () => {
       pluginSettings: true,
       hmr: true,
       sourceLocations: true,
+      componentDocs: true,
     });
   });
 
@@ -620,6 +621,7 @@ describe('lit devframe definition', () => {
       pluginSettings: false,
       hmr: false,
       sourceLocations: false,
+      componentDocs: false,
     });
   });
 
@@ -635,6 +637,7 @@ describe('lit devframe definition', () => {
             exported = snapshot;
             return {outDir: 'x', events: 0, components: 0, details: 0};
           },
+          componentDocs: async () => ({docs: null}),
         },
       }),
       {

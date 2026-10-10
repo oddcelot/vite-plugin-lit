@@ -38,6 +38,7 @@ import {
   LAYER_FLAGS,
   LIT_DEVFRAME_ID,
   RPC_COMPONENT_DETAILS,
+  RPC_COMPONENT_DOCS,
   RPC_GET_META,
   RPC_PAGE_CHANGED,
   RPC_HMR_HISTORY,
@@ -69,6 +70,8 @@ import {
   type SessionState,
   type ExportSnapshotArgs,
   type ExportSnapshotResult,
+  type ComponentDocsArgs,
+  type ComponentDocsResult,
   type OpenSourceArgs,
   type OpenSourceResult,
   type SetRecordingArgs,
@@ -438,6 +441,21 @@ export function createLitDevframe(
             args: ComponentDetailsArgs
           ): Promise<InspectorDetails | null | ComponentDetailsByTagResult> =>
             queries.details(args),
+        })
+      );
+
+      my.rpc.register(
+        defineRpcFunction({
+          name: RPC_COMPONENT_DOCS,
+          type: 'query',
+          jsonSerializable: true,
+          // Not agent-exposed yet; component-details is the agents' view.
+          handler: async (
+            args: ComponentDocsArgs
+          ): Promise<ComponentDocsResult> => {
+            if (nodeActions === undefined) return {docs: null};
+            return nodeActions.componentDocs(args);
+          },
         })
       );
 

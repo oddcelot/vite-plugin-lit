@@ -98,6 +98,7 @@ export const meta: {
     pluginSettings: boolean;
     hmr: boolean;
     sourceLocations: boolean;
+    componentDocs: boolean;
   };
 } = {
   layers: [],
@@ -118,6 +119,7 @@ export const meta: {
     pluginSettings: true,
     hmr: true,
     sourceLocations: true,
+    componentDocs: true,
   },
 };
 
@@ -149,6 +151,7 @@ export const resetClient = (): void => {
     pluginSettings: true,
     hmr: true,
     sourceLocations: true,
+    componentDocs: true,
   };
   snapshot = false;
 };

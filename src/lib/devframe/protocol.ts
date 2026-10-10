@@ -23,6 +23,7 @@ import type {
   InspectorTreeNode,
   LitPackageVersions,
 } from '../../types/inspector.js';
+import type {ComponentDocs} from '../../types/component-docs.js';
 import type {HmrIncompatibilityEvent} from '../../types/hmr-incompatibility.js';
 import type {HmrPatchEvent} from '../../types/hmr-patch.js';
 import type {ComponentRollup, UpdateCycle} from '../timeline/derive.js';
@@ -113,6 +114,23 @@ export interface OpenSourceResult {
    * paths too.
    */
   opened: boolean;
+}
+
+/** Bare name of the `component-docs` query. */
+export const RPC_COMPONENT_DOCS = 'component-docs';
+
+/** Arguments for {@link RPC_COMPONENT_DOCS}. */
+export interface ComponentDocsArgs {
+  tagName: string;
+}
+
+/** What {@link RPC_COMPONENT_DOCS} reports back. */
+export interface ComponentDocsResult {
+  /**
+   * The tag's entry in the project's or a dependency's Custom Elements
+   * Manifest, or `null` when no manifest the host can read describes it.
+   */
+  docs: ComponentDocs | null;
 }
 
 /** Freeze the current session into a static panel directory. */
@@ -272,6 +290,11 @@ export interface LitCapabilities {
    * without it, details and spans carry no `source`.
    */
   sourceLocations: boolean;
+  /**
+   * `component-docs` can read Custom Elements Manifests from the project and
+   * its dependencies (a node host that knows the project's root).
+   */
+  componentDocs: boolean;
 }
 
 /** Result of the `get-meta` query. */
@@ -468,6 +491,9 @@ declare module 'devframe' {
     'lit:toggle-layer': (args: ToggleLayerArgs) => Promise<void>;
     'lit:set-settings-override': (override: SettingsOverride) => Promise<void>;
     'lit:open-source': (args: OpenSourceArgs) => Promise<OpenSourceResult>;
+    'lit:component-docs': (
+      args: ComponentDocsArgs
+    ) => Promise<ComponentDocsResult>;
     'lit:export-snapshot': (
       args: ExportSnapshotArgs
     ) => Promise<ExportSnapshotResult>;

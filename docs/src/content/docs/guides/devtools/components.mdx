@@ -77,7 +77,7 @@ dev build has warned about the component. Under the tag, three short
 lines say where the class is **defined**, where this instance is **rendered**,
 and its **root**: `shadow` with its mode and `delegatesFocus`, or `light DOM`.
 
-Below those come up to seven sections. **Properties** lists the public reactive
+Below those come the sections, each shown only when it has rows. **Properties** lists the public reactive
 properties, with a badge naming the attribute a property reflects to. A
 property declared with options beyond Lit's defaults gets one more badge per
 option: `hasChanged` and `converter` for a custom function, `noAccessor`,
@@ -175,6 +175,33 @@ Elements created any other way have no such line. Click the target
 button beside the tag name to scroll the element into the middle of the page and outline it for a
 moment, which helps when it sits below the fold. If the element leaves the
 page, the pane says so instead of showing stale values.
+
+## Read a component's documentation
+
+When the component is described by a
+[Custom Elements Manifest](https://github.com/webcomponents/custom-elements-manifest),
+the pane adds what the manifest says about it:
+
+- **About** holds the component's summary and description, and names the
+  package and manifest file they came from.
+- A property or attribute the manifest documents has a dotted underline;
+  hover it to read the description.
+- **Events** lists the events the class says it fires, with their type.
+- **CSS properties** lists the custom properties it reads, with any default.
+- A `deprecated` chip beside the tag name repeats the manifest's reason.
+
+The dev server looks for manifests in two places: your project's own package,
+and every package it lists as a dependency. A package points at its manifest
+with the `customElements` field in its `package.json`, or keeps a
+`custom-elements.json` next to it. So components from a library such as Web
+Awesome come documented with nothing to set up, and your own do once a tool
+such as the
+[Custom Elements Manifest analyzer](https://custom-elements-manifest.open-wc.org/analyzer/getting-started/)
+or [`cem`](https://bennypowers.dev/cem/) writes one. A manifest regenerated
+while the server runs is read again the next time you select a different tag.
+
+The browser extension has no disk to read manifests from, and a snapshot
+doesn't carry them, so neither shows these sections.
 
 ## Pick an element on the page
 
