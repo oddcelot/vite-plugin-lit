@@ -19,7 +19,7 @@ Each file in `src/` is small:
   (`?inline` and `unsafeCSS`).
 - **`<css-literal-card>`** has a `css` literal in `static styles` that uses
   nesting, `oklch()` and `light-dark()`.
-- **`tokens.css`** holds the design tokens (`--brand`, `--radius`, `--space`)
+- **`tokens.css`** holds the design tokens (`--brand`, `--space`)
   on `:host`. Every component, the page included, imports it with `?css-sheet`.
 - **`card.css`** is the chrome the cards share (box, heading, badge), a second
   `?css-sheet` stacked after the tokens. The page leaves it out.

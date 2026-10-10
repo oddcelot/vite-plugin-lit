@@ -29,7 +29,7 @@ export class CssUtilityCard extends LitElement {
         in place; this card re-renders only because its template changed.
       </p>
       <button
-        class="bg-brand text-white font-semibold px-4 py-2 rounded-lg border-none cursor-pointer"
+        class="bg-brand text-white font-semibold px-4 py-2 border-none cursor-pointer"
       >
         Utility button
       </button>
