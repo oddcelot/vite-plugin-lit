@@ -79,34 +79,47 @@ interface ReachablePart {
   forwarded?: {host: Element; inner?: string};
 }
 
-/**
- * Every part name visible from inside `shadow`: its own `[part]` elements,
- * then those its nested components forward with `exportparts`.
- */
-const reachableParts = (shadow: ShadowRoot, depth: number): ReachablePart[] => {
+/** The `[part]` names on elements directly inside `shadow`. */
+const ownReachable = (shadow: ShadowRoot): ReachablePart[] => {
   const out: ReachablePart[] = [];
   for (const element of shadow.querySelectorAll('[part]')) {
     for (const name of (element.getAttribute('part') ?? '').split(/\s+/)) {
       if (name !== '') out.push({name, element});
     }
   }
+  return out;
+};
+
+/** The parts the nested component `host` forwards with `exportparts`. */
+const forwardedFrom = (host: Element, depth: number): ReachablePart[] => {
+  const inside = shadowOf(host);
+  if (inside === null) return [];
+  const out: ReachablePart[] = [];
+  const nested = reachableParts(inside, depth + 1);
+  for (const [inner, outer] of parseExportParts(
+    host.getAttribute('exportparts') ?? ''
+  )) {
+    for (const part of nested) {
+      if (part.name !== inner) continue;
+      out.push({
+        name: outer,
+        element: part.element,
+        forwarded: {host, ...(inner !== outer ? {inner} : {})},
+      });
+    }
+  }
+  return out;
+};
+
+/**
+ * Every part name visible from inside `shadow`: its own `[part]` elements,
+ * then those its nested components forward with `exportparts`.
+ */
+const reachableParts = (shadow: ShadowRoot, depth: number): ReachablePart[] => {
+  const out = ownReachable(shadow);
   if (depth >= MAX_EXPORT_DEPTH) return out;
   for (const host of shadow.querySelectorAll('[exportparts]')) {
-    const inside = shadowOf(host);
-    if (inside === null) continue;
-    const nested = reachableParts(inside, depth + 1);
-    for (const [inner, outer] of parseExportParts(
-      host.getAttribute('exportparts') ?? ''
-    )) {
-      for (const part of nested) {
-        if (part.name !== inner) continue;
-        out.push({
-          name: outer,
-          element: part.element,
-          forwarded: {host, ...(inner !== outer ? {inner} : {})},
-        });
-      }
-    }
+    out.push(...forwardedFrom(host, depth));
   }
   return out;
 };

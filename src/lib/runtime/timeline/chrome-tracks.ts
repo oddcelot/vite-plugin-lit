@@ -117,6 +117,40 @@ export const userTimingStamp: TimeStamp = (label, start, end, track) => {
 export const profilerStamp = (tracks: boolean): TimeStamp =>
   tracks ? consoleStamp : userTimingStamp;
 
+const isTaskRun = (event: TimelineEvent, phase: string): boolean =>
+  event.layerId === 'lit-lifecycle' && phase === 'task';
+
+/** `<tag> phase`, where a finished `@lit/task` run also names the task. */
+const entryLabel = (
+  event: TimelineEvent,
+  cfg: {lit: boolean},
+  phase: string,
+  isEnd: boolean
+): string => {
+  const tag = cfg.lit ? (event.meta?.tagName ?? event.subtitle) : undefined;
+  const task =
+    isEnd && isTaskRun(event, phase)
+      ? (event.data as {task?: unknown} | null)?.task
+      : undefined;
+  const name = typeof task === 'string' ? `${phase} ${task}` : phase;
+  return tag ? `<${tag}> ${name}` : name;
+};
+
+/** Remembers a range's start; the oldest unmatched one goes past the cap. */
+const openRange = (
+  pending: Map<string, {start: number; error: boolean}>,
+  key: string,
+  start: number,
+  error: boolean
+): void => {
+  pending.delete(key);
+  pending.set(key, {start, error});
+  if (pending.size > MAX_PENDING) {
+    const oldest = pending.keys().next().value;
+    if (oldest !== undefined) pending.delete(oldest);
+  }
+};
+
 export const createChromeTracksSink = (
   stamp: TimeStamp = consoleStamp,
   toPerf: (t: number) => number = toPerfTime
@@ -135,26 +169,12 @@ export const createChromeTracksSink = (
       const isEnd = title.endsWith(':end');
       const phase =
         isStart || isEnd ? title.slice(0, title.lastIndexOf(':')) : title;
-      const tag = cfg.lit ? (event.meta?.tagName ?? event.subtitle) : undefined;
-      const task =
-        event.layerId === 'lit-lifecycle' && phase === 'task' && isEnd
-          ? (event.data as {task?: unknown} | null)?.task
-          : undefined;
-      const name = typeof task === 'string' ? `${phase} ${task}` : phase;
-      const label = tag ? `<${tag}> ${name}` : name;
-      const track =
-        event.layerId === 'lit-lifecycle' && phase === 'task'
-          ? TASK_TRACK
-          : cfg.track;
+      const label = entryLabel(event, cfg, phase, isEnd);
+      const track = isTaskRun(event, phase) ? TASK_TRACK : cfg.track;
 
       if (isStart) {
         const key = `${event.layerId}|${event.groupId}|${phase}`;
-        pending.delete(key);
-        pending.set(key, {start: toPerf(event.time), error: isError});
-        if (pending.size > MAX_PENDING) {
-          const oldest = pending.keys().next().value;
-          if (oldest !== undefined) pending.delete(oldest);
-        }
+        openRange(pending, key, toPerf(event.time), isError);
       } else if (isEnd) {
         const key = `${event.layerId}|${event.groupId}|${phase}`;
         const p = pending.get(key);

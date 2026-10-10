@@ -50,6 +50,13 @@ export interface RailRow {
   chain?: number;
 }
 
+/** The lane a row draws in, the lane it forks from, and its connector above. */
+interface Placement {
+  lane: number;
+  fork?: number;
+  above: boolean;
+}
+
 const ROOT_PHASE = 'performUpdate';
 
 const isTickRoot = (span: TimelineSpan): boolean =>
@@ -62,6 +69,36 @@ const isGrouped = (span: TimelineSpan): boolean =>
   isTickRoot(span) || isTaskRun(span);
 
 /**
+ * Record a point span under its layer and time, and under its layer, time and
+ * name. Input rows can share one coarsened `time`, so a cause that carries the
+ * title wins; the first span at either key stays.
+ */
+const indexPoint = (
+  points: Map<string, TimelineSpan>,
+  span: TimelineSpan
+): void => {
+  const loose = `${span.layerId}\0${span.start}`;
+  if (!points.has(loose)) points.set(loose, span);
+  const exact = `${loose}\0${span.name}`;
+  if (!points.has(exact)) points.set(exact, span);
+};
+
+/** The span a cause names: a point span for an event, else a root by groupId. */
+const findCauseParent = (
+  cause: NonNullable<TimelineSpan['cause']>,
+  roots: ReadonlyMap<string, TimelineSpan>,
+  points: ReadonlyMap<string, TimelineSpan>
+): TimelineSpan | undefined => {
+  if (cause.kind !== 'event') return roots.get(cause.groupId);
+  const loose = `${cause.layerId}\0${cause.time}`;
+  const exact =
+    cause.title === undefined
+      ? undefined
+      : points.get(`${loose}\0${cause.title}`);
+  return exact ?? points.get(loose);
+};
+
+/**
  * Each top-level row's cause parent among the top-level rows: the tick or task
  * run whose groupId the cause names, or the point span with the cause's layer
  * and time.
@@ -71,8 +108,6 @@ export const causeParents = (
   rows: readonly ListRow[]
 ): Map<TimelineSpan, TimelineSpan> => {
   const roots = new Map<string, TimelineSpan>();
-  // Point spans by layer and time, and by layer, time and name: input rows
-  // can share one coarsened `time`, so a cause that carries the title wins.
   const points = new Map<string, TimelineSpan>();
   const order = new Map<TimelineSpan, number>();
   rows.forEach((row, index) => {
@@ -80,24 +115,13 @@ export const causeParents = (
     const {span} = row;
     order.set(span, index);
     if (isGrouped(span)) roots.set(String(span.groupId), span);
-    else if (span.groupId === undefined) {
-      const loose = `${span.layerId}\0${span.start}`;
-      if (!points.has(loose)) points.set(loose, span);
-      const exact = `${loose}\0${span.name}`;
-      if (!points.has(exact)) points.set(exact, span);
-    }
+    else if (span.groupId === undefined) indexPoint(points, span);
   });
   const parents = new Map<TimelineSpan, TimelineSpan>();
   for (const [span, index] of order) {
     const {cause} = span;
     if (cause === undefined || !isGrouped(span)) continue;
-    const parent =
-      cause.kind === 'event'
-        ? ((cause.title === undefined
-            ? undefined
-            : points.get(`${cause.layerId}\0${cause.time}\0${cause.title}`)) ??
-          points.get(`${cause.layerId}\0${cause.time}`))
-        : roots.get(cause.groupId);
+    const parent = findCauseParent(cause, roots, points);
     if (parent === undefined || parent === span) continue;
     // Effects follow causes; a parent placed later is a stale cause.
     if ((order.get(parent) ?? Infinity) >= index) continue;
@@ -137,43 +161,45 @@ export const buildRails = (rows: readonly ListRow[]): RailRow[] => {
     return lanes;
   };
 
+  /** A row that draws no lane of its own, only the lanes passing by. */
+  const lone = (): RailRow => ({through: held(), above: false, below: false});
+
+  /** Where a row with a cause parent draws: the parent's lane or a fork. */
+  const hang = (span: TimelineSpan, parent: TimelineSpan): Placement => {
+    const parentLane = laneOf.get(parent)!;
+    const left = (pending.get(parent) ?? 1) - 1;
+    pending.set(parent, left);
+    const takeover = left === 0 ? parentLane : free();
+    chainOf.set(span, chainOf.get(parent)!);
+    if (takeover === undefined) {
+      // Column full: draw in the parent's lane, as a continuation would.
+      return {lane: parentLane, above: true};
+    }
+    if (takeover === parentLane) {
+      owners[parentLane] = null;
+      return {lane: parentLane, above: true};
+    }
+    return {lane: takeover, fork: parentLane, above: false};
+  };
+
   return rows.map((row): RailRow => {
     const {span} = row;
     const children = pending.get(span) ?? 0;
     const parent = row.depth === 0 ? parents.get(span) : undefined;
     if (row.depth !== 0 || (parent === undefined && children === 0)) {
-      return {through: held(), above: false, below: false};
+      return lone();
     }
 
-    let lane: number | undefined;
-    let fork: number | undefined;
-    let above = false;
-    if (parent !== undefined) {
-      const parentLane = laneOf.get(parent)!;
-      const left = (pending.get(parent) ?? 1) - 1;
-      pending.set(parent, left);
-      const takeover = left === 0 ? parentLane : free();
-      if (takeover === undefined) {
-        // Column full: draw in the parent's lane, as a continuation would.
-        lane = parentLane;
-        above = true;
-      } else if (takeover === parentLane) {
-        lane = parentLane;
-        above = true;
-        owners[lane] = null;
-      } else {
-        lane = takeover;
-        fork = parentLane;
-      }
-      chainOf.set(span, chainOf.get(parent)!);
-    } else {
-      lane = free();
+    let place: Placement;
+    if (parent !== undefined) place = hang(span, parent);
+    else {
+      const lane = free();
       chainOf.set(span, chains++);
-      if (lane === undefined) {
-        // Column full and nothing to hang from: draw as a lone row.
-        return {through: held(), above: false, below: false};
-      }
+      // Column full and nothing to hang from: draw as a lone row.
+      if (lane === undefined) return lone();
+      place = {lane, above: false};
     }
+    const {lane, fork, above} = place;
     laneOf.set(span, lane);
     const below = children > 0;
     const through = held(lane);

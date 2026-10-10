@@ -87,30 +87,36 @@ type LitDebugEvent = CustomEvent<LitDebugDetail>;
 
 let removeListener: (() => void) | null = null;
 
-/**
- * Reduces an arbitrary lit-html binding value to a small JSON-serializable
- * summary for the verbose layer's `data` field. Never puts the value itself
- * in `data` — it may be a DOM Node, a TemplateResult, a function, or hold a
- * reference back to the host element, none of which survive (or belong in) a
- * structured-clone over the HMR channel.
- */
-const describeValue = (value: unknown): string => {
+/** Summarizes the scalar-ish values (and `null`); undefined for objects. */
+const describePrimitive = (value: unknown): string | undefined => {
   if (value === null) return 'null';
-  if (value === undefined) return 'undefined';
-  if (typeof value === 'string') {
-    return value.length > 40
-      ? `string:"${value.slice(0, 40)}…"`
-      : `string:"${value}"`;
+  switch (typeof value) {
+    case 'undefined':
+      return 'undefined';
+    case 'string':
+      return value.length > 40
+        ? `string:"${value.slice(0, 40)}…"`
+        : `string:"${value}"`;
+    case 'number':
+      return `number:${value}`;
+    case 'boolean':
+      return `boolean:${value}`;
+    case 'function':
+      return `function:${value.name || 'anonymous'}`;
+    // lit's sentinels (`nothing`, `noChange`) are symbols.
+    case 'symbol':
+      return `symbol:${value.description ?? ''}`;
+    default:
+      return undefined;
   }
-  if (typeof value === 'number') return `number:${value}`;
-  if (typeof value === 'boolean') return `boolean:${value}`;
-  if (typeof value === 'function') {
-    return `function:${value.name || 'anonymous'}`;
-  }
-  // lit's sentinels (`nothing`, `noChange`) are symbols.
-  if (typeof value === 'symbol') return `symbol:${value.description ?? ''}`;
+};
+
+/** Summarizes arrays, lit templates, DOM nodes and any other object. */
+const describeObject = (value: unknown): string => {
   if (Array.isArray(value)) return `array(${value.length})`;
-  if (typeof value === 'object' && '_$litType$' in value) return 'template';
+  if (value !== null && typeof value === 'object' && '_$litType$' in value) {
+    return 'template';
+  }
   if (typeof Node !== 'undefined' && value instanceof Node) {
     const tag = (value as Partial<Element>).tagName?.toLowerCase();
     return tag ? `node:<${tag}>` : `node:#${value.nodeType}`;
@@ -119,9 +125,155 @@ const describeValue = (value: unknown): string => {
   return `object:${ctor ?? 'Object'}`;
 };
 
+/**
+ * Reduces an arbitrary lit-html binding value to a small JSON-serializable
+ * summary for the verbose layer's `data` field. Never puts the value itself
+ * in `data` — it may be a DOM Node, a TemplateResult, a function, or hold a
+ * reference back to the host element, none of which survive (or belong in) a
+ * structured-clone over the HMR channel.
+ */
+const describeValue = (value: unknown): string =>
+  describePrimitive(value) ?? describeObject(value);
+
 /** Summarizes each entry of a template-instance's `values` array. */
 const describeValues = (values: unknown[] | undefined): string[] | undefined =>
   values?.map(describeValue);
+
+/** Builds the event a debug `kind` records, from its detail and arrival time. */
+type EventBuilder = (detail: LitDebugDetail, time: number) => TimelineEvent;
+
+/** A debug kind's event builder and the layer it is captured on. */
+interface KindHandler {
+  verbose: boolean;
+  build: EventBuilder;
+}
+
+/** Shared shape of every `lit-render-verbose` event. */
+const verboseEvent = (
+  detail: LitDebugDetail,
+  time: number,
+  meta: ReturnType<typeof hostMeta>,
+  data: Record<string, unknown>
+): TimelineEvent => ({
+  layerId: 'lit-render-verbose',
+  time,
+  title: detail.kind,
+  subtitle: meta?.tagName,
+  data,
+  meta,
+});
+
+/** Shared shape of the grouped `begin render` / `end render` events. */
+const renderBoundaryEvent = (
+  detail: LitDebugDetail,
+  time: number,
+  title: string
+): TimelineEvent => {
+  const meta = hostMeta(detail.options?.host);
+  return {
+    layerId: 'lit-render',
+    time,
+    groupId: detail.id,
+    title,
+    subtitle: meta?.tagName,
+    data: {kind: detail.kind, id: detail.id},
+    meta,
+  };
+};
+
+const buildBeginRender: EventBuilder = (detail, time) =>
+  renderBoundaryEvent(detail, time, 'render:start');
+
+const buildEndRender: EventBuilder = (detail, time) =>
+  renderBoundaryEvent(detail, time, 'render:end');
+
+const buildTemplatePrep: EventBuilder = (detail, time) => ({
+  layerId: 'lit-render',
+  time,
+  title: detail.kind,
+  data: {kind: detail.kind, id: detail.id},
+});
+
+const buildTemplateValues: EventBuilder = (detail, time) =>
+  verboseEvent(detail, time, hostMeta(detail.options?.host), {
+    kind: detail.kind,
+    values: describeValues(detail.values),
+  });
+
+const buildSetPart: EventBuilder = (detail, time) =>
+  verboseEvent(detail, time, hostMeta(partHost(detail.part)), {
+    kind: detail.kind,
+    valueIndex: detail.valueIndex,
+    value: describeValue(detail.value),
+  });
+
+const buildCommitNothing: EventBuilder = (detail, time) =>
+  verboseEvent(detail, time, hostMeta(detail.options?.host), {
+    kind: detail.kind,
+  });
+
+const buildCommitValue: EventBuilder = (detail, time) =>
+  verboseEvent(detail, time, hostMeta(detail.options?.host), {
+    kind: detail.kind,
+    value: describeValue(detail.value),
+  });
+
+const buildCommitNamedValue: EventBuilder = (detail, time) =>
+  verboseEvent(detail, time, hostMeta(detail.options?.host), {
+    kind: detail.kind,
+    name: detail.name,
+    value: describeValue(detail.value),
+  });
+
+const buildCommitListener: EventBuilder = (detail, time) =>
+  verboseEvent(detail, time, hostMeta(detail.options?.host), {
+    kind: detail.kind,
+    name: detail.name,
+    addListener: detail.addListener,
+    removeListener: detail.removeListener,
+  });
+
+const renderHandler = (build: EventBuilder): KindHandler => ({
+  verbose: false,
+  build,
+});
+
+const verboseHandler = (build: EventBuilder): KindHandler => ({
+  verbose: true,
+  build,
+});
+
+/**
+ * Debug kind → handler, built once at module load. Kinds not listed are
+ * ignored: an unknown or future `*Unstable` kind is skipped rather than
+ * guessed at.
+ *
+ * `template prep` fires once per *unique* template, the first time it's
+ * compiled — low volume, useful as a "new template" marker.
+ *
+ * The verbose kinds fire once per template-bound part on *every* render —
+ * extremely high volume (a ticking clock or animation floods the layer).
+ * The begin/end render pair already captures each render as a grouped
+ * duration, so these live on the separate opt-in `lit-render-verbose` layer
+ * instead of adding noise to `lit-render`.
+ */
+const KIND_HANDLERS = new Map<string, KindHandler>([
+  ['begin render', renderHandler(buildBeginRender)],
+  ['end render', renderHandler(buildEndRender)],
+  ['template prep', renderHandler(buildTemplatePrep)],
+  ['template updating', verboseHandler(buildTemplateValues)],
+  ['template instantiated', verboseHandler(buildTemplateValues)],
+  ['template instantiated and updated', verboseHandler(buildTemplateValues)],
+  ['set part', verboseHandler(buildSetPart)],
+  ['commit nothing to child', verboseHandler(buildCommitNothing)],
+  ['commit text', verboseHandler(buildCommitValue)],
+  ['commit node', verboseHandler(buildCommitValue)],
+  ['commit to element binding', verboseHandler(buildCommitValue)],
+  ['commit attribute', verboseHandler(buildCommitNamedValue)],
+  ['commit property', verboseHandler(buildCommitNamedValue)],
+  ['commit boolean attribute', verboseHandler(buildCommitNamedValue)],
+  ['commit event listener', verboseHandler(buildCommitListener)],
+]);
 
 const onLitDebug = (
   e: Event,
@@ -136,159 +288,10 @@ const onLitDebug = (
   if (!detail?.kind) return;
 
   const time = now();
-  const {kind, id} = detail;
-
-  switch (kind) {
-    case 'begin render': {
-      if (!renderEnabled()) break;
-      const meta = hostMeta(detail.options?.host);
-      emit({
-        layerId: 'lit-render',
-        time,
-        groupId: id,
-        title: 'render:start',
-        subtitle: meta?.tagName,
-        data: {kind, id},
-        meta,
-      });
-      break;
-    }
-
-    case 'end render': {
-      if (!renderEnabled()) break;
-      const meta = hostMeta(detail.options?.host);
-      emit({
-        layerId: 'lit-render',
-        time,
-        groupId: id,
-        title: 'render:end',
-        subtitle: meta?.tagName,
-        data: {kind, id},
-        meta,
-      });
-      break;
-    }
-
-    // `template prep` fires once per *unique* template, the first time it's
-    // compiled — low volume, useful as a "new template" marker.
-    case 'template prep':
-      if (!renderEnabled()) break;
-      emit({
-        layerId: 'lit-render',
-        time,
-        title: kind,
-        data: {kind, id},
-      });
-      break;
-
-    // The events below fire once per template-bound part on *every* render —
-    // extremely high volume (a ticking clock or animation floods the layer).
-    // The begin/end render pair above already captures each render as a
-    // grouped duration, so these live on the separate opt-in
-    // `lit-render-verbose` layer instead of adding noise to `lit-render`.
-    case 'template updating':
-    case 'template instantiated':
-    case 'template instantiated and updated': {
-      if (!verboseEnabled()) break;
-      const meta = hostMeta(detail.options?.host);
-      emit({
-        layerId: 'lit-render-verbose',
-        time,
-        title: kind,
-        subtitle: meta?.tagName,
-        data: {kind, values: describeValues(detail.values)},
-        meta,
-      });
-      break;
-    }
-
-    case 'set part': {
-      if (!verboseEnabled()) break;
-      const meta = hostMeta(partHost(detail.part));
-      emit({
-        layerId: 'lit-render-verbose',
-        time,
-        title: kind,
-        subtitle: meta?.tagName,
-        data: {
-          kind,
-          valueIndex: detail.valueIndex,
-          value: describeValue(detail.value),
-        },
-        meta,
-      });
-      break;
-    }
-
-    case 'commit nothing to child': {
-      if (!verboseEnabled()) break;
-      const meta = hostMeta(detail.options?.host);
-      emit({
-        layerId: 'lit-render-verbose',
-        time,
-        title: kind,
-        subtitle: meta?.tagName,
-        data: {kind},
-        meta,
-      });
-      break;
-    }
-
-    case 'commit text':
-    case 'commit node':
-    case 'commit to element binding': {
-      if (!verboseEnabled()) break;
-      const meta = hostMeta(detail.options?.host);
-      emit({
-        layerId: 'lit-render-verbose',
-        time,
-        title: kind,
-        subtitle: meta?.tagName,
-        data: {kind, value: describeValue(detail.value)},
-        meta,
-      });
-      break;
-    }
-
-    case 'commit attribute':
-    case 'commit property':
-    case 'commit boolean attribute': {
-      if (!verboseEnabled()) break;
-      const meta = hostMeta(detail.options?.host);
-      emit({
-        layerId: 'lit-render-verbose',
-        time,
-        title: kind,
-        subtitle: meta?.tagName,
-        data: {kind, name: detail.name, value: describeValue(detail.value)},
-        meta,
-      });
-      break;
-    }
-
-    case 'commit event listener': {
-      if (!verboseEnabled()) break;
-      const meta = hostMeta(detail.options?.host);
-      emit({
-        layerId: 'lit-render-verbose',
-        time,
-        title: kind,
-        subtitle: meta?.tagName,
-        data: {
-          kind,
-          name: detail.name,
-          addListener: detail.addListener,
-          removeListener: detail.removeListener,
-        },
-        meta,
-      });
-      break;
-    }
-
-    // Unknown or future `*Unstable` kind — ignore rather than guess a shape.
-    default:
-      break;
-  }
+  const handler = KIND_HANDLERS.get(detail.kind);
+  if (handler === undefined) return;
+  if (!(handler.verbose ? verboseEnabled() : renderEnabled())) return;
+  emit(handler.build(detail, time));
 };
 
 /**

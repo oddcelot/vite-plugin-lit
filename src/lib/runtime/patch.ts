@@ -383,6 +383,191 @@ const incompatible = (
 };
 
 /**
+ * Snapshots reactive property values per live instance through the OLD
+ * accessors. Vite serves prod lit in dev (no `development` export
+ * condition), where accessor storage keys are unique Symbol()s per class
+ * evaluation — without this, state resets.
+ */
+const snapshotInstanceValues = (
+  record: TagRecord,
+  OldClass: ReactiveCtorLike,
+  NewClass: ReactiveCtorLike
+): Map<ReactiveElementLike, Map<PropertyKey, unknown>> => {
+  const propertyKeys = new Set<PropertyKey>([
+    ...(OldClass.elementProperties?.keys() ?? []),
+    ...(NewClass.elementProperties?.keys() ?? []),
+  ]);
+  const snapshots = new Map<ReactiveElementLike, Map<PropertyKey, unknown>>();
+  for (const el of record.instances) {
+    const values = new Map<PropertyKey, unknown>();
+    for (const key of propertyKeys) {
+      values.set(key, (el as unknown as Record<PropertyKey, unknown>)[key]);
+    }
+    snapshots.set(el, values);
+  }
+  return snapshots;
+};
+
+/**
+ * Re-parents the prototype and static chains of `OldClass` onto those of
+ * `NewClass`. Mixins regenerate intermediate classes on every module
+ * evaluation, so the parents usually differ.
+ */
+const reparentClassChains = (
+  OldClass: ReactiveCtorLike,
+  NewClass: ReactiveCtorLike
+): void => {
+  const newProtoParent = Object.getPrototypeOf(NewClass.prototype) as object;
+  if (Object.getPrototypeOf(OldClass.prototype) !== newProtoParent) {
+    Object.setPrototypeOf(OldClass.prototype, newProtoParent);
+  }
+  const newStaticParent = Object.getPrototypeOf(NewClass) as object;
+  if (Object.getPrototypeOf(OldClass) !== newStaticParent) {
+    Object.setPrototypeOf(OldClass, newStaticParent);
+  }
+};
+
+/**
+ * Module-local `instanceof NewClass` checks keep working against instances
+ * of the canonical class.
+ */
+const aliasInstanceOf = (
+  OldClass: ReactiveCtorLike,
+  NewClass: ReactiveCtorLike
+): void => {
+  Object.defineProperty(NewClass, Symbol.hasInstance, {
+    value: (instance: unknown) =>
+      typeof instance === 'object' &&
+      instance !== null &&
+      OldClass.prototype.isPrototypeOf(instance),
+    configurable: true,
+  });
+};
+
+/**
+ * The platform snapshots observedAttributes at define time; new attribute
+ * observations can't take effect without a reload, so a change is only
+ * reported (the patch itself proceeds).
+ */
+const reportObservedAttributesChange = (
+  state: PatchState,
+  tagName: string,
+  oldObserved: string[],
+  newObserved: string[]
+): void => {
+  if (
+    oldObserved.length === newObserved.length &&
+    oldObserved.every((attr, i) => attr === newObserved[i])
+  ) {
+    return;
+  }
+  console.info(
+    `[lit-plugin] <${tagName}> changed observedAttributes; the ` +
+      `platform registry can't pick this up — reload recommended.`
+  );
+  state.hot?.send(
+    HMR_INCOMPATIBLE_CHANNEL,
+    buildHmrIncompatibleEvent(
+      tagName,
+      {code: 'observed-attributes-changed'},
+      'none'
+    )
+  );
+};
+
+/**
+ * Restores snapshotted values through the new accessors — only keys the new
+ * class still declares.
+ */
+const restoreValues = (
+  el: ReactiveElementLike,
+  values: Map<PropertyKey, unknown>,
+  newPropertyKeys: Iterable<PropertyKey>
+): void => {
+  for (const key of newPropertyKeys) {
+    if (values.has(key)) {
+      (el as unknown as Record<PropertyKey, unknown>)[key] = values.get(key);
+    }
+  }
+};
+
+/**
+ * Updates live instances. Re-renders may re-create child elements (edited
+ * templates clone fresh DOM); the child-state window pairs them up.
+ */
+const updateInstances = (
+  state: PatchState,
+  record: TagRecord,
+  OldClass: ReactiveCtorLike,
+  NewClass: ReactiveCtorLike,
+  snapshots: Map<ReactiveElementLike, Map<PropertyKey, unknown>>,
+  oldSheets: CSSStyleSheet[]
+): void => {
+  state.childState?.open();
+  const newPropertyKeys = NewClass.elementProperties?.keys() ?? [];
+  // After the static sync this is the NEW class's initializer list.
+  const initializers = OldClass._initializers;
+  // Snapshot: the reconnect below mutates record.instances mid-iteration.
+  // oxlint-disable-next-line unicorn/no-useless-spread
+  for (const el of [...record.instances]) {
+    if (state.options.reconnect) {
+      el.disconnectedCallback?.();
+      el.connectedCallback?.();
+    }
+    // Decorator-created reactive controllers (e.g. @lit/context's
+    // @provide/@consume) live in per-class-evaluation closures keyed by
+    // instance via addInitializer. Re-running the initializers enrolls
+    // live instances in the new closures — without this, the first
+    // assignment through a copied accessor throws and we'd full-reload.
+    // Controllers from previous evaluations stay attached but inert
+    // (everything flows through the newest closures); that's bounded by
+    // edit count and dev-only. Runs before the value restore so e.g. a
+    // re-created ContextProvider exists when the restore pushes into it.
+    const provided = Array.isArray(initializers)
+      ? runInitializers(el, initializers)
+      : [];
+    const values = snapshots.get(el);
+    if (values !== undefined) {
+      restoreValues(el, values, newPropertyKeys);
+    }
+    // After the restore, so the consumers it moves read the restored
+    // value from the new provider rather than its empty initial one.
+    reparentConsumers(el, provided);
+    readoptStyles(el, oldSheets);
+    state.generationOf.set(el, record.generation);
+    el.requestUpdate?.();
+  }
+  // Read after requestUpdate() so each promise covers the new update.
+  state.childState?.watch(record.instances);
+};
+
+/**
+ * The one success report: everything before it has landed. A failure to
+ * report must not turn a landed patch into a "patch-failed" reload, so it is
+ * swallowed here rather than reaching the caller's catch.
+ */
+const reportPatched = (
+  state: PatchState,
+  record: TagRecord,
+  startedAt: number
+): void => {
+  try {
+    const patched: HmrPatchEvent = {
+      tagName: record.tagName,
+      instances: record.instances.size,
+      generation: record.generation,
+      durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+      childState: state.options.childState,
+      at: Date.now(),
+    };
+    // Stamped with the document: every open tab applies the same update.
+    state.hot?.send(HMR_PATCH_CHANNEL, {...patched, pageId: PAGE_ID});
+  } catch {
+    // Reporting is best-effort; the patch already succeeded.
+  }
+};
+
+/**
  * Patches the originally-registered class for `record.tagName` in place
  * from the freshly evaluated `NewClass`, then updates live instances.
  */
@@ -406,38 +591,14 @@ const hotPatch = (
       return;
     }
 
-    // The platform snapshots observedAttributes at define time; new
-    // attribute observations can't take effect without a reload.
     const oldObserved = [...(OldClass.observedAttributes ?? [])];
     const newObserved = [...(NewClass.observedAttributes ?? [])];
 
-    // 3. Snapshot reactive property values per live instance through the
-    //    OLD accessors. Vite serves prod lit in dev (no `development`
-    //    export condition), where accessor storage keys are unique
-    //    Symbol()s per class evaluation — without this, state resets.
-    const propertyKeys = new Set<PropertyKey>([
-      ...(OldClass.elementProperties?.keys() ?? []),
-      ...(NewClass.elementProperties?.keys() ?? []),
-    ]);
-    const snapshots = new Map<ReactiveElementLike, Map<PropertyKey, unknown>>();
-    for (const el of record.instances) {
-      const values = new Map<PropertyKey, unknown>();
-      for (const key of propertyKeys) {
-        values.set(key, (el as unknown as Record<PropertyKey, unknown>)[key]);
-      }
-      snapshots.set(el, values);
-    }
+    // 3. Snapshot reactive property values per live instance.
+    const snapshots = snapshotInstanceValues(record, OldClass, NewClass);
 
-    // 4. Re-parent prototype chains. Mixins regenerate intermediate classes
-    //    on every module evaluation, so the parents usually differ.
-    const newProtoParent = Object.getPrototypeOf(NewClass.prototype) as object;
-    if (Object.getPrototypeOf(OldClass.prototype) !== newProtoParent) {
-      Object.setPrototypeOf(OldClass.prototype, newProtoParent);
-    }
-    const newStaticParent = Object.getPrototypeOf(NewClass) as object;
-    if (Object.getPrototypeOf(OldClass) !== newStaticParent) {
-      Object.setPrototypeOf(OldClass, newStaticParent);
-    }
+    // 4. Re-parent prototype chains.
+    reparentClassChains(OldClass, NewClass);
 
     // Capture the sheets the OLD class contributed before the static sync
     // overwrites `elementStyles`, so readoptStyles can drop exactly those and
@@ -451,97 +612,18 @@ const hotPatch = (
     // 6. The sync replaced/removed our lifecycle wrappers; re-instrument.
     instrument(state, OldClass.prototype, record);
     record.generation++;
-    // Module-local `instanceof NewClass` checks keep working against
-    // instances of the canonical class.
-    Object.defineProperty(NewClass, Symbol.hasInstance, {
-      value: (instance: unknown) =>
-        typeof instance === 'object' &&
-        instance !== null &&
-        OldClass.prototype.isPrototypeOf(instance),
-      configurable: true,
-    });
+    aliasInstanceOf(OldClass, NewClass);
+    reportObservedAttributesChange(
+      state,
+      record.tagName,
+      oldObserved,
+      newObserved
+    );
 
-    if (
-      oldObserved.length !== newObserved.length ||
-      oldObserved.some((attr, i) => attr !== newObserved[i])
-    ) {
-      console.info(
-        `[lit-plugin] <${record.tagName}> changed observedAttributes; the ` +
-          `platform registry can't pick this up — reload recommended.`
-      );
-      state.hot?.send(
-        HMR_INCOMPATIBLE_CHANNEL,
-        buildHmrIncompatibleEvent(
-          record.tagName,
-          {code: 'observed-attributes-changed'},
-          'none'
-        )
-      );
-    }
+    // 7. Update live instances.
+    updateInstances(state, record, OldClass, NewClass, snapshots, oldSheets);
 
-    // 7. Update live instances. Re-renders may re-create child elements
-    //    (edited templates clone fresh DOM); the window pairs them up.
-    state.childState?.open();
-    const newPropertyKeys = NewClass.elementProperties?.keys() ?? [];
-    // After the static sync this is the NEW class's initializer list.
-    const initializers = OldClass._initializers;
-    // Snapshot: the reconnect below mutates record.instances mid-iteration.
-    // oxlint-disable-next-line unicorn/no-useless-spread
-    for (const el of [...record.instances]) {
-      if (state.options.reconnect) {
-        el.disconnectedCallback?.();
-        el.connectedCallback?.();
-      }
-      // Decorator-created reactive controllers (e.g. @lit/context's
-      // @provide/@consume) live in per-class-evaluation closures keyed by
-      // instance via addInitializer. Re-running the initializers enrolls
-      // live instances in the new closures — without this, the first
-      // assignment through a copied accessor throws and we'd full-reload.
-      // Controllers from previous evaluations stay attached but inert
-      // (everything flows through the newest closures); that's bounded by
-      // edit count and dev-only. Runs before the value restore so e.g. a
-      // re-created ContextProvider exists when the restore pushes into it.
-      const provided = Array.isArray(initializers)
-        ? runInitializers(el, initializers)
-        : [];
-      const values = snapshots.get(el);
-      if (values !== undefined) {
-        // Restore through the new accessors — only keys the new class
-        // still declares.
-        for (const key of newPropertyKeys) {
-          if (values.has(key)) {
-            (el as unknown as Record<PropertyKey, unknown>)[key] =
-              values.get(key);
-          }
-        }
-      }
-      // After the restore, so the consumers it moves read the restored
-      // value from the new provider rather than its empty initial one.
-      reparentConsumers(el, provided);
-      readoptStyles(el, oldSheets);
-      state.generationOf.set(el, record.generation);
-      el.requestUpdate?.();
-    }
-    // Read after requestUpdate() so each promise covers the new update.
-    state.childState?.watch(record.instances);
-
-    // The one success report: everything above has landed. A failure to
-    // report must not turn a landed patch into a "patch-failed" reload, so
-    // it is swallowed here rather than reaching the catch below.
-    try {
-      const patched: HmrPatchEvent = {
-        tagName: record.tagName,
-        instances: record.instances.size,
-        generation: record.generation,
-        durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
-        childState: state.options.childState,
-        at: Date.now(),
-      };
-      // Stamped with the document: every open tab applies the same update.
-      state.hot?.send(HMR_PATCH_CHANNEL, {...patched, pageId: PAGE_ID});
-    } catch {
-      // Reporting is best-effort; the patch already succeeded.
-    }
+    reportPatched(state, record, startedAt);
   } catch (e) {
     incompatible(state, record.tagName, {
       code: 'patch-failed',

@@ -68,6 +68,43 @@ const child = (
   expandable: v.ok && isExpandable(v.value),
 });
 
+/** The first {@link MAX_CHILDREN} entries of a `Map`, keys serialised. */
+const mapChildren = (map: Map<unknown, unknown>): ValueChild[] => {
+  const children: ValueChild[] = [];
+  let i = 0;
+  for (const [k, v] of map) {
+    if (i === MAX_CHILDREN) break;
+    children.push(child(serialize(k), i, {ok: true, value: v}, true));
+    i++;
+  }
+  return children;
+};
+
+/** The first {@link MAX_CHILDREN} members of a `Set`, numbered by order. */
+const setChildren = (set: Set<unknown>): ValueChild[] => {
+  const children: ValueChild[] = [];
+  let i = 0;
+  for (const item of set.values()) {
+    if (i === MAX_CHILDREN) break;
+    children.push(child(String(i), i, {ok: true, value: item}));
+    i++;
+  }
+  return children;
+};
+
+/** The first {@link MAX_CHILDREN} elements of an array or typed array. */
+const indexedChildren = (value: ArrayLike<unknown> & object): ValueChild[] => {
+  const children: ValueChild[] = [];
+  for (let i = 0; i < Math.min(value.length, MAX_CHILDREN); i++) {
+    children.push(child(String(i), i, read(value, i)));
+  }
+  return children;
+};
+
+/** The first {@link MAX_CHILDREN} own enumerable properties of `value`. */
+const keyedChildren = (value: object, keys: string[]): ValueChild[] =>
+  keys.slice(0, MAX_CHILDREN).map((k) => child(k, k, read(value, k)));
+
 /**
  * The first {@link MAX_CHILDREN} children of `value`, and how many more
  * there are. A value with none gives an empty list.
@@ -75,35 +112,45 @@ const child = (
 export const childrenOf = (
   value: unknown
 ): {children: ValueChild[]; more: number} => {
-  const children: ValueChild[] = [];
-  if (!isContainer(value)) return {children, more: 0};
-  let total = 0;
-  if (value instanceof Map || value instanceof Set) {
+  if (!isContainer(value)) return {children: [], more: 0};
+  let children: ValueChild[];
+  let total: number;
+  if (value instanceof Map) {
+    children = mapChildren(value);
     total = value.size;
-    let i = 0;
-    for (const item of value instanceof Map ? value : value.values()) {
-      if (i === MAX_CHILDREN) break;
-      if (value instanceof Map) {
-        const [k, v] = item as [unknown, unknown];
-        children.push(child(serialize(k), i, {ok: true, value: v}, true));
-      } else {
-        children.push(child(String(i), i, {ok: true, value: item}));
-      }
-      i++;
-    }
+  } else if (value instanceof Set) {
+    children = setChildren(value);
+    total = value.size;
   } else if (Array.isArray(value) || isTypedArray(value)) {
+    children = indexedChildren(value);
     total = value.length;
-    for (let i = 0; i < Math.min(total, MAX_CHILDREN); i++) {
-      children.push(child(String(i), i, read(value, i)));
-    }
   } else {
     const keys = Object.keys(value);
+    children = keyedChildren(value, keys);
     total = keys.length;
-    for (const k of keys.slice(0, MAX_CHILDREN)) {
-      children.push(child(k, k, read(value, k)));
-    }
   }
   return {children, more: Math.max(0, total - children.length)};
+};
+
+/** The `index`th member of a `Map` or `Set`, or `undefined` past the end. */
+const nthMember = (
+  value: Map<unknown, unknown> | Set<unknown>,
+  index: ValueSegment
+): {value: unknown} | undefined => {
+  if (typeof index !== 'number') return undefined;
+  let i = 0;
+  for (const item of value.values()) {
+    if (i++ === index) return {value: item};
+  }
+  return undefined;
+};
+
+/** Whether `key` names an own slot of `value`, indexed or by property. */
+const hasSlot = (value: object, key: ValueSegment): boolean => {
+  const isIndexed = Array.isArray(value) || isTypedArray(value);
+  if (isIndexed !== (typeof key === 'number')) return false;
+  if (isIndexed) return (key as number) < (value as {length: number}).length;
+  return Object.prototype.hasOwnProperty.call(value, key);
 };
 
 /**
@@ -116,21 +163,9 @@ export const stepInto = (
 ): {value: unknown} | undefined => {
   if (!isContainer(value)) return undefined;
   if (value instanceof Map || value instanceof Set) {
-    if (typeof key !== 'number') return undefined;
-    let i = 0;
-    for (const item of value.values()) {
-      if (i++ === key) return {value: item};
-    }
-    return undefined;
+    return nthMember(value, key);
   }
-  const isIndexed = Array.isArray(value) || isTypedArray(value);
-  if (isIndexed !== (typeof key === 'number')) return undefined;
-  if (isIndexed && !((key as number) < (value as {length: number}).length)) {
-    return undefined;
-  }
-  if (!isIndexed && !Object.prototype.hasOwnProperty.call(value, key)) {
-    return undefined;
-  }
+  if (!hasSlot(value, key)) return undefined;
   const r = read(value, key);
   return r.ok ? {value: r.value} : undefined;
 };

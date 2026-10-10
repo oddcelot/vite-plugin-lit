@@ -92,6 +92,20 @@ export const deepElementFromPoint = (x: number, y: number): Element | null => {
   return deepest;
 };
 
+// Bounding-rect fallback for elements elementFromPoint misses — prefer the
+// deepest matching host so nested components still beat their ancestors.
+const hostByRect = (x: number, y: number, isHost: HostTest): Element | null => {
+  let best: Element | null = null;
+  for (const el of document.querySelectorAll('*')) {
+    if (!isHost(el)) continue;
+    const rect = el.getBoundingClientRect();
+    const inside =
+      x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    if (inside && (best === null || best.contains(el))) best = el;
+  }
+  return best;
+};
+
 // Resolve the source host under a viewport point. The optional dialog is the
 // overlay's own modal, temporarily closed so it doesn't shadow the hit-test.
 export const findSourceAtPoint = (
@@ -103,27 +117,8 @@ export const findSourceAtPoint = (
   if (dialog !== null) dialog.close();
   try {
     const deepest = deepElementFromPoint(x, y);
-    if (deepest !== null) {
-      const host = findSourceHost(deepest, isHost);
-      if (host !== null) return host;
-    }
-
-    // Bounding-rect fallback for elements elementFromPoint misses — prefer the
-    // deepest matching host so nested components still beat their ancestors.
-    let best: Element | null = null;
-    for (const el of document.querySelectorAll('*')) {
-      if (!isHost(el)) continue;
-      const rect = el.getBoundingClientRect();
-      if (
-        x >= rect.left &&
-        x <= rect.right &&
-        y >= rect.top &&
-        y <= rect.bottom
-      ) {
-        if (best === null || best.contains(el)) best = el;
-      }
-    }
-    return best;
+    const host = deepest === null ? null : findSourceHost(deepest, isHost);
+    return host ?? hostByRect(x, y, isHost);
   } finally {
     if (dialog !== null && !dialog.open) dialog.showModal();
   }

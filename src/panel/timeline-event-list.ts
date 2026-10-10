@@ -363,38 +363,48 @@ export class TimelineEventList extends LitElement {
       // `timeline-view` owns clearing it.
       this._rowsCache = this._raw ? this.events.map(rawRow) : this.spans;
     }
-    // Selecting a nested span, from the tracks, a link or the range summary,
-    // opens its tick so there is a row to select. Only on a change of
-    // selection, so the reader can close the tick again afterwards.
-    let expanded = this._expanded;
-    if (changed.has('selectedKey') && !this._raw && this.selectedKey !== null) {
-      const span = this._rowsCache.find((row) => row.key === this.selectedKey);
-      const parent = span ? foldParentKey(span, this._rowsCache) : undefined;
-      if (parent !== undefined && !expanded.has(parent)) {
-        expanded = new Set([...expanded, parent]);
-        this._expanded = expanded;
-      }
-    }
+    if (changed.has('selectedKey')) this._revealSelection();
     const refilter =
       changed.has('events') ||
       changed.has('spans') ||
       changed.has('_raw') ||
       changed.has('layers') ||
       changed.has('filter');
-    if (refilter) {
-      // Compile once per relevant change, not once per render; an invalid
-      // pattern disables the filter (rather than hiding everything).
-      this._layered = this._rowsCache.filter((row) => this._layerOn(row));
-      this._matchedCache = applyFilter(this._layered, this.filter);
+    if (refilter) this._refilter();
+    if (refilter || this._expanded !== this._rowsExpanded) this._regroup();
+  }
+
+  /**
+   * Selecting a nested span, from the tracks, a link or the range summary,
+   * opens its tick so there is a row to select. Only on a change of
+   * selection, so the reader can close the tick again afterwards.
+   */
+  private _revealSelection() {
+    if (this._raw || this.selectedKey === null) return;
+    const span = this._rowsCache.find((row) => row.key === this.selectedKey);
+    const parent = span ? foldParentKey(span, this._rowsCache) : undefined;
+    if (parent !== undefined && !this._expanded.has(parent)) {
+      this._expanded = new Set([...this._expanded, parent]);
     }
-    if (refilter || expanded !== this._rowsExpanded) {
-      this._rowsExpanded = expanded;
-      // Raw rows have no ticks to group.
-      this._visibleCache = this._raw
-        ? this._matchedCache.map((span) => ({span, depth: 0}))
-        : buildListRows(this._layered, this._matchedCache, expanded);
-      this._buildRails();
-    }
+  }
+
+  /**
+   * Compile once per relevant change, not once per render; an invalid
+   * pattern disables the filter (rather than hiding everything).
+   */
+  private _refilter() {
+    this._layered = this._rowsCache.filter((row) => this._layerOn(row));
+    this._matchedCache = applyFilter(this._layered, this.filter);
+  }
+
+  /** Rebuilds the listed rows, and their rails, for the current expanded set. */
+  private _regroup() {
+    this._rowsExpanded = this._expanded;
+    // Raw rows have no ticks to group.
+    this._visibleCache = this._raw
+      ? this._matchedCache.map((span) => ({span, depth: 0}))
+      : buildListRows(this._layered, this._matchedCache, this._expanded);
+    this._buildRails();
   }
 
   /**

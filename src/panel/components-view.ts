@@ -1677,6 +1677,69 @@ export class ComponentsView extends LitElement {
     >`;
   }
 
+  /** The name cell of a slot row: its default/named label and its status badges. */
+  private _renderSlotName(
+    s: InspectorAnatomy['slots'][number],
+    color: string
+  ): TemplateResult {
+    return html`<span class="name">
+      <span class="swatch" style="background:${color}"></span>${
+        s.name === ''
+          ? html`<span class="slot-default">${this._mark('default')}</span>`
+          : this._mark(s.name)
+      }${
+        s.status === 'assigned'
+          ? nothing
+          : this._renderSlotBadge(
+              s.status,
+              s.status === 'fallback'
+                ? 'Nothing is assigned, so the slot shows its own content'
+                : 'Nothing is assigned and the slot has no fallback content'
+            )
+      }${
+        s.forwarded
+          ? this._renderSlotBadge(
+              'forwarded',
+              'The content comes through a slot of an enclosing component'
+            )
+          : nothing
+      }${
+        s.duplicate
+          ? this._renderSlotBadge(
+              'duplicate',
+              'An earlier slot has the same name, so this one never receives content'
+            )
+          : nothing
+      }
+    </span>`;
+  }
+
+  /** One slot row of the anatomy; hovering it focuses its region in the page. */
+  private _renderSlotEntry(
+    s: InspectorAnatomy['slots'][number],
+    index: number,
+    color: string
+  ): TemplateResult {
+    return html`<div
+      class="entry region"
+      @mouseenter=${() => this._focusRegion({kind: 'slot', index})}
+      @mouseleave=${() => this._focusRegion(null)}
+    >
+      ${this._renderSlotName(s, color)}
+      <span class="val">
+        ${s.elements.map((e) => this._renderElementRef(e))}${
+          s.moreElements > 0
+            ? html`<span class="muted">+${s.moreElements}</span>`
+            : nothing
+        }${
+          s.textNodes > 0
+            ? html`<span class="muted">${s.textNodes} text</span>`
+            : nothing
+        }
+      </span>
+    </div>`;
+  }
+
   /**
    * Slots and parts, coloured like their regions in the page's anatomy
    * overlay: slot `i` takes colour `i`, and parts continue after the slots.
@@ -1698,58 +1761,7 @@ export class ComponentsView extends LitElement {
         html`
           <div class="kv">
             ${a.slots.map((s, i) =>
-              !m.slots[i]
-                ? nothing
-                : html`<div
-                    class="entry region"
-                    @mouseenter=${() => this._focusRegion({kind: 'slot', index: i})}
-                    @mouseleave=${() => this._focusRegion(null)}
-                  >
-                    <span class="name">
-                      <span class="swatch" style="background:${color(i)}"></span
-                      >${
-                        s.name === ''
-                          ? html`<span class="slot-default"
-                              >${this._mark('default')}</span
-                            >`
-                          : this._mark(s.name)
-                      }${
-                        s.status === 'assigned'
-                          ? nothing
-                          : this._renderSlotBadge(
-                              s.status,
-                              s.status === 'fallback'
-                                ? 'Nothing is assigned, so the slot shows its own content'
-                                : 'Nothing is assigned and the slot has no fallback content'
-                            )
-                      }${
-                        s.forwarded
-                          ? this._renderSlotBadge(
-                              'forwarded',
-                              'The content comes through a slot of an enclosing component'
-                            )
-                          : nothing
-                      }${
-                        s.duplicate
-                          ? this._renderSlotBadge(
-                              'duplicate',
-                              'An earlier slot has the same name, so this one never receives content'
-                            )
-                          : nothing
-                      }
-                    </span>
-                    <span class="val">
-                      ${s.elements.map((e) => this._renderElementRef(e))}${
-                        s.moreElements > 0
-                          ? html`<span class="muted">+${s.moreElements}</span>`
-                          : nothing
-                      }${
-                        s.textNodes > 0
-                          ? html`<span class="muted">${s.textNodes} text</span>`
-                          : nothing
-                      }
-                    </span>
-                  </div>`
+              m.slots[i] ? this._renderSlotEntry(s, i, color(i)) : nothing
             )}
             ${a.orphans.map((o, k) =>
               !m.orphans[k]

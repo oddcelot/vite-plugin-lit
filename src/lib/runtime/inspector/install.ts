@@ -361,43 +361,50 @@ if (typeof window !== 'undefined') {
     return false;
   };
 
+  /** Queue the added nodes that may hold components; whether any did. */
+  const queueAdded = (nodes: NodeList): boolean => {
+    let any = false;
+    for (const node of nodes) {
+      if (mayHoldComponents(node)) {
+        pendingRoots.push(node);
+        any = true;
+      }
+    }
+    return any;
+  };
+
+  const anyMayHold = (nodes: NodeList): boolean => {
+    for (const node of nodes) if (mayHoldComponents(node)) return true;
+    return false;
+  };
+
+  const flushMutations = (): void => {
+    observeTimer = undefined;
+    // Walk added subtrees now rather than on arrival: a custom element
+    // attaches its shadow root when it upgrades, which can be after insert.
+    // Removed roots need no bookkeeping; a detached shadow root just stops
+    // producing records.
+    const roots = pendingRoots;
+    pendingRoots = [];
+    if (observer !== null) {
+      for (const root of roots) {
+        if (root.isConnected) observeShadowRoots(observer, root);
+      }
+    }
+    pushTreeIfChanged();
+  };
+
   const onMutation = (records: MutationRecord[]): void => {
     // The tree only has custom elements in it, so a batch that adds or
     // removes none (text, comments, plain markup) can't change it.
     let relevant = false;
     for (const record of records) {
-      for (const node of record.addedNodes) {
-        if (mayHoldComponents(node)) {
-          pendingRoots.push(node);
-          relevant = true;
-        }
-      }
-      if (!relevant) {
-        for (const node of record.removedNodes) {
-          if (mayHoldComponents(node)) {
-            relevant = true;
-            break;
-          }
-        }
-      }
+      if (queueAdded(record.addedNodes)) relevant = true;
+      if (!relevant && anyMayHold(record.removedNodes)) relevant = true;
     }
     if (!relevant) return;
     if (observeTimer !== undefined) clearTimeout(observeTimer);
-    observeTimer = setTimeout(() => {
-      observeTimer = undefined;
-      // Walk added subtrees now rather than on arrival: a custom element
-      // attaches its shadow root when it upgrades, which can be after insert.
-      // Removed roots need no bookkeeping; a detached shadow root just stops
-      // producing records.
-      const roots = pendingRoots;
-      pendingRoots = [];
-      if (observer !== null) {
-        for (const root of roots) {
-          if (root.isConnected) observeShadowRoots(observer, root);
-        }
-      }
-      pushTreeIfChanged();
-    }, 100);
+    observeTimer = setTimeout(flushMutations, 100);
   };
 
   const setObserving = (enabled: boolean): void => {
@@ -460,79 +467,79 @@ if (typeof window !== 'undefined') {
   // Command dispatch
   // -------------------------------------------------------------------------
 
+  const replyTree = (): void => {
+    const roots = build();
+    lastTreeJson = JSON.stringify(roots);
+    send({type: 'tree', roots});
+  };
+
+  const replyDetails = (id: number): void => {
+    const el = elementById(id);
+    if (el !== undefined) send({type: 'details', details: collectDetails(el)});
+    else send({type: 'gone', id});
+  };
+
+  const replyDefineFrames = (ids: number[]): void => {
+    const frames: Record<number, GeneratedFrame[]> = {};
+    for (const id of ids) {
+      const known = defineFramesById(id);
+      if (known !== undefined) frames[id] = known;
+    }
+    send({type: 'define-frames', frames});
+  };
+
+  const replyExpanded = (
+    cmd: Extract<InspectorCommand, {type: 'expand'}>
+  ): void => {
+    const el = elementById(cmd.id);
+    if (el === undefined) {
+      send({type: 'gone', id: cmd.id});
+      return;
+    }
+    const listed = expandPath(el, cmd.path);
+    send({
+      type: 'expanded',
+      id: cmd.id,
+      path: cmd.path,
+      children: listed?.children ?? null,
+      ...(listed !== null && listed.more > 0 ? {more: listed.more} : {}),
+    });
+  };
+
+  // Commands the page does not act on (`pick`) have no entry.
+  type CommandHandlers = {
+    [K in InspectorCommand['type']]?: (
+      cmd: Extract<InspectorCommand, {type: K}>
+    ) => void;
+  };
+
+  const commandHandlers: CommandHandlers = {
+    tree: replyTree,
+    details: (cmd) => replyDetails(cmd.id),
+    'define-frames': (cmd) => replyDefineFrames(cmd.ids),
+    'fetch-text': (cmd) => void fetchText(cmd.url).then(send),
+    expand: replyExpanded,
+    watch: (cmd) => (cmd.id === null ? unwatch() : watch(cmd.id)),
+    // Fallback path. A panel that handshaked over the in-page channel emits
+    // there instead and never reaches this.
+    highlight: (cmd) => highlightById(cmd.id),
+    // Fallback path, as for `highlight`.
+    'highlight-all': (cmd) => highlightAll(cmd.ids),
+    reveal: (cmd) => revealById(cmd.id),
+    anatomy: (cmd) => anatomyById(cmd.id),
+    'anatomy-focus': (cmd) => focusAnatomy(cmd.focus),
+    observe: (cmd) => setObserving(cmd.enabled),
+  };
+
   pageChannel.on(INSPECT_CMD_CHANNEL, (data) => {
     const cmd = data as InspectorCommand;
-    switch (cmd.type) {
-      case 'tree': {
-        const roots = build();
-        lastTreeJson = JSON.stringify(roots);
-        send({type: 'tree', roots});
-        break;
-      }
-      case 'details': {
-        const el = elementById(cmd.id);
-        if (el !== undefined) {
-          send({type: 'details', details: collectDetails(el)});
-        } else {
-          send({type: 'gone', id: cmd.id});
-        }
-        break;
-      }
-      case 'define-frames': {
-        const frames: Record<number, GeneratedFrame[]> = {};
-        for (const id of cmd.ids) {
-          const known = defineFramesById(id);
-          if (known !== undefined) frames[id] = known;
-        }
-        send({type: 'define-frames', frames});
-        break;
-      }
-      case 'fetch-text': {
-        void fetchText(cmd.url).then(send);
-        break;
-      }
-      case 'expand': {
-        const el = elementById(cmd.id);
-        if (el === undefined) {
-          send({type: 'gone', id: cmd.id});
-          break;
-        }
-        const listed = expandPath(el, cmd.path);
-        send({
-          type: 'expanded',
-          id: cmd.id,
-          path: cmd.path,
-          children: listed?.children ?? null,
-          ...(listed !== null && listed.more > 0 ? {more: listed.more} : {}),
-        });
-        break;
-      }
-      case 'watch':
-        if (cmd.id === null) unwatch();
-        else watch(cmd.id);
-        break;
-      case 'highlight':
-        // Fallback path. A panel that handshaked over the in-page channel
-        // emits there instead and never reaches this.
-        highlightById(cmd.id);
-        break;
-      case 'highlight-all':
-        // Fallback path, as for `highlight`.
-        highlightAll(cmd.ids);
-        break;
-      case 'reveal':
-        revealById(cmd.id);
-        break;
-      case 'anatomy':
-        anatomyById(cmd.id);
-        break;
-      case 'anatomy-focus':
-        focusAnatomy(cmd.focus);
-        break;
-      case 'observe':
-        setObserving(cmd.enabled);
-        break;
-    }
+    // Own keys only: a `type` such as `constructor` must not reach
+    // Object.prototype and get called.
+    if (!Object.hasOwn(commandHandlers, cmd.type)) return;
+    const handler = commandHandlers[cmd.type] as
+      | ((c: InspectorCommand) => void)
+      | undefined;
+    handler?.(cmd);
   });
 
   // Announce readiness so a panel that loaded first re-requests the tree.
