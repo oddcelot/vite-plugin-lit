@@ -1,0 +1,27 @@
+{
+  "name": "vite-plugin-lit-css-example",
+  "description": "A walk through the CSS features of @oddsquad/vite-plugin-lit, one card per delivery shape: UnoCSS utilities as one shared adopted sheet, design tokens, a linked stylesheet, inlined CSS and a css literal run through Lightning CSS. Each card counts its renders, so you can see what an edit restyles in place and what it re-renders. Opens on StackBlitz straight from the repo URL.",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "stackblitz": "node stackblitz.mjs"
+  },
+  "dependencies": {
+    "lit": "^3.3.3"
+  },
+  "devDependencies": {
+    "@oddsquad/vite-plugin-lit": "*",
+    "@vitejs/devtools": "^0.7.6",
+    "lightningcss": "^1.30.0",
+    "unocss": "^66.10.5",
+    "vite": "^8.3.2"
+  },
+  "stackblitz": {
+    "installDependencies": true,
+    "startCommand": "npm run stackblitz"
+  }
+}

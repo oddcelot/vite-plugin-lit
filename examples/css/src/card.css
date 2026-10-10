@@ -1,0 +1,47 @@
+/*
+ * The chrome every card repeats: the box, the heading, the one-line
+ * description and the render badge. A second shared `?css-sheet`, stacked
+ * after `tokens.css` in each card's `static styles`; the page does not adopt
+ * it, so it stays a page and not a card.
+ */
+:host {
+  display: block;
+  box-sizing: border-box;
+  padding: var(--space);
+  border: 1px solid #dcd9e6;
+  border-top: 4px solid var(--brand);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+h2 {
+  margin: 0 0 4px;
+  font-size: 1.125rem;
+}
+
+.shape {
+  margin: 0 0 var(--space);
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.badge {
+  display: inline-block;
+  margin-top: var(--space);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font:
+    600 0.75rem ui-monospace,
+    monospace;
+}
