@@ -15,6 +15,8 @@ import {litSourceOverlay} from './plugins/source-overlay.js';
 import {litHmr} from './plugins/hmr.js';
 import {litDevtoolsWorkspace} from './plugins/devtools-workspace.js';
 import {litManifestLinks} from './plugins/manifest-links.js';
+import {litComponentDocs} from './plugins/component-docs.js';
+import {createSourceDocsIndex} from './component-docs/source-index.js';
 
 export {createOpenInEditorMiddleware} from './plugins/open-in-editor.js';
 export {litCssQueries} from './plugins/css-queries.js';
@@ -41,12 +43,20 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
   // `ctx.get()` inside its hooks: env is only loaded in the context's `config`
   // hook, after this array is built, so nothing can be chosen from options
   // here. The context's plugin goes first so it resolves before the others.
+  // The project's own components, documented from source as Vite transforms
+  // them; read by the devframe's `componentDocs` action.
+  const sourceDocs = createSourceDocsIndex((id) => ctx.locator().toWire(id));
+  const devtools = options.timeline !== false;
   const plugins: Plugin[] = [
     ctx.plugin,
     litCssQueries(() => ctx.get().cssSheetBuild),
     litTimelineVirtual(() => ctx.get().timeline),
     litCssLiterals(),
     litPrivateFields(ctx),
+    // Before the source overlay, which rewrites the code it has to read.
+    ...(devtools
+      ? [litComponentDocs(ctx, sourceDocs, () => ctx.get().timeline)]
+      : []),
     litSourceOverlay(ctx),
     litHmr(ctx),
     litDevtoolsWorkspace(ctx),
@@ -57,7 +67,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
   // DevTools entirely. Anything else may still be switched on by env in the
   // context's `config` hook (83bf4f5), so the plugin is included and its
   // `setup()` skips mounting while `enabled()` stays false.
-  if (options.timeline !== false) {
+  if (devtools) {
     plugins.push(
       createLitDevframePlugin({
         version: PACKAGE_VERSION,
@@ -65,6 +75,7 @@ export const litPlugin = (options: LitPluginOptions = {}): Plugin[] => {
         features: () => toFeatureSettings(ctx.get()),
         configuredEditor: () => configuredEditor(ctx.get()),
         sourceLocator: () => ctx.locator(),
+        sourceDocs: () => sourceDocs,
       })
     );
   }

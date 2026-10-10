@@ -1647,6 +1647,23 @@ test("shows the manifest's docs for the selected tag", async () => {
   ).toEqual([{tagName: 'x-button'}]);
 });
 
+test('names the source module for docs read from source', async () => {
+  answers.set('component-docs', () => ({
+    docs: {
+      ...buttonDocs,
+      origin: {manifest: '', module: 'src/x-button.ts', source: true},
+    },
+  }));
+  const {el, root} = await mount(true);
+  await pickButton(el);
+  expect(
+    root
+      .querySelector('.details .about-origin')!
+      .textContent!.replace(/\s+/g, ' ')
+      .trim()
+  ).toBe('From src/x-button.ts');
+});
+
 test('asks for no docs where the host cannot read manifests', async () => {
   meta.capabilities.componentDocs = false;
   answers.set('component-docs', () => ({docs: buttonDocs}));

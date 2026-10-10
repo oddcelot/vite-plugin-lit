@@ -17,7 +17,7 @@ type State =
   | {kind: 'tag'; quote: string | null; rawText: string | null}
   | {kind: 'raw'; name: string};
 
-const langOf = (file: string): 'ts' | 'tsx' | 'js' | 'jsx' => {
+export const langOf = (file: string): 'ts' | 'tsx' | 'js' | 'jsx' => {
   const ext = /\.([cm]?[jt]sx?)$/.exec(file)?.[1] ?? 'js';
   if (ext.endsWith('tsx')) return 'tsx';
   if (ext.endsWith('ts')) return 'ts';

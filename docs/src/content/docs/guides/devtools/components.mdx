@@ -178,35 +178,80 @@ page, the pane says so instead of showing stale values.
 
 ## Read a component's documentation
 
-When the component is described by a
-[Custom Elements Manifest](https://github.com/webcomponents/custom-elements-manifest),
-the pane adds what the manifest says about it:
+The pane adds what the component's documentation says about it, read from
+its JSDoc for your own components or from a
+[Custom Elements Manifest](https://github.com/webcomponents/custom-elements-manifest)
+for a library's:
 
-- **About** holds the component's summary and description, and names the
-  package and manifest file they came from.
-- A property, attribute, slot or part the manifest documents has a dotted
-  underline; hover it to read the description.
+- **About** holds the component's summary and description, and names where
+  they came from: the source file, or the package and manifest file.
+- A documented property, attribute, slot or part has a dotted underline;
+  hover it to read the description.
 - **Events** lists the events the class says it fires, with their type.
 - **CSS properties** lists the custom properties it reads, with any default.
-- A `deprecated` chip beside the tag name repeats the manifest's reason.
+- A `deprecated` chip beside the tag name repeats the reason given.
+
+### Your own components
+
+Your project's components need no manifest. While the dev server transforms
+a module it reads the classes in it, and a component's docs come from its
+class and its public fields:
+
+```ts
+/**
+ * A button that submits the form it sits in.
+ *
+ * @summary The form's submit button.
+ * @fires submit-start - Before the form is sent.
+ * @slot - The label.
+ * @slot icon - An icon before the label.
+ * @csspart base - The native button.
+ * @cssprop [--x-button-gap=4px] - Space between icon and label.
+ */
+@customElement('x-button')
+export class XButton extends LitElement {
+  /** How much room the button takes. */
+  @property({reflect: true}) size: 'small' | 'large' = 'small';
+}
+```
+
+The class comment may use `@summary`, `@deprecated`, `@fires` (or `@event`),
+`@slot`, `@csspart`, `@cssprop` (or `@cssproperty`) and `@cssstate`, each as
+`name - description` with an optional `{Type}` first. A property's comment
+gives its description and `@deprecated`, its type annotation the type, its
+initializer the default, and `@property()` the attribute it maps to.
+`@state()` fields and private, protected, `#private` and static members are
+left out. The tag comes from `@customElement()` or a `customElements.define()`
+call in the same module, and plain JavaScript with `static properties` and
+`@type` works too.
+
+A component inherits the members of the classes it extends when those live in
+your project, even in another module. A class built by a mixin call
+(`extends SignalWatcher(LitElement)`) isn't followed, so members it adds don't
+show. Docs read from source win over a manifest for the same tag, and an edit
+shows the next time you select a component with a different tag.
+
+### Libraries and manifests
 
 The dev server looks for manifests in two places: your project's own package,
 and every package it lists as a dependency. A package points at its manifest
 with the `customElements` field in its `package.json`, or keeps a
 `custom-elements.json` next to it. So components from a library such as Web
-Awesome come documented with nothing to set up, and your own do once a tool
-such as the
+Awesome come documented with nothing to set up. You can still have a tool such
+as the
 [Custom Elements Manifest analyzer](https://custom-elements-manifest.open-wc.org/analyzer/getting-started/)
-or [`cem`](https://bennypowers.dev/cem/) writes one. A manifest regenerated
-while the server runs is read again the next time you select a different tag.
+or [`cem`](https://bennypowers.dev/cem/) write one for your own package, for
+the components the dev server hasn't transformed. A manifest regenerated while
+the server runs is read again the next time you select a different tag.
 
-The browser extension has no disk to read, so it shows the manifests the page
-links to with `<link rel="custom-elements-manifest" href="…">` instead, from
-the same site only; see
+The browser extension has no disk to read and doesn't see the dev server's
+transforms, so it shows the manifests the page links to with
+`<link rel="custom-elements-manifest" href="…">` instead, from the same site
+only; see
 [the extension guide](/vite-plugin-lit/guides/devtools/browser-extension/#read-component-documentation).
 On pages it serves, the Vite plugin adds those links for every manifest it
-found, so the extension shows the same docs there.
-A snapshot doesn't carry manifests, so it shows none.
+found, so the extension shows the same library docs there, but not docs read
+from your source. A snapshot carries neither, so it shows none.
 
 ## Pick an element on the page
 

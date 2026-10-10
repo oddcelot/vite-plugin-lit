@@ -21,7 +21,7 @@ import type {Plugin, ViteDevServer} from 'vite';
 import type {DevframeDefinition} from 'devframe';
 import type {FeatureSettings} from '../../types/timeline.js';
 import type {SourceLocator} from '../source-locator.js';
-import {createNodeActions} from './node-actions.js';
+import {type NodeActionsOptions, createNodeActions} from './node-actions.js';
 import {createLitDevframe} from './definition.js';
 import {fromViteHot} from '../runtime/page-transport.js';
 import {TimelineChannelCodec} from './page-codec.js';
@@ -80,6 +80,8 @@ export interface CreateLitDevframePluginOptions {
   clientAssets?: string;
   /** See {@link CreateLitDevframeOptions.sourceLocator}. */
   sourceLocator?: () => SourceLocator;
+  /** See {@link NodeActionsOptions.sourceDocs}. */
+  sourceDocs?: NodeActionsOptions['sourceDocs'];
 }
 
 /**
@@ -277,6 +279,7 @@ export function createLitDevframePlugin(
     nodeActions: createNodeActions({
       sourceLocator: options.sourceLocator,
       configuredEditor: options.configuredEditor,
+      sourceDocs: options.sourceDocs,
     }),
   });
 

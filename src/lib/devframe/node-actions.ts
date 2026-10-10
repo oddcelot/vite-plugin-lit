@@ -15,6 +15,7 @@ import type {FeatureSettings, SettingsOverride} from '../../types/timeline.js';
 import type {SessionSnapshot} from '../../types/snapshot.js';
 import type {SourceLocator} from '../source-locator.js';
 import type {ComponentDocsIndex} from '../component-docs/load.js';
+import type {SourceDocsIndex} from '../component-docs/source-index.js';
 import {resolveLaunchEditor} from './launch-editor.js';
 import type {
   ComponentDocsArgs,
@@ -41,6 +42,12 @@ export interface NodeActionsOptions {
    * `launch-editor` command; without either the editor is auto-detected.
    */
   configuredEditor?: () => string | undefined;
+  /**
+   * Docs the dev server read from the project's own source as it
+   * transformed it. Asked before any manifest: the source is what is
+   * running, while a manifest may be stale.
+   */
+  sourceDocs?: () => SourceDocsIndex | undefined;
 }
 
 export interface NodeActions {
@@ -117,6 +124,8 @@ export const createNodeActions = (
     },
 
     async componentDocs({tagName}) {
+      const fromSource = options.sourceDocs?.()?.get(tagName);
+      if (fromSource !== undefined) return {docs: fromSource};
       docsIndex ??= import('../component-docs/load.js').then(
         ({createComponentDocsIndex, nodeDocsFs}) =>
           createComponentDocsIndex({
