@@ -251,40 +251,47 @@ const captureOwnPhases = (
 ): void => {
   let p = Object.getPrototypeOf(el) as Proto | null;
   while (p !== null && p !== base) {
-    for (const name of ASYNC_PHASES) {
-      if (!Object.prototype.hasOwnProperty.call(p, name)) continue;
-      const orig = p[name];
-      if (typeof orig !== 'function') continue;
-      if ((orig as AnyFn & {[CAPTURE]?: true})[CAPTURE] === true) continue;
-      if ((orig as AnyFn & {[BRAND]?: true})[BRAND] === true) continue;
-      const capture: AnyFn & {[CAPTURE]?: true} = function (
-        this: object,
-        ...args: unknown[]
-      ) {
-        const result = orig.apply(this, args);
-        // Unrecorded updates do not advance the tick, so a promise from one
-        // would be pinned to an older cycle.
-        if (recording() && result instanceof Promise && !returned.has(result)) {
-          returned.set(result, {
-            phase: name,
-            groupId: `${idOf(this)}:${tickOf(this)}`,
-            meta: metaOf(this),
-          });
-        }
-        return result;
-      };
-      capture[CAPTURE] = true;
-      try {
-        Object.defineProperty(p, name, {
-          value: capture,
-          writable: true,
-          configurable: true,
-        });
-      } catch {
-        // Non-configurable slot; that phase's rejections go unattributed.
-      }
-    }
+    for (const name of ASYNC_PHASES) captureOwnPhase(p, name, recording);
     p = Object.getPrototypeOf(p) as Proto | null;
+  }
+};
+
+/** Wrap one own phase of `p`, unless it is absent, ours, or already wrapped. */
+const captureOwnPhase = (
+  p: Proto,
+  name: (typeof ASYNC_PHASES)[number],
+  recording: RecordingFn
+): void => {
+  if (!Object.prototype.hasOwnProperty.call(p, name)) return;
+  const orig = p[name];
+  if (typeof orig !== 'function') return;
+  if ((orig as AnyFn & {[CAPTURE]?: true})[CAPTURE] === true) return;
+  if ((orig as AnyFn & {[BRAND]?: true})[BRAND] === true) return;
+  const capture: AnyFn & {[CAPTURE]?: true} = function (
+    this: object,
+    ...args: unknown[]
+  ) {
+    const result = orig.apply(this, args);
+    // Unrecorded updates do not advance the tick, so a promise from one
+    // would be pinned to an older cycle.
+    if (recording() && result instanceof Promise && !returned.has(result)) {
+      returned.set(result, {
+        phase: name,
+        groupId: `${idOf(this)}:${tickOf(this)}`,
+        meta: metaOf(this),
+      });
+    }
+    return result;
+  };
+  capture[CAPTURE] = true;
+  try {
+    Object.defineProperty(p, name, {
+      value: capture,
+      writable: true,
+      configurable: true,
+    });
+  } catch {
+    // Non-configurable slot; that phase's rejections go unattributed.
   }
 };
 
@@ -563,6 +570,165 @@ const instrumentTasks = (
 };
 
 /**
+ * Run `orig` while nothing is recording. Only `performUpdate` still has to
+ * tell the update hook, and only when one is installed.
+ */
+const runUnrecorded = (
+  el: object,
+  orig: AnyFn | undefined,
+  args: unknown[],
+  isUpdate: boolean
+): unknown => {
+  if (!isUpdate || updateHook === null) return orig?.apply(el, args);
+  const first = isFirstUpdate(el);
+  const result = orig?.apply(el, args);
+  notifyUpdated(el, first);
+  return result;
+};
+
+/** Take the cause queued for `el`'s update, so only one update claims it. */
+const takePendingCause = (el: object): TimelineCause | undefined => {
+  const cause = pendingCause.get(el);
+  if (cause !== undefined) pendingCause.delete(el);
+  return cause;
+};
+
+/**
+ * Emit a phase's `:start` event, with the changed keys, and for `update` their
+ * previews. An update's start also claims the cause queued for it.
+ */
+const emitPhaseStart = (
+  el: object,
+  emit: EmitFn,
+  name: string,
+  groupId: string,
+  time: number,
+  meta: PendingAttribution['meta'],
+  changedMap: unknown,
+  changedValues: LayerEnabledFn
+): void => {
+  const changed = changedKeys(changedMap);
+  const cause = name === 'performUpdate' ? takePendingCause(el) : undefined;
+  // Only `update`, and only with the layer on: `willUpdate` may be an
+  // override that never reaches our wrapper, and the previews cost a
+  // serialize per key.
+  const changedDetail =
+    name === 'update' && changedValues()
+      ? captureChangedValues(el, changedMap)
+      : undefined;
+  emit({
+    layerId: 'lit-lifecycle',
+    time,
+    groupId,
+    title: name + ':start',
+    subtitle: meta.tagName,
+    data:
+      changedDetail === undefined
+        ? {phase: name, changed}
+        : {phase: name, changed, changedDetail},
+    ...(cause === undefined ? {} : {cause}),
+    meta,
+  });
+};
+
+/** Emit a phase's `:end` event, or the single event of a point phase. */
+const emitPhaseEnd = (
+  emit: EmitFn,
+  name: string,
+  isPoint: boolean,
+  groupId: string,
+  startTime: number,
+  meta: PendingAttribution['meta'],
+  error: {name: string; message: string} | undefined
+): void => {
+  const data = error === undefined ? {phase: name} : {phase: name, error};
+  const logType = error === undefined ? {} : {logType: 'error' as const};
+  if (isPoint) {
+    emit({
+      layerId: 'lit-lifecycle',
+      time: startTime,
+      title: name,
+      subtitle: meta.tagName,
+      data,
+      ...logType,
+      meta,
+    });
+    return;
+  }
+  emit({
+    layerId: 'lit-lifecycle',
+    time: now(),
+    groupId,
+    title: name + ':end',
+    subtitle: meta.tagName,
+    data,
+    ...logType,
+    meta,
+  });
+};
+
+/** Attach the per-update attribution wrappers; best-effort, never throws. */
+const attributeOwnPhases = (
+  el: object,
+  base: object,
+  emit: EmitFn,
+  recording: RecordingFn,
+  enabled: LayerEnabledFn
+): void => {
+  try {
+    captureOwnPhases(el, base, recording);
+    observeVetoes(el, base, emit, recording, enabled);
+    instrumentTasks(el, emit, recording, enabled);
+  } catch {
+    // dev tool — attribution is best-effort
+  }
+};
+
+/**
+ * Call `orig` inside its bracket: mark `name` in flight, and emit the end
+ * event however the call leaves, describing a throw and rethrowing the
+ * original.
+ */
+const invokePhase = (
+  el: object,
+  orig: AnyFn | undefined,
+  args: unknown[],
+  running: Set<string>,
+  name: string,
+  isPoint: boolean,
+  groupId: string,
+  time: number,
+  meta: PendingAttribution['meta'],
+  emit: EmitFn
+): unknown => {
+  let error: {name: string; message: string} | undefined;
+  running.add(name);
+  inFlight.set(el, running);
+  try {
+    return orig?.apply(el, args);
+  } catch (e) {
+    // Describe, then rethrow the original: the app must see its own error.
+    error = describeError(e);
+    throw e;
+  } finally {
+    running.delete(name);
+    emitPhaseEnd(emit, name, isPoint, groupId, time, meta, error);
+  }
+};
+
+/** Remember a promise a phase returned, so a later rejection can be matched. */
+const rememberReturned = (
+  result: unknown,
+  name: string,
+  isPoint: boolean,
+  groupId: string,
+  meta: PendingAttribution['meta']
+): void => {
+  if (!(result instanceof Promise) || returned.has(result)) return;
+  returned.set(result, {phase: name, ...(isPoint ? {} : {groupId}), meta});
+};
+
+/**
  * Wrap `proto[name]` with a start/end pair emitting to `emit`.
  * `isPoint` methods only emit a single event (no end bracket).
  */
@@ -582,11 +748,7 @@ const wrap = (
     const isUpdate = name === 'performUpdate';
     if (name === 'update') rendered.add(this);
     if (!recording() || !enabled()) {
-      if (!isUpdate || updateHook === null) return orig?.apply(this, args);
-      const first = isFirstUpdate(this);
-      const result = orig?.apply(this, args);
-      notifyUpdated(this, first);
-      return result;
+      return runUnrecorded(this, orig, args, isUpdate);
     }
     const running = inFlight.get(this) ?? new Set<string>();
     if (running.has(name)) return orig?.apply(this, args);
@@ -599,98 +761,44 @@ const wrap = (
     // from the previous cycle's. (Reading the tick before bumping put
     // performUpdate in a different group from its own phases and let adjacent
     // cycles collide on the same tick.)
-    if (name === 'performUpdate') {
+    if (isUpdate) {
       ticks.set(this, tickOf(this) + 1);
     }
 
     const meta = metaOf(this);
-    const elementId = meta.elementId as number;
-    const tagName = meta.tagName as string;
-    const tick = tickOf(this);
-    const groupId = `${elementId}:${tick}`;
+    const groupId = `${meta.elementId as number}:${tickOf(this)}`;
     const time = now();
-    const changed = changedKeys(args[0]);
-    const cause = isUpdate ? pendingCause.get(this) : undefined;
-    if (cause !== undefined) pendingCause.delete(this);
-    // Only `update`, and only with the layer on: `willUpdate` may be an
-    // override that never reaches our wrapper, and the previews cost a
-    // serialize per key.
-    const changedDetail =
-      name === 'update' && changedValues()
-        ? captureChangedValues(this, args[0])
-        : undefined;
-
     if (!isPoint) {
-      emit({
-        layerId: 'lit-lifecycle',
-        time,
+      emitPhaseStart(
+        this,
+        emit,
+        name,
         groupId,
-        title: name + ':start',
-        subtitle: tagName,
-        data:
-          changedDetail === undefined
-            ? {phase: name, changed}
-            : {phase: name, changed, changedDetail},
-        ...(cause === undefined ? {} : {cause}),
+        time,
         meta,
-      });
+        args[0],
+        changedValues
+      );
     }
 
-    if (isUpdate) {
-      try {
-        captureOwnPhases(this, proto, recording);
-        observeVetoes(this, proto, emit, recording, enabled);
-        instrumentTasks(this, emit, recording, enabled);
-      } catch {
-        // dev tool — attribution is best-effort
-      }
-    }
+    if (isUpdate) attributeOwnPhases(this, proto, emit, recording, enabled);
 
-    let result: unknown;
-    let error: {name: string; message: string} | undefined;
-    running.add(name);
-    inFlight.set(this, running);
-    try {
-      result = orig?.apply(this, args);
-    } catch (e) {
-      // Describe, then rethrow the original: the app must see its own error.
-      error = describeError(e);
-      throw e;
-    } finally {
-      running.delete(name);
-      if (!isPoint) {
-        emit({
-          layerId: 'lit-lifecycle',
-          time: now(),
-          groupId,
-          title: name + ':end',
-          subtitle: tagName,
-          data: error === undefined ? {phase: name} : {phase: name, error},
-          ...(error === undefined ? {} : {logType: 'error' as const}),
-          meta,
-        });
-      } else {
-        emit({
-          layerId: 'lit-lifecycle',
-          time,
-          title: name,
-          subtitle: tagName,
-          data: error === undefined ? {phase: name} : {phase: name, error},
-          ...(error === undefined ? {} : {logType: 'error' as const}),
-          meta,
-        });
-      }
-    }
+    const result = invokePhase(
+      this,
+      orig,
+      args,
+      running,
+      name,
+      isPoint,
+      groupId,
+      time,
+      meta,
+      emit
+    );
     // After the bracket, not in it: a throwing update never completed, so it
     // doesn't count as one.
     if (isUpdate) notifyUpdated(this, first);
-    if (result instanceof Promise && !returned.has(result)) {
-      returned.set(result, {
-        phase: name,
-        ...(isPoint ? {} : {groupId}),
-        meta,
-      });
-    }
+    rememberReturned(result, name, isPoint, groupId, meta);
     if (isUpdate) reportTaskErrors(this, groupId, meta, emit);
     return result;
   };
