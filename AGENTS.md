@@ -21,11 +21,21 @@ release. Add a tool name to select part of the graph. For example, run
 
 - [ ] Run `vp install` after pulling remote changes and before getting started.
 - [ ] Run `vp check` and `vp test` to format, lint, type check and test changes.
-- [ ] `pnpm fallow:check` (also run by the pre-commit hook and CI) fails on new dead code, unresolved imports, cycles and complexity. Fix the finding, or say why it stays in `.fallowrc.json`; re-save `fallow-baselines/health.json` with `pnpm fallow health --save-baseline fallow-baselines/health.json` only when you mean to accept new complexity.
 - [ ] Check if there are `vite.config.ts` tasks or `package.json` scripts necessary for validation, run via `vp run <script>`.
 - [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
 
 <!--VITE PLUS END-->
+
+## Codebase health (fallow)
+
+`pnpm fallow:check` runs in the pre-commit hook and CI and fails on new dead
+code, unresolved imports, import cycles and complexity. Fix the finding, or
+record in `.fallowrc.json` why it stays. Existing complexity sits in
+`fallow-baselines/health.json`; re-save it with
+`pnpm fallow health --save-baseline fallow-baselines/health.json` only when you
+mean to accept a change to it, and never with coverage loaded, so the gate
+reads the same everywhere. `pnpm run fallow:coverage` is the report to read:
+it runs the unit tests with coverage and scores CRAP from that.
 
 ## Commits and the changelog
 

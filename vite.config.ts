@@ -5,6 +5,16 @@ export default defineConfig({
   // Empty unless LIT_CANARY=1 (see src/test/canary.ts).
   ...canarySettings(),
   test: {
+    // `pnpm run fallow:coverage` reads this for fallow's CRAP scores. It lives
+    // under .fallow/ rather than coverage/, which fallow loads on its own: the
+    // gate must score the same with or without a local coverage run.
+    coverage: {
+      provider: 'v8',
+      reportsDirectory: '.fallow/coverage',
+      reporter: ['json', 'text-summary'],
+      include: ['src/**/*.ts'],
+      exclude: ['src/test/**'],
+    },
     projects: [
       {
         test: {
