@@ -124,6 +124,66 @@ test('a #event= link selects the span it names', async () => {
   expect(panel.errors).toEqual([]);
 });
 
+test('a #event= link to a row folded into an update opens it and scrolls to it', async () => {
+  const {page} = panel;
+  // A few updates of our own; the list is long already from the tests
+  // above. Not many: the dev server keeps the last 512 events, and the
+  // reload test after this one expects all of them to come back.
+  const increment = fixture.page.locator('hmr-counter #increment');
+  for (let i = 0; i < 3; i++) {
+    await increment.click();
+  }
+  const rows = page.locator('timeline-event-list .row');
+  await rows.first().waitFor();
+  const open = page.locator(
+    'timeline-event-list button.twisty[aria-expanded="true"]'
+  );
+
+  // Open the first update in view, select a phase inside it, keep its link.
+  await page
+    .locator('timeline-event-list button.twisty[aria-expanded="false"]')
+    .first()
+    .click();
+  await page.locator('timeline-event-list .row.nested').first().click();
+  await expect
+    .poll(() => page.evaluate(() => location.hash))
+    .toContain('event=');
+  const hash = await page.evaluate(() => location.hash);
+  const selected = page.locator('timeline-event-list .row.selected');
+  const linkedText = await selected.textContent();
+
+  // Fold it away and go to the far end of the list, so following the link
+  // has to open the update again and scroll back to it.
+  await open.first().click();
+  await expect.poll(() => open.count()).toBe(0);
+  await rows.last().click();
+  await page
+    .locator('timeline-event-list .scroll')
+    .evaluate((el) => el.scrollTo({top: el.scrollHeight}));
+  expect(await selected.textContent()).not.toBe(linkedText);
+
+  await page.evaluate((h) => {
+    location.hash = h;
+  }, hash);
+  await expect.poll(() => selected.textContent()).toBe(linkedText);
+  expect(await selected.evaluate((el) => el.classList.contains('nested'))).toBe(
+    true
+  );
+  await expect.poll(() => open.count()).toBe(1);
+  // In view, not merely selected.
+  const box = (await selected.boundingBox())!;
+  const list = (await page
+    .locator('timeline-event-list .scroll')
+    .boundingBox())!;
+  expect(box.y).toBeGreaterThanOrEqual(list.y - 1);
+  expect(box.y + box.height).toBeLessThanOrEqual(list.y + list.height + 1);
+
+  // Fold it again: the tests after this one read the list collapsed.
+  await open.first().click();
+  await expect.poll(() => open.count()).toBe(0);
+  expect(panel.errors).toEqual([]);
+});
+
 test('a #event= link to an unknown id leaves nothing selected', async () => {
   const {page} = panel;
   const selected = page.locator('timeline-event-list .row.selected');
