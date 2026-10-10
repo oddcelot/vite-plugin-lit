@@ -20,7 +20,6 @@ export class CssLiteralCard extends LitElement {
     css`
       .sample {
         padding: var(--space);
-        border-radius: var(--radius);
         color-scheme: light dark;
         background: light-dark(oklch(0.96 0.04 85), oklch(0.3 0.05 85));
         color: light-dark(oklch(0.3 0.08 85), oklch(0.95 0.04 85));

@@ -10,7 +10,6 @@
   padding: var(--space);
   border: 1px solid #dcd9e6;
   border-top: 4px solid var(--brand);
-  border-radius: var(--radius);
   background: #fff;
   color: var(--ink);
   font-family: system-ui, sans-serif;
@@ -38,7 +37,6 @@ h2 {
   display: inline-block;
   margin-top: var(--space);
   padding: 2px 8px;
-  border-radius: 999px;
   background: var(--brand-soft);
   color: var(--brand);
   font:

@@ -1,7 +1,6 @@
 /* This card's own rules, fetched through a <link>. Edit and save. */
 .sample {
   padding: var(--space);
-  border-radius: var(--radius);
   background: var(--brand-soft);
 
   & strong {
