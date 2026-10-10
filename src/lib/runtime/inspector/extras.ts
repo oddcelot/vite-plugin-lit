@@ -10,7 +10,7 @@
 import {isExpandable} from './inspect-value.js';
 import {serialize, typeTag} from './serialize.js';
 import {idOf} from '../timeline/identity.js';
-import {isListed} from './collect.js';
+import {isListed} from './listed.js';
 import type {
   AnatomyElementRef,
   InspectorContext,
