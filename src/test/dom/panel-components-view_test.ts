@@ -1670,3 +1670,48 @@ test('the row filter reaches the docs', async () => {
     [...root.querySelectorAll('.details .label')].map((l) => l.textContent)
   ).toEqual(['CSS properties']);
 });
+
+test('slots and parts take their manifest descriptions as tooltips', async () => {
+  answers.set('component-docs', () => ({
+    docs: {
+      ...buttonDocs,
+      slots: [{name: '', description: 'The label'}],
+      cssParts: [{name: 'base', description: 'The wrapper'}],
+    },
+  }));
+  const {el, root} = await mount(true);
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      anatomy: {
+        renderRoot: 'shadow',
+        mode: 'open',
+        slots: [
+          {
+            name: '',
+            status: 'assigned',
+            elements: [{tagName: 'span'}],
+            moreElements: 0,
+            textNodes: 0,
+            forwarded: false,
+            duplicate: false,
+          },
+        ],
+        orphans: [],
+        orphanText: 0,
+        parts: [{names: ['base', 'control'], tagName: 'div'}],
+      },
+    },
+  });
+  await flush(el);
+  const tips = [...root.querySelectorAll('.details .described')].map((d) => [
+    d.textContent!.trim(),
+    d.getAttribute('data-tip'),
+  ]);
+  expect(tips).toEqual([
+    ['default', 'The label'],
+    ['base control', 'The wrapper'],
+  ]);
+});

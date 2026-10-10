@@ -282,6 +282,8 @@ interface DocsView {
   /** Unfiltered: these only lend descriptions to the live rows. */
   properties: readonly DocEntry[];
   attributes: readonly DocEntry[];
+  slots: readonly DocEntry[];
+  cssParts: readonly DocEntry[];
   anyMatch: boolean;
 }
 
@@ -292,6 +294,8 @@ const NO_DOCS: DocsView = {
   cssProperties: [],
   properties: [],
   attributes: [],
+  slots: [],
+  cssParts: [],
   anyMatch: false,
 };
 
@@ -1603,13 +1607,14 @@ export class ComponentsView extends LitElement {
    */
   private _describedName(
     name: string,
-    documented: readonly DocEntry[]
+    documented: readonly DocEntry[],
+    shown: TemplateResult | string = this._mark(name)
   ): TemplateResult {
     const tip = documented.find((e) => e.name === name)?.description;
     return html`<span
       class=${tip === undefined ? '' : 'described'}
       data-tip=${tip ?? nothing}
-      >${this._mark(name)}</span
+      >${shown}</span
     >`;
   }
 
@@ -1637,6 +1642,8 @@ export class ComponentsView extends LitElement {
       cssProperties,
       properties: docs.properties,
       attributes: docs.attributes,
+      slots: docs.slots,
+      cssParts: docs.cssParts,
       anyMatch: aboutShown || events.length + cssProperties.length > 0,
     };
   }
@@ -1865,14 +1872,18 @@ export class ComponentsView extends LitElement {
   /** The name cell of a slot row: its default/named label and its status badges. */
   private _renderSlotName(
     s: InspectorAnatomy['slots'][number],
-    color: string
+    color: string,
+    documented: readonly DocEntry[]
   ): TemplateResult {
     return html`<span class="name">
-      <span class="swatch" style="background:${color}"></span>${
+      <span class="swatch" style="background:${color}"></span
+      >${this._describedName(
+        s.name,
+        documented,
         s.name === ''
           ? html`<span class="slot-default">${this._mark('default')}</span>`
           : this._mark(s.name)
-      }${
+      )}${
         s.status === 'assigned'
           ? nothing
           : this._renderSlotBadge(
@@ -1903,14 +1914,15 @@ export class ComponentsView extends LitElement {
   private _renderSlotEntry(
     s: InspectorAnatomy['slots'][number],
     index: number,
-    color: string
+    color: string,
+    documented: readonly DocEntry[]
   ): TemplateResult {
     return html`<div
       class="entry region"
       @mouseenter=${() => this._focusRegion({kind: 'slot', index})}
       @mouseleave=${() => this._focusRegion(null)}
     >
-      ${this._renderSlotName(s, color)}
+      ${this._renderSlotName(s, color, documented)}
       <span class="val">
         ${s.elements.map((e) => this._renderElementRef(e))}${
           s.moreElements > 0
@@ -1929,7 +1941,7 @@ export class ComponentsView extends LitElement {
    * Slots and parts, coloured like their regions in the page's anatomy
    * overlay: slot `i` takes colour `i`, and parts continue after the slots.
    */
-  private _renderAnatomy(a: InspectorAnatomy): TemplateResult {
+  private _renderAnatomy(a: InspectorAnatomy, docs: DocsView): TemplateResult {
     const color = (i: number) => ANATOMY_COLORS[i % ANATOMY_COLORS.length];
     // Filtered rows render as `nothing` in place, so every row keeps the
     // index its colour and overlay region are keyed by.
@@ -1946,7 +1958,9 @@ export class ComponentsView extends LitElement {
         html`
           <div class="kv">
             ${a.slots.map((s, i) =>
-              m.slots[i] ? this._renderSlotEntry(s, i, color(i)) : nothing
+              m.slots[i]
+                ? this._renderSlotEntry(s, i, color(i), docs.slots)
+                : nothing
             )}
             ${a.orphans.map((o, k) =>
               !m.orphans[k]
@@ -1995,7 +2009,13 @@ export class ComponentsView extends LitElement {
                         class="swatch"
                         style="background:${color(a.slots.length + j)}"
                       ></span
-                      >${this._mark(p.names.join(' '))}${
+                      >${this._describedName(
+                        p.names.find((n) =>
+                          docs.cssParts.some((e) => e.name === n)
+                        ) ?? '',
+                        docs.cssParts,
+                        this._mark(p.names.join(' '))
+                      )}${
                         p.forwarded
                           ? this._renderSlotBadge(
                               'forwarded',
@@ -2392,7 +2412,7 @@ export class ComponentsView extends LitElement {
           )}
         </div>`
       )}
-      ${d.anatomy === undefined ? nothing : this._renderAnatomy(d.anatomy)}
+      ${d.anatomy === undefined ? nothing : this._renderAnatomy(d.anatomy, docs)}
       ${this._renderSection(
         'Properties',
         props.length,
