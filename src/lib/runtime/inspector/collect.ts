@@ -210,72 +210,101 @@ const optionsOf = (
   return out;
 };
 
-/** Snapshot one element's reactive properties, attributes, and flags. */
-export const collectDetails = (el: Element): InspectorDetails => {
-  const re = el as ReactiveElementLike;
-  const declarations = re.constructor.elementProperties;
-  const properties: InspectorProp[] = [];
-  if (declarations !== undefined) {
-    for (const [key, decl] of declarations) {
-      // Reading a reactive property runs its accessor, which may throw; one bad
-      // getter must not take out the whole details snapshot.
-      let value: unknown;
-      let threw = false;
-      try {
-        value = (el as unknown as Record<PropertyKey, unknown>)[key];
-      } catch {
-        threw = true;
-      }
-      const options = optionsOf(re.constructor, decl);
-      properties.push({
-        name: typeof key === 'symbol' ? key.toString() : String(key),
-        value: threw ? '[getter threw]' : serialize(value),
-        type: threw ? 'error' : typeTag(value),
-        attribute: attributeName(key, decl),
-        reflects: decl.reflect === true,
-        state: decl.state === true,
-        ...(options.length > 0 ? {options} : {}),
-        ...(!threw && isExpandable(value) ? {expandable: true} : {}),
-      });
-    }
+/** One declared reactive property, read without trusting its getter. */
+const propOf = (
+  el: Element,
+  key: PropertyKey,
+  decl: PropertyDeclaration
+): InspectorProp => {
+  // Reading a reactive property runs its accessor, which may throw; one bad
+  // getter must not take out the whole details snapshot.
+  let value: unknown;
+  let threw = false;
+  try {
+    value = (el as unknown as Record<PropertyKey, unknown>)[key];
+  } catch {
+    threw = true;
   }
+  const options = optionsOf((el as ReactiveElementLike).constructor, decl);
+  return {
+    name: typeof key === 'symbol' ? key.toString() : String(key),
+    value: threw ? '[getter threw]' : serialize(value),
+    type: threw ? 'error' : typeTag(value),
+    attribute: attributeName(key, decl),
+    reflects: decl.reflect === true,
+    state: decl.state === true,
+    ...(options.length > 0 ? {options} : {}),
+    ...(!threw && isExpandable(value) ? {expandable: true} : {}),
+  };
+};
 
-  // The call-site stamp is ours, not the author's: it has its own field.
-  const attributes = Array.from(el.attributes, (a) => ({
-    name: a.name,
-    value: a.value,
-  })).filter((a) => a.name !== CALL_SITE_ATTR);
+const propertiesOf = (el: Element): InspectorProp[] => {
+  const declarations = (el as ReactiveElementLike).constructor
+    .elementProperties;
+  const properties: InspectorProp[] = [];
+  if (declarations === undefined) return properties;
+  for (const [key, decl] of declarations) {
+    properties.push(propOf(el, key, decl));
+  }
+  return properties;
+};
 
+/** The call-site stamp is ours, not the author's: it has its own field. */
+const attributesOf = (el: Element): InspectorDetails['attributes'] =>
+  Array.from(el.attributes, (a) => ({name: a.name, value: a.value})).filter(
+    (a) => a.name !== CALL_SITE_ATTR
+  );
+
+/** What marks the element as not a plain Lit component, when it is one. */
+const statusOf = (
+  el: Element,
+  source: InspectorDetails['source']
+): Partial<InspectorDetails> => {
+  // No stamp: the define call's stack, for a host that can map it.
+  const defineFrames =
+    source === undefined ? defineFramesOf(el.constructor) : undefined;
+  return {
+    ...(defineFrames !== undefined ? {defineFrames} : {}),
+    ...(isUndefinedElement(el) ? {notDefined: true} : {}),
+    ...(isForeignElement(el) ? {notLit: true} : {}),
+  };
+};
+
+/** The sections that are present only when they have something to say. */
+const insightsOf = (el: Element): Partial<InspectorDetails> => {
   const extras = collectExtras(el);
   const anatomy = collectAnatomy(el);
   const warnings = warningsFor(
     el.localName,
     (el.constructor as {name?: string}).name
   ).map(({code, message}) => ({code, message}));
+  return {
+    ...(anatomy !== undefined ? {anatomy} : {}),
+    ...(extras.length > 0 ? {extras} : {}),
+    ...(warnings.length > 0 ? {warnings} : {}),
+  };
+};
+
+/** Snapshot one element's reactive properties, attributes, and flags. */
+export const collectDetails = (el: Element): InspectorDetails => {
+  const re = el as ReactiveElementLike;
   const meta = metaOf(el);
   const source = sourceOf(el);
-  // No stamp: the define call's stack, for a host that can map it.
-  const defineFrames =
-    source === undefined ? defineFramesOf(el.constructor) : undefined;
   return {
     id: idOf(el),
     tagName: el.tagName.toLowerCase(),
     componentName: meta?.componentName,
     source,
     callSite: callSiteOf(el),
-    ...(defineFrames !== undefined ? {defineFrames} : {}),
-    ...(isUndefinedElement(el) ? {notDefined: true} : {}),
-    ...(isForeignElement(el) ? {notLit: true} : {}),
-    attributes,
-    properties,
+    ...statusOf(el, source),
+    attributes: attributesOf(el),
+    properties: propertiesOf(el),
     flags: {
       hasUpdated: re.hasUpdated === true,
       isUpdatePending: re.isUpdatePending === true,
       hasShadowRoot: el.shadowRoot !== null,
     },
-    ...(anatomy !== undefined ? {anatomy} : {}),
-    ...(extras.length > 0 ? {extras} : {}),
-    ...(warnings.length > 0 ? {warnings} : {}),
+    ...insightsOf(el),
   };
 };
 
