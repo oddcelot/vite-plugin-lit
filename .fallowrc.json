@@ -40,5 +40,27 @@
     // is not a refactoring target.
     "ignore": ["playground/**", "examples/**"]
   },
-  "rules": {}
+  "health": {
+    // Build, release and docs tooling, demos and the benchmark harness: run by
+    // hand or in CI, not shipped, and not where complexity costs us.
+    "ignore": [
+      "scripts/**",
+      "bench/**",
+      "docs/**",
+      "playground/**",
+      "examples/**",
+      "*.config.ts",
+      "extension/vite.config.ts"
+    ]
+  },
+  // Complexity that predates fallow is recorded here; `fallow audit` and the
+  // health check fail only on what is new.
+  "audit": {
+    "healthBaseline": "fallow-baselines/health.json"
+  },
+  "rules": {
+    // Without coverage data fallow estimates CRAP from the module graph, which
+    // flags well-tested code; report it but don't fail on it.
+    "complexity-crap": "warn"
+  }
 }
