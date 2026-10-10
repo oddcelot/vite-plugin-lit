@@ -65,23 +65,32 @@ const union = (a: Box | null, r: Box): Box | null => {
   };
 };
 
+/** `box` grown by what `el` paints, falling back to its children. */
+const elementBounds = (el: Element, box: Box | null): Box | null => {
+  const rects = el.getClientRects();
+  // `display: contents` has no rects; its children paint instead.
+  if (rects.length === 0) {
+    const inner = boundsOf(el.childNodes);
+    if (inner !== null) box = union(box, inner);
+  }
+  for (const r of rects) box = union(box, r);
+  return box;
+};
+
+/** `box` grown by what the text node `text` paints. */
+const textBounds = (text: Node, box: Box | null): Box | null => {
+  const range = document.createRange();
+  range.selectNodeContents(text);
+  for (const r of range.getClientRects()) box = union(box, r);
+  return box;
+};
+
 /** The bounding box of what `nodes` paint, or `null` when they paint nothing. */
 const boundsOf = (nodes: Iterable<Node>): Box | null => {
   let box: Box | null = null;
   for (const n of nodes) {
-    if (n instanceof Element) {
-      const rects = n.getClientRects();
-      // `display: contents` has no rects; its children paint instead.
-      if (rects.length === 0) {
-        const inner = boundsOf(n.childNodes);
-        if (inner !== null) box = union(box, inner);
-      }
-      for (const r of rects) box = union(box, r);
-    } else if (n.nodeType === Node.TEXT_NODE) {
-      const range = document.createRange();
-      range.selectNodeContents(n);
-      for (const r of range.getClientRects()) box = union(box, r);
-    }
+    if (n instanceof Element) box = elementBounds(n, box);
+    else if (n.nodeType === Node.TEXT_NODE) box = textBounds(n, box);
   }
   return box;
 };
@@ -94,6 +103,79 @@ const toRect = (b: Box) => ({
 });
 
 const LABEL_HEIGHT = 16;
+
+/** Positions, borders and fades the box element `el` for one part. */
+const styleBox = (
+  el: HTMLElement,
+  {x, y, width, height}: ReturnType<typeof toRect>,
+  color: string,
+  style: 'host' | 'slot' | 'part',
+  focused: boolean
+): void => {
+  Object.assign(el.style, {
+    display: 'block',
+    position: 'fixed',
+    left: `${x}px`,
+    top: `${y}px`,
+    width: `${width}px`,
+    height: `${height}px`,
+    boxSizing: 'border-box',
+    border: `${style === 'slot' ? 2 : 1}px ${style === 'slot' ? 'solid' : 'dashed'} ${color}`,
+    background: focused
+      ? `${color}33`
+      : style === 'slot'
+        ? `${color}1f`
+        : 'transparent',
+    borderRadius: '2px',
+    boxShadow: focused ? `0 0 0 3px ${color}59` : 'none',
+    opacity: focusKey === null || focused ? '1' : FADED_OPACITY,
+    transition:
+      'opacity 150ms ease-out, box-shadow 150ms ease-out, background 150ms ease-out',
+  } satisfies Partial<CSSStyleDeclaration>);
+};
+
+/** Styles the label `tag`, above its box or inside it when `inside`. */
+const styleTag = (
+  tag: HTMLElement,
+  color: string,
+  style: 'host' | 'slot' | 'part',
+  inside: boolean
+): void => {
+  Object.assign(tag.style, {
+    position: 'absolute',
+    left: '-1px',
+    [inside ? 'top' : 'bottom']: inside ? '0' : '100%',
+    [inside ? 'bottom' : 'top']: 'auto',
+    height: `${LABEL_HEIGHT}px`,
+    padding: '0 4px',
+    font: '500 11px/16px ui-monospace, SFMono-Regular, Menlo, monospace',
+    whiteSpace: 'nowrap',
+    color: style === 'host' ? color : '#fff',
+    background: style === 'host' ? 'rgba(255, 255, 255, 0.9)' : color,
+    borderRadius: '2px',
+    transform: '',
+  } satisfies Partial<CSSStyleDeclaration>);
+};
+
+/** Shifts `tag` right until its label clears every one in `placed`. */
+const placeTag = (tag: HTMLElement, placed: DOMRect[]): DOMRect => {
+  let shift = 0;
+  let r = tag.getBoundingClientRect();
+  for (let tries = 0; tries < 8; tries++) {
+    const hit = placed.find(
+      (p) =>
+        r.left < p.right &&
+        p.left < r.right &&
+        r.top < p.bottom &&
+        p.top < r.bottom
+    );
+    if (hit === undefined) break;
+    shift += hit.right - r.left + 2;
+    tag.style.transform = `translateX(${shift}px)`;
+    r = tag.getBoundingClientRect();
+  }
+  return r;
+};
 
 /** Reuses the layer's children in order, adding one when it runs out. */
 const drawer = (root: HTMLElement) => {
@@ -115,62 +197,14 @@ const drawer = (root: HTMLElement) => {
       root.append(el);
     }
     i++;
-    const {x, y, width, height} = toRect(box);
+    const rect = toRect(box);
     const focused = key === focusKey;
-    Object.assign(el.style, {
-      display: 'block',
-      position: 'fixed',
-      left: `${x}px`,
-      top: `${y}px`,
-      width: `${width}px`,
-      height: `${height}px`,
-      boxSizing: 'border-box',
-      border: `${style === 'slot' ? 2 : 1}px ${style === 'slot' ? 'solid' : 'dashed'} ${color}`,
-      background: focused
-        ? `${color}33`
-        : style === 'slot'
-          ? `${color}1f`
-          : 'transparent',
-      borderRadius: '2px',
-      boxShadow: focused ? `0 0 0 3px ${color}59` : 'none',
-      opacity: focusKey === null || focused ? '1' : FADED_OPACITY,
-      transition:
-        'opacity 150ms ease-out, box-shadow 150ms ease-out, background 150ms ease-out',
-    } satisfies Partial<CSSStyleDeclaration>);
+    styleBox(el, rect, color, style, focused);
     const tag = el.firstElementChild as HTMLElement;
     tag.textContent = label;
     // Above the box, or inside it when the box touches the viewport's top.
-    const inside = y < LABEL_HEIGHT;
-    Object.assign(tag.style, {
-      position: 'absolute',
-      left: '-1px',
-      [inside ? 'top' : 'bottom']: inside ? '0' : '100%',
-      [inside ? 'bottom' : 'top']: 'auto',
-      height: `${LABEL_HEIGHT}px`,
-      padding: '0 4px',
-      font: '500 11px/16px ui-monospace, SFMono-Regular, Menlo, monospace',
-      whiteSpace: 'nowrap',
-      color: style === 'host' ? color : '#fff',
-      background: style === 'host' ? 'rgba(255, 255, 255, 0.9)' : color,
-      borderRadius: '2px',
-      transform: '',
-    } satisfies Partial<CSSStyleDeclaration>);
-    let shift = 0;
-    let r = tag.getBoundingClientRect();
-    for (let tries = 0; tries < 8; tries++) {
-      const hit = placed.find(
-        (p) =>
-          r.left < p.right &&
-          p.left < r.right &&
-          r.top < p.bottom &&
-          p.top < r.bottom
-      );
-      if (hit === undefined) break;
-      shift += hit.right - r.left + 2;
-      tag.style.transform = `translateX(${shift}px)`;
-      r = tag.getBoundingClientRect();
-    }
-    placed.push(r);
+    styleTag(tag, color, style, rect.y < LABEL_HEIGHT);
+    placed.push(placeTag(tag, placed));
   };
   const finish = (): void => {
     for (let j = i; j < root.children.length; j++) {
