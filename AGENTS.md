@@ -21,6 +21,7 @@ release. Add a tool name to select part of the graph. For example, run
 
 - [ ] Run `vp install` after pulling remote changes and before getting started.
 - [ ] Run `vp check` and `vp test` to format, lint, type check and test changes.
+- [ ] `pnpm fallow:check` (also run by the pre-commit hook and CI) fails on new dead code, unresolved imports, cycles and complexity. Fix the finding, or say why it stays in `.fallowrc.json`; re-save `fallow-baselines/health.json` with `pnpm fallow health --save-baseline fallow-baselines/health.json` only when you mean to accept new complexity.
 - [ ] Check if there are `vite.config.ts` tasks or `package.json` scripts necessary for validation, run via `vp run <script>`.
 - [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
 

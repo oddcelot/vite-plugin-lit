@@ -1,1 +1,8 @@
 vp staged
+# Dead code, duplication and complexity against fallow-baselines/; under a
+# second, so it runs on the whole tree rather than the staged files. The
+# report only prints when it fails.
+out=$(pnpm run --silent fallow:check 2>&1) || {
+  printf '%s\n' "$out"
+  exit 1
+}

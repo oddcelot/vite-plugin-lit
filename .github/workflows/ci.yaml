@@ -35,6 +35,7 @@ jobs:
       - run: pnpm --filter ./docs run sync
       - run: pnpm --filter ./docs exec astro sync
       - run: pnpm exec vp check
+      - run: pnpm run fallow:check
       - run: pnpm run test:unit
       # Catches a jsr.json that no longer matches the build before a tag does.
       # The dry run resolves imports from node_modules, so an import JSR can't
