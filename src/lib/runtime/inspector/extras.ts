@@ -317,7 +317,6 @@ const classifyContext = (
   };
 };
 
-/** Classify one object the element holds; `undefined` if it is none of ours. */
 /** An extra and a way to read the live value its preview shows. */
 interface ExtraEntry {
   extra: InspectorExtra;
@@ -325,6 +324,7 @@ interface ExtraEntry {
   raw: (() => unknown) | undefined;
 }
 
+/** Classify one object the element holds; `undefined` if it is none of ours. */
 const classify = (
   v: Dict,
   name: string,
@@ -449,41 +449,66 @@ const fieldEntry = (key: string, value: unknown): ExtraEntry => ({
   raw: () => value,
 });
 
+const isFull = (out: ExtraEntry[]): boolean => out.length >= MAX_EXTRAS;
+
+/** Controllers first, in registration order; each is marked listed. */
+const addControllers = (
+  el: Element,
+  names: Map<object, string>,
+  out: ExtraEntry[],
+  listed: Set<object>
+): void => {
+  for (const c of controllersOf(el)) {
+    if (isFull(out)) break;
+    listed.add(c);
+    const entry = classify(c as Dict, names.get(c) ?? ctorName(c), true);
+    if (entry !== undefined) out.push(entry);
+  }
+};
+
+/** Signals and tasks held in own fields. */
+const addHeldExtras = (
+  fields: Array<[string, unknown]>,
+  out: ExtraEntry[],
+  listed: Set<object>
+): void => {
+  for (const [key, value] of fields) {
+    if (isFull(out)) break;
+    if (!isObject(value) || listed.has(value) || value instanceof Node) {
+      continue;
+    }
+    const entry = classify(value, clip(key), false);
+    if (entry === undefined) continue;
+    listed.add(value);
+    out.push(entry);
+  }
+};
+
+/** Whatever own fields are left, as plain rows. */
+const addPlainFields = (
+  fields: Array<[string, unknown]>,
+  declared: Map<PropertyKey, unknown> | undefined,
+  out: ExtraEntry[],
+  listed: Set<object>
+): void => {
+  for (const [key, value] of fields) {
+    if (isFull(out)) break;
+    if (isSkippedField(key, value, declared, listed)) continue;
+    out.push(fieldEntry(key, value));
+  }
+};
+
 const collectEntries = (el: Element): ExtraEntry[] => {
   try {
     const declared = (
       el.constructor as {elementProperties?: Map<PropertyKey, unknown>}
     ).elementProperties;
     const fields = ownFields(el as unknown as Dict);
-    const names = fieldNames(fields);
-
     const out: ExtraEntry[] = [];
     const listed = new Set<object>();
-    const full = () => out.length >= MAX_EXTRAS;
-
-    for (const c of controllersOf(el)) {
-      if (full()) break;
-      listed.add(c);
-      const entry = classify(c as Dict, names.get(c) ?? ctorName(c), true);
-      if (entry !== undefined) out.push(entry);
-    }
-
-    for (const [key, value] of fields) {
-      if (full()) break;
-      if (!isObject(value) || listed.has(value) || value instanceof Node) {
-        continue;
-      }
-      const entry = classify(value, clip(key), false);
-      if (entry === undefined) continue;
-      listed.add(value);
-      out.push(entry);
-    }
-
-    for (const [key, value] of fields) {
-      if (full()) break;
-      if (isSkippedField(key, value, declared, listed)) continue;
-      out.push(fieldEntry(key, value));
-    }
+    addControllers(el, fieldNames(fields), out, listed);
+    addHeldExtras(fields, out, listed);
+    addPlainFields(fields, declared, out, listed);
     return out;
   } catch {
     return [];
