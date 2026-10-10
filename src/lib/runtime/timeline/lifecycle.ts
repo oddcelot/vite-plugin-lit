@@ -35,7 +35,7 @@ import {
   nextCauseSeq,
   setUpdateCauseSource,
 } from './cause-context.js';
-import {erroredTasks, tasksOf} from '../inspector/extras.js';
+import {erroredTasks, tasksOf} from '../lit-tasks.js';
 import type {TimelineCause, TimelineEvent} from '../../../types/timeline.js';
 
 export type LifecycleEmit = (event: TimelineEvent) => void;

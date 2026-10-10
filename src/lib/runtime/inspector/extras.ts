@@ -11,6 +11,16 @@ import {isExpandable} from './inspect-value.js';
 import {serialize, typeTag} from './serialize.js';
 import {idOf} from '../timeline/identity.js';
 import {isListed} from './listed.js';
+import {
+  clip,
+  controllersOf,
+  ctorName,
+  dataProp,
+  hasFn,
+  isObject,
+  type Dict,
+} from '../live-reads.js';
+import {TASK_ERROR, taskStatus, taskStatusName} from '../lit-tasks.js';
 import type {
   AnatomyElementRef,
   InspectorContext,
@@ -19,14 +29,10 @@ import type {
 
 /** Most extras reported for one element; keeps a field-heavy class cheap. */
 const MAX_EXTRAS = 24;
-const MAX_NAME = 80;
 /** Consumers listed on a provider; the rest are counted. */
 const MAX_CONSUMERS = 12;
 /** Ancestors walked looking for a consumer's provider. */
 const MAX_DEPTH = 256;
-
-const TASK_STATUS = ['initial', 'pending', 'complete', 'error'];
-const TASK_ERROR = TASK_STATUS.indexOf('error');
 
 /**
  * Own fields that belong to Lit or the DOM rather than to the component. The
@@ -42,69 +48,6 @@ const LIT_FIELDS = new Set([
   'updateComplete',
 ]);
 
-type Dict = Record<string, unknown>;
-
-const isObject = (v: unknown): v is Dict => typeof v === 'object' && v !== null;
-
-const clip = (s: string): string =>
-  s.length > MAX_NAME ? s.slice(0, MAX_NAME) + '…' : s;
-
-const ctorName = (v: object): string => {
-  try {
-    const name = (v as {constructor?: {name?: unknown}}).constructor?.name;
-    return typeof name === 'string' && name !== '' ? clip(name) : 'object';
-  } catch {
-    return 'object';
-  }
-};
-
-/**
- * `obj[key]` only when it is a data property on `obj` or its prototype chain.
- * A getter on an object we do not recognise may compute or have side effects,
- * so it is treated as absent.
- */
-const dataProp = (obj: object, key: string): {value: unknown} | undefined => {
-  try {
-    let o: object | null = obj;
-    for (let i = 0; o !== null && o !== Object.prototype && i < 16; i++) {
-      const desc = Object.getOwnPropertyDescriptor(o, key);
-      if (desc !== undefined) {
-        return 'value' in desc ? {value: desc.value} : undefined;
-      }
-      o = Object.getPrototypeOf(o) as object | null;
-    }
-  } catch {
-    // A hostile proxy; treat as absent.
-  }
-  return undefined;
-};
-
-const hasFn = (v: Dict, key: string): boolean => {
-  try {
-    return typeof v[key] === 'function';
-  } catch {
-    return false;
-  }
-};
-
-/**
- * Lit keeps its controllers in a private `Set`: `__controllers` in the
- * development build, `_$EO` in the minified production build. There is no
- * public accessor, so a build that renames it again yields no controllers.
- */
-const controllersOf = (el: Element): object[] => {
-  const host = el as unknown as Dict;
-  const set =
-    dataProp(host, '__controllers')?.value ?? dataProp(host, '_$EO')?.value;
-  if (!(set instanceof Set)) return [];
-  const out: object[] = [];
-  for (const c of set) {
-    if (isObject(c)) out.push(c);
-    if (out.length >= MAX_EXTRAS) break;
-  }
-  return out;
-};
-
 /**
  * Preview of `read()`'s result and whether it expands, from one read: a
  * signal read inside a computed subscribes it once per read. A throwing
@@ -119,68 +62,6 @@ const sample = (read: () => unknown): {value: string; expandable?: true} => {
   } catch {
     return {value: '[getter threw]'};
   }
-};
-
-/** `@lit/task` duck type: a controller with a numeric status, run() and render(). */
-const taskStatus = (v: Dict): number | undefined => {
-  if (!hasFn(v, 'run') || !hasFn(v, 'render')) return undefined;
-  try {
-    const status = v['status'];
-    return typeof status === 'number' ? status : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
-/**
- * Every `@lit/task` controller the element holds, with the field it is stored
- * in (else its class name). Read-only and never throws, so the lifecycle layer
- * can call it on recorded updates.
- */
-export const tasksOf = (el: Element): Array<{task: object; name: string}> => {
-  const out: Array<{task: object; name: string}> = [];
-  try {
-    const controllers = controllersOf(el);
-    if (controllers.length === 0) return out;
-    const host = el as unknown as Dict;
-    for (const c of controllers) {
-      if (taskStatus(c as Dict) === undefined) continue;
-      let name: string | undefined;
-      for (const key of Object.keys(host)) {
-        const desc = Object.getOwnPropertyDescriptor(host, key);
-        if (desc !== undefined && 'value' in desc && desc.value === c) {
-          name = clip(key);
-          break;
-        }
-      }
-      out.push({task: c, name: name ?? ctorName(c)});
-    }
-  } catch {
-    // dev tool — an unreadable element reports no tasks
-  }
-  return out;
-};
-
-/**
- * Every `@lit/task` controller the element holds that is currently in its
- * error state, named as by {@link tasksOf}. Read-only and never throws, so the
- * lifecycle layer can call it after each update.
- */
-export const erroredTasks = (
-  el: Element
-): Array<{task: object; name: string; error: unknown}> => {
-  const out: Array<{task: object; name: string; error: unknown}> = [];
-  for (const {task, name} of tasksOf(el)) {
-    if (taskStatus(task as Dict) !== TASK_ERROR) continue;
-    let error: unknown;
-    try {
-      error = (task as Dict)['error'];
-    } catch {
-      error = undefined;
-    }
-    out.push({task, name, error});
-  }
-  return out;
 };
 
 const refOf = (el: Element): AnatomyElementRef => ({
@@ -340,7 +221,7 @@ const classify = (
         name,
         ...sample(raw),
         type: 'Task',
-        status: TASK_STATUS[status] ?? String(status),
+        status: taskStatusName(status),
       },
       raw,
     };
