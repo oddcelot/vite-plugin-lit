@@ -20,41 +20,162 @@ export const lineNumberAt = (code: string, index: number): number =>
   code.slice(0, index).split('\n').length;
 
 /**
+ * Index just past the string literal whose opening quote is at `i`, honouring
+ * backslash escapes. An unterminated literal runs past the end of `code`.
+ */
+const skipQuoted = (code: string, i: number): number => {
+  const quote = code[i];
+  i++;
+  while (i < code.length && code[i] !== quote) {
+    if (code[i] === '\\') i++;
+    i++;
+  }
+  return i + 1;
+};
+
+/**
+ * Index just past the comment starting at `i`; `i` itself when none starts
+ * there, `-1` when it never ends.
+ */
+const skipComment = (code: string, i: number): number => {
+  if (code[i] !== '/') return i;
+  const kind = code[i + 1];
+  if (kind !== '/' && kind !== '*') return i;
+  const end = code.indexOf(kind === '/' ? '\n' : '*/', i + 2);
+  if (end === -1) return -1;
+  // A line comment stops at the newline; the newline itself is plain code.
+  return kind === '/' ? end : end + 2;
+};
+
+/**
+ * True when a `/` at `i` can start a regex literal rather than divide: scan
+ * back over whitespace to the last significant char — a regex can only follow
+ * an operator, opening punctuation, or a keyword like `return`. `a / b` has an
+ * identifier there, so it's division and scans on as plain code.
+ */
+const regexAllowedAt = (code: string, i: number): boolean => {
+  let j = i - 1;
+  while (j >= 0 && /\s/.test(code[j])) j--;
+  if (j < 0) return true;
+  return (
+    /[=:(,+\-!&|?{}[;]/.test(code[j]) ||
+    /(?:^|[^\w$])(?:return|typeof|case|instanceof|in|of|new|delete|void|throw|do|else|yield|await)$/.test(
+      code.slice(Math.max(0, j - 11), j + 1)
+    )
+  );
+};
+
+/**
+ * Index of the `/` closing a regex whose body starts at `k`, or where the
+ * scan gave up (end of line or input). A `/` inside a `[…]` char class doesn't
+ * close it.
+ */
+const findRegexEnd = (code: string, k: number): number => {
+  let inCharClass = false;
+  while (
+    k < code.length &&
+    code[k] !== '\n' &&
+    (inCharClass || code[k] !== '/')
+  ) {
+    if (code[k] === '\\') k++;
+    else if (code[k] === '[') inCharClass = true;
+    else if (code[k] === ']') inCharClass = false;
+    k++;
+  }
+  return k;
+};
+
+/**
+ * Index just past the regex literal starting at `i`; `i` itself when what
+ * starts there is division, or a `/` with no closing `/` before the line ends
+ * — not a regex after all.
+ */
+const skipRegex = (code: string, i: number): number => {
+  if (code[i] !== '/' || !regexAllowedAt(code, i)) return i;
+  const k = findRegexEnd(code, i + 1);
+  return code[k] === '/' ? k + 1 : i;
+};
+
+/**
+ * Brace depth of the code scope currently being scanned. Entering a `${…}`
+ * interpolation pushes the enclosing scope's depth onto `enclosing` and
+ * restarts at 1 (the `${` counts as the open brace); balancing it pops back
+ * into the template.
+ */
+interface BraceScope {
+  depth: number;
+  enclosing: number[];
+}
+
+/**
+ * Scans template text from `i`, just inside the template. Returns the index
+ * after the closing backtick, or after a `${` — which opens a nested scope in
+ * `scope` that the caller scans as code.
+ */
+const scanTemplate = (code: string, i: number, scope: BraceScope): number => {
+  while (i < code.length) {
+    const ch = code[i];
+    if (ch === '\\') {
+      i += 2;
+    } else if (ch === '`') {
+      return i + 1;
+    } else if (ch === '$' && code[i + 1] === '{') {
+      scope.enclosing.push(scope.depth);
+      scope.depth = 1;
+      return i + 2;
+    } else {
+      i++;
+    }
+  }
+  return i;
+};
+
+/**
+ * Index just past the string, template, comment or regex literal starting at
+ * `i`; `i` itself when plain code starts there, `-1` when a comment never ends.
+ */
+const skipToken = (code: string, i: number, scope: BraceScope): number => {
+  if (code[i] === '"' || code[i] === "'") return skipQuoted(code, i);
+  if (code[i] === '`') return scanTemplate(code, i + 1, scope);
+  const afterComment = skipComment(code, i);
+  return afterComment !== i ? afterComment : skipRegex(code, i);
+};
+
+/** Change in nesting depth from the heading char at `i` of a class. */
+const headingDepthDelta = (code: string, i: number): number => {
+  const ch = code[i];
+  if ('{([<'.includes(ch)) return 1;
+  if ('})]'.includes(ch)) return -1;
+  // The `>` of an arrow type (`() => void`) doesn't close a `<`.
+  return ch === '>' && code[i - 1] !== '=' ? -1 : 0;
+};
+
+/**
  * Finds the `{` that opens the body of the class starting at `classStart`:
  * the first one at the top level of the heading. The heading can hold braces
  * of its own — type literals in generic arguments
  * (`extends Dialog<{open: boolean}>`), options passed to a mixin
  * (`extends Mixin(Base, {shadow: true})`) — so anything nested in `<…>`,
- * `(…)` or `[…]` is skipped, along with strings and comments. The `>` of an
- * arrow type (`() => void`) doesn't close a `<`.
+ * `(…)` or `[…]` is skipped, along with strings and comments.
  */
 const findClassBodyOpen = (code: string, classStart: number): number => {
   let depth = 0;
-  for (let i = classStart + 'class'.length; i < code.length; i++) {
+  let i = classStart + 'class'.length;
+  while (i < code.length) {
     const ch = code[i];
     if (ch === '"' || ch === "'" || ch === '`') {
-      i++;
-      while (i < code.length && code[i] !== ch) {
-        if (code[i] === '\\') i++;
-        i++;
-      }
-    } else if (ch === '/' && code[i + 1] === '/') {
-      i = code.indexOf('\n', i);
-      if (i === -1) return -1;
-    } else if (ch === '/' && code[i + 1] === '*') {
-      i = code.indexOf('*/', i + 2);
-      if (i === -1) return -1;
-      i++;
-    } else if (ch === '{') {
-      if (depth === 0) return i;
-      depth++;
-    } else if (ch === '(' || ch === '[' || ch === '<') {
-      depth++;
-    } else if (ch === '}' || ch === ')' || ch === ']') {
-      depth--;
-    } else if (ch === '>' && code[i - 1] !== '=') {
-      depth--;
+      i = skipQuoted(code, i);
+      continue;
     }
+    const afterComment = skipComment(code, i);
+    if (afterComment === -1) return -1;
+    if (afterComment !== i) {
+      i = afterComment;
+      continue;
+    }
+    if (ch === '{' && depth === 0) return i;
+    depth += headingDepthDelta(code, i);
+    i++;
   }
   return -1;
 };
@@ -68,108 +189,24 @@ const findClassBodyOpen = (code: string, classStart: number): number => {
 const findClassBodyEnd = (code: string, classStart: number): number => {
   const open = findClassBodyOpen(code, classStart);
   if (open === -1) return -1;
-  // Brace depth of the code scope currently being scanned. Entering a `${…}`
-  // interpolation pushes the enclosing scope's depth and restarts at 1 (the
-  // `${` counts as the open brace); balancing it pops back into the template.
-  let depth = 1;
-  const interpolationStack: number[] = [];
-  let inTemplate = false;
+  const scope: BraceScope = {depth: 1, enclosing: []};
   let i = open + 1;
   while (i < code.length) {
     const ch = code[i];
-    if (inTemplate) {
-      if (ch === '\\') {
-        i += 2;
-        continue;
-      }
-      if (ch === '`') {
-        inTemplate = false;
-        i++;
-        continue;
-      }
-      if (ch === '$' && code[i + 1] === '{') {
-        interpolationStack.push(depth);
-        depth = 1;
-        inTemplate = false;
-        i += 2;
-        continue;
-      }
-      i++;
+    const afterToken = skipToken(code, i, scope);
+    if (afterToken === -1) return -1;
+    if (afterToken !== i) {
+      i = afterToken;
       continue;
-    }
-    if (ch === '"' || ch === "'") {
-      const quote = ch;
-      i++;
-      while (i < code.length && code[i] !== quote) {
-        if (code[i] === '\\') i++;
-        i++;
-      }
-      i++;
-      continue;
-    }
-    if (ch === '`') {
-      inTemplate = true;
-      i++;
-      continue;
-    }
-    if (ch === '/') {
-      const next = code[i + 1];
-      if (next === '/') {
-        i = code.indexOf('\n', i);
-        if (i === -1) return -1;
-        continue;
-      }
-      if (next === '*') {
-        i = code.indexOf('*/', i + 2);
-        if (i === -1) return -1;
-        i += 2;
-        continue;
-      }
-      // Regex literal vs division: scan back over whitespace to the last
-      // significant char — a regex can only follow an operator, opening
-      // punctuation, or a keyword like `return`. `a / b` has an identifier
-      // there, so it's division and scans on as plain code.
-      let j = i - 1;
-      while (j >= 0 && /\s/.test(code[j])) j--;
-      const prev = j >= 0 ? code[j] : '';
-      const regexPossible =
-        j < 0 ||
-        /[=:(,+\-!&|?{}[;]/.test(prev) ||
-        /(?:^|[^\w$])(?:return|typeof|case|instanceof|in|of|new|delete|void|throw|do|else|yield|await)$/.test(
-          code.slice(Math.max(0, j - 11), j + 1)
-        );
-      if (regexPossible) {
-        let k = i + 1;
-        let inCharClass = false;
-        while (
-          k < code.length &&
-          code[k] !== '\n' &&
-          (inCharClass || code[k] !== '/')
-        ) {
-          if (code[k] === '\\') k++;
-          else if (code[k] === '[') inCharClass = true;
-          else if (code[k] === ']') inCharClass = false;
-          k++;
-        }
-        if (code[k] === '/') {
-          i = k + 1;
-          continue;
-        }
-        // No closing `/` before the line ends — not a regex after all.
-      }
     }
     if (ch === '{') {
-      depth++;
-    } else if (ch === '}') {
-      depth--;
-      if (depth === 0) {
-        const enclosing = interpolationStack.pop();
-        if (enclosing === undefined) {
-          return i + 1;
-        }
-        depth = enclosing;
-        inTemplate = true;
-      }
+      scope.depth++;
+    } else if (ch === '}' && --scope.depth === 0) {
+      if (scope.enclosing.length === 0) return i + 1;
+      // The interpolation is balanced: back into the template text.
+      scope.depth = scope.enclosing.pop() ?? 0;
+      i = scanTemplate(code, i + 1, scope);
+      continue;
     }
     i++;
   }
