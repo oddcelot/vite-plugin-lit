@@ -3,11 +3,13 @@ import {afterEach, describe, expect, test} from 'vite-plus/test';
 import {
   buildTree,
   collectDetails,
+  listedIdOf,
+} from '../../lib/runtime/inspector/collect.js';
+import {
   isForeignElement,
   isInspectable,
   isUndefinedElement,
-  listedIdOf,
-} from '../../lib/runtime/inspector/collect.js';
+} from '../../lib/runtime/inspector/listed.js';
 import {
   defineIdOf,
   rememberDefineFrames,
