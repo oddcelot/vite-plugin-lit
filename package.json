@@ -62,6 +62,7 @@
     "test:e2e": "pnpm run build && pnpm run build:extension && vp test run --project e2e",
     "changelog": "git-cliff --unreleased",
     "fallow": "fallow",
+    "fallow:check": "fallow --health-baseline fallow-baselines/health.json",
     "bench": "node bench/run.mjs",
     "bench:serve": "node bench/run.mjs --serve",
     "docs:dev": "pnpm --filter ./docs dev",
