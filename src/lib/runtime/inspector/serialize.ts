@@ -49,11 +49,8 @@ const previewNode = (node: Node): string => {
   return `#${node.nodeName.toLowerCase()}`;
 };
 
-const serializeAt = (
-  value: unknown,
-  depth: number,
-  seen: WeakSet<object>
-): string => {
+/** Primitives and functions; `undefined` for anything object-like. */
+const serializeScalar = (value: unknown): string | undefined => {
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
 
@@ -69,78 +66,140 @@ const serializeAt = (
     const name = (value as {name?: string}).name;
     return name ? `ƒ ${name}()` : 'ƒ ()';
   }
+  return undefined;
+};
 
-  const obj = value as object;
-  if (seen.has(obj)) return '[Circular]';
-
-  if (value instanceof Node) return previewNode(value);
-  if (value instanceof Date) return value.toISOString();
+/**
+ * Objects with a fixed one-line form that never recurse (DOM nodes, dates,
+ * Temporal values, regular expressions); `undefined` for any other object.
+ */
+const serializeAtom = (obj: object): string | undefined => {
+  if (obj instanceof Node) return previewNode(obj);
+  if (obj instanceof Date) return obj.toISOString();
   // Temporal objects have no own enumerable fields, so the generic object
   // branch would show `{}`. Their `toString()` is the ISO form.
   const temporal = temporalTag(obj);
   if (temporal !== undefined) {
     return `${temporal}(${(obj as {toString(): string}).toString()})`;
   }
-  if (value instanceof RegExp) return String(value);
-  if (depth >= MAX_DEPTH) {
-    return Array.isArray(value) ? `Array(${value.length})` : typeTag(value);
-  }
+  if (obj instanceof RegExp) return String(obj);
+  return undefined;
+};
 
-  // Typed arrays are indexable but not `Array.isArray`; routing them through
-  // the generic object branch would make `Object.keys` materialize every index
-  // (e.g. a million-element Uint8Array) before slicing. Handle them as arrays.
-  if (ArrayBuffer.isView(value) && !(value instanceof DataView)) {
-    const arr = value as unknown as {length: number; [i: number]: number};
-    const shown = Math.min(arr.length, MAX_ITEMS);
-    const items: string[] = [];
-    for (let i = 0; i < shown; i++) items.push(String(arr[i]));
-    if (arr.length > MAX_ITEMS) items.push(`…+${arr.length - MAX_ITEMS}`);
-    return `${obj.constructor?.name ?? 'TypedArray'}(${arr.length}) [${items.join(', ')}]`;
+/** Whether `value` is an indexable typed array (a `DataView` is not). */
+const isTypedArray = (value: object): boolean =>
+  ArrayBuffer.isView(value) && !(value instanceof DataView);
+
+// Typed arrays are indexable but not `Array.isArray`; routing them through
+// the generic object branch would make `Object.keys` materialize every index
+// (e.g. a million-element Uint8Array) before slicing. Handle them as arrays.
+const serializeTypedArray = (obj: object): string => {
+  const arr = obj as unknown as {length: number; [i: number]: number};
+  const shown = Math.min(arr.length, MAX_ITEMS);
+  const items: string[] = [];
+  for (let i = 0; i < shown; i++) items.push(String(arr[i]));
+  if (arr.length > MAX_ITEMS) items.push(`…+${arr.length - MAX_ITEMS}`);
+  return `${obj.constructor?.name ?? 'TypedArray'}(${arr.length}) [${items.join(', ')}]`;
+};
+
+// Map and Set list their first entries like an array does, after the size the
+// depth-limited form shows: `Map(2) {"a" => 1, "b" => 2}`.
+const serializeCollection = (
+  collection: Map<unknown, unknown> | Set<unknown>,
+  depth: number,
+  seen: WeakSet<object>
+): string => {
+  const isMap = collection instanceof Map;
+  const items: string[] = [];
+  for (const entry of isMap ? collection : collection.values()) {
+    if (items.length === MAX_ITEMS) break;
+    if (isMap) {
+      const [k, v] = entry as [unknown, unknown];
+      items.push(
+        `${serializeAt(k, depth + 1, seen)} => ${serializeAt(v, depth + 1, seen)}`
+      );
+    } else {
+      items.push(serializeAt(entry, depth + 1, seen));
+    }
   }
+  if (collection.size > MAX_ITEMS) {
+    items.push(`…+${collection.size - MAX_ITEMS}`);
+  }
+  const tag = `${isMap ? 'Map' : 'Set'}(${collection.size})`;
+  return items.length === 0 ? tag : `${tag} {${items.join(', ')}}`;
+};
+
+const serializeArray = (
+  arr: unknown[],
+  depth: number,
+  seen: WeakSet<object>
+): string => {
+  const items = arr
+    .slice(0, MAX_ITEMS)
+    .map((v) => serializeAt(v, depth + 1, seen));
+  if (arr.length > MAX_ITEMS) items.push(`…+${arr.length - MAX_ITEMS}`);
+  return `[${items.join(', ')}]`;
+};
+
+// Read each property individually (keys, not entries) so a single throwing
+// getter degrades to a placeholder instead of aborting the whole preview.
+const serializeObject = (
+  obj: Record<string, unknown>,
+  depth: number,
+  seen: WeakSet<object>
+): string => {
+  const keys = Object.keys(obj);
+  const parts = keys.slice(0, MAX_ITEMS).map((k) => {
+    let v: unknown;
+    try {
+      v = obj[k];
+    } catch {
+      return `${k}: [getter threw]`;
+    }
+    return `${k}: ${serializeAt(v, depth + 1, seen)}`;
+  });
+  if (keys.length > MAX_ITEMS) {
+    parts.push(`…+${keys.length - MAX_ITEMS}`);
+  }
+  const name = obj.constructor?.name;
+  const prefix = name !== undefined && name !== 'Object' ? `${name} ` : '';
+  return `${prefix}{${parts.join(', ')}}`;
+};
+
+/** The recursive kinds: collections, arrays and everything else. */
+const serializeContainer = (
+  obj: object,
+  depth: number,
+  seen: WeakSet<object>
+): string => {
+  if (obj instanceof Map || obj instanceof Set) {
+    return serializeCollection(obj, depth, seen);
+  }
+  if (Array.isArray(obj)) return serializeArray(obj, depth, seen);
+  return serializeObject(obj as Record<string, unknown>, depth, seen);
+};
+
+const serializeAt = (
+  value: unknown,
+  depth: number,
+  seen: WeakSet<object>
+): string => {
+  const scalar = serializeScalar(value);
+  if (scalar !== undefined) return scalar;
+
+  const obj = value as object;
+  if (seen.has(obj)) return '[Circular]';
+
+  const atom = serializeAtom(obj);
+  if (atom !== undefined) return atom;
+  if (depth >= MAX_DEPTH) {
+    return Array.isArray(obj) ? `Array(${obj.length})` : typeTag(obj);
+  }
+  if (isTypedArray(obj)) return serializeTypedArray(obj);
 
   seen.add(obj);
   try {
-    // Map and Set list their first entries like an array does, after the
-    // size the depth-limited form shows: `Map(2) {"a" => 1, "b" => 2}`.
-    if (value instanceof Map || value instanceof Set) {
-      const items: string[] = [];
-      for (const entry of value instanceof Map ? value : value.values()) {
-        if (items.length === MAX_ITEMS) break;
-        items.push(
-          value instanceof Map
-            ? `${serializeAt((entry as [unknown, unknown])[0], depth + 1, seen)} => ${serializeAt((entry as [unknown, unknown])[1], depth + 1, seen)}`
-            : serializeAt(entry, depth + 1, seen)
-        );
-      }
-      if (value.size > MAX_ITEMS) items.push(`…+${value.size - MAX_ITEMS}`);
-      const tag = `${value instanceof Map ? 'Map' : 'Set'}(${value.size})`;
-      return items.length === 0 ? tag : `${tag} {${items.join(', ')}}`;
-    }
-    if (Array.isArray(value)) {
-      const items = value
-        .slice(0, MAX_ITEMS)
-        .map((v) => serializeAt(v, depth + 1, seen));
-      if (value.length > MAX_ITEMS) items.push(`…+${value.length - MAX_ITEMS}`);
-      return `[${items.join(', ')}]`;
-    }
-    // Read each property individually (keys, not entries) so a single throwing
-    // getter degrades to a placeholder instead of aborting the whole preview.
-    const keys = Object.keys(value as Record<string, unknown>);
-    const parts = keys.slice(0, MAX_ITEMS).map((k) => {
-      let v: unknown;
-      try {
-        v = (value as Record<string, unknown>)[k];
-      } catch {
-        return `${k}: [getter threw]`;
-      }
-      return `${k}: ${serializeAt(v, depth + 1, seen)}`;
-    });
-    if (keys.length > MAX_ITEMS) {
-      parts.push(`…+${keys.length - MAX_ITEMS}`);
-    }
-    const name = obj.constructor?.name;
-    const prefix = name !== undefined && name !== 'Object' ? `${name} ` : '';
-    return `${prefix}{${parts.join(', ')}}`;
+    return serializeContainer(obj, depth, seen);
   } finally {
     seen.delete(obj);
   }
