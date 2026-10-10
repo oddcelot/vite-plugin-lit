@@ -30,8 +30,10 @@ import {
   type HmrIncompatibilityEvent,
 } from '../types/hmr-incompatibility.js';
 import type {HmrPatchEvent} from '../types/hmr-patch.js';
+import type {ComponentDocs, DocEntry} from '../types/component-docs.js';
 import {describeError, getMeta, litRpc} from './client.js';
 import {ComponentsSession} from './components-session.js';
+import {ComponentDocsSource} from './component-docs.js';
 import {LocationController} from './location-controller.js';
 import {PanelLocation} from './panel-location.js';
 import {openInEditor} from './open-in-editor.js';
@@ -258,6 +260,52 @@ const propOptionBadges = (p: InspectorProp): TemplateResult[] => {
       : []),
     ...(p.options ?? []).map((o) => badge(o, PROP_OPTION_TIPS[o])),
   ];
+};
+
+/** The manifest's summary and description as one block, if it has either. */
+const aboutText = (docs: ComponentDocs): string | undefined => {
+  const text = [docs.summary, docs.description]
+    .filter((t) => t !== undefined && t !== '')
+    .join('\n\n');
+  return text === '' ? undefined : text;
+};
+
+/** The selected element's manifest docs, as the details pane shows them. */
+interface DocsView {
+  docs: ComponentDocs | null;
+  about?: string;
+  /** The about text matches the row filter (or there is none). */
+  aboutShown: boolean;
+  /** Filtered by the row filter. */
+  events: DocEntry[];
+  cssProperties: DocEntry[];
+  /** Unfiltered: these only lend descriptions to the live rows. */
+  properties: readonly DocEntry[];
+  attributes: readonly DocEntry[];
+  anyMatch: boolean;
+}
+
+const NO_DOCS: DocsView = {
+  docs: null,
+  aboutShown: false,
+  events: [],
+  cssProperties: [],
+  properties: [],
+  attributes: [],
+  anyMatch: false,
+};
+
+/** The manifest marks the component deprecated, with its reason if given. */
+const deprecatedChip = (
+  docs: ComponentDocs | null
+): TemplateResult | typeof nothing => {
+  const deprecated = docs?.deprecated;
+  if (deprecated === undefined || deprecated === false) return nothing;
+  return html`<span
+    class="status warned"
+    data-tip=${typeof deprecated === 'string' ? deprecated : 'Marked deprecated in its manifest'}
+    >deprecated</span
+  >`;
 };
 
 const typeLabel = (
@@ -521,6 +569,23 @@ export class ComponentsView extends LitElement {
         margin: var(--lit-devtools-space-3) 0;
         color: var(--lit-devtools-text-muted);
         font-size: var(--lit-devtools-text-xs);
+      }
+      .about {
+        margin: var(--lit-devtools-space-2) 0;
+        white-space: pre-line;
+      }
+      .about-origin {
+        margin: 0 0 var(--lit-devtools-space-2);
+        color: var(--lit-devtools-text-muted);
+        font-size: var(--lit-devtools-text-xs);
+      }
+      .described {
+        text-decoration: underline dotted;
+        text-underline-offset: 2px;
+      }
+      .val.doc {
+        color: var(--lit-devtools-text-muted);
+        white-space: pre-line;
       }
       .warning {
         grid-column: 1 / -1;
@@ -923,6 +988,9 @@ export class ComponentsView extends LitElement {
   /** Whether a source location opens in the editor, as `get-meta` reports
    *  it; otherwise the location is shown as plain text. */
   @state() private _canOpen = false;
+  /** The host reads Custom Elements Manifests (`component-docs`). */
+  @state() private _canReadDocs = false;
+  private readonly _docs = new ComponentDocsSource(() => this.requestUpdate());
   /** A frozen snapshot: no page to reveal elements in or explain. */
   @state() private _snapshot = false;
   /** Mirror of the `flashUpdates` override; the Settings tab shows it too. */
@@ -1133,6 +1201,7 @@ export class ComponentsView extends LitElement {
       void hostInfo().then((host) => {
         this._canPick = host.picker;
         this._canOpen = host.openInEditor;
+        this._canReadDocs = host.componentDocs;
         this._snapshot = host.snapshot;
       });
       void getMeta().then(
@@ -1528,14 +1597,130 @@ export class ComponentsView extends LitElement {
     </div>`;
   }
 
+  /**
+   * A row name, with its manifest description as the tooltip when the
+   * manifest documents a member of that name.
+   */
+  private _describedName(
+    name: string,
+    documented: readonly DocEntry[]
+  ): TemplateResult {
+    const tip = documented.find((e) => e.name === name)?.description;
+    return html`<span
+      class=${tip === undefined ? '' : 'described'}
+      data-tip=${tip ?? nothing}
+      >${this._mark(name)}</span
+    >`;
+  }
+
+  /**
+   * The manifest's docs for the selected element, narrowed by the row
+   * filter. Empty when the host can't read manifests or none describes it.
+   */
+  private _docsView(d: InspectorDetails): DocsView {
+    const docs =
+      this._canReadDocs && d.notDefined !== true
+        ? this._docs.for(d.tagName)
+        : null;
+    if (docs === null) return NO_DOCS;
+    const byDoc = (e: DocEntry) =>
+      this._matches(e.name, e.description ?? '', e.type ?? '');
+    const events = docs.events.filter(byDoc);
+    const cssProperties = docs.cssProperties.filter(byDoc);
+    const about = aboutText(docs);
+    const aboutShown = about !== undefined && this._matches(about);
+    return {
+      docs,
+      about,
+      aboutShown,
+      events,
+      cssProperties,
+      properties: docs.properties,
+      attributes: docs.attributes,
+      anyMatch: aboutShown || events.length + cssProperties.length > 0,
+    };
+  }
+
+  /** Events and CSS properties: members only the manifest knows about. */
+  private _renderDocSections(view: DocsView): TemplateResult {
+    return html`${this._renderSection(
+      'Events',
+      view.events.length,
+      view.docs?.events.length ?? 0,
+      this._renderDocTable(view.events, 'event')
+    )}${this._renderSection(
+      'CSS properties',
+      view.cssProperties.length,
+      view.docs?.cssProperties.length ?? 0,
+      this._renderDocTable(view.cssProperties, 'cssprop')
+    )}`;
+  }
+
+  /** The manifest's summary and description, and where they came from. */
+  private _renderAbout(view: DocsView): TemplateResult | typeof nothing {
+    const {docs, about} = view;
+    if (docs === null || about === undefined) return nothing;
+    const {origin} = docs;
+    return this._renderSection(
+      'About',
+      view.aboutShown ? 1 : 0,
+      1,
+      html`<p class="about">${this._mark(about)}</p>
+        <p class="about-origin">
+          From
+          ${origin.package === undefined ? "the project's" : html`<code>${origin.package}</code>`}
+          <code>${origin.manifest}</code>
+        </p>`
+    );
+  }
+
+  /**
+   * Members only the manifest knows about: events the class fires, CSS
+   * custom properties it reads. The name carries the declared type; the
+   * value column holds the description and any default.
+   */
+  private _renderDocTable(entries: DocEntry[], kind: string): TemplateResult {
+    return html`<div class="kv">
+      ${entries.map(
+        (e) =>
+          html`<div class="entry wide" data-key=${`${kind}:${e.name}`}>
+            <span class="name"
+              >${this._mark(e.name)}${
+                e.type === undefined
+                  ? nothing
+                  : html`<span class="type">${e.type}</span>`
+              }${
+                e.inheritedFrom === undefined
+                  ? nothing
+                  : html`<span class="type" data-tip="Inherited"
+                      >${e.inheritedFrom}</span
+                    >`
+              }</span
+            >
+            <span class="val doc"
+              >${e.description === undefined ? nothing : this._mark(e.description)}${
+                e.default === undefined
+                  ? nothing
+                  : html` <code class="default">${e.default}</code>`
+              }</span
+            >
+          </div>`
+      )}
+    </div>`;
+  }
+
   private _renderPropTable(
-    props: InspectorDetails['properties']
+    props: InspectorDetails['properties'],
+    documented: readonly DocEntry[]
   ): TemplateResult {
     return html`
       <div class="kv">
         ${props.map((p) =>
           this._renderEntry(
-            html`${this._mark(p.name)}${typeLabel(p.type, p.value)}`,
+            html`${this._describedName(p.name, documented)}${typeLabel(
+              p.type,
+              p.value
+            )}`,
             p.value,
             {
               trailing: html`${
@@ -2021,6 +2206,7 @@ export class ComponentsView extends LitElement {
     const extras = allExtras.filter((e) => byRow(e.name, e.value));
     const allWarnings = d.warnings ?? [];
     const warnings = allWarnings.filter((w) => byRow(w.code, w.message));
+    const docs = this._docsView(d);
     const anatomyHit =
       d.anatomy !== undefined &&
       Object.values(
@@ -2032,7 +2218,9 @@ export class ComponentsView extends LitElement {
         attributes.length +
         extras.length +
         warnings.length >
-        0 || anatomyHit;
+        0 ||
+      anatomyHit ||
+      docs.anyMatch;
     const rootLabel = describeRoot(d);
     const revealer = elementRevealer();
     return html`
@@ -2069,7 +2257,7 @@ export class ComponentsView extends LitElement {
               >`
             : nothing
         }
-        ${d.notLit === true ? notLitChip : nothing}
+        ${d.notLit === true ? notLitChip : nothing} ${deprecatedChip(docs.docs)}
         ${
           d.flags.hasUpdated || d.notDefined === true || d.notLit === true
             ? nothing
@@ -2179,6 +2367,7 @@ export class ComponentsView extends LitElement {
         <wa-icon slot="start" name="magnifying-glass"></wa-icon>
         <wa-icon slot="clear-icon" name="x"></wa-icon>
       </wa-input>
+      ${this._renderAbout(docs)}
       ${this._renderSection(
         'Warnings',
         warnings.length,
@@ -2208,13 +2397,13 @@ export class ComponentsView extends LitElement {
         'Properties',
         props.length,
         allProps.length,
-        this._renderPropTable(props)
+        this._renderPropTable(props, docs.properties)
       )}
       ${this._renderSection(
         'State',
         stateProps.length,
         allState.length,
-        this._renderPropTable(stateProps)
+        this._renderPropTable(stateProps, docs.properties)
       )}
       ${this._renderSection(
         'Attributes',
@@ -2224,16 +2413,21 @@ export class ComponentsView extends LitElement {
           <div class="kv">
             ${attributes.map((a) =>
               // Quoted, so it colours as the string it is.
-              this._renderEntry(this._mark(a.name), JSON.stringify(a.value), {
-                code: true,
-                key: attrKey(a.name),
-                // The attribute's own text, without the quotes shown.
-                copy: a.value,
-              })
+              this._renderEntry(
+                this._describedName(a.name, docs.attributes),
+                JSON.stringify(a.value),
+                {
+                  code: true,
+                  key: attrKey(a.name),
+                  // The attribute's own text, without the quotes shown.
+                  copy: a.value,
+                }
+              )
             )}
           </div>
         `
       )}
+      ${this._renderDocSections(docs)}
       ${this._renderSection(
         'Instance',
         extras.length,

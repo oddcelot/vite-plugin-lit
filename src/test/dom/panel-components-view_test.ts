@@ -1576,3 +1576,97 @@ test('explains a non-Lit element in the details pane', async () => {
   );
   expect(sections(root)).toEqual(['Attributes 1 open']);
 });
+
+const buttonDocs = {
+  tagName: 'x-button',
+  className: 'XButton',
+  summary: 'A button.',
+  description: 'Fires x-press when pressed.',
+  properties: [{name: 'label', description: 'The visible text'}],
+  attributes: [],
+  events: [{name: 'x-press', type: 'CustomEvent', description: 'On press'}],
+  slots: [],
+  cssParts: [],
+  cssProperties: [
+    {name: '--x-button-gap', description: 'Icon spacing', default: '4px'},
+  ],
+  cssStates: [],
+  origin: {package: '@x/ui', manifest: 'custom-elements.json', module: 'x.js'},
+};
+
+const pickButton = async (el: ComponentsView) => {
+  push('inspector-message', {type: 'pick', id: 2});
+  push('inspector-message', {
+    type: 'details',
+    details: {
+      ...detailsFor(),
+      properties: [
+        {
+          name: 'label',
+          value: '"Save"',
+          type: 'string',
+          attribute: 'label',
+          reflects: false,
+          state: false,
+        },
+      ],
+    },
+  });
+  await flush(el);
+};
+
+test("shows the manifest's docs for the selected tag", async () => {
+  answers.set('component-docs', () => ({docs: buttonDocs}));
+  const {el, root} = await mount(true);
+  await pickButton(el);
+  const details = root.querySelector('.details')!;
+  expect(
+    [...details.querySelectorAll('.label')].map((l) => l.textContent)
+  ).toEqual(['About', 'Properties', 'Events', 'CSS properties']);
+  expect(details.querySelector('.about')!.textContent).toBe(
+    'A button.\n\nFires x-press when pressed.'
+  );
+  expect(details.querySelector('.about-origin')!.textContent).toContain(
+    '@x/ui'
+  );
+  // A documented property carries its description as the tooltip.
+  expect(details.querySelector('.described')!.getAttribute('data-tip')).toBe(
+    'The visible text'
+  );
+  const docRow = (key: string) =>
+    details
+      .querySelector(`[data-key="${key}"]`)!
+      .textContent!.replace(/\s+/g, ' ')
+      .trim();
+  expect(docRow('event:x-press')).toBe('x-pressCustomEvent On press');
+  expect(docRow('cssprop:--x-button-gap')).toBe(
+    '--x-button-gap Icon spacing 4px'
+  );
+  expect(
+    calls.filter((c) => c.name === 'component-docs').map((c) => c.args[0])
+  ).toEqual([{tagName: 'x-button'}]);
+});
+
+test('asks for no docs where the host cannot read manifests', async () => {
+  meta.capabilities.componentDocs = false;
+  answers.set('component-docs', () => ({docs: buttonDocs}));
+  const {el, root} = await mount(true);
+  await pickButton(el);
+  expect(calls.some((c) => c.name === 'component-docs')).toBe(false);
+  expect(root.querySelector('.details .about')).toBeNull();
+});
+
+test('the row filter reaches the docs', async () => {
+  answers.set('component-docs', () => ({docs: buttonDocs}));
+  const {el, root} = await mount(true);
+  await pickButton(el);
+  const filter = root.querySelector<HTMLInputElement & {value: string}>(
+    '.details wa-input.filter'
+  )!;
+  filter.value = 'spacing';
+  filter.dispatchEvent(new Event('input'));
+  await flush(el);
+  expect(
+    [...root.querySelectorAll('.details .label')].map((l) => l.textContent)
+  ).toEqual(['CSS properties']);
+});
