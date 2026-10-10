@@ -6,7 +6,7 @@ sheet, design tokens, a linked file, an inlined file and a `css` literal. Every
 card counts its renders, so an edit shows whether it restyled in place or
 re-rendered.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/examples/css?file=src/css-utility-card.ts)
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/oddcelot/vite-plugin-lit/tree/main/examples/css?file=src/tokens.css)
 
 Each file in `src/` is small:
 
