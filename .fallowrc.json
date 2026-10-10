@@ -22,9 +22,14 @@
     // playground's temporal-polyfill import resolves from the root install.
     "temporal-polyfill"
   ],
-  // Chrome DevTools frontend modules, imported inside the trace viewer page
-  // by scripts/docs-shots.mjs.
-  "ignoreUnresolvedImports": ["/devtools/**"],
+  "ignoreUnresolvedImports": [
+    // Chrome DevTools frontend modules, imported inside the trace viewer page
+    // by scripts/docs-shots.mjs.
+    "/devtools/**",
+    // Written by examples/css/uno-sheet.ts when Vite starts, and gitignored,
+    // so it is missing from a fresh checkout until a dev server or build runs.
+    "./uno.generated.css*"
+  ],
   "workspaces": {
     "patterns": [
       "docs",
