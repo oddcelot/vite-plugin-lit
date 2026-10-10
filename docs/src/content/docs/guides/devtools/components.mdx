@@ -204,6 +204,8 @@ The browser extension has no disk to read, so it shows the manifests the page
 links to with `<link rel="custom-elements-manifest" href="…">` instead, from
 the same site only; see
 [the extension guide](/vite-plugin-lit/guides/devtools/browser-extension/#read-component-documentation).
+On pages it serves, the Vite plugin adds those links for every manifest it
+found, so the extension shows the same docs there.
 A snapshot doesn't carry manifests, so it shows none.
 
 ## Pick an element on the page
