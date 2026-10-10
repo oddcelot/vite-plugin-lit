@@ -30,6 +30,36 @@ interface Quasi {
   raw: string;
 }
 
+/**
+ * The quasis of an `html`/`svg` tagged template with their raw-text offsets,
+ * or `undefined` when `record` is not one (or a quasi cannot be located).
+ */
+const quasisOf = (
+  record: Record<string, unknown>,
+  code: string
+): Quasi[] | undefined => {
+  if (record.type !== 'TaggedTemplateExpression') return undefined;
+  const tag = record.tag as {type?: string; name?: string} | undefined;
+  const quasi = record.quasi as {quasis?: unknown[]} | undefined;
+  if (
+    tag?.type !== 'Identifier' ||
+    (tag.name !== 'html' && tag.name !== 'svg') ||
+    !quasi?.quasis
+  ) {
+    return undefined;
+  }
+  const quasis: Quasi[] = [];
+  for (const q of quasi.quasis as {start: number; value: {raw: string}}[]) {
+    // Depending on the language the parser reports a quasi's span with
+    // or without its delimiter (the backtick or the `}`).
+    const {raw} = q.value;
+    const at = [q.start + 1, q.start].find((i) => code.startsWith(raw, i));
+    if (at === undefined) return undefined;
+    quasis.push({start: at, raw});
+  }
+  return quasis.length > 0 ? quasis : undefined;
+};
+
 /** `html`/`svg` template literals, as their quasis with raw-text offsets. */
 const findTemplates = (node: unknown, code: string, out: Quasi[][]): void => {
   if (node === null || typeof node !== 'object') return;
@@ -38,36 +68,79 @@ const findTemplates = (node: unknown, code: string, out: Quasi[][]): void => {
     return;
   }
   const record = node as Record<string, unknown>;
-  if (record.type === 'TaggedTemplateExpression') {
-    const tag = record.tag as {type?: string; name?: string} | undefined;
-    const quasi = record.quasi as {quasis?: unknown[]} | undefined;
-    if (
-      tag?.type === 'Identifier' &&
-      (tag.name === 'html' || tag.name === 'svg') &&
-      quasi?.quasis
-    ) {
-      const quasis: Quasi[] = [];
-      for (const q of quasi.quasis as {
-        start: number;
-        value: {raw: string};
-      }[]) {
-        // Depending on the language the parser reports a quasi's span with
-        // or without its delimiter (the backtick or the `}`).
-        const {raw} = q.value;
-        const at = [q.start + 1, q.start].find((i) => code.startsWith(raw, i));
-        if (at === undefined) {
-          quasis.length = 0;
-          break;
-        }
-        quasis.push({start: at, raw});
-      }
-      if (quasis.length > 0) out.push(quasis);
-    }
-  }
+  const quasis = quasisOf(record, code);
+  if (quasis) out.push(quasis);
   for (const key in record) {
     if (key === 'parent') continue;
     findTemplates(record[key], code, out);
   }
+};
+
+/** A scanner step: the next state and offset, or `null` once the chunk is spent. */
+type Step = {state: State; i: number} | null;
+
+type Found = (nameEnd: number, lt: number) => void;
+
+const openTag = (): State => ({kind: 'tag', quote: null, rawText: null});
+
+/** Text: finds the next `<` and enters a comment, a closing or an opening tag. */
+const scanText = (
+  raw: string,
+  i: number,
+  start: number,
+  found: Found
+): Step => {
+  const lt = raw.indexOf('<', i);
+  if (lt === -1) return null;
+  if (raw.startsWith('<!--', lt)) return {state: {kind: 'comment'}, i: lt + 4};
+  if (raw[lt + 1] === '/') return {state: openTag(), i: lt + 2};
+  TAG_NAME_RE.lastIndex = lt + 1;
+  const m = TAG_NAME_RE.exec(raw);
+  if (!m) return {state: {kind: 'text'}, i: lt + 1};
+  const nameEnd = lt + 1 + m[0].length;
+  const next = raw[nameEnd];
+  // A name that runs into `${` is only partly known: don't stamp.
+  if (next !== undefined && /[\s>/]/.test(next) && CUSTOM_NAME_RE.test(m[0])) {
+    found(start + nameEnd, start + lt);
+  }
+  const lower = m[0].toLowerCase();
+  const rawText = RAW_TEXT_ELEMENTS.has(lower) ? lower : null;
+  return {state: {kind: 'tag', quote: null, rawText}, i: nameEnd};
+};
+
+/** Comment: skips past the closing `-->`. */
+const scanComment = (raw: string, i: number): Step => {
+  const end = raw.indexOf('-->', i);
+  return end === -1 ? null : {state: {kind: 'text'}, i: end + 3};
+};
+
+/** Raw-text element: skips to the end of its closing tag's name. */
+const scanRaw = (raw: string, i: number, name: string): Step => {
+  const re = new RegExp(`</${name}(?=[\\s>/])`, 'ig');
+  re.lastIndex = i;
+  const m = re.exec(raw);
+  if (!m) return null;
+  return {state: openTag(), i: m.index + m[0].length};
+};
+
+/** Inside a tag: tracks attribute quotes up to the `>` that ends the tag. */
+const scanTag = (
+  tag: Extract<State, {kind: 'tag'}>,
+  raw: string,
+  i: number
+): Step => {
+  const ch = raw[i];
+  if (tag.quote) {
+    if (ch === tag.quote) tag.quote = null;
+  } else if (ch === '"' || ch === "'") {
+    tag.quote = ch;
+  } else if (ch === '>') {
+    const state: State = tag.rawText
+      ? {kind: 'raw', name: tag.rawText}
+      : {kind: 'text'};
+    return {state, i: i + 1};
+  }
+  return {state: tag, i: i + 1};
 };
 
 /**
@@ -80,71 +153,19 @@ const findTemplates = (node: unknown, code: string, out: Quasi[][]): void => {
  */
 export const scanCustomTags = (
   chunks: readonly Quasi[],
-  found: (nameEnd: number, lt: number) => void
+  found: Found
 ): void => {
   let state: State = {kind: 'text'};
   for (const {start, raw} of chunks) {
     let i = 0;
     while (i < raw.length) {
-      if (state.kind === 'text') {
-        const lt = raw.indexOf('<', i);
-        if (lt === -1) break;
-        if (raw.startsWith('<!--', lt)) {
-          state = {kind: 'comment'};
-          i = lt + 4;
-        } else if (raw[lt + 1] === '/') {
-          state = {kind: 'tag', quote: null, rawText: null};
-          i = lt + 2;
-        } else {
-          TAG_NAME_RE.lastIndex = lt + 1;
-          const m = TAG_NAME_RE.exec(raw);
-          if (!m) {
-            i = lt + 1;
-            continue;
-          }
-          const nameEnd = lt + 1 + m[0].length;
-          const next = raw[nameEnd];
-          // A name that runs into `${` is only partly known: don't stamp.
-          if (
-            next !== undefined &&
-            /[\s>/]/.test(next) &&
-            CUSTOM_NAME_RE.test(m[0])
-          ) {
-            found(start + nameEnd, start + lt);
-          }
-          const lower = m[0].toLowerCase();
-          state = {
-            kind: 'tag',
-            quote: null,
-            rawText: RAW_TEXT_ELEMENTS.has(lower) ? lower : null,
-          };
-          i = nameEnd;
-        }
-      } else if (state.kind === 'comment') {
-        const end = raw.indexOf('-->', i);
-        if (end === -1) break;
-        state = {kind: 'text'};
-        i = end + 3;
-      } else if (state.kind === 'raw') {
-        const re = new RegExp(`</${state.name}(?=[\\s>/])`, 'ig');
-        re.lastIndex = i;
-        const m = re.exec(raw);
-        if (!m) break;
-        state = {kind: 'tag', quote: null, rawText: null};
-        i = m.index + m[0].length;
-      } else {
-        const tag: Extract<State, {kind: 'tag'}> = state;
-        const ch = raw[i++];
-        if (tag.quote) {
-          if (ch === tag.quote) tag.quote = null;
-        } else if (ch === '"' || ch === "'") {
-          tag.quote = ch;
-        } else if (ch === '>') {
-          state = tag.rawText
-            ? {kind: 'raw', name: tag.rawText}
-            : {kind: 'text'};
-        }
-      }
+      let step: Step;
+      if (state.kind === 'text') step = scanText(raw, i, start, found);
+      else if (state.kind === 'comment') step = scanComment(raw, i);
+      else if (state.kind === 'raw') step = scanRaw(raw, i, state.name);
+      else step = scanTag(state, raw, i);
+      if (!step) break;
+      ({state, i} = step);
     }
   }
 };
