@@ -42,6 +42,26 @@ const tipTarget = (event: Event): Element | null => {
   return null;
 };
 
+/** The focused element, through every open shadow root on the way down. */
+const deepActive = (root: Document): Element | null => {
+  let active = root.activeElement;
+  while (active?.shadowRoot?.activeElement)
+    active = active.shadowRoot.activeElement;
+  return active;
+};
+
+/** `el` or the nearest ancestor with a tip, crossing shadow boundaries. */
+const closestTip = (el: Element | null): Element | null => {
+  for (let node: Node | null = el; node;) {
+    if (node instanceof Element && node.hasAttribute('data-tip')) return node;
+    node =
+      node.parentNode instanceof ShadowRoot
+        ? node.parentNode.host
+        : node.parentNode;
+  }
+  return null;
+};
+
 const focusVisible = (el: Element): boolean => {
   try {
     return el.matches(':focus-visible');
@@ -134,6 +154,18 @@ export const installTooltips = (root: Document = document): (() => void) => {
   const onKey = (e: Event) => {
     if ((e as KeyboardEvent).key === 'Escape') hide();
   };
+  // Focus moving between two elements of one shadow tree never reaches the
+  // document as `focusin`: both ends retarget to the same host, and the
+  // event stops short of it. The Tab that moved it does arrive, so read the
+  // focused element from there.
+  const onKeyUp = (e: Event) => {
+    if ((e as KeyboardEvent).key !== 'Tab') return;
+    const active = deepActive(root);
+    const el = closestTip(active);
+    if (el === target) return;
+    if (el && active && focusVisible(active)) show(el);
+    else hide();
+  };
 
   const opts = {capture: true};
   root.addEventListener('pointerover', onOver, opts);
@@ -145,6 +177,7 @@ export const installTooltips = (root: Document = document): (() => void) => {
   root.addEventListener('focusout', onLeave, opts);
   root.addEventListener('pointerdown', hide, opts);
   root.addEventListener('keydown', onKey, opts);
+  root.addEventListener('keyup', onKeyUp, opts);
   root.addEventListener('scroll', hide, opts);
   // A text field matches :focus-visible on click too; typing dismisses its tip.
   root.addEventListener('input', hide, opts);
@@ -158,6 +191,7 @@ export const installTooltips = (root: Document = document): (() => void) => {
     root.removeEventListener('focusout', onLeave, opts);
     root.removeEventListener('pointerdown', hide, opts);
     root.removeEventListener('keydown', onKey, opts);
+    root.removeEventListener('keyup', onKeyUp, opts);
     root.removeEventListener('scroll', hide, opts);
     root.removeEventListener('input', hide, opts);
     installed = undefined;
