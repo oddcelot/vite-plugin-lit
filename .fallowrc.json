@@ -17,7 +17,10 @@
     // CI calls ./node_modules/.bin/jsr for the publish dry run.
     "jsr",
     // Pinned so StackBlitz finds the wasm binding; see pnpm-workspace.yaml.
-    "rolldown"
+    "rolldown",
+    // The e2e fixtures serve playground sources from the repo root, so the
+    // playground's temporal-polyfill import resolves from the root install.
+    "temporal-polyfill"
   ],
   // Chrome DevTools frontend modules, imported inside the trace viewer page
   // by scripts/docs-shots.mjs.
