@@ -27,9 +27,80 @@ const preview = (value: unknown): string => {
   }
 };
 
+const isObject = (value: unknown): value is object =>
+  typeof value === 'object' && value !== null;
+
+const equalDates = (x: Date, y: object): boolean =>
+  y instanceof Date && Object.is(x.getTime(), y.getTime());
+
 const isPlainObject = (value: object): boolean => {
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
+};
+
+/** Values `budgetedDeepEqual` may still visit; shared by the whole walk. */
+interface EqualBudget {
+  remaining: number;
+}
+
+const equalArrays = (
+  x: unknown[],
+  y: unknown,
+  depth: number,
+  budget: EqualBudget
+): boolean => {
+  if (!Array.isArray(y) || x.length !== y.length) return false;
+  for (let i = 0; i < x.length; i++) {
+    if (!walk(x[i], y[i], depth + 1, budget)) return false;
+  }
+  return true;
+};
+
+/** One own data property of both objects; an accessor is never invoked. */
+const equalProperty = (
+  x: object,
+  y: object,
+  key: string,
+  depth: number,
+  budget: EqualBudget
+): boolean => {
+  const dx = Object.getOwnPropertyDescriptor(x, key);
+  const dy = Object.getOwnPropertyDescriptor(y, key);
+  if (dx === undefined || dy === undefined) return false;
+  if (!('value' in dx) || !('value' in dy)) return false;
+  return walk(dx.value, dy.value, depth + 1, budget);
+};
+
+const equalPlainObjects = (
+  x: object,
+  y: object,
+  depth: number,
+  budget: EqualBudget
+): boolean => {
+  if (Array.isArray(y) || !isPlainObject(x) || !isPlainObject(y)) return false;
+  const keys = Object.keys(x);
+  if (keys.length !== Object.keys(y).length) return false;
+  for (const key of keys) {
+    if (!equalProperty(x, y, key, depth, budget)) return false;
+  }
+  return true;
+};
+
+const walk = (
+  x: unknown,
+  y: unknown,
+  depth: number,
+  budget: EqualBudget
+): boolean => {
+  // Every value visited counts, primitives too: a long array of numbers is
+  // as much work as a deep one.
+  if (--budget.remaining < 0) return false;
+  if (Object.is(x, y)) return true;
+  if (!isObject(x) || !isObject(y)) return false;
+  if (depth > EQUAL_MAX_DEPTH) return false;
+  if (Array.isArray(x)) return equalArrays(x, y, depth, budget);
+  if (x instanceof Date) return equalDates(x, y);
+  return equalPlainObjects(x, y, depth, budget);
 };
 
 /**
@@ -45,50 +116,8 @@ export const budgetedDeepEqual = (
   b: unknown,
   budget = EQUAL_BUDGET
 ): boolean => {
-  let remaining = budget;
-
-  const walk = (x: unknown, y: unknown, depth: number): boolean => {
-    // Every value visited counts, primitives too: a long array of numbers is
-    // as much work as a deep one.
-    if (--remaining < 0) return false;
-    if (Object.is(x, y)) return true;
-    if (
-      x === null ||
-      y === null ||
-      typeof x !== 'object' ||
-      typeof y !== 'object'
-    ) {
-      return false;
-    }
-    if (depth > EQUAL_MAX_DEPTH) return false;
-
-    if (Array.isArray(x)) {
-      if (!Array.isArray(y) || x.length !== y.length) return false;
-      for (let i = 0; i < x.length; i++) {
-        if (!walk(x[i], y[i], depth + 1)) return false;
-      }
-      return true;
-    }
-    if (x instanceof Date) {
-      return y instanceof Date && Object.is(x.getTime(), y.getTime());
-    }
-    if (Array.isArray(y) || !isPlainObject(x) || !isPlainObject(y)) {
-      return false;
-    }
-    const keys = Object.keys(x);
-    if (keys.length !== Object.keys(y).length) return false;
-    for (const key of keys) {
-      const dx = Object.getOwnPropertyDescriptor(x, key);
-      const dy = Object.getOwnPropertyDescriptor(y, key);
-      if (dx === undefined || dy === undefined) return false;
-      if (!('value' in dx) || !('value' in dy)) return false;
-      if (!walk(dx.value, dy.value, depth + 1)) return false;
-    }
-    return true;
-  };
-
   try {
-    return walk(a, b, 0);
+    return walk(a, b, 0, {remaining: budget});
   } catch {
     // A Proxy trap or similar: treat as different.
     return false;
