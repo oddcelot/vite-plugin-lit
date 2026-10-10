@@ -30,7 +30,11 @@ import {
   type HmrIncompatibilityEvent,
 } from '../types/hmr-incompatibility.js';
 import type {HmrPatchEvent} from '../types/hmr-patch.js';
-import type {ComponentDocs, DocEntry} from '../types/component-docs.js';
+import type {
+  ComponentDocs,
+  DocEntry,
+  DocsOrigin,
+} from '../types/component-docs.js';
 import {describeError, getMeta, litRpc} from './client.js';
 import {ComponentsSession} from './components-session.js';
 import {ComponentDocsSource} from './component-docs.js';
@@ -1663,6 +1667,16 @@ export class ComponentsView extends LitElement {
     )}`;
   }
 
+  /** The source module the dev server read, or the manifest and its package. */
+  private _renderOrigin(origin: DocsOrigin): TemplateResult {
+    if (origin.source === true) return html`<code>${origin.module}</code>`;
+    return html`${
+        origin.package === undefined
+          ? "the project's"
+          : html`<code>${origin.package}</code>`
+      } <code>${origin.manifest}</code>`;
+  }
+
   /** The manifest's summary and description, and where they came from. */
   private _renderAbout(view: DocsView): TemplateResult | typeof nothing {
     const {docs, about} = view;
@@ -1673,11 +1687,7 @@ export class ComponentsView extends LitElement {
       view.aboutShown ? 1 : 0,
       1,
       html`<p class="about">${this._mark(about)}</p>
-        <p class="about-origin">
-          From
-          ${origin.package === undefined ? "the project's" : html`<code>${origin.package}</code>`}
-          <code>${origin.manifest}</code>
-        </p>`
+        <p class="about-origin">From ${this._renderOrigin(origin)}</p>`
     );
   }
 
