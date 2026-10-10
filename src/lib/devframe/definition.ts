@@ -449,7 +449,10 @@ export function createLitDevframe(
           name: RPC_COMPONENT_DOCS,
           type: 'query',
           jsonSerializable: true,
-          // Not agent-exposed yet; component-details is the agents' view.
+          agent: {
+            description:
+              'Get the documented API of a custom element tag, from the Custom Elements Manifests the project and its dependencies ship, read from disk on each call (no page needed). Pass tagName, for example "sl-button". Returns {docs: null} when no manifest describes the tag; otherwise docs has the summary and description, the public properties and attributes (with description, declared type text, default, the attribute or property it maps to, and inheritedFrom), the events it fires, its slots (an empty name is the default slot), CSS parts, CSS custom properties, CSS states, deprecation, and origin (the package and manifest file it came from; no package means the project\'s own). Use it alongside component-details, which reports live values but no descriptions.',
+          },
           handler: async (
             args: ComponentDocsArgs
           ): Promise<ComponentDocsResult> => {
