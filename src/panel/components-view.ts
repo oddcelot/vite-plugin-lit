@@ -318,6 +318,17 @@ const deprecatedChip = (
   >`;
 };
 
+/**
+ * A path whose lines break only between directories: each `dir/` keeps
+ * together and moves down whole, breaking inside only when it alone is
+ * wider than the column. Plain wrapping split `packing-list.ts` at its
+ * hyphen.
+ */
+const pathSegments = (path: string): TemplateResult[] =>
+  path
+    .split(/(?<=\/)/)
+    .map((segment) => html`<span class="seg">${segment}</span>`);
+
 const typeLabel = (
   type: string,
   value: string
@@ -660,6 +671,10 @@ export class ComponentsView extends LitElement {
         min-width: 0;
         color: var(--lit-devtools-text-secondary);
         overflow-wrap: anywhere;
+      }
+      .seg {
+        display: inline-block;
+        max-width: 100%;
       }
       .link {
         font: inherit;
@@ -2274,7 +2289,7 @@ export class ComponentsView extends LitElement {
     tip: string,
     open: () => void
   ): TemplateResult {
-    const text = `${loc.file}:${loc.line}`;
+    const text = pathSegments(`${loc.file}:${loc.line}`);
     const inHost = sourceOpenerFor(loc, this._canOpen) !== undefined;
     return this._canOpen || inHost
       ? html`<button
