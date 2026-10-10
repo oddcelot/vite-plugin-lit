@@ -126,6 +126,19 @@ describe('injectCallSites', () => {
     expect(out).toContain('<e-f data-lit-source=');
   });
 
+  test('closing tags, stray `<` and unterminated comments stamp nothing', () => {
+    const code = 'html`<a-b></a-b> 1 < 2 <!-- <c-d>`';
+    expect(stamps(run(code).out)).toHaveLength(1);
+    expect(run('html`<script>a-b</script >${x}<c-d>`').out).toContain(
+      '<c-d data-lit-source='
+    );
+  });
+
+  test('an unterminated raw-text element hides the rest of the template', () => {
+    const code = 'html`<style><a-b>${x}<c-d>`';
+    expect(run(code).out).toBe(code);
+  });
+
   test('a tag name split by an expression is not stamped', () => {
     const code = 'html`<my-${x}></my-${x}><a-${y}-b>`';
     expect(run(code).out).toBe(code);
