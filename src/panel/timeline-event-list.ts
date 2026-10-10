@@ -707,6 +707,9 @@ export class TimelineEventList extends LitElement {
   /** One row of the virtualized list (`virtualize`'s `renderItem`). */
   private _renderRow(item: ListRow) {
     const {span: row, tick} = item;
+    // A tick row stands for its whole update, so it shows what the phases
+    // inside changed; any other row shows its own changes.
+    const changed = row.changed?.length ? row.changed : tick?.changed;
     return html`
       <div
         class="row ${this.selectedKey === row.key ? 'selected' : ''} ${
@@ -773,8 +776,8 @@ export class TimelineEventList extends LitElement {
             : nothing
         }
         ${
-          row.changed?.length
-            ? html`<span class="changed">${row.changed.join(', ')}</span>`
+          changed?.length
+            ? html`<span class="changed">${changed.join(', ')}</span>`
             : nothing
         }
         <span class="subtitle">${row.subtitle ?? nothing}</span>

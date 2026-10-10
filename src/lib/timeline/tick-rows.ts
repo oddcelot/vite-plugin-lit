@@ -53,6 +53,13 @@ export interface ListRow {
     count: number;
     /** The most severe thing among the shown children, or the tick itself. */
     attention?: TickAttention;
+    /**
+     * The reactive properties the update changed, from its phases in the
+     * order they first appear. The lifecycle layer records them on
+     * `willUpdate` and `update`; `performUpdate` carries none, so the row
+     * that stands for the tick would otherwise say nothing about them.
+     */
+    changed?: string[];
   };
 }
 
@@ -221,6 +228,11 @@ export const buildListRows = (
     }
     let attention = attentionOf(span);
     for (const kid of kids) attention = worse(attention, attentionOf(kid));
+    // From every phase, filtered out or not: it describes the update.
+    const changed = new Set<string>();
+    for (const kid of children.get(span) ?? []) {
+      for (const key of kid.changed ?? []) changed.add(key);
+    }
     const open = expanded.has(span.key);
     rows.push({
       span,
@@ -229,6 +241,7 @@ export const buildListRows = (
         expanded: open,
         count: kids.length,
         ...(attention === undefined ? {} : {attention}),
+        ...(changed.size === 0 ? {} : {changed: [...changed]}),
       },
     });
     if (open) for (const kid of kids) rows.push({span: kid, depth: 1});

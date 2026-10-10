@@ -98,10 +98,10 @@ layers emit a start and an end per phase, so each phase is one row with its
 duration, and a lifecycle row also lists the reactive properties that changed.
 
 One component update is one row. The list shows the `performUpdate` row of each
-update, collapsed, with its duration and a count of the rows folded into it
-(`+2`); the changed properties are on the phases inside. A marker after the
-count flags an update with something to look at inside: a warning, an error, or
-a skipped update. Press the arrow at the left of the row to open it and see the
+update, collapsed, with its duration, the properties the update changed, and a
+count of the rows folded into it (`+2`). A marker after the count flags an
+update with something to look at inside: a warning, an error, or a skipped
+update. Press the arrow at the left of the row to open it and see the
 `willUpdate`, `update` and `updated` phases, plus the events that belong to the
 same update: `update skipped`, Lit warnings, errors from a rejected `updated`,
 and, with the Custom events layer on, events the component dispatched while it
@@ -132,7 +132,7 @@ the match still has its context.
 <ThemedImage
   light={devtoolsTimelineCollapsedLight}
   dark={devtoolsTimelineCollapsedDark}
-  alt="The Timeline list from the top of a recording: collapsed performUpdate rows for hmr-counter, hmr-properties and hmr-static-props, each with its fold count and duration, between the separate render rows."
+  alt="The Timeline list from the top of a recording: collapsed performUpdate rows for hmr-counter, hmr-properties and hmr-static-props, each with the properties it changed, its fold count and duration, between the separate render rows."
 />
 
 Press **Raw** in the filter bar for one flat row per recorded event instead. Reach

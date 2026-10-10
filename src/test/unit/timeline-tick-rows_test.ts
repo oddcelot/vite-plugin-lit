@@ -66,6 +66,24 @@ describe('buildListRows', () => {
     expect(rows[0]!.tick).toEqual({expanded: false, count: 3});
   });
 
+  test('a collapsed tick names what changed in the phases it hides', () => {
+    // The lifecycle layer records changed keys on willUpdate and update;
+    // performUpdate carries none, so the tick row collects them.
+    const changedOn: Record<string, string[]> = {
+      'willUpdate:start': ['count', 'label'],
+      'update:start': ['count'],
+    };
+    const events = tick(1, 0).map((e) =>
+      changedOn[e.title!] ? {...e, data: {changed: changedOn[e.title!]}} : e
+    );
+    const rows = rowsOf(events);
+    expect(rows[0]!.tick).toEqual({
+      expanded: false,
+      count: 3,
+      changed: ['count', 'label'],
+    });
+  });
+
   test('expanding lists the phases after their parent', () => {
     const rows = rowsOf([...tick(1, 0), ...tick(2, 5)], [ROOT]);
     expect(names(rows)).toEqual([
