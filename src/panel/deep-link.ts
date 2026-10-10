@@ -142,6 +142,27 @@ export const linkHref = (link: DeepLink): string => {
   return `${location.origin}${location.pathname}${location.search}#${params}`;
 };
 
+/** The link an activation's `params` address; fields that don't parse are dropped. */
+const linkFromParams = (params: Record<string, unknown>): DeepLink => {
+  const link: DeepLink = {};
+  const tab = params['tab'];
+  if (isTab(tab)) link.tab = tab;
+  const id = params['componentId'];
+  if (typeof id === 'number' && Number.isInteger(id)) link.componentId = id;
+  const eventId = params['eventId'];
+  if (typeof eventId === 'string' && eventId !== '') link.eventId = eventId;
+  const range = params['range'];
+  if (typeof range === 'object' && range !== null) {
+    const {start, end} = range as Record<string, unknown>;
+    const parsed =
+      typeof start === 'number' && typeof end === 'number'
+        ? normalizeRange(start, end)
+        : null;
+    if (parsed !== null) link.range = parsed;
+  }
+  return link;
+};
+
 /**
  * Call `apply` for every link addressed at this panel: once for the URL hash
  * the panel opened with, then again whenever the hub activates our dock with
@@ -168,28 +189,7 @@ export const onDeepLink = (apply: (link: DeepLink) => void): void => {
         if (activation === null || activation.dockId !== LIT_DOCK_ID) return;
         const params = activation.params;
         if (params === undefined) return;
-        const link: DeepLink = {};
-        const tab = params['tab'];
-        if (isTab(tab)) {
-          link.tab = tab;
-        }
-        const id = params['componentId'];
-        if (typeof id === 'number' && Number.isInteger(id)) {
-          link.componentId = id;
-        }
-        const eventId = params['eventId'];
-        if (typeof eventId === 'string' && eventId !== '') {
-          link.eventId = eventId;
-        }
-        const range = params['range'];
-        if (typeof range === 'object' && range !== null) {
-          const {start, end} = range as Record<string, unknown>;
-          const parsed =
-            typeof start === 'number' && typeof end === 'number'
-              ? normalizeRange(start, end)
-              : null;
-          if (parsed !== null) link.range = parsed;
-        }
+        const link = linkFromParams(params);
         if (hasLink(link)) apply(link);
       };
       handle(state.value());
