@@ -36,6 +36,11 @@ export interface HostFacts {
   features?: FeatureSettings | null;
   /** The host passed Node-only actions (open in editor, export a snapshot). */
   nodeActions: boolean;
+  /**
+   * The host can answer `component-docs`: from disk with Node actions, or
+   * from the manifests the page links to. Defaults to `nodeActions`.
+   */
+  docs?: boolean;
   /** What the recording host could do, for a replayed session. */
   recorded?: Partial<LitCapabilities>;
 }
@@ -48,6 +53,7 @@ export interface HostProfile {
 
 export const hostProfile = (host: HostKind, facts: HostFacts): HostProfile => {
   const {live, features, nodeActions} = facts;
+  const componentDocs = facts.docs ?? nodeActions;
   const pluginSettings = features !== undefined;
   // Writing a directory takes a Node host, and only a live session has
   // anything new to write.
@@ -64,7 +70,7 @@ export const hostProfile = (host: HostKind, facts: HostFacts): HostProfile => {
           pluginSettings,
           hmr: true,
           sourceLocations: true,
-          componentDocs: nodeActions,
+          componentDocs,
         },
       };
     case 'standalone':
@@ -81,8 +87,8 @@ export const hostProfile = (host: HostKind, facts: HostFacts): HostProfile => {
           hmr: false,
           sourceLocations: false,
           // `lit-devtools dev` reads manifests under its working directory;
-          // the extension has no disk to read.
-          componentDocs: nodeActions,
+          // the extension, with no disk, those the page links to.
+          componentDocs,
         },
       };
     case 'snapshot':

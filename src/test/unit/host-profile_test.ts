@@ -68,6 +68,13 @@ describe('a live session', () => {
   });
 });
 
+test('the extension reads docs when the page links its manifests', () => {
+  expect(
+    hostProfile('extension', {live: true, nodeActions: false, docs: true})
+      .capabilities.componentDocs
+  ).toBe(true);
+});
+
 test('manifests are read only where a Node host can reach the disk', () => {
   for (const host of ['vite', 'standalone'] as const) {
     expect(

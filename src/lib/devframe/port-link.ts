@@ -26,6 +26,7 @@ import {createLocalHost} from './local-host.js';
 import type {KeyValueStorage, LocalDevframeClient} from './local-host.js';
 import {createStandaloneLitDevframe} from './rpc-source.js';
 import type {DefineSourceResolver} from './define-sources.js';
+import type {CreateLitDevframeOptions} from './definition.js';
 
 export type {PortLike, PortMessage} from './port-message.js';
 
@@ -77,6 +78,8 @@ export interface LocalLitHostOptions {
    * call's stack; see `createStandaloneLitDevframe`.
    */
   resolveDefineSource?: DefineSourceResolver;
+  /** Component docs from the manifests the page links to. */
+  docsSource?: CreateLitDevframeOptions['docsSource'];
 }
 
 /**
@@ -99,6 +102,7 @@ export const createLocalLitHost = (
         host: 'extension',
         version: options.version,
         resolveDefineSource: options.resolveDefineSource,
+        docsSource: options.docsSource,
       },
       () => portPageTransport(options.port)
     ),
