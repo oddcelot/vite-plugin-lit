@@ -335,82 +335,53 @@ export const toUpdateCycles = (
   for (const span of spans) {
     // A rejection or failed task lands after its cycle closed. It is a point
     // span, so it joins the cycle's error without becoming one of its phases.
-    if (
-      span.layerId === LIFECYCLE_LAYER_ID &&
-      span.error?.async === true &&
-      span.events[0]?.groupId !== undefined
-    ) {
+    if (isLateError(span)) {
       lateErrors.push(span);
       continue;
     }
     // Like a late error, a veto is a point event tied to its tick by groupId.
-    if (
-      span.layerId === LIFECYCLE_LAYER_ID &&
-      span.name === SKIP_EVENT &&
-      span.events[0]?.groupId !== undefined
-    ) {
+    if (isSkip(span)) {
       skips.push(span);
       continue;
     }
+    // Point lifecycle events (connect/disconnect) have no groupId and are
+    // not update ticks, nor is a task run, which has its own groupId; other
+    // layers are not this function's business.
     const elementId = span.meta?.elementId;
-    if (
-      span.layerId !== LIFECYCLE_LAYER_ID ||
-      span.groupId === undefined ||
-      elementId === undefined ||
-      span.name === TASK_SPAN
-    ) {
-      // Point lifecycle events (connect/disconnect) have no groupId and are
-      // not update ticks, nor is a task run, which has its own groupId; other
-      // layers are not this function's business.
-      continue;
-    }
+    if (!isTickPhase(span) || elementId === undefined) continue;
 
     const key = String(span.groupId);
     let cycle = byGroup.get(key);
     if (cycle === undefined) {
-      cycle = {
-        key,
-        elementId,
-        tagName: span.meta?.tagName ?? 'unknown',
-        source: span.meta?.source,
-        callSite: span.meta?.callSite,
-        start: span.start,
-        changed: [],
-        phases: [],
-      };
+      cycle = openCycle(key, elementId, span);
       byGroup.set(key, cycle);
     }
-
-    cycle.phases.push(span);
-    if (span.start < cycle.start) cycle.start = span.start;
-    if (span.name === ROOT_PHASE) cycle.duration = span.duration;
-    for (const changedKey of span.changed ?? []) {
-      if (!cycle.changed.includes(changedKey)) cycle.changed.push(changedKey);
-    }
-    for (const detail of span.changedDetail ?? []) {
-      cycle.changedDetail ??= [];
-      if (!cycle.changedDetail.some((d) => d.key === detail.key)) {
-        cycle.changedDetail.push(detail);
-      }
-    }
-    if (span.error !== undefined) {
-      // performUpdate rethrows what update threw; keep the innermost phase.
-      if (cycle.error === undefined || span.name !== ROOT_PHASE) {
-        cycle.error = {phase: span.name, ...span.error};
-      }
-    }
+    addPhase(cycle, span);
   }
 
+  applySkips(byGroup, skips);
+  applyLateErrors(byGroup, lateErrors);
+
+  return [...byGroup.values()].sort((a, b) => a.start - b.start);
+};
+
+const applySkips = (
+  byGroup: ReadonlyMap<string, UpdateCycle>,
+  skips: readonly TimelineSpan[]
+): void => {
   for (const span of skips) {
     const cycle = byGroup.get(String(span.events[0]!.groupId));
     if (cycle === undefined) continue;
     cycle.skipped = true;
     // `performUpdate` never receives the properties; the veto event does.
-    for (const changedKey of span.changed ?? []) {
-      if (!cycle.changed.includes(changedKey)) cycle.changed.push(changedKey);
-    }
+    mergeChanged(cycle, span);
   }
+};
 
+const applyLateErrors = (
+  byGroup: ReadonlyMap<string, UpdateCycle>,
+  lateErrors: readonly TimelineSpan[]
+): void => {
   for (const span of lateErrors) {
     const cycle = byGroup.get(String(span.events[0]!.groupId));
     // Not in the window (the ring dropped its phases), or already failed
@@ -418,8 +389,64 @@ export const toUpdateCycles = (
     if (cycle === undefined || cycle.error !== undefined) continue;
     cycle.error = {phase: phaseOf(span), ...span.error!};
   }
+};
 
-  return [...byGroup.values()].sort((a, b) => a.start - b.start);
+/** A lifecycle point span tied to an update tick by its event's `groupId`. */
+const isTickPoint = (span: TimelineSpan): boolean =>
+  span.layerId === LIFECYCLE_LAYER_ID && span.events[0]?.groupId !== undefined;
+
+const isLateError = (span: TimelineSpan): boolean =>
+  isTickPoint(span) && span.error?.async === true;
+
+const isSkip = (span: TimelineSpan): boolean =>
+  isTickPoint(span) && span.name === SKIP_EVENT;
+
+/** A phase span (`performUpdate`, `update`, ...) that belongs to a tick. */
+const isTickPhase = (span: TimelineSpan): boolean =>
+  span.layerId === LIFECYCLE_LAYER_ID &&
+  span.groupId !== undefined &&
+  span.name !== TASK_SPAN;
+
+const openCycle = (
+  key: string,
+  elementId: number,
+  span: TimelineSpan
+): UpdateCycle => ({
+  key,
+  elementId,
+  tagName: span.meta?.tagName ?? 'unknown',
+  source: span.meta?.source,
+  callSite: span.meta?.callSite,
+  start: span.start,
+  changed: [],
+  phases: [],
+});
+
+/** Adds the span's changed keys to the cycle's, once each. */
+const mergeChanged = (cycle: UpdateCycle, span: TimelineSpan): void => {
+  for (const changedKey of span.changed ?? []) {
+    if (!cycle.changed.includes(changedKey)) cycle.changed.push(changedKey);
+  }
+};
+
+const addPhase = (cycle: UpdateCycle, span: TimelineSpan): void => {
+  cycle.phases.push(span);
+  if (span.start < cycle.start) cycle.start = span.start;
+  if (span.name === ROOT_PHASE) cycle.duration = span.duration;
+  mergeChanged(cycle, span);
+  for (const detail of span.changedDetail ?? []) {
+    cycle.changedDetail ??= [];
+    if (!cycle.changedDetail.some((d) => d.key === detail.key)) {
+      cycle.changedDetail.push(detail);
+    }
+  }
+  // performUpdate rethrows what update threw; keep the innermost phase.
+  if (
+    span.error !== undefined &&
+    (cycle.error === undefined || span.name !== ROOT_PHASE)
+  ) {
+    cycle.error = {phase: span.name, ...span.error};
+  }
 };
 
 /**
@@ -431,86 +458,89 @@ export const toUpdateCycles = (
  * caller can still drill in.
  */
 export const rollup = (cycles: readonly UpdateCycle[]): ComponentRollup[] => {
-  const byTag = new Map<
-    string,
-    {
-      entry: ComponentRollup;
-      reasons: Map<string, number>;
-      redundant: Map<string, number>;
-    }
-  >();
+  const byTag = new Map<string, RollupRecord>();
 
   for (const cycle of cycles) {
     let record = byTag.get(cycle.tagName);
     if (record === undefined) {
-      record = {
-        entry: {
-          tagName: cycle.tagName,
-          elementIds: [],
-          updates: 0,
-          totalMs: 0,
-          maxMs: 0,
-          reasons: [],
-          errors: 0,
-          source: cycle.source,
-          callSite: cycle.callSite,
-        },
-        reasons: new Map(),
-        redundant: new Map(),
-      };
+      record = openRollup(cycle);
       byTag.set(cycle.tagName, record);
     }
-
-    const {entry, reasons, redundant} = record;
-    if (!entry.elementIds.includes(cycle.elementId)) {
-      entry.elementIds.push(cycle.elementId);
-    }
-    entry.source ??= cycle.source;
-    entry.callSite ??= cycle.callSite;
-    // A vetoed tick is not a render: it adds to neither the count nor the
-    // time, which would blame the component for work it declined to do.
-    if (cycle.skipped) {
-      entry.skipped = (entry.skipped ?? 0) + 1;
-      continue;
-    }
-    entry.updates++;
-    if (cycle.error !== undefined) entry.errors++;
-    // An open or clock-straddling cycle contributes a count but no time —
-    // better than inventing one, and the count is what flags a hot component.
-    if (cycle.duration !== undefined) {
-      entry.totalMs += cycle.duration;
-      if (cycle.duration > entry.maxMs) entry.maxMs = cycle.duration;
-    }
-    for (const key of cycle.changed) {
-      reasons.set(key, (reasons.get(key) ?? 0) + 1);
-    }
-    for (const detail of cycle.changedDetail ?? []) {
-      if (!detail.sameRef && detail.equal) {
-        redundant.set(detail.key, (redundant.get(detail.key) ?? 0) + 1);
-      }
-    }
+    tally(record, cycle);
   }
 
   const entries: ComponentRollup[] = [];
-  const byCount = (
-    a: {key: string; count: number},
-    b: {key: string; count: number}
-  ): number => b.count - a.count || a.key.localeCompare(b.key);
   for (const {entry, reasons, redundant} of byTag.values()) {
-    entry.reasons = [...reasons]
-      .map(([key, count]) => ({key, count}))
-      .sort(byCount);
-    if (redundant.size > 0) {
-      entry.redundantChanges = [...redundant]
-        .map(([key, count]) => ({key, count}))
-        .sort(byCount);
-    }
+    entry.reasons = byCount(reasons);
+    if (redundant.size > 0) entry.redundantChanges = byCount(redundant);
     entries.push(entry);
   }
 
   // Slowest first, then most frequent: a component with no measured durations
   // still sorts above a quiet one.
   return entries.sort((a, b) => b.totalMs - a.totalMs || b.updates - a.updates);
+};
+
+interface RollupRecord {
+  entry: ComponentRollup;
+  reasons: Map<string, number>;
+  redundant: Map<string, number>;
+}
+
+const openRollup = (cycle: UpdateCycle): RollupRecord => ({
+  entry: {
+    tagName: cycle.tagName,
+    elementIds: [],
+    updates: 0,
+    totalMs: 0,
+    maxMs: 0,
+    reasons: [],
+    errors: 0,
+    source: cycle.source,
+    callSite: cycle.callSite,
+  },
+  reasons: new Map(),
+  redundant: new Map(),
+});
+
+const bump = (counts: Map<string, number>, key: string): void => {
+  counts.set(key, (counts.get(key) ?? 0) + 1);
+};
+
+/** Counts per key, most frequent first. */
+const byCount = (counts: Map<string, number>): {key: string; count: number}[] =>
+  [...counts]
+    .map(([key, count]) => ({key, count}))
+    .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+
+/** Folds one cycle into its component's running totals. */
+const tally = (
+  {entry, reasons, redundant}: RollupRecord,
+  cycle: UpdateCycle
+): void => {
+  if (!entry.elementIds.includes(cycle.elementId)) {
+    entry.elementIds.push(cycle.elementId);
+  }
+  entry.source ??= cycle.source;
+  entry.callSite ??= cycle.callSite;
+  // A vetoed tick is not a render: it adds to neither the count nor the
+  // time, which would blame the component for work it declined to do.
+  if (cycle.skipped) {
+    entry.skipped = (entry.skipped ?? 0) + 1;
+    return;
+  }
+  entry.updates++;
+  if (cycle.error !== undefined) entry.errors++;
+  // An open or clock-straddling cycle contributes a count but no time —
+  // better than inventing one, and the count is what flags a hot component.
+  if (cycle.duration !== undefined) {
+    entry.totalMs += cycle.duration;
+    if (cycle.duration > entry.maxMs) entry.maxMs = cycle.duration;
+  }
+  for (const key of cycle.changed) bump(reasons, key);
+  for (const detail of cycle.changedDetail ?? []) {
+    if (!detail.sameRef && detail.equal) bump(redundant, detail.key);
+  }
 };
 
 /**
@@ -565,55 +595,12 @@ export const attributeInput = (
     }
   }
 
+  const lookups = {byKey, byLayerTime, taskStarts};
   // Both sides are sorted by time, so one forward pass suffices.
   let cursor = 0;
   return cycles.map((cycle) => {
-    const recorded = cycle.phases.find((p) => p.name === ROOT_PHASE)?.cause;
-    if (recorded?.kind === 'event') {
-      const loose = `${recorded.layerId}\0${recorded.time}`;
-      const hit =
-        (recorded.title === undefined
-          ? undefined
-          : byLayerTime.get(`${loose}\0${recorded.title}`)) ??
-        byLayerTime.get(loose);
-      if (hit !== undefined) {
-        return {
-          ...cycle,
-          cause: {
-            layerId: hit.layerId,
-            type: hit.title ?? hit.layerId,
-            detail: hit.subtitle,
-            time: hit.time,
-          },
-        };
-      }
-    } else if (recorded?.kind === 'update') {
-      const causing = byKey.get(recorded.groupId);
-      if (causing !== undefined) {
-        return {
-          ...cycle,
-          cause: {
-            layerId: LIFECYCLE_LAYER_ID,
-            type: `${causing.tagName} update`,
-            time: causing.start,
-          },
-          causedBy: {groupId: causing.key},
-        };
-      }
-    } else if (recorded?.kind === 'task') {
-      const run = taskStarts.get(recorded.groupId);
-      if (run !== undefined) {
-        const task = (run.data as {task?: unknown} | null)?.task;
-        return {
-          ...cycle,
-          cause: {
-            layerId: LIFECYCLE_LAYER_ID,
-            type: typeof task === 'string' ? `${task} task` : 'task',
-            time: run.time,
-          },
-        };
-      }
-    }
+    const recorded = recordedCause(cycle, lookups);
+    if (recorded !== undefined) return recorded;
 
     if (inputs.length === 0) return cycle;
     while (
@@ -625,14 +612,66 @@ export const attributeInput = (
     const candidate = inputs[cursor]!;
     const delta = cycle.start - candidate.time;
     if (delta < 0 || delta > windowMs) return cycle;
+    return {...cycle, cause: inputCause(candidate)};
+  });
+};
+
+interface CauseLookups {
+  byKey: ReadonlyMap<string, UpdateCycle>;
+  byLayerTime: ReadonlyMap<string, TimelineEvent>;
+  taskStarts: ReadonlyMap<string, TimelineEvent>;
+}
+
+const inputCause = (event: TimelineEvent): UpdateCycle['cause'] => ({
+  layerId: event.layerId,
+  type: event.title ?? event.layerId,
+  detail: event.subtitle,
+  time: event.time,
+});
+
+/**
+ * Resolves the cause the runtime recorded on the cycle's `performUpdate` span,
+ * or `undefined` when there is none or its target is not in the buffer.
+ */
+const recordedCause = (
+  cycle: UpdateCycle,
+  {byKey, byLayerTime, taskStarts}: CauseLookups
+): UpdateCycle | undefined => {
+  const recorded = cycle.phases.find((p) => p.name === ROOT_PHASE)?.cause;
+  if (recorded?.kind === 'event') {
+    const loose = `${recorded.layerId}\0${recorded.time}`;
+    const hit =
+      (recorded.title === undefined
+        ? undefined
+        : byLayerTime.get(`${loose}\0${recorded.title}`)) ??
+      byLayerTime.get(loose);
+    return hit === undefined ? undefined : {...cycle, cause: inputCause(hit)};
+  }
+  if (recorded?.kind === 'update') {
+    const causing = byKey.get(recorded.groupId);
+    if (causing === undefined) return undefined;
     return {
       ...cycle,
       cause: {
-        layerId: candidate.layerId,
-        type: candidate.title ?? candidate.layerId,
-        detail: candidate.subtitle,
-        time: candidate.time,
+        layerId: LIFECYCLE_LAYER_ID,
+        type: `${causing.tagName} update`,
+        time: causing.start,
+      },
+      causedBy: {groupId: causing.key},
+    };
+  }
+  if (recorded?.kind === 'task') {
+    const run = taskStarts.get(recorded.groupId);
+    if (run === undefined) return undefined;
+    const task = (run.data as {task?: unknown} | null)?.task;
+    return {
+      ...cycle,
+      cause: {
+        layerId: LIFECYCLE_LAYER_ID,
+        type: typeof task === 'string' ? `${task} task` : 'task',
+        time: run.time,
       },
     };
-  });
+  }
+  return undefined;
 };
