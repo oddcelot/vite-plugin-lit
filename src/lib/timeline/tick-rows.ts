@@ -181,6 +181,62 @@ export const causeParentKey = (
 };
 
 /**
+ * Splits the candidates into the top-level rows and, per tick, the spans
+ * nested under it (in start order).
+ */
+const groupByTick = (
+  candidates: readonly TimelineSpan[]
+): {tops: TimelineSpan[]; children: Map<TimelineSpan, TimelineSpan[]>} => {
+  const roots = tickRoots(candidates);
+  const children = new Map<TimelineSpan, TimelineSpan[]>();
+  const tops: TimelineSpan[] = [];
+  for (const span of candidates) {
+    const id = isTickRoot(span) ? undefined : tickIdOf(span);
+    const root = id === undefined ? undefined : roots.get(id);
+    if (root === undefined) {
+      tops.push(span);
+      continue;
+    }
+    const list = children.get(root);
+    if (list === undefined) children.set(root, [span]);
+    else list.push(span);
+  }
+  return {tops, children};
+};
+
+/** Every property the tick's phases changed, in first-seen order. */
+const changedOf = (phases: readonly TimelineSpan[]): string[] => {
+  const changed = new Set<string>();
+  for (const phase of phases) {
+    for (const key of phase.changed ?? []) changed.add(key);
+  }
+  return [...changed];
+};
+
+/** The tick's own row, summarising its shown children. */
+const tickRow = (
+  span: TimelineSpan,
+  kids: readonly TimelineSpan[],
+  phases: readonly TimelineSpan[],
+  open: boolean
+): ListRow => {
+  let attention = attentionOf(span);
+  for (const kid of kids) attention = worse(attention, attentionOf(kid));
+  // From every phase, filtered out or not: it describes the update.
+  const changed = changedOf(phases);
+  return {
+    span,
+    depth: 0,
+    tick: {
+      expanded: open,
+      count: kids.length,
+      ...(attention === undefined ? {} : {attention}),
+      ...(changed.length === 0 ? {} : {changed}),
+    },
+  };
+};
+
+/**
  * Builds the list's rows.
  *
  * `candidates` are the spans of the enabled layers, in start order; `matched`
@@ -200,50 +256,19 @@ export const buildListRows = (
   expanded: ReadonlySet<string>
 ): ListRow[] => {
   const match = new Set(matched);
-  const roots = tickRoots(candidates);
-  const children = new Map<TimelineSpan, TimelineSpan[]>();
-  const tops: TimelineSpan[] = [];
-  for (const span of candidates) {
-    const id = isTickRoot(span) ? undefined : tickIdOf(span);
-    const root = id === undefined ? undefined : roots.get(id);
-    if (root === undefined) {
-      tops.push(span);
-      continue;
-    }
-    const list = children.get(root);
-    if (list === undefined) children.set(root, [span]);
-    else list.push(span);
-  }
-
+  const {tops, children} = groupByTick(candidates);
   const rows: ListRow[] = [];
   for (const span of tops) {
     const all = match.has(span);
-    const kids = (children.get(span) ?? []).filter(
-      (child) => all || match.has(child)
-    );
+    const phases = children.get(span) ?? [];
+    const kids = phases.filter((child) => all || match.has(child));
     if (!all && kids.length === 0) continue;
     if (kids.length === 0) {
       rows.push({span, depth: 0});
       continue;
     }
-    let attention = attentionOf(span);
-    for (const kid of kids) attention = worse(attention, attentionOf(kid));
-    // From every phase, filtered out or not: it describes the update.
-    const changed = new Set<string>();
-    for (const kid of children.get(span) ?? []) {
-      for (const key of kid.changed ?? []) changed.add(key);
-    }
     const open = expanded.has(span.key);
-    rows.push({
-      span,
-      depth: 0,
-      tick: {
-        expanded: open,
-        count: kids.length,
-        ...(attention === undefined ? {} : {attention}),
-        ...(changed.size === 0 ? {} : {changed: [...changed]}),
-      },
-    });
+    rows.push(tickRow(span, kids, phases, open));
     if (open) for (const kid of kids) rows.push({span: kid, depth: 1});
   }
   return rows;

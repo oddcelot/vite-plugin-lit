@@ -24,20 +24,16 @@ const PRIVATE_KEY_HOLDERS = new Set([
 const isNode = (v: unknown): v is Node =>
   v !== null && typeof v === 'object' && typeof (v as Node).type === 'string';
 
+/** Whether a class member is keyed by a `#private` name. */
+const isPrivateKey = (member: Node): boolean =>
+  PRIVATE_KEY_HOLDERS.has(member.type) &&
+  isNode(member.key) &&
+  member.key.type === 'PrivateIdentifier';
+
 /** Private names declared directly in a class body. */
 const declaredNames = (cls: Node): Node[] => {
   const body = cls.body as {body?: Node[]} | undefined;
-  const out: Node[] = [];
-  for (const member of body?.body ?? []) {
-    if (
-      PRIVATE_KEY_HOLDERS.has(member.type) &&
-      isNode(member.key) &&
-      member.key.type === 'PrivateIdentifier'
-    ) {
-      out.push(member);
-    }
-  }
-  return out;
+  return (body?.body ?? []).filter(isPrivateKey);
 };
 
 /** Every node below `node`, depth first. */
@@ -56,14 +52,8 @@ function* walk(node: unknown): Generator<Node> {
   }
 }
 
-/**
- * Top-level `slot = new WeakMap()` / `new WeakSet()` assignments that back
- * private members esbuild lowered, recognised by the slot being passed to
- * its `__privateAdd` helper.
- */
-const loweredSlots = (
-  ast: Node
-): {name: string; ctor: string; node: Node}[] => {
+/** Names of the slots passed to esbuild's `__privateAdd` helper. */
+const addedSlots = (ast: Node): Set<string> => {
   const added = new Set<string>();
   for (const node of walk(ast)) {
     const callee = node.callee as Node | undefined;
@@ -77,29 +67,92 @@ const loweredSlots = (
       added.add((slot as unknown as {name: string}).name);
     }
   }
+  return added;
+};
+
+/** The constructor of an argument-less `new WeakMap()` / `new WeakSet()`. */
+const weakCtorOf = (node: Node | undefined): string | undefined => {
+  const ctor = (node?.callee as {name?: string} | undefined)?.name;
+  const isWeak = ctor === 'WeakMap' || ctor === 'WeakSet';
+  return node?.type === 'NewExpression' &&
+    isWeak &&
+    (node.arguments as unknown[]).length === 0
+    ? ctor
+    : undefined;
+};
+
+/** The `slot = new WeakMap()` / `new WeakSet()` a statement makes, if any. */
+const slotAssignment = (
+  stmt: Node,
+  added: Set<string>
+): {name: string; ctor: string; node: Node} | undefined => {
+  const expr = stmt.expression as Node | undefined;
+  if (stmt.type !== 'ExpressionStatement' || !expr) {
+    return undefined;
+  }
+  const left = expr.left as {type?: string; name?: string} | undefined;
+  const right = expr.right as Node | undefined;
+  const ctor = weakCtorOf(right);
+  if (
+    expr.type === 'AssignmentExpression' &&
+    expr.operator === '=' &&
+    left?.type === 'Identifier' &&
+    added.has(left.name!) &&
+    ctor &&
+    right
+  ) {
+    return {name: left.name!, ctor, node: right};
+  }
+  return undefined;
+};
+
+/**
+ * Top-level `slot = new WeakMap()` / `new WeakSet()` assignments that back
+ * private members esbuild lowered, recognised by the slot being passed to
+ * its `__privateAdd` helper.
+ */
+const loweredSlots = (
+  ast: Node
+): {name: string; ctor: string; node: Node}[] => {
+  const added = addedSlots(ast);
   const out: {name: string; ctor: string; node: Node}[] = [];
   for (const stmt of (ast.body as Node[] | undefined) ?? []) {
-    const expr = stmt.expression as Node | undefined;
-    if (stmt.type !== 'ExpressionStatement' || !expr) {
-      continue;
-    }
-    const left = expr.left as {type?: string; name?: string} | undefined;
-    const right = expr.right as Node | undefined;
-    const ctor = (right?.callee as {type?: string; name?: string} | undefined)
-      ?.name;
-    if (
-      expr.type === 'AssignmentExpression' &&
-      expr.operator === '=' &&
-      left?.type === 'Identifier' &&
-      added.has(left.name!) &&
-      right?.type === 'NewExpression' &&
-      (ctor === 'WeakMap' || ctor === 'WeakSet') &&
-      (right.arguments as unknown[]).length === 0
-    ) {
-      out.push({name: left.name!, ctor, node: right});
+    const slot = slotAssignment(stmt, added);
+    if (slot) {
+      out.push(slot);
     }
   }
   return out;
+};
+
+/** `obj.#x` / `obj?.#x`. */
+const isPrivateAccess = (node: Node): boolean =>
+  node.type === 'MemberExpression' &&
+  isNode(node.property) &&
+  node.property.type === 'PrivateIdentifier';
+
+/** `#x in obj`. */
+const isPrivateIn = (node: Node): boolean =>
+  node.type === 'BinaryExpression' &&
+  isNode(node.left) &&
+  node.left.type === 'PrivateIdentifier';
+
+/** The class-name hint `node` passes to the child under `key`. */
+const childHintFor = (node: Node, key: string): string | undefined => {
+  const nameOf = (v: unknown): string | undefined =>
+    isNode(v) && v.type === 'Identifier'
+      ? (v as unknown as {name: string}).name
+      : undefined;
+  switch (node.type) {
+    case 'VariableDeclarator':
+      return key === 'init' ? nameOf(node.id) : undefined;
+    case 'AssignmentExpression':
+      return key === 'right' ? nameOf(node.left) : undefined;
+    case 'ExportDefaultDeclaration':
+      return 'default';
+    default:
+      return undefined;
+  }
 };
 
 /**
@@ -176,147 +229,144 @@ export const rewritePrivateNames = (
     magic.overwrite(from, prop.end, `${optional ? '?.' : ''}[${sym}]`);
   };
 
+  /** Overwrites a private key, led by `;` where ASI could swallow it. */
+  const rewriteKey = (member: Node, sym: string): void => {
+    const key = member.key as Node;
+    // A computed key at the start of a member can continue the previous
+    // member's initializer when that one relied on ASI (`a = 1` + newline
+    // + `#b`), so lead with an explicit terminator.
+    let lead = '';
+    if (member.start === key.start) {
+      let j = key.start - 1;
+      while (j >= 0 && /\s/.test(code[j])) {
+        j--;
+      }
+      if (code[j] !== '{' && code[j] !== ';') {
+        lead = ';';
+      }
+    }
+    magic.overwrite(key.start, key.end, `${lead}[${sym}]`);
+  };
+
+  /** Declares `member`'s private name in `scope` and rewrites its key. */
+  const declareMember = (
+    scope: ClassScope,
+    member: Node,
+    classKey: string
+  ): void => {
+    const name = (member.key as unknown as {name: string}).name;
+    if (!scope.names.has(name)) {
+      const ident = `${prefix}${symbolCount++}`;
+      scope.names.set(name, ident);
+      decls.push(
+        `const ${ident} = Symbol.for(${JSON.stringify(
+          `@oddsquad/vite-plugin-lit#private:${file}:${classKey}#${name}`
+        )});`
+      );
+    }
+    if ((member.decorators as unknown[] | undefined)?.length) {
+      // A decorator directly before a computed key would parse as an
+      // index access on the decorator expression.
+      failed = true;
+      return;
+    }
+    rewriteKey(member, scope.names.get(name)!);
+  };
+
+  const visitClass = (
+    node: Node,
+    stack: ClassScope[],
+    hint: string | undefined
+  ): void => {
+    const members = declaredNames(node);
+    // Decorators are outside the class body's private-name scope.
+    visit(node.decorators, stack, undefined);
+    visit(node.superClass, stack, undefined);
+    if (members.length === 0) {
+      visit(node.body, stack, undefined);
+      return;
+    }
+    const classKey = classKeyOf(node, hint);
+    const scope: ClassScope = {names: new Map()};
+    for (const member of members) {
+      declareMember(scope, member, classKey);
+      if (failed) {
+        return;
+      }
+    }
+    // Members: keys of non-private members and all values live in scope.
+    const inner = [...stack, scope];
+    const body = node.body as Node;
+    for (const member of (body.body as Node[]) ?? []) {
+      for (const k in member) {
+        if (k === 'parent' || (k === 'key' && isPrivateKey(member))) {
+          continue;
+        }
+        visit(member[k], inner, undefined);
+      }
+    }
+  };
+
+  /** `obj.#x` / `obj?.#x`. */
+  const visitPrivateAccess = (node: Node, stack: ClassScope[]): void => {
+    const sym = resolve(
+      stack,
+      (node.property as unknown as {name: string}).name
+    );
+    if (failed) {
+      return;
+    }
+    rewriteMemberAccess(node, sym);
+    visit(node.object, stack, undefined);
+  };
+
+  /** `#x in obj`. */
+  const visitPrivateIn = (node: Node, stack: ClassScope[]): void => {
+    const left = node.left as Node;
+    const sym = resolve(stack, (left as unknown as {name: string}).name);
+    if (failed) {
+      return;
+    }
+    magic.overwrite(left.start, left.end, sym);
+    visit(node.right, stack, undefined);
+  };
+
+  const visitNode = (
+    node: Node,
+    stack: ClassScope[],
+    hint: string | undefined
+  ): void => {
+    if (node.type === 'ClassDeclaration' || node.type === 'ClassExpression') {
+      visitClass(node, stack, hint);
+    } else if (isPrivateAccess(node)) {
+      visitPrivateAccess(node, stack);
+    } else if (isPrivateIn(node)) {
+      visitPrivateIn(node, stack);
+    } else {
+      for (const key in node) {
+        if (key !== 'parent') {
+          visit(node[key], stack, childHintFor(node, key));
+        }
+      }
+    }
+  };
+
   const visit = (
     node: unknown,
     stack: ClassScope[],
     hint: string | undefined
   ): void => {
-    if (failed || node === null || typeof node !== 'object') {
+    if (failed) {
       return;
     }
     if (Array.isArray(node)) {
       for (const item of node) {
         visit(item, stack, hint);
       }
-      return;
-    }
-    if (!isNode(node)) {
-      return;
-    }
-
-    if (node.type === 'ClassDeclaration' || node.type === 'ClassExpression') {
-      const members = declaredNames(node);
-      const heritage = node.superClass;
-      // Decorators are outside the class body's private-name scope.
-      visit(node.decorators, stack, undefined);
-      visit(heritage, stack, undefined);
-      if (members.length === 0) {
-        visit(node.body, stack, undefined);
-        return;
-      }
-      const classKey = classKeyOf(node, hint);
-      const scope: ClassScope = {names: new Map()};
-      for (const member of members) {
-        const name = (member.key as unknown as {name: string}).name;
-        if (!scope.names.has(name)) {
-          const ident = `${prefix}${symbolCount++}`;
-          scope.names.set(name, ident);
-          decls.push(
-            `const ${ident} = Symbol.for(${JSON.stringify(
-              `@oddsquad/vite-plugin-lit#private:${file}:${classKey}#${name}`
-            )});`
-          );
-        }
-        if ((member.decorators as unknown[] | undefined)?.length) {
-          // A decorator directly before a computed key would parse as an
-          // index access on the decorator expression.
-          failed = true;
-          return;
-        }
-        const key = member.key as Node;
-        const sym = scope.names.get(name)!;
-        // A computed key at the start of a member can continue the previous
-        // member's initializer when that one relied on ASI (`a = 1` + newline
-        // + `#b`), so lead with an explicit terminator.
-        let lead = '';
-        if (member.start === key.start) {
-          let j = key.start - 1;
-          while (j >= 0 && /\s/.test(code[j])) {
-            j--;
-          }
-          if (code[j] !== '{' && code[j] !== ';') {
-            lead = ';';
-          }
-        }
-        magic.overwrite(key.start, key.end, `${lead}[${sym}]`);
-      }
-      // Members: keys of non-private members and all values live in scope.
-      const inner = [...stack, scope];
-      const body = node.body as Node;
-      for (const member of (body.body as Node[]) ?? []) {
-        for (const k in member) {
-          if (k === 'parent' || (k === 'key' && isPrivateKey(member))) {
-            continue;
-          }
-          visit(member[k], inner, undefined);
-        }
-      }
-      return;
-    }
-
-    if (node.type === 'MemberExpression' && isNode(node.property)) {
-      if (node.property.type === 'PrivateIdentifier') {
-        const sym = resolve(
-          stack,
-          (node.property as unknown as {name: string}).name
-        );
-        if (failed) {
-          return;
-        }
-        rewriteMemberAccess(node, sym);
-        visit(node.object, stack, undefined);
-        return;
-      }
-    }
-
-    if (
-      node.type === 'BinaryExpression' &&
-      isNode(node.left) &&
-      node.left.type === 'PrivateIdentifier'
-    ) {
-      const sym = resolve(stack, (node.left as unknown as {name: string}).name);
-      if (failed) {
-        return;
-      }
-      magic.overwrite(node.left.start, node.left.end, sym);
-      visit(node.right, stack, undefined);
-      return;
-    }
-
-    let childHint: string | undefined;
-    for (const key in node) {
-      if (key === 'parent') {
-        continue;
-      }
-      switch (node.type) {
-        case 'VariableDeclarator':
-          childHint =
-            key === 'init' && isNode(node.id) && node.id.type === 'Identifier'
-              ? (node.id as unknown as {name: string}).name
-              : undefined;
-          break;
-        case 'AssignmentExpression':
-          childHint =
-            key === 'right' &&
-            isNode(node.left) &&
-            node.left.type === 'Identifier'
-              ? (node.left as unknown as {name: string}).name
-              : undefined;
-          break;
-        case 'ExportDefaultDeclaration':
-          childHint = 'default';
-          break;
-        default:
-          childHint = undefined;
-      }
-      visit(node[key], stack, childHint);
+    } else if (isNode(node)) {
+      visitNode(node, stack, hint);
     }
   };
-
-  const isPrivateKey = (member: Node): boolean =>
-    PRIVATE_KEY_HOLDERS.has(member.type) &&
-    isNode(member.key) &&
-    member.key.type === 'PrivateIdentifier';
 
   visit(ast, [], undefined);
   if (failed) {

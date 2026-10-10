@@ -237,3 +237,41 @@ describe('DOM nodes', () => {
     expect(typeTag(new FakeElement('DIV'))).toBe('Node');
   });
 });
+
+describe('value kinds at the edges', () => {
+  test('typed arrays past the depth limit collapse to their class name', () => {
+    expect(serialize({a: {b: new Uint8Array(3)}})).toBe('{a: {b: Uint8Array}}');
+  });
+
+  test('a DataView previews as a plain object, not an indexed array', () => {
+    expect(serialize(new DataView(new ArrayBuffer(2)))).toBe('DataView {}');
+  });
+
+  test('a Set that holds itself is marked circular', () => {
+    const s = new Set<unknown>();
+    s.add(s);
+    expect(serialize(s)).toBe('Set(1) {[Circular]}');
+  });
+
+  test('Map keys and values both nest and are depth-limited', () => {
+    expect(serialize(new Map([[{k: 1}, [1, 2]]]))).toBe(
+      'Map(1) {{k: 1} => [1, 2]}'
+    );
+    expect(serialize({a: new Map([[{k: 1}, 1]])})).toBe(
+      '{a: Map(1) {object => 1}}'
+    );
+  });
+
+  test('a large Map lists the first entries and counts the rest', () => {
+    const map = new Map(Array.from({length: 9}, (_, i) => [i, i]));
+    expect(serialize(map)).toBe(
+      'Map(9) {0 => 0, 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6, 7 => 7, …+1}'
+    );
+  });
+
+  test('RegExp and Date nest without touching the depth limit', () => {
+    expect(serialize({a: {b: /x/, c: new Date(0)}})).toBe(
+      '{a: {b: /x/, c: 1970-01-01T00:00:00.000Z}}'
+    );
+  });
+});
