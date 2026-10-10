@@ -67,6 +67,37 @@ export interface SettingRow {
 const sourced = (key: SettingKey): key is keyof SettingSources =>
   SETTINGS[key].role !== 'preference';
 
+const holdsOwn = (role: SettingDefinition['role']): boolean =>
+  role === 'override' || role === 'preference';
+
+/** Which layer a select choice came from: the config's, or the default. */
+const markerOf = (
+  choice: unknown,
+  configValue: unknown,
+  fallback: unknown,
+  origin: SettingSource | undefined
+): SettingSource | undefined => {
+  if (choice === configValue) return origin ?? 'default';
+  return choice === fallback ? 'default' : undefined;
+};
+
+/** A select's choices with their markers; undefined for any other row. */
+const optionsOf = (
+  definition: SettingDefinition,
+  presentation: ReturnType<typeof presentationOf>,
+  configValue: unknown,
+  origin: SettingSource | undefined
+): SettingOption[] | undefined => {
+  const choices = definition.values ?? presentation.choices;
+  if (definition.kind !== 'select' || !choices) return undefined;
+  const format = presentation.format ?? String;
+  return choices.map((choice) => ({
+    value: choice,
+    text: format(choice),
+    marker: markerOf(choice, configValue, definition.default, origin),
+  }));
+};
+
 export const settingRow = (
   key: SettingKey,
   context: SettingRowContext
@@ -79,10 +110,9 @@ export const settingRow = (
   const configValue = config === null ? undefined : definition.read?.(config);
   // Only overrides and preferences live in the override; the rest are
   // config-only.
-  const own =
-    definition.role === 'override' || definition.role === 'preference'
-      ? (override as Record<string, unknown>)[key]
-      : undefined;
+  const own = holdsOwn(definition.role)
+    ? (override as Record<string, unknown>)[key]
+    : undefined;
   const overridden = definition.role === 'override' && own !== undefined;
   const value = own ?? configValue ?? definition.default;
   const origin = sourced(key) ? config?.sources?.[key] : undefined;
@@ -94,10 +124,9 @@ export const settingRow = (
     label: presentation.label,
     tip: presentation.tip,
     value,
-    text:
-      disabled && presentation.disabledText !== undefined
-        ? presentation.disabledText
-        : format(value),
+    text: disabled
+      ? (presentation.disabledText ?? format(value))
+      : format(value),
     origin,
     disabled,
   };
@@ -114,18 +143,7 @@ export const settingRow = (
     };
   }
 
-  const choices = definition.values ?? presentation.choices;
-  if (definition.kind === 'select' && choices) {
-    row.options = choices.map((choice) => ({
-      value: choice,
-      text: format(choice),
-      marker:
-        choice === configValue
-          ? (origin ?? 'default')
-          : choice === definition.default
-            ? 'default'
-            : undefined,
-    }));
-  }
+  const options = optionsOf(definition, presentation, configValue, origin);
+  if (options) row.options = options;
   return row;
 };
