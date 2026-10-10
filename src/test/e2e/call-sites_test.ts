@@ -157,3 +157,20 @@ test('an element written in index.html links to its place in the file', async ()
     `${joinPath(fixture.root, 'index.html')}:${line}:${column}`
   );
 });
+
+// Here rather than in a DOM test: happy-dom doesn't lay out, and the bug was
+// a closed section whose rows still rendered.
+test('a details section hides its rows when folded', async () => {
+  await selectInTree(['hmr-parent']);
+  const section = panel.page
+    .locator('components-view details.section')
+    .filter({has: panel.page.locator('.entry')})
+    .first();
+  const row = section.locator('.entry').first();
+  await expect.poll(() => row.isVisible()).toBe(true);
+  await section.locator('summary').click();
+  await expect.poll(() => row.isVisible()).toBe(false);
+  // Unfold again: folds are remembered across selections and reloads.
+  await section.locator('summary').click();
+  await expect.poll(() => row.isVisible()).toBe(true);
+});
