@@ -209,6 +209,9 @@ importers:
       sugar-high:
         specifier: ^2.5.2
         version: 2.5.2
+      temporal-polyfill:
+        specifier: ^1.0.5
+        version: 1.0.5
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
