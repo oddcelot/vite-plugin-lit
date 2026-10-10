@@ -1,5 +1,7 @@
 import {mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
+import {IncomingMessage} from 'node:http';
+import {Socket} from 'node:net';
 import {join} from 'node:path';
 import {afterAll, beforeEach, describe, expect, test, vi} from 'vite-plus/test';
 import {createOpenInEditorMiddleware} from '../../lib/plugin.js';
@@ -268,6 +270,23 @@ describe('createOpenInEditorMiddleware', () => {
       `file=${encodeURIComponent(appFile)}`,
       {host: 'localhost:5173', 'sec-fetch-site': 'none'}
     );
+    expect(status).toBe(200);
+  });
+
+  test('reads the headers of a real Node request', async () => {
+    // IncomingMessage serves `headers` from a getter on its prototype, so a
+    // copy of the request (`{...req}`) has none and fails the trust check.
+    const req = new IncomingMessage(new Socket());
+    req.method = 'GET';
+    req.url = `/?file=${encodeURIComponent(appFile)}`;
+    req.headers = {host: 'localhost:5173', 'sec-fetch-site': 'same-origin'};
+    const {status} = await new Promise<{status: number}>((resolve, reject) => {
+      const res = {
+        statusCode: 200,
+        end: () => resolve({status: res.statusCode}),
+      };
+      middleware(req, res, reject);
+    });
     expect(status).toBe(200);
   });
 });

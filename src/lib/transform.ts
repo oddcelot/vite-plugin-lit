@@ -40,6 +40,45 @@ export interface LitPluginTransformResult {
   map: ReturnType<MagicString['generateMap']>;
 }
 
+type ParsedImport = ReturnType<typeof parse>[0][number];
+
+/**
+ * Pass 1: rewrite every wrapped specifier to its `\0lit-plugin:` module, and
+ * report whether the module imports from the lit family.
+ */
+const rewriteWrappedImports = (
+  ms: MagicString,
+  imports: readonly ParsedImport[]
+): {changed: boolean; hasLitFamilyImport: boolean} => {
+  let changed = false;
+  let hasLitFamilyImport = false;
+  for (const imp of imports) {
+    // `import.meta` reports a null specifier; a dynamic import reports
+    // undefined when its argument is not statically analyzable, and a glob
+    // (template literal) specifier is a pattern rather than a real id.
+    const spec = imp.specifier;
+    if (spec == null || (imp.type === 'dynamic' && imp.glob)) {
+      continue;
+    }
+    if (isLitFamilySpecifier(spec)) {
+      hasLitFamilyImport = true;
+    }
+    if (!WRAP_TABLE.has(spec)) {
+      continue;
+    }
+    if (imp.type === 'dynamic') {
+      // Dynamic import: [start, end) includes the quotes (or backticks) —
+      // narrow them to plain quotes around the rewritten specifier.
+      ms.overwrite(imp.start, imp.end, `'${VIRTUAL_PREFIX}${spec}'`);
+    } else {
+      // Static import / export-from: [start, end) is the bare specifier text.
+      ms.overwrite(imp.start, imp.end, `${VIRTUAL_PREFIX}${spec}`);
+    }
+    changed = true;
+  }
+  return {changed, hasLitFamilyImport};
+};
+
 /**
  * The whole dev transform, as a pure function of the module source:
  *
@@ -73,32 +112,11 @@ export const transformLitModule = async (
     return null;
   }
   const ms = new MagicString(code);
-  let changed = false;
-  let hasLitFamilyImport = false;
-  for (const imp of imports) {
-    // `import.meta` reports a null specifier; a dynamic import reports
-    // undefined when its argument is not statically analyzable, and a glob
-    // (template literal) specifier is a pattern rather than a real id.
-    const spec = imp.specifier;
-    if (spec == null || (imp.type === 'dynamic' && imp.glob)) {
-      continue;
-    }
-    if (isLitFamilySpecifier(spec)) {
-      hasLitFamilyImport = true;
-    }
-    if (!WRAP_TABLE.has(spec)) {
-      continue;
-    }
-    if (imp.type === 'dynamic') {
-      // Dynamic import: [start, end) includes the quotes (or backticks) —
-      // narrow them to plain quotes around the rewritten specifier.
-      ms.overwrite(imp.start, imp.end, `'${VIRTUAL_PREFIX}${spec}'`);
-    } else {
-      // Static import / export-from: [start, end) is the bare specifier text.
-      ms.overwrite(imp.start, imp.end, `${VIRTUAL_PREFIX}${spec}`);
-    }
-    changed = true;
-  }
+  const {changed: rewrote, hasLitFamilyImport} = rewriteWrappedImports(
+    ms,
+    imports
+  );
+  let changed = rewrote;
   if (isComponentModule(code, hasLitFamilyImport)) {
     ms.prepend(`import '${INSTALL_ID}';\n`);
     ms.append(`\nimport.meta.hot?.accept();\n`);
