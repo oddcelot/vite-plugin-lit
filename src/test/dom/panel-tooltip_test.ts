@@ -59,6 +59,22 @@ test('keyboard focus shows it at once', () => {
   expect(bubble()?.textContent).toBe('Delete every recorded event');
 });
 
+test('Tab within one shadow root shows the tip of what it focused', () => {
+  // Chromium never delivers that focusin to the document: both ends of the
+  // move retarget to the same host. The Tab's keyup still arrives.
+  const button = mount();
+  button.focus();
+  button.dispatchEvent(
+    new KeyboardEvent('keyup', {key: 'Tab', bubbles: true, composed: true})
+  );
+  expect(bubble()?.textContent).toBe('Delete every recorded event');
+  button.blur();
+  button.dispatchEvent(
+    new KeyboardEvent('keyup', {key: 'Tab', bubbles: true, composed: true})
+  );
+  expect(bubble()).toBeNull();
+});
+
 test('leaving the target, pressing a button, typing or Escape hides it', () => {
   const button = mount();
   const other = document.createElement('p');

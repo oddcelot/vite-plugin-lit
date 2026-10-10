@@ -1630,9 +1630,14 @@ test("shows the manifest's docs for the selected tag", async () => {
   // the section has no count.
   const about = details.querySelector('[data-section="About"] summary')!;
   expect(about.querySelector('.count')).toBeNull();
-  expect(about.querySelector('.origin')!.getAttribute('data-tip')).toBe(
+  // A button of its own beside the summary, so keyboard focus reaches it.
+  const origin = details.querySelector<HTMLElement>(
+    '[data-section="About"] > button.origin'
+  )!;
+  expect(origin.getAttribute('data-tip')).toBe(
     'From @x/ui, custom-elements.json'
   );
+  expect(about.contains(origin)).toBe(false);
   // A documented property carries its description as the tooltip.
   expect(details.querySelector('.described')!.getAttribute('data-tip')).toBe(
     'The visible text'
@@ -1660,9 +1665,11 @@ test('names the source module for docs read from source', async () => {
   }));
   const {el, root} = await mount(true);
   await pickButton(el);
-  const origin = root.querySelector('.details summary .origin')!;
+  const origin = root.querySelector('.details .section > .origin')!;
   expect(origin.getAttribute('data-tip')).toBe('From src/x-button.ts');
-  expect(origin.getAttribute('name')).toBe('file-code');
+  expect(origin.querySelector('wa-icon')!.getAttribute('name')).toBe(
+    'file-code'
+  );
 });
 
 test('asks for no docs where the host cannot read manifests', async () => {

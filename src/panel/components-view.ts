@@ -618,14 +618,31 @@ export class ComponentsView extends LitElement {
         font: inherit;
         cursor: pointer;
       }
-      /* Where the docs came from: a quiet mark at the heading's end. */
-      summary .origin {
-        margin-left: auto;
+      /* Where the docs came from: a quiet mark at the heading's end. A
+         sibling of the summary, laid over its row, so it focuses on its own. */
+      .section {
+        position: relative;
+      }
+      .section > .origin {
+        position: absolute;
+        top: var(--lit-devtools-space-4);
+        right: 0;
+        display: inline-flex;
+        padding: 0;
+        border: 0;
+        background: none;
+        font-size: var(--lit-devtools-text-2xs);
         color: var(--lit-devtools-text-muted);
         cursor: help;
       }
-      summary .origin:hover {
+      .section > .origin:hover,
+      .section > .origin:focus-visible {
         color: var(--lit-devtools-text-secondary);
+      }
+      .section > .origin:focus-visible {
+        outline: 2px solid var(--lit-devtools-accent-ring);
+        outline-offset: 2px;
+        border-radius: 2px;
       }
       /* Documented names hint, faintly, that hovering explains them. */
       .described {
@@ -711,7 +728,7 @@ export class ComponentsView extends LitElement {
       .section::details-content {
         display: contents;
       }
-      .section:not([open]) > :not(summary) {
+      .section:not([open]) > :not(summary, .origin) {
         display: none;
       }
       .section > summary {
@@ -1757,13 +1774,16 @@ export class ComponentsView extends LitElement {
       </div>`,
       {
         count: false,
-        aside: html`<wa-icon
+        aside: html`<button
           class="origin"
-          name=${docs.origin.source === true ? 'file-code' : 'package'}
+          type="button"
           data-tip=${this._originText(docs.origin)}
           aria-label=${this._originText(docs.origin)}
-          @click=${(e: Event) => e.preventDefault()}
-        ></wa-icon>`,
+        >
+          <wa-icon
+            name=${docs.origin.source === true ? 'file-code' : 'package'}
+          ></wa-icon>
+        </button>`,
       }
     );
   }
@@ -2140,7 +2160,9 @@ export class ComponentsView extends LitElement {
     body: TemplateResult,
     /**
      * `count: false` leaves the count out, for a section that is one block
-     * rather than rows; `aside` sits at the heading's far end.
+     * rather than rows. `aside` sits at the heading's far end but outside
+     * the `<summary>`, so it can take focus of its own without nesting a
+     * control in the fold's toggle.
      */
     opts: {count?: boolean; aside?: TemplateResult} = {}
   ): TemplateResult | typeof nothing {
@@ -2167,9 +2189,8 @@ export class ComponentsView extends LitElement {
                 >${filtering ? `${shown}/${total}` : total}</span
               >`
         }
-        ${opts.aside ?? nothing}
       </summary>
-      ${body}
+      ${opts.aside ?? nothing} ${body}
     </details>`;
   }
 
