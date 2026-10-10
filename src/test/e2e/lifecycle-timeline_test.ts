@@ -1,8 +1,5 @@
 import {afterAll, beforeAll, expect, test} from 'vite-plus/test';
-import {TimelineChannelCodec} from '../../lib/devframe/page-codec.js';
-import {fromViteHot} from '../../lib/runtime/page-transport.js';
-import type {TimelineEvent} from '../../types/timeline.js';
-import {type Fixture, startFixture} from './utils.js';
+import {connectTimelineSource, type Fixture, startFixture} from './utils.js';
 
 let fixture: Fixture;
 
@@ -22,25 +19,7 @@ afterAll(async () => {
 test('lifecycle layer reports update phases over the timeline source', async () => {
   const {page} = fixture;
 
-  // `connect()` must happen before the page (re)connects its HMR client, or the
-  // page's `push-event` messages have no listener — the fixture already
-  // loaded the page once in `startFixture`, so reload it after connecting.
-  const source = new TimelineChannelCodec();
-  source.connect(fromViteHot(fixture.server.hot));
-  const events: TimelineEvent[] = [];
-  source.attach({
-    pushEvents: (batch) => events.push(...batch),
-    addLayer: () => {},
-    inspectorMessage: () => {},
-    hmrIncompatible: () => {},
-    hmrPatched: () => {},
-    runtimeReady: () => {},
-  });
-
-  await page.reload();
-  await page.waitForFunction(
-    () => (window as {__hmr?: unknown}).__hmr !== undefined
-  );
+  const {source, events} = await connectTimelineSource(fixture, page);
 
   // Turn recording on (relayed to the page runtime over HMR).
   source.setRecording(true);
@@ -92,22 +71,7 @@ test('lifecycle layer reports update phases over the timeline source', async () 
 test('changed values layer records the old and new value of a property', async () => {
   const {page} = fixture;
 
-  const source = new TimelineChannelCodec();
-  source.connect(fromViteHot(fixture.server.hot));
-  const events: TimelineEvent[] = [];
-  source.attach({
-    pushEvents: (batch) => events.push(...batch),
-    addLayer: () => {},
-    inspectorMessage: () => {},
-    hmrIncompatible: () => {},
-    hmrPatched: () => {},
-    runtimeReady: () => {},
-  });
-
-  await page.reload();
-  await page.waitForFunction(
-    () => (window as {__hmr?: unknown}).__hmr !== undefined
-  );
+  const {source, events} = await connectTimelineSource(fixture, page);
 
   source.setRecording(true);
   source.setLayers({
@@ -151,22 +115,7 @@ test('changed values layer records the old and new value of a property', async (
 test('async updated() rejections and failed tasks are attributed to their element', async () => {
   const {page} = fixture;
 
-  const source = new TimelineChannelCodec();
-  source.connect(fromViteHot(fixture.server.hot));
-  const events: TimelineEvent[] = [];
-  source.attach({
-    pushEvents: (batch) => events.push(...batch),
-    addLayer: () => {},
-    inspectorMessage: () => {},
-    hmrIncompatible: () => {},
-    hmrPatched: () => {},
-    runtimeReady: () => {},
-  });
-
-  await page.reload();
-  await page.waitForFunction(
-    () => (window as {__hmr?: unknown}).__hmr !== undefined
-  );
+  const {source, events} = await connectTimelineSource(fixture, page);
   source.setRecording(true);
   source.setLayers({
     recordingState: true,
@@ -250,22 +199,7 @@ test('async updated() rejections and failed tasks are attributed to their elemen
 test('a component whose shouldUpdate returns false records an update skipped event', async () => {
   const {page} = fixture;
 
-  const source = new TimelineChannelCodec();
-  source.connect(fromViteHot(fixture.server.hot));
-  const events: TimelineEvent[] = [];
-  source.attach({
-    pushEvents: (batch) => events.push(...batch),
-    addLayer: () => {},
-    inspectorMessage: () => {},
-    hmrIncompatible: () => {},
-    hmrPatched: () => {},
-    runtimeReady: () => {},
-  });
-
-  await page.reload();
-  await page.waitForFunction(
-    () => (window as {__hmr?: unknown}).__hmr !== undefined
-  );
+  const {source, events} = await connectTimelineSource(fixture, page);
   source.setRecording(true);
   source.setLayers({
     recordingState: true,
@@ -341,22 +275,7 @@ test('a component whose shouldUpdate returns false records an update skipped eve
 test('an update a click handler requests carries that click as its cause', async () => {
   const {page} = fixture;
 
-  const source = new TimelineChannelCodec();
-  source.connect(fromViteHot(fixture.server.hot));
-  const events: TimelineEvent[] = [];
-  source.attach({
-    pushEvents: (batch) => events.push(...batch),
-    addLayer: () => {},
-    inspectorMessage: () => {},
-    hmrIncompatible: () => {},
-    hmrPatched: () => {},
-    runtimeReady: () => {},
-  });
-
-  await page.reload();
-  await page.waitForFunction(
-    () => (window as {__hmr?: unknown}).__hmr !== undefined
-  );
+  const {source, events} = await connectTimelineSource(fixture, page);
 
   source.setRecording(true);
   source.setLayers({
@@ -419,22 +338,7 @@ test('an update a click handler requests carries that click as its cause', async
 test('a task run started by a click causes the re-render it asks for', async () => {
   const {page} = fixture;
 
-  const source = new TimelineChannelCodec();
-  source.connect(fromViteHot(fixture.server.hot));
-  const events: TimelineEvent[] = [];
-  source.attach({
-    pushEvents: (batch) => events.push(...batch),
-    addLayer: () => {},
-    inspectorMessage: () => {},
-    hmrIncompatible: () => {},
-    hmrPatched: () => {},
-    runtimeReady: () => {},
-  });
-
-  await page.reload();
-  await page.waitForFunction(
-    () => (window as {__hmr?: unknown}).__hmr !== undefined
-  );
+  const {source, events} = await connectTimelineSource(fixture, page);
 
   source.setRecording(true);
   source.setLayers({
